@@ -169,10 +169,6 @@ namespace BlackLua::Internal {
         VariableType* LHSType = HandleNodeExpression(binop->LHS);
         VariableType* RHSType = HandleNodeExpression(binop->RHS);
 
-        if (LHSType->Type != RHSType->Type) {
-            BLUA_ASSERT(false, "todo");
-        }
-
         // First we transform the AST with any needed implicit casts
         if (binop->Type == BinaryOperatorType::Eq) {
             LHSType = m_TypeChecker.RequireLValue(LHSType, binop->LHS);
@@ -181,6 +177,8 @@ namespace BlackLua::Internal {
             LHSType = m_TypeChecker.RequireRValue(LHSType, binop->LHS);
             RHSType = m_TypeChecker.RequireRValue(RHSType, binop->RHS);
         }
+
+        m_TypeChecker.InsertImplicitCast(LHSType, RHSType, binop->LHS, binop->RHS);
 
         switch (binop->Type) {
             case BinaryOperatorType::Add:     case BinaryOperatorType::AddInPlace:
@@ -280,6 +278,7 @@ namespace BlackLua::Internal {
         if (decl->Value) {
             VariableType* valType = HandleNodeExpression(decl->Value);
             valType = m_TypeChecker.RequireRValue(valType, decl->Value);
+            m_TypeChecker.InsertImplicitCast(d.Type, valType, nullptr, decl->Value);
         }
     }
 

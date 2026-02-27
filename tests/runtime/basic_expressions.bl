@@ -1,8 +1,5 @@
 extern bool ShouldNeverBeCalled();
 
-int zz = 6;
-int xx = zz;
-
 int a = 5 + 5;
 int b = (a + 5) / -5;
 int c = 1 + (2 * 3) - b; // Should be 10

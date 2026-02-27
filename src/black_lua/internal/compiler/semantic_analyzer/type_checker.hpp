@@ -9,11 +9,13 @@ namespace BlackLua::Internal {
     enum class ConversionType {
         None,
         Promotion,
-        Narrowing
+        Narrowing,
+        SignChange
     };
 
     struct ConversionCost {
-        ConversionType Type = ConversionType::None;
+        ConversionType ConversionType = ConversionType::None;
+        CastType CastType = CastType::Integral;
 
         bool CastNeeded = false;
         bool SignedMismatch = false;
@@ -31,8 +33,9 @@ namespace BlackLua::Internal {
 
         VariableType* GetVariableTypeFromString(StringView str);
 
-        ConversionCost GetConversionCost(VariableType* type1, VariableType* type2);
-        void InsertImplicitCast();
+        // type1 is the destination type and type2 is the source type
+        ConversionCost GetConversionCost(VariableType* dst, VariableType* src);
+        void InsertImplicitCast(VariableType* type1, VariableType* type2, NodeExpr* expr1, NodeExpr* expr2);
 
         VariableType* RequireRValue(VariableType* type, NodeExpr* expr); // Inserts an implicit cast for lvalue to rvalue conversion (returns the new type)
         VariableType* RequireLValue(VariableType* type, NodeExpr* expr); // This will not insert any implicit cast, just issues an error (returns the same type)
