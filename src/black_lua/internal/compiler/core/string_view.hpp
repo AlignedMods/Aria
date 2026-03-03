@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core.hpp"
+#include "black_lua/core.hpp"
 
 #include <cstring>
 
@@ -18,8 +18,8 @@ namespace BlackLua::Internal {
         inline StringView(const char* str, size_t size)
             : m_Str(str), m_Size(size) {}
 
-        inline StringView(StringView l, StringView r)
-            : m_Str(l.m_Str), m_Size((r.m_Str + r.m_Size) - l.m_Str) {}
+        inline StringView(const std::string& str)
+            : m_Str(str.data()), m_Size(str.size()) {}
 
         inline StringView(const StringView& other)
             : m_Str(other.m_Str), m_Size(other.m_Size) {}

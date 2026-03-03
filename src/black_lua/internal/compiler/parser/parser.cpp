@@ -1,5 +1,4 @@
-#include "internal/compiler/parser.hpp"
-#include "context.hpp"
+#include "black_lua/internal/compiler/parser/parser.hpp"
 
 #include "fmt/format.h"
 
@@ -9,26 +8,22 @@
 
 namespace BlackLua::Internal {
 
-    Parser::Parser(const Lexer::Tokens& tokens, Context* ctx) {
-        m_Tokens = tokens;
+    Parser::Parser(CompilationContext* ctx) {
         m_Context = ctx;
+        m_Tokens = ctx->GetTokens();
 
         ParseImpl();
     }
 
-    ASTNodes* Parser::GetNodes() {
-        return &m_Nodes;
-    }
-
-    bool Parser::IsValid() const {
-        return !m_Error;
-    }
-
     void Parser::ParseImpl() {
-        while (Peek() && !m_Error) {
-            Node* node = ParseToken();
-            m_Nodes.push_back(node);
+        TinyVector<Stmt*> stmts;
+        while (Peek()) {
+            Stmt* stmt = ParseToken();
+            stmts.Append(m_Context, stmt);
         }
+
+        TranslationUnitDecl* root = m_Context->Allocate<TranslationUnitDecl>(m_Context, stmts);
+        m_Context->SetRootASTNode(root);
     }
 
     Token* Parser::Peek(size_t count) {
@@ -102,25 +97,25 @@ namespace BlackLua::Internal {
         return strType;
     }
 
-    NodeList Parser::ParseFunctionParameters() {
-        NodeList params;
+    TinyVector<ParamDecl*> Parser::ParseFunctionParameters() {
+        TinyVector<ParamDecl*> params;
 
         while (!Match(TokenType::RightParen)) {
             StringBuilder type = ParseVariableType();
 
             Token& ident = Consume();
             
-            StmtParamDecl* param = Allocate<StmtParamDecl>();
-            param->Identifier = ident.Data;
-            param->Type = type;
+            ParamDecl* param = m_Context->Allocate<ParamDecl>(m_Context, ident.Data, StringView(type.Data(), type.Size()));
             
-            Node* n = Allocate<Node>(Allocate<NodeStmt>(param, ident.Loc));
-
             if (Match(TokenType::Comma)) {
                 Consume();
             }
 
-            params.Append(m_Context, n);
+            params.Append(m_Context, param);
+        }
+
+        if (!Match(TokenType::RightParen)) {
+            BLUA_ASSERT(false, "todo: add error");
         }
 
         return params;
@@ -240,24 +235,24 @@ namespace BlackLua::Internal {
         return -1;
     }
 
-    NodeExpr* Parser::ParseValue() {
+    Expr* Parser::ParseValue() {
         if (!Peek()) { return nullptr; }
         Token& value = *Peek();
     
-        NodeExpr* final = nullptr;
+        Expr* final = nullptr;
 
         switch (value.Type) {
             case TokenType::False: {
                 Consume();
     
-                final = Allocate<NodeExpr>(Allocate<ExprConstant>(Allocate<ConstantBool>(false)), value.Loc);
+                final = m_Context->Allocate<BooleanConstantExpr>(m_Context, false);
                 break;
             }
     
             case TokenType::True: {
                 Consume();
     
-                final = Allocate<NodeExpr>(Allocate<ExprConstant>(Allocate<ConstantBool>(true)), value.Loc);
+                final = m_Context->Allocate<BooleanConstantExpr>(m_Context, false);
                 break;
             }
     
@@ -265,9 +260,7 @@ namespace BlackLua::Internal {
                 Consume();
     
                 int8_t ch = static_cast<int8_t>(value.Data.Data()[0]);
-                
-                ConstantChar* node = Allocate<ConstantChar>(ch);
-                final = Allocate<NodeExpr>(Allocate<ExprConstant>(node), value.Loc);
+                final = m_Context->Allocate<CharacterConstantExpr>(m_Context, ch);
                 break;
             }
     
@@ -280,9 +273,7 @@ namespace BlackLua::Internal {
                 if (ec != std::errc()) {
                     ErrorTooLarge(value.Data);
                 }
-                ConstantInt* node = Allocate<ConstantInt>(num, false);
-                
-                final = Allocate<NodeExpr>(Allocate<ExprConstant>(node), value.Loc);
+                final = m_Context->Allocate<IntegerConstantExpr>(m_Context, num, TypeInfo::Create(m_Context, PrimitiveType::Int, true));
                 break;
             }
     
@@ -295,9 +286,7 @@ namespace BlackLua::Internal {
                 if (ec != std::errc()) {
                     ErrorTooLarge(value.Data);
                 }
-                ConstantFloat* node = Allocate<ConstantFloat>(num);
-                
-                final = Allocate<NodeExpr>(Allocate<ExprConstant>(node), value.Loc);
+                final = m_Context->Allocate<FloatingConstantExpr>(m_Context, num, TypeInfo::Create(m_Context, PrimitiveType::Float));
                 break;
             }
     
@@ -305,19 +294,15 @@ namespace BlackLua::Internal {
                 Consume();
     
                 StringView str = value.Data;
-                ConstantString* node = Allocate<ConstantString>(str);
-                
-                final = Allocate<NodeExpr>(Allocate<ExprConstant>(node), value.Loc);
+                final = m_Context->Allocate<StringConstantExpr>(m_Context, str);
                 break;
             }
     
             case TokenType::Minus: {
                 Token m = Consume();
     
-                NodeExpr* expr = ParseValue();
-                ExprUnaryOperator* node = Allocate<ExprUnaryOperator>(expr, UnaryOperatorType::Negate);
-    
-                final = Allocate<NodeExpr>(node, SourceRange(m.Loc.Start, Peek(-1)->Loc.End), m.Loc.Start);
+                Expr* expr = ParseValue();
+                final = m_Context->Allocate<UnaryOperatorExpr>(m_Context, expr, UnaryOperatorType::Negate);
                 break;
             }
     
@@ -328,19 +313,14 @@ namespace BlackLua::Internal {
                     StringBuilder type = ParseVariableType();
 
                     TryConsume(TokenType::RightParen, "')'");
-                
-                    ExprCast* node = Allocate<ExprCast>();
-                    node->Type = StringView(type.Data(), type.Size());
-                    node->Expression = ParseValue();
-                
-                    final = Allocate<NodeExpr>(node, SourceRange(p.Loc.Start, Peek(-1)->Loc.End), p.Loc.Start);
+                    Expr* expr = ParseValue();
+
+                    final = m_Context->Allocate<CastExpr>(m_Context, expr, StringView(type.Data(), type.Size()));
                 } else {
-                    NodeExpr* expr = ParseExpression();
-                    ExprParen* node = Allocate<ExprParen>(expr);
-                    
+                    Expr* expr = ParseExpression();
                     TryConsume(TokenType::RightParen, "')'");
                     
-                    final = Allocate<NodeExpr>(node, SourceRange(p.Loc.Start, Peek(-1)->Loc.End), p.Loc.Start);
+                    final = m_Context->Allocate<ParenExpr>(m_Context, expr);
                 }
                 
                 break;
@@ -349,7 +329,7 @@ namespace BlackLua::Internal {
             case TokenType::Self: {
                 Token s = Consume();
 
-                final = Allocate<NodeExpr>(Allocate<ExprSelf>(), s.Loc);
+                final = m_Context->Allocate<SelfExpr>(m_Context);
                 break;
             }
     
@@ -360,27 +340,23 @@ namespace BlackLua::Internal {
                 if (Match(TokenType::LeftParen)) {
                     Consume();
     
-                    ExprCall* node = Allocate<ExprCall>();
-                    node->Name = value.Data;
-    
+                    TinyVector<Expr*> args;
+
                     while (!Match(TokenType::RightParen)) {
-                        NodeExpr* val = ParseExpression();
+                        Expr* val = ParseExpression();
     
                         if (Match(TokenType::Comma)) {
                             Consume();
                         }
     
-                        node->Arguments.Append(m_Context, Allocate<Node>(val));
+                        args.Append(m_Context, val);
                     }
     
                     TryConsume(TokenType::RightParen, "')'");
     
-                    final = Allocate<NodeExpr>(node, SourceRange(i.Loc.Start, Peek(-1)->Loc.End), i.Loc.Start);
+                    final = m_Context->Allocate<CallExpr>(m_Context, i.Data, args);
                 } else {
-                    ExprVarRef* varRef = Allocate<ExprVarRef>();
-                    varRef->Identifier = value.Data;
-
-                    final = Allocate<NodeExpr>(varRef, SourceRange(i.Loc.Start, Peek(-1)->Loc.End), i.Loc.Start);
+                    final = m_Context->Allocate<VarRefExpr>(m_Context, i.Data);
                 }
 
                 break;
@@ -388,56 +364,57 @@ namespace BlackLua::Internal {
         }
 
         // Handle member access (foo.bar) and array access (foo[5])
-        while (Match(TokenType::Dot) || Match(TokenType::LeftBracket)) {
-            Token op = Consume();
+        // NOTE: This is currently not avalible, AST refactoring in progress
+        // while (Match(TokenType::Dot) || Match(TokenType::LeftBracket)) {
+        //     Token op = Consume();
 
-            if (op.Type == TokenType::Dot) {
-                Token* member = TryConsume(TokenType::Identifier, "identifier");
-                if (!member) { return nullptr; }
+        //     if (op.Type == TokenType::Dot) {
+        //         Token* member = TryConsume(TokenType::Identifier, "identifier");
+        //         if (!member) { return nullptr; }
 
-                if (Match(TokenType::LeftParen)) {
-                    Consume();
+        //         if (Match(TokenType::LeftParen)) {
+        //             Consume();
     
-                    ExprMethodCall* methodExpr = Allocate<ExprMethodCall>();
-                    methodExpr->Member = member->Data;
-                    methodExpr->Parent = final;
+        //             ExprMethodCall* methodExpr = Allocate<ExprMethodCall>();
+        //             methodExpr->Member = member->Data;
+        //             methodExpr->Parent = final;
     
-                    while (!Match(TokenType::RightParen)) {
-                        NodeExpr* val = ParseExpression();
+        //             while (!Match(TokenType::RightParen)) {
+        //                 NodeExpr* val = ParseExpression();
     
-                        if (Match(TokenType::Comma)) {
-                            Consume();
-                        }
+        //                 if (Match(TokenType::Comma)) {
+        //                     Consume();
+        //                 }
     
-                        methodExpr->Arguments.Append(m_Context, Allocate<Node>(val));
-                    }
+        //                 methodExpr->Arguments.Append(m_Context, Allocate<Node>(val));
+        //             }
     
-                    TryConsume(TokenType::RightParen, "')'");
+        //             TryConsume(TokenType::RightParen, "')'");
     
-                    final = Allocate<NodeExpr>(methodExpr, SourceRange(final->Range.Start, Peek(-1)->Loc.End), op.Loc.Start);
-                } else {
-                    ExprMember* memExpr = Allocate<ExprMember>();
+        //             final = Allocate<NodeExpr>(methodExpr, SourceRange(final->Range.Start, Peek(-1)->Loc.End), op.Loc.Start);
+        //         } else {
+        //             ExprMember* memExpr = Allocate<ExprMember>();
 
-                    memExpr->Member = member->Data;
-                    memExpr->Parent = final;
-                    final = Allocate<NodeExpr>(memExpr, SourceRange(final->Range.Start, Peek(-1)->Loc.End), op.Loc.Start);
-                }
-            } else if (op.Type == TokenType::LeftBracket) {
-                ExprArrayAccess* arrExpr = Allocate<ExprArrayAccess>();
+        //             memExpr->Member = member->Data;
+        //             memExpr->Parent = final;
+        //             final = Allocate<NodeExpr>(memExpr, SourceRange(final->Range.Start, Peek(-1)->Loc.End), op.Loc.Start);
+        //         }
+        //     } else if (op.Type == TokenType::LeftBracket) {
+        //         ExprArrayAccess* arrExpr = Allocate<ExprArrayAccess>();
 
-                arrExpr->Index = ParseExpression();
-                arrExpr->Parent = final;
-                TryConsume(TokenType::RightBracket, "']'");
+        //         arrExpr->Index = ParseExpression();
+        //         arrExpr->Parent = final;
+        //         TryConsume(TokenType::RightBracket, "']'");
 
-                final = Allocate<NodeExpr>(arrExpr, SourceRange(final->Range.Start, Peek(-1)->Loc.End), op.Loc.Start);
-            }
-        }
+        //         final = Allocate<NodeExpr>(arrExpr, SourceRange(final->Range.Start, Peek(-1)->Loc.End), op.Loc.Start);
+        //     }
+        // }
 
         return final;
     }
 
-    NodeExpr* Parser::ParseExpression(size_t minbp) {
-        NodeExpr* lhsExpr = ParseValue();
+    Expr* Parser::ParseExpression(size_t minbp) {
+        Expr* lhsExpr = ParseValue();
 
         // There are two conditions to this loop
         // A valid operator (the first half of the check) and a valid precedence (the second half)
@@ -446,47 +423,36 @@ namespace BlackLua::Internal {
             BinaryOperatorType op = ParseOperator();
             Token o = Consume();
 
-            NodeExpr* rhsExpr = ParseExpression(GetBinaryPrecedence(op) + 1);
-
-            ExprBinaryOperator* newExpr = Allocate<ExprBinaryOperator>();
-            newExpr->LHS = lhsExpr;
-            newExpr->RHS = rhsExpr;
-            newExpr->Type = op;
-
-            lhsExpr = Allocate<NodeExpr>(newExpr, SourceRange(lhsExpr->Range.Start, rhsExpr->Range.End), o.Loc.Start);
+            Expr* rhsExpr = ParseExpression(GetBinaryPrecedence(op) + 1);
+            lhsExpr = m_Context->Allocate<BinaryOperatorExpr>(m_Context, lhsExpr, rhsExpr, op);
         }
 
         return lhsExpr;
     }
 
-    NodeStmt* Parser::ParseCompound() {
-        StmtCompound* node = Allocate<StmtCompound>();
-
+    Stmt* Parser::ParseCompound() {
+        TinyVector<Stmt*> stmts;
         Token* l = TryConsume(TokenType::LeftCurly, "'{'");
 
         while (!Match(TokenType::RightCurly)) {
-            Node* n = ParseToken();
-            node->Nodes.Append(m_Context, n);
+            Stmt* stmt = ParseToken();
+            stmts.Append(m_Context, stmt);
         }
 
         TryConsume(TokenType::RightCurly, "'}'");
 
-        return Allocate<NodeStmt>(node, SourceRange(l->Loc.Start, Peek(-1)->Loc.End), l->Loc.Start);
+        return m_Context->Allocate<CompoundStmt>(m_Context, stmts);
     }
 
-    NodeStmt* Parser::ParseCompoundInline() {
+    Stmt* Parser::ParseCompoundInline() {
         if (Match(TokenType::LeftCurly)) {
             return ParseCompound();
         } else {
-            SourceRange start = Peek()->Loc;
-
-            StmtCompound* node = Allocate<StmtCompound>();
-            node->Nodes.Append(m_Context, ParseToken());
-            return Allocate<NodeStmt>(node, SourceRange(start.Start, Peek(-1)->Loc.End), start.Start);
+            return ParseToken();
         }
     }
 
-    NodeStmt* Parser::ParseType(bool external) {
+    Stmt* Parser::ParseType(bool external) {
         StringBuilder type = ParseVariableType();
 
         if (Peek(1)) {
@@ -498,50 +464,41 @@ namespace BlackLua::Internal {
         return ParseVariableDecl(type, Peek(-1)->Loc);
     }
 
-    NodeStmt* Parser::ParseVariableDecl(StringBuilder type, SourceRange start) {
+    Stmt* Parser::ParseVariableDecl(StringBuilder type, SourceRange start) {
         Token* ident = TryConsume(TokenType::Identifier, "identifier");
+        Expr* value = nullptr;
 
         if (ident) {
-            StmtVarDecl* node = Allocate<StmtVarDecl>();
-            node->Identifier = ident->Data;
-            node->Type = type;
-
             if (Match(TokenType::Eq)) {
                 Consume();
-                node->Value = ParseExpression();
+                value = ParseExpression();
             }
 
-            return Allocate<NodeStmt>(node, SourceRange(start.Start, Peek(-1)->Loc.End), ident->Loc.Start);
+            return m_Context->Allocate<VarDecl>(m_Context, ident->Data, StringView(type.Data(), type.Size()), value);
         } else {
             return nullptr;
         }
     }
 
-    NodeStmt* Parser::ParseFunctionDecl(StringBuilder returnType, SourceRange start, bool external) {
+    Stmt* Parser::ParseFunctionDecl(StringBuilder returnType, SourceRange start, bool external) {
         Token* ident = TryConsume(TokenType::Identifier, "identifier");
 
         if (ident) {
-            NodeList params;
+            TinyVector<ParamDecl*> params;
 
             if (Match(TokenType::LeftParen)) {
                 Consume();
                 params = ParseFunctionParameters();
                 TryConsume(TokenType::RightParen, "')'");
 
-                StmtFunctionDecl* node = Allocate<StmtFunctionDecl>();
-                node->Name = ident->Data;
-                node->ReturnType = returnType;
-                node->Parameters = params;
-                node->Extern = external;
-
-                SourceLocation end = Peek(-1)->Loc.End;
+                Stmt* body = nullptr;
 
                 if (Match(TokenType::LeftCurly)) {
-                    node->Body = ParseCompound();
+                    body = ParseCompound();
                     m_NeedsSemi = false;
                 }
 
-                return Allocate<NodeStmt>(node, SourceRange(start.Start, end), ident->Loc.Start);
+                return m_Context->Allocate<FunctionDecl>(m_Context, ident->Data, StringView(returnType.Data(), returnType.Size()), params, external, body);
             } else {
                 ErrorExpected("'('");
             }
@@ -552,167 +509,171 @@ namespace BlackLua::Internal {
         }
     }
 
-    NodeStmt* Parser::ParseExtern() {
+    Stmt* Parser::ParseExtern() {
         Consume();
 
         return ParseType(true);
     }
 
-    NodeStmt* Parser::ParseStructDecl() {
-        Token s = Consume(); // Consume "struct"
+    Stmt* Parser::ParseStructDecl() {
+        BLUA_ASSERT(false, "todo: add struct parsing");
+        // Token s = Consume(); // Consume "struct"
 
-        Token* ident = TryConsume(TokenType::Identifier, "indentifier");
+        // Token* ident = TryConsume(TokenType::Identifier, "indentifier");
 
-        if (!ident) { return nullptr; }
-        m_DeclaredTypes[fmt::format("{}", ident->Data)] = true;
+        // if (!ident) { return nullptr; }
+        // m_DeclaredTypes[fmt::format("{}", ident->Data)] = true;
 
-        StmtStructDecl* node = Allocate<StmtStructDecl>();
-        node->Identifier = ident->Data;
+        // StmtStructDecl* node = Allocate<StmtStructDecl>();
+        // node->Identifier = ident->Data;
 
-        TryConsume(TokenType::LeftCurly, "'{'");
+        // TryConsume(TokenType::LeftCurly, "'{'");
 
-        while (!Match(TokenType::RightCurly)) {
-            if (IsVariableType()) {
-                Node* field = nullptr;
-                StringBuilder type = ParseVariableType();
+        // while (!Match(TokenType::RightCurly)) {
+        //     if (IsVariableType()) {
+        //         Node* field = nullptr;
+        //         StringBuilder type = ParseVariableType();
 
-                Token* fieldName = TryConsume(TokenType::Identifier, "identifier");
-                if (!fieldName) { return nullptr; }
+        //         Token* fieldName = TryConsume(TokenType::Identifier, "identifier");
+        //         if (!fieldName) { return nullptr; }
 
-                if (Match(TokenType::LeftParen)) {
-                    Consume();
+        //         if (Match(TokenType::LeftParen)) {
+        //             Consume();
 
-                    StmtMethodDecl* decl = Allocate<StmtMethodDecl>();
-                    decl->Name = fieldName->Data;
-                    decl->ReturnType = type;
+        //             StmtMethodDecl* decl = Allocate<StmtMethodDecl>();
+        //             decl->Name = fieldName->Data;
+        //             decl->ReturnType = type;
 
-                    NodeList params = ParseFunctionParameters();
-                    TryConsume(TokenType::RightParen, "')'");
+        //             NodeList params = ParseFunctionParameters();
+        //             TryConsume(TokenType::RightParen, "')'");
 
-                    decl->Parameters = params;
-                    decl->Body = ParseCompound();
+        //             decl->Parameters = params;
+        //             decl->Body = ParseCompound();
 
-                    node->Fields.Append(m_Context, Allocate<Node>(Allocate<NodeStmt>(decl, fieldName->Loc)));
-                } else {
-                    StmtFieldDecl* decl = Allocate<StmtFieldDecl>();
-                    decl->Identifier = fieldName->Data;
-                    decl->Type = type;
+        //             node->Fields.Append(m_Context, Allocate<Node>(Allocate<NodeStmt>(decl, fieldName->Loc)));
+        //         } else {
+        //             StmtFieldDecl* decl = Allocate<StmtFieldDecl>();
+        //             decl->Identifier = fieldName->Data;
+        //             decl->Type = type;
 
-                    TryConsume(TokenType::Semi, "';'");
+        //             TryConsume(TokenType::Semi, "';'");
 
-                    node->Fields.Append(m_Context, Allocate<Node>(Allocate<NodeStmt>(decl, fieldName->Loc)));
-                }
-            }
-        }
+        //             node->Fields.Append(m_Context, Allocate<Node>(Allocate<NodeStmt>(decl, fieldName->Loc)));
+        //         }
+        //     }
+        // }
 
-        TryConsume(TokenType::RightCurly, "'}'");
+        // TryConsume(TokenType::RightCurly, "'}'");
 
-        m_NeedsSemi = false;
-        return Allocate<NodeStmt>(node, SourceRange(s.Loc.Start, Peek(-1)->Loc.End), ident->Loc.Start);
+        // m_NeedsSemi = false;
+        // return Allocate<NodeStmt>(node, SourceRange(s.Loc.Start, Peek(-1)->Loc.End), ident->Loc.Start);
     }
 
-    NodeStmt* Parser::ParseWhile() {
+    Stmt* Parser::ParseWhile() {
         Token w = Consume(); // Consume "while"
 
-        StmtWhile* node = Allocate<StmtWhile>();
-
         TryConsume(TokenType::LeftParen, "'('");
-        node->Condition = ParseExpression();
-        SourceLocation end = Peek(-1)->Loc.End;
+        Expr* condition = ParseExpression();
         TryConsume(TokenType::RightParen, "')'");
-        node->Body = ParseCompoundInline();
+        Stmt* body = ParseCompoundInline();
 
         m_NeedsSemi = false;
 
-        return Allocate<NodeStmt>(node, SourceRange(w.Loc.Start, end), w.Loc.Start);
+        return m_Context->Allocate<WhileStmt>(m_Context, condition, body);
     }
 
-    NodeStmt* Parser::ParseDoWhile() {
-        Token d = Consume(); // Consume "do"
+    Stmt* Parser::ParseDoWhile() {
+        BLUA_ASSERT(false, "todo: add do while parsing");
+        // Token d = Consume(); // Consume "do"
 
-        StmtDoWhile* node = Allocate<StmtDoWhile>();
-        node->Body = ParseCompoundInline();
+        // StmtDoWhile* node = Allocate<StmtDoWhile>();
+        // node->Body = ParseCompoundInline();
 
-        TryConsume(TokenType::While, "while");
-        TryConsume(TokenType::LeftParen, "'('");
-        node->Condition = ParseExpression();
-        TryConsume(TokenType::RightParen, "')'");
+        // TryConsume(TokenType::While, "while");
+        // TryConsume(TokenType::LeftParen, "'('");
+        // node->Condition = ParseExpression();
+        // TryConsume(TokenType::RightParen, "')'");
 
-        m_NeedsSemi = false;
+        // m_NeedsSemi = false;
 
-        return Allocate<NodeStmt>(node, d.Loc);
+        // return Allocate<NodeStmt>(node, d.Loc);
     }
 
-    NodeStmt* Parser::ParseFor() {
-        Token f = Consume(); // Consume "for"
+    Stmt* Parser::ParseFor() {
+        BLUA_ASSERT(false, "todo: add for parsing");
+        // Token f = Consume(); // Consume "for"
 
-        StmtFor* node = Allocate<StmtFor>();
-        TryConsume(TokenType::LeftParen, "'('");
+        // StmtFor* node = Allocate<StmtFor>();
+        // TryConsume(TokenType::LeftParen, "'('");
 
-        node->Prologue = ParseStatement();
+        // node->Prologue = ParseStatement();
 
-        node->Condition = ParseExpression();
-        TryConsume(TokenType::Semi, "';'");
+        // node->Condition = ParseExpression();
+        // TryConsume(TokenType::Semi, "';'");
 
-        node->Epilogue = ParseExpression();
-        TryConsume(TokenType::RightParen, "')'");
+        // node->Epilogue = ParseExpression();
+        // TryConsume(TokenType::RightParen, "')'");
 
-        SourceLocation end = Peek(-1)->Loc.End;
-        node->Body = ParseCompoundInline();
+        // SourceLocation end = Peek(-1)->Loc.End;
+        // node->Body = ParseCompoundInline();
 
-        m_NeedsSemi = false;
+        // m_NeedsSemi = false;
 
-        return Allocate<NodeStmt>(node, SourceRange(f.Loc.Start, end), f.Loc.Start);
+        // return Allocate<NodeStmt>(node, SourceRange(f.Loc.Start, end), f.Loc.Start);
     }
 
-    NodeStmt* Parser::ParseIf() {
-        Token i = Consume(); // Consume "if"
+    Stmt* Parser::ParseIf() {
+        BLUA_ASSERT(false, "todo: add if parsing");
+        // Token i = Consume(); // Consume "if"
 
-        StmtIf* node = Allocate<StmtIf>();
-        TryConsume(TokenType::LeftParen, "'('");
+        // StmtIf* node = Allocate<StmtIf>();
+        // TryConsume(TokenType::LeftParen, "'('");
 
-        node->Condition = ParseExpression();
+        // node->Condition = ParseExpression();
 
-        TryConsume(TokenType::RightParen, "')'");
-        SourceLocation end = Peek(-1)->Loc.End;
-        node->Body = ParseCompoundInline();
+        // TryConsume(TokenType::RightParen, "')'");
+        // SourceLocation end = Peek(-1)->Loc.End;
+        // node->Body = ParseCompoundInline();
 
-        if (Match(TokenType::Else)) {
-            Consume();
+        // if (Match(TokenType::Else)) {
+        //     Consume();
 
-            node->ElseBody = ParseCompoundInline();
-        }
+        //     node->ElseBody = ParseCompoundInline();
+        // }
 
-        m_NeedsSemi = false;
+        // m_NeedsSemi = false;
 
-        return Allocate<NodeStmt>(node, SourceRange(i.Loc.Start, end), i.Loc.Start);
+        // return Allocate<NodeStmt>(node, SourceRange(i.Loc.Start, end), i.Loc.Start);
     }
 
-    NodeStmt* Parser::ParseBreak() {
-        Token b = Consume(); // Consume "break"
+    Stmt* Parser::ParseBreak() {
+        BLUA_ASSERT(false, "todo: add break parsing");
+        // Token b = Consume(); // Consume "break"
 
-        return Allocate<NodeStmt>(nullptr, b.Loc);
+        // return Allocate<NodeStmt>(nullptr, b.Loc);
     }
 
-    NodeStmt* Parser::ParseContinue() {
-        Token c = Consume(); // Consume "continue"
+    Stmt* Parser::ParseContinue() {
+        BLUA_ASSERT(false, "todo: add continue parsing");
+        // Token c = Consume(); // Consume "continue"
 
-        return Allocate<NodeStmt>(nullptr, c.Loc);
+        // return Allocate<NodeStmt>(nullptr, c.Loc);
     }
 
-    NodeStmt* Parser::ParseReturn() {
-        Token r = Consume(); // Consume "return"
+    Stmt* Parser::ParseReturn() {
+        BLUA_ASSERT(false, "todo: add return parsing");
+        // Token r = Consume(); // Consume "return"
 
-        StmtReturn* node = Allocate<StmtReturn>();
-        node->Value = ParseExpression();
+        // StmtReturn* node = Allocate<StmtReturn>();
+        // node->Value = ParseExpression();
 
-        return Allocate<NodeStmt>(node, SourceRange(r.Loc.Start, Peek(-1)->Loc.End), r.Loc.Start);
+        // return Allocate<NodeStmt>(node, SourceRange(r.Loc.Start, Peek(-1)->Loc.End), r.Loc.Start);
     }
 
-    NodeStmt* Parser::ParseStatement() {
+    Stmt* Parser::ParseStatement() {
         TokenType t = Peek()->Type;
 
-        NodeStmt* node = nullptr;
+        Stmt* node = nullptr;
 
         if (IsVariableType()) {
             node = ParseType();
@@ -739,13 +700,13 @@ namespace BlackLua::Internal {
         return node;
     }
 
-    Node* Parser::ParseToken() {
-        Node* n = nullptr;
+    Stmt* Parser::ParseToken() {
+        Stmt* s = nullptr;
 
-        if (NodeStmt* stmt = ParseStatement()) {
-            n = Allocate<Node>(stmt);
-        } else if (NodeExpr* expr = ParseExpression()) {
-            n = Allocate<Node>(expr);
+        if (Stmt* stmt = ParseStatement()) {
+            s = stmt;
+        } else if (Expr* expr = ParseExpression()) {
+            s = expr;
         }
 
         if (m_NeedsSemi) {
@@ -754,7 +715,7 @@ namespace BlackLua::Internal {
 
         m_NeedsSemi = true;
 
-        return n;
+        return s;
     }
 
     void Parser::ErrorExpected(const StringView msg) {
@@ -763,13 +724,10 @@ namespace BlackLua::Internal {
         // } else {
         //     m_Context->ReportCompilerError(Peek()->Line, Peek()->Column, fmt::format("Expected {} after token \"{}\"", msg, TokenTypeToString(Peek()->Type)));
         // }
-        
-        m_Error = true;
     }
 
     void Parser::ErrorTooLarge(const StringView value) {
         // m_Context->ReportCompilerError(Peek(-1)->Line, Peek(-1)->Column, fmt::format("Constant {} is too large", value));
-        m_Error = true;
     }
 
 } // namespace BlackLua::Internal

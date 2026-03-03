@@ -1,15 +1,12 @@
 #pragma once
 
-#include "core.hpp"
-#include "internal/allocator.hpp"
-#include "internal/compiler/core/string_view.hpp"
+#include "black_lua/core.hpp"
+#include "black_lua/internal/compiler/core/string_view.hpp"
+#include "black_lua/internal/compiler/compilation_context.hpp"
+#include "black_lua/internal/compiler/core/vector.hpp"
 
 #include <variant>
 #include <vector>
-
-namespace BlackLua {
-    struct Context;
-} // namespace BlackLua
 
 namespace BlackLua::Internal {
 
@@ -23,8 +20,9 @@ namespace BlackLua::Internal {
         Long,
         Float,
         Double,
-        String,
+        StringLiteral,
 
+        String,
         Array,
         Structure
     };
@@ -44,16 +42,16 @@ namespace BlackLua::Internal {
 
     struct StructDeclaration {
         StringView Identifier;
-        std::vector<StructFieldDeclaration> Fields;
+        TinyVector<StructFieldDeclaration> Fields;
 
         size_t Size = 0;
     };
 
     struct TypeInfo {
         PrimitiveType Type = PrimitiveType::Invalid;
-        std::variant<bool, TypeInfo*, ArrayDeclaration, StructDeclaration> Data;
+        std::variant<bool, size_t, TypeInfo*, ArrayDeclaration, StructDeclaration> Data;
 
-        static TypeInfo* Create(Context* ctx, PrimitiveType type, decltype(TypeInfo::Data) data = {});
+        static TypeInfo* Create(CompilationContext* ctx, PrimitiveType type, decltype(TypeInfo::Data) data = {});
 
         static bool IsEqual(TypeInfo* lhs, TypeInfo* rhs) {
             if (lhs->Type != rhs->Type) { return false; }
@@ -91,6 +89,11 @@ namespace BlackLua::Internal {
                 case PrimitiveType::Float: return 4;
                 case PrimitiveType::Long: return 8;
                 case PrimitiveType::Double: return 8;
+
+                case PrimitiveType::StringLiteral: {
+                    size_t size = std::get<size_t>(Data);
+                    return size;
+                }
 
                 case PrimitiveType::String: {
                     return sizeof(void*);

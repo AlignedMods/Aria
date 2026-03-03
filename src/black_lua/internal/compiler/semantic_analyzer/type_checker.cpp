@@ -1,87 +1,89 @@
-#include "internal/compiler/semantic_analyzer/type_checker.hpp"
+#include "black_lua/internal/compiler/semantic_analyzer/type_checker.hpp"
+#include "black_lua/internal/compiler/ast/ast.hpp"
 
 namespace BlackLua::Internal {
 
-    TypeChecker::TypeChecker(Context* ctx, ASTNodes* nodes) {
+    TypeChecker::TypeChecker(CompilationContext* ctx) {
         m_Context = ctx;
-        m_Nodes = nodes;
+
+        m_RootASTNode = ctx->GetRootASTNode();
     }
 
     void TypeChecker::CheckImpl() {
         // We always want to have at least one map for declarations (global space)
         m_Declarations.resize(1);
 
-        for (Node* node : *m_Nodes) {
-            HandleNode(node);
+        TranslationUnitDecl* tu = GetNode<TranslationUnitDecl>(m_RootASTNode);
+
+        for (Stmt* stmt : tu->GetStmts()) {
+            HandleStmt(stmt);
         }
     }
 
-    TypeInfo* TypeChecker::HandleExprConstant(NodeExpr* expr) {
-        ExprConstant* constant = GetNode<ExprConstant>(expr);
-        expr->Type = ExprValueType::RValue;
-
-        if (ConstantBool* cb = GetNode<ConstantBool>(constant)) {
-            constant->ResolvedType = TypeInfo::Create(m_Context, PrimitiveType::Bool);
-            return constant->ResolvedType;
-        } else if (ConstantChar* cc = GetNode<ConstantChar>(constant)) {
-            constant->ResolvedType = TypeInfo::Create(m_Context, PrimitiveType::Char, true);
-            return constant->ResolvedType;
-        } else if (ConstantInt* ci = GetNode<ConstantInt>(constant)) {
-            constant->ResolvedType = TypeInfo::Create(m_Context, PrimitiveType::Int, !ci->Unsigned);
-            return constant->ResolvedType;
-        } else if (ConstantLong* cl = GetNode<ConstantLong>(constant)) {
-            constant->ResolvedType = TypeInfo::Create(m_Context, PrimitiveType::Long, !cl->Unsigned);
-            return constant->ResolvedType;
-        } else if (ConstantFloat* cf = GetNode<ConstantFloat>(constant)) {
-            constant->ResolvedType = TypeInfo::Create(m_Context, PrimitiveType::Float);
-            return constant->ResolvedType;
-        } else if (ConstantDouble* cd = GetNode<ConstantDouble>(constant)) {
-            constant->ResolvedType = TypeInfo::Create(m_Context, PrimitiveType::Double);
-            return constant->ResolvedType;
-        } else if (ConstantString* cs = GetNode<ConstantString>(constant)) {
-            constant->ResolvedType = TypeInfo::Create(m_Context, PrimitiveType::String);
-            return constant->ResolvedType;
-        }
-
-        BLUA_UNREACHABLE();
+    TypeInfo* TypeChecker::HandleBooleanConstantExpr(Expr* expr) {
+        return expr->GetResolvedType();
     }
 
-    TypeInfo* TypeChecker::HandleExprVarRef(NodeExpr* expr) {
-        ExprVarRef* ref = GetNode<ExprVarRef>(expr);
-        expr->Type = ExprValueType::LValue;
+    TypeInfo* TypeChecker::HandleCharacterConstantExpr(Expr* expr) {
+        return expr->GetResolvedType();
+    }
 
-        std::string ident = fmt::format("{}", ref->Identifier);
+    TypeInfo* TypeChecker::HandleIntegerConstantExpr(Expr* expr) {
+        return expr->GetResolvedType();
+    }
+
+    TypeInfo* TypeChecker::HandleFloatingConstantExpr(Expr* expr) {
+        return expr->GetResolvedType();
+    }
+
+    TypeInfo* TypeChecker::HandleStringConstantExpr(Expr* expr) {
+        return expr->GetResolvedType();
+    }
+
+    TypeInfo* TypeChecker::HandleVarRefExpr(Expr* expr) {
+        VarRefExpr* ref = GetNode<VarRefExpr>(expr);
+
+        std::string ident = ref->GetIdentifier();
         
         for (auto it = m_Declarations.rbegin(); it != m_Declarations.rend(); it++) {
             if (it->contains(ident)) {
-                ref->ResolvedType = it->at(ident);
-                return ref->ResolvedType;
+                ref->SetResolvedType(it->at(ident));
+                return ref->GetResolvedType();
             }
         }
 
-        m_Context->ReportCompilerError(expr->Loc.Line, expr->Loc.Column, 
-                                       expr->Range.Start.Line, expr->Range.Start.Column,
-                                       expr->Range.End.Line, expr->Range.End.Column,
-                                       fmt::format("Undeclared identifier \"{}\"", ref->Identifier));
+        BLUA_ASSERT(false, "todo: add error for TypeChecker::HandleVarRefExpr()");
+        // m_Context->ReportCompilerError(expr->Loc.Line, expr->Loc.Column, 
+        //                                expr->Range.Start.Line, expr->Range.Start.Column,
+        //                                expr->Range.End.Line, expr->Range.End.Column,
+        //                                fmt::format("Undeclared identifier \"{}\"", ref->Identifier));
         return nullptr;
     }
 
-    TypeInfo* TypeChecker::HandleExprArrayAccess(NodeExpr* expr) { BLUA_ASSERT(false, "todo"); }
-    TypeInfo* TypeChecker::HandleExprSelf(NodeExpr* expr) { BLUA_ASSERT(false, "todo"); }
-    TypeInfo* TypeChecker::HandleExprMember(NodeExpr* expr) { BLUA_ASSERT(false, "todo"); }
-    TypeInfo* TypeChecker::HandleExprMethodCall(NodeExpr* expr) { BLUA_ASSERT(false, "todo"); }
-    TypeInfo* TypeChecker::HandleExprCall(NodeExpr* expr) { BLUA_ASSERT(false, "todo"); }
-    TypeInfo* TypeChecker::HandleExprParen(NodeExpr* expr) { BLUA_ASSERT(false, "todo"); }
-    TypeInfo* TypeChecker::HandleExprCast(NodeExpr* expr) { BLUA_ASSERT(false, "todo"); }
-    TypeInfo* TypeChecker::HandleExprUnaryOperator(NodeExpr* expr) { BLUA_ASSERT(false, "todo"); }
+    TypeInfo* TypeChecker::HandleCallExpr(Expr* expr) {
+        CallExpr* call = GetNode<CallExpr>(expr);
+        BLUA_ASSERT(false, "todo: TypeChecker::HandleCallExpr()");
+    }
 
-    TypeInfo* TypeChecker::HandleExprBinaryOperator(NodeExpr* expr) {
-        ExprBinaryOperator* binop = GetNode<ExprBinaryOperator>(expr);
+    TypeInfo* TypeChecker::HandleParenExpr(Expr* expr) {
+        ParenExpr* paren = GetNode<ParenExpr>(expr);
+        HandleExpr(paren->GetChildExpr());
+        return paren->GetResolvedType();
+    }
 
-        TypeInfo* LHSType = HandleNodeExpression(binop->LHS);
-        TypeInfo* RHSType = HandleNodeExpression(binop->RHS);
+    TypeInfo* TypeChecker::HandleCastExpr(Expr* expr) { BLUA_ASSERT(false, "todo: TypeChecker::HandleCastExpr()"); }
+    TypeInfo* TypeChecker::HandleUnaryOperatorExpr(Expr* expr) { BLUA_ASSERT(false, "todo: TypeChecker::HandleUnaryOperatorExpr()"); }
 
-        switch (binop->Type) {
+    TypeInfo* TypeChecker::HandleBinaryOperatorExpr(Expr* expr) {
+        BinaryOperatorExpr* binop = GetNode<BinaryOperatorExpr>(expr);
+
+        Expr* LHS = binop->GetLHS();
+        Expr* RHS = binop->GetRHS();
+
+        TypeInfo* LHSType = HandleExpr(binop->GetLHS());
+        TypeInfo* RHSType = HandleExpr(binop->GetRHS());
+
+        switch (binop->GetBinaryOperator()) {
             case BinaryOperatorType::Add:
             case BinaryOperatorType::Sub:
             case BinaryOperatorType::Mul:
@@ -92,34 +94,37 @@ namespace BlackLua::Internal {
             case BinaryOperatorType::Greater:
             case BinaryOperatorType::GreaterOrEq: {
                 // See which conversion would be better
-                ConversionCost costLHS = GetConversionCost(LHSType, RHSType, binop->RHS->IsLValue());
-                ConversionCost costRHS = GetConversionCost(RHSType, LHSType, binop->LHS->IsLValue());
+                ConversionCost costLHS = GetConversionCost(LHSType, RHSType, LHS->IsLValue());
+                ConversionCost costRHS = GetConversionCost(RHSType, LHSType, RHS->IsLValue());
 
                 if (costLHS.CastNeeded || costRHS.CastNeeded) {
                     if (costLHS.ConversionType == ConversionType::LValueToRValue) {
-                        RHSType = InsertImplicitCast(LHSType, RHSType, binop->LHS, costLHS.CastType);
+                        binop->SetLHS(InsertImplicitCast(LHSType, RHSType, LHS, costLHS.CastType));
+                        RHSType = LHSType;
                     }
                     
                     if (costRHS.ConversionType == ConversionType::LValueToRValue) {
-                        LHSType = InsertImplicitCast(RHSType, LHSType, binop->RHS, costLHS.CastType);
+                        binop->SetRHS(InsertImplicitCast(RHSType, LHSType, RHS, costLHS.CastType));
+                        LHSType = RHSType;
                     }
 
                     if (costLHS.ConversionType == ConversionType::Promotion) {
-                        RHSType = InsertImplicitCast(LHSType, RHSType, binop->LHS, costLHS.CastType);
+                        binop->SetLHS(InsertImplicitCast(LHSType, RHSType, LHS, costLHS.CastType));
+                        RHSType = LHSType;
                     } else if (costRHS.ConversionType == ConversionType::Promotion) {
-                        LHSType = InsertImplicitCast(RHSType, LHSType, binop->RHS, costLHS.CastType);
+                        binop->SetRHS(InsertImplicitCast(RHSType, LHSType, RHS, costLHS.CastType));
+                        LHSType = RHSType;
                     } else {
-                        m_Context->ReportCompilerError(expr->Loc.Line, expr->Loc.Column, 
-                                                       expr->Range.Start.Line, expr->Range.Start.Column,
-                                                       expr->Range.End.Line, expr->Range.End.Column,
-                                                       fmt::format("Mismatched types '{}' and '{}', no viable implicit cast", TypeInfoToString(LHSType), TypeInfoToString(RHSType)));
+                        BLUA_ASSERT(false, "todo: add error for TypeChecker::HandleBinaryOperatorExpr()");
+                        // m_Context->ReportCompilerError(expr->Loc.Line, expr->Loc.Column, 
+                        //                                expr->Range.Start.Line, expr->Range.Start.Column,
+                        //                                expr->Range.End.Line, expr->Range.End.Column,
+                        //                                fmt::format("Mismatched types '{}' and '{}', no viable implicit cast", TypeInfoToString(LHSType), TypeInfoToString(RHSType)));
                     }
                 }
 
-                binop->ResolvedType = LHSType;
-                binop->ResolvedSourceType = LHSType;
-
-                return binop->ResolvedType;
+                binop->SetResolvedType(LHSType);
+                return LHSType;
             }
 
             case BinaryOperatorType::AddInPlace:
@@ -128,187 +133,162 @@ namespace BlackLua::Internal {
             case BinaryOperatorType::DivInPlace:
             case BinaryOperatorType::ModInPlace:
             case BinaryOperatorType::Eq: {
-                if (!binop->LHS->IsLValue()) {
-                    m_Context->ReportCompilerError(binop->LHS->Loc.Line, binop->LHS->Loc.Column, 
-                                                   binop->LHS->Range.Start.Line, binop->LHS->Range.Start.Column,
-                                                   binop->LHS->Range.End.Line, binop->LHS->Range.End.Column,
-                                                   "Expression must be a modifiable lvalue");
+                if (!binop->GetLHS()->IsLValue()) {
+                    // m_Context->ReportCompilerError(binop->LHS->Loc.Line, binop->LHS->Loc.Column, 
+                    //                                binop->LHS->Range.Start.Line, binop->LHS->Range.Start.Column,
+                    //                                binop->LHS->Range.End.Line, binop->LHS->Range.End.Column,
+                    //                                "Expression must be a modifiable lvalue");
+                    BLUA_ASSERT(false, "todo: add error for TypeChecker::HandleBinaryOperatorExpr()");
                 }
 
-                ConversionCost cost = GetConversionCost(LHSType, RHSType, binop->RHS->IsLValue());
+                ConversionCost cost = GetConversionCost(LHSType, RHSType, binop->GetRHS()->IsLValue());
 
                 if (cost.CastNeeded) {
                     if (cost.ImplicitCastPossible) {
-                        InsertImplicitCast(LHSType, RHSType, binop->RHS, cost.CastType);
+                        binop->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, cost.CastType));
+                        RHSType = LHSType;
                     } else {
-                        m_Context->ReportCompilerError(binop->RHS->Loc.Line, binop->RHS->Loc.Column, 
-                                                       binop->RHS->Range.Start.Line, binop->RHS->Range.Start.Column,
-                                                       binop->RHS->Range.End.Line, binop->RHS->Range.End.Column,
-                                                       fmt::format("Cannot implicitly cast from {} to {}", TypeInfoToString(RHSType), TypeInfoToString(LHSType)));
+                        // m_Context->ReportCompilerError(binop->RHS->Loc.Line, binop->RHS->Loc.Column, 
+                        //                                binop->RHS->Range.Start.Line, binop->RHS->Range.Start.Column,
+                        //                                binop->RHS->Range.End.Line, binop->RHS->Range.End.Column,
+                        //                                fmt::format("Cannot implicitly cast from {} to {}", TypeInfoToString(RHSType), TypeInfoToString(LHSType)));
+                        BLUA_ASSERT(false, "todo: add error for TypeChecker::HandleBinaryOperatorExpr()");
                     }
                 }
 
-                binop->ResolvedType = LHSType;
-                binop->ResolvedSourceType = LHSType;
-
-                return binop->ResolvedType;
+                binop->SetResolvedType(LHSType);
+                return LHSType;
             }
         }
 
         BLUA_UNREACHABLE();
     }
 
-    TypeInfo* TypeChecker::HandleNodeExpression(NodeExpr* expr) {
-        if (GetNode<ExprConstant>(expr)) {
-            return HandleExprConstant(expr);
-        } else if (GetNode<ExprVarRef>(expr)) {
-            return HandleExprVarRef(expr);
-        } else if (GetNode<ExprArrayAccess>(expr)) {
-            return HandleExprArrayAccess(expr);
-        } else if (GetNode<ExprSelf>(expr)) {
-            return HandleExprSelf(expr);
-        } else if (GetNode<ExprMember>(expr)) {
-            return HandleExprMember(expr);
-        } else if (GetNode<ExprMethodCall>(expr)) {
-            return HandleExprMethodCall(expr);
-        } else if (GetNode<ExprCall>(expr)) {
-            return HandleExprCall(expr);
-        } else if (GetNode<ExprParen>(expr)) {
-            return HandleExprParen(expr);
-        } else if (GetNode<ExprCast>(expr)) {
-            return HandleExprCast(expr);
-        } else if (GetNode<ExprUnaryOperator>(expr)) {
-            return HandleExprUnaryOperator(expr);
-        } else if (GetNode<ExprBinaryOperator>(expr)) {
-            return HandleExprBinaryOperator(expr);
+    TypeInfo* TypeChecker::HandleExpr(Expr* expr) {
+        if (GetNode<BooleanConstantExpr>(expr)) {
+            return HandleBooleanConstantExpr(expr);
+        } else if (GetNode<CharacterConstantExpr>(expr)) {
+            return HandleCharacterConstantExpr(expr);
+        } else if (GetNode<IntegerConstantExpr>(expr)) {
+            return HandleIntegerConstantExpr(expr);
+        } else if (GetNode<FloatingConstantExpr>(expr)) {
+            return HandleFloatingConstantExpr(expr);
+        } else if (GetNode<StringConstantExpr>(expr)) {
+            return HandleStringConstantExpr(expr);
+        } else if (GetNode<VarRefExpr>(expr)) {
+            return HandleVarRefExpr(expr);
+        } else if (GetNode<CallExpr>(expr)) {
+            return HandleCallExpr(expr);
+        } else if (GetNode<CastExpr>(expr)) {
+            return HandleCastExpr(expr);
+        } else if (GetNode<UnaryOperatorExpr>(expr)) {
+            return HandleUnaryOperatorExpr(expr);
+        } else if (GetNode<BinaryOperatorExpr>(expr)) {
+            return HandleBinaryOperatorExpr(expr);
         }
 
         BLUA_UNREACHABLE();
     }
 
-    void TypeChecker::HandleStmtCompound(NodeStmt* stmt) {
-        StmtCompound* compound = GetNode<StmtCompound>(stmt);
+    void TypeChecker::HandleVarDecl(Decl* decl) {
+        VarDecl* varDecl = GetNode<VarDecl>(decl);
 
-        for (size_t i = 0; i < compound->Nodes.Size; i++) {
-            HandleNode(compound->Nodes.Items[i]);
-        }
-    }
+        TypeInfo* resolvedType = GetTypeInfoFromString(varDecl->GetParsedType());
+        varDecl->SetResolvedType(resolvedType);
 
-    void TypeChecker::HandleStmtVarDecl(NodeStmt* stmt) {
-        StmtVarDecl* decl = GetNode<StmtVarDecl>(stmt);
-        
-        TypeInfo* type = GetTypeInfoFromString(StringView(decl->Type.Data(), decl->Type.Size()), true);
-        decl->ResolvedType = type;
+        if (varDecl->GetDefaultValue()) {
+            TypeInfo* valType = HandleExpr(varDecl->GetDefaultValue());
 
-        m_Declarations.back()[fmt::format("{}", decl->Identifier)] = type;
-
-        if (decl->Value) {
-            TypeInfo* valType = HandleNodeExpression(decl->Value);
-            ConversionCost cost = GetConversionCost(type, valType, decl->Value->IsLValue());
-
+            ConversionCost cost = GetConversionCost(resolvedType, valType, varDecl->GetDefaultValue()->IsLValue());
             if (cost.CastNeeded) {
                 if (cost.ImplicitCastPossible) {
-                    InsertImplicitCast(type, valType, decl->Value, cost.CastType);
+                    varDecl->SetDefaultValue(InsertImplicitCast(resolvedType, valType, varDecl->GetDefaultValue(), cost.CastType));
                 } else {
-                    m_Context->ReportCompilerError(decl->Value->Loc.Line, decl->Value->Loc.Column, 
-                                                   decl->Value->Range.Start.Line, decl->Value->Range.Start.Column,
-                                                   decl->Value->Range.End.Line, decl->Value->Range.End.Column,
-                                                   fmt::format("Cannot implicitly cast from {} to {}", TypeInfoToString(valType), TypeInfoToString(type)));
-                    return;
+                    BLUA_ASSERT(false, "todo: TypeChecker::HandleVarDecl() error");
                 }
             }
         }
-    }
-
-    void TypeChecker::HandleStmtParamDecl(NodeStmt* stmt) {
-        StmtParamDecl* decl = GetNode<StmtParamDecl>(stmt);
         
-        TypeInfo* type = GetTypeInfoFromString(StringView(decl->Type.Data(), decl->Type.Size()), true);
-        decl->ResolvedType = type;
-
-        m_Declarations.back()[fmt::format("{}", decl->Identifier)] = type;
+        std::string ident = varDecl->GetIdentifier();
+        m_Declarations.back()[ident] = varDecl->GetResolvedType();
     }
 
-    void TypeChecker::HandleStmtFunctionDecl(NodeStmt* stmt) {
-        StmtFunctionDecl* decl = GetNode<StmtFunctionDecl>(stmt);
+    void TypeChecker::HandleParamDecl(Decl* decl) {
+        ParamDecl* paramDecl = GetNode<ParamDecl>(decl);
 
-        TypeInfo* type = GetTypeInfoFromString(StringView(decl->ReturnType.Data(), decl->ReturnType.Size()), false);
-        decl->ResolvedType = type;
+        TypeInfo* resolvedType = GetTypeInfoFromString(paramDecl->GetParsedType());
+        paramDecl->SetResolvedType(resolvedType);
 
-        m_Declarations.front()[fmt::format("{}", decl->Name)] = type;
-
-        m_Declarations.emplace_back(); // Push a new scope
-
-        for (size_t i = 0; i < decl->Parameters.Size; i++) {
-            HandleNode(decl->Parameters.Items[i]);
-        }
-
-        if (decl->Body) {
-            HandleStmtCompound(decl->Body);
-        }
-
-        m_Declarations.pop_back(); // Pop the scope
+        std::string ident = paramDecl->GetIdentifier();
+        m_Declarations.back()[ident] = paramDecl->GetResolvedType();
     }
 
-    void TypeChecker::HandleStmtStructDecl(NodeStmt* stmt) { BLUA_ASSERT(false, "todo"); }
-    void TypeChecker::HandleStmtFieldDecl(NodeStmt* stmt) { BLUA_ASSERT(false, "todo"); }
-    void TypeChecker::HandleStmtMethodDecl(NodeStmt* stmt) { BLUA_ASSERT(false, "todo"); }
-    void TypeChecker::HandleStmtWhile(NodeStmt* stmt) { BLUA_ASSERT(false, "todo"); }
-    void TypeChecker::HandleStmtDoWhile(NodeStmt* stmt) { BLUA_ASSERT(false, "todo"); }
-    void TypeChecker::HandleStmtFor(NodeStmt* stmt) { BLUA_ASSERT(false, "todo"); }
-    void TypeChecker::HandleStmtIf(NodeStmt* stmt) { BLUA_ASSERT(false, "todo"); }
-    void TypeChecker::HandleStmtReturn(NodeStmt* stmt) { BLUA_ASSERT(false, "todo"); }
+    void TypeChecker::HandleFunctionDecl(Decl* decl) {
+        FunctionDecl* fnDecl = GetNode<FunctionDecl>(decl);
 
-    void TypeChecker::HandleNodeStatement(NodeStmt* stmt) {
-        if (GetNode<StmtCompound>(stmt)) {
+        TypeInfo* resolvedType = GetTypeInfoFromString(fnDecl->GetParsedType());
+        fnDecl->SetResolvedType(resolvedType);
+
+        std::string ident = fnDecl->GetIdentifier();
+        m_Declarations.front()[ident] = fnDecl->GetResolvedType();
+        
+        m_Declarations.emplace_back();
+
+        for (ParamDecl* p : fnDecl->GetParameters()) {
+            HandleParamDecl(p);
+        }
+
+        if (fnDecl->GetBody()) {
+            HandleCompoundStmt(fnDecl->GetBody());
+        }
+
+        m_Declarations.pop_back();
+    }
+
+    void TypeChecker::HandleCompoundStmt(Stmt* stmt) {
+        CompoundStmt* compound = GetNode<CompoundStmt>(stmt);
+
+        for (Stmt* s : compound->GetStmts()) {
+            HandleStmt(s);
+        }
+    }
+
+    void TypeChecker::HandleWhileStmt(Stmt* stmt) { BLUA_ASSERT(false, "todo"); }
+    void TypeChecker::HandleDoWhileStmt(Stmt* stmt) { BLUA_ASSERT(false, "todo"); }
+    void TypeChecker::HandleForStmt(Stmt* stmt) { BLUA_ASSERT(false, "todo"); }
+    void TypeChecker::HandleIfStmt(Stmt* stmt) { BLUA_ASSERT(false, "todo"); }
+    void TypeChecker::HandleReturnStmt(Stmt* stmt) { BLUA_ASSERT(false, "todo"); }
+
+    void TypeChecker::HandleStmt(Stmt* stmt) {
+        if (GetNode<CompoundStmt>(stmt)) {
             m_Declarations.emplace_back();
-            HandleStmtCompound(stmt);
+            HandleCompoundStmt(stmt);
             m_Declarations.pop_back();
             return;
-        } else if (GetNode<StmtVarDecl>(stmt)) {
-            HandleStmtVarDecl(stmt);
+        } else if (GetNode<WhileStmt>(stmt)) {
+            HandleWhileStmt(stmt);
             return;
-        } else if (GetNode<StmtParamDecl>(stmt)) {
-            HandleStmtParamDecl(stmt);
+        } else if (GetNode<DoWhileStmt>(stmt)) {
+            HandleDoWhileStmt(stmt);
             return;
-        } else if (GetNode<StmtFunctionDecl>(stmt)) {
-            HandleStmtFunctionDecl(stmt);
+        } else if (GetNode<ForStmt>(stmt)) {
+            HandleForStmt(stmt);
             return;
-        } else if (GetNode<StmtStructDecl>(stmt)) {
-            HandleStmtStructDecl(stmt);
+        } else if (GetNode<ReturnStmt>(stmt)) {
+            HandleReturnStmt(stmt);
             return;
-        } else if (GetNode<StmtFieldDecl>(stmt)) {
-            HandleStmtFieldDecl(stmt);
+        } else if (Expr* expr = GetNode<Expr>(stmt)) {
+            HandleExpr(expr);
             return;
-        } else if (GetNode<StmtMethodDecl>(stmt)) {
-            HandleStmtMethodDecl(stmt);
-            return;
-        } else if (GetNode<StmtWhile>(stmt)) {
-            HandleStmtWhile(stmt);
-            return;
-        } else if (GetNode<StmtDoWhile>(stmt)) {
-            HandleStmtDoWhile(stmt);
-            return;
-        } else if (GetNode<StmtFor>(stmt)) {
-            HandleStmtFor(stmt);
-            return;
-        } else if (GetNode<StmtReturn>(stmt)) {
-            HandleStmtReturn(stmt);
+        } else if (Decl* decl = GetNode<Decl>(stmt)) {
+            HandleDecl(decl);
             return;
         }
 
         BLUA_UNREACHABLE();
     }
 
-    void TypeChecker::HandleNode(Node* node) {
-        if (NodeExpr* expr = GetNode<NodeExpr>(node)) {
-            HandleNodeExpression(expr);
-        } else if (NodeStmt* stmt = GetNode<NodeStmt>(node)) {
-            HandleNodeStatement(stmt);
-        }
-    }
-
-    TypeInfo* TypeChecker::GetTypeInfoFromString(StringView str, bool lvalue) {
+    TypeInfo* TypeChecker::GetTypeInfoFromString(StringView str) {
         size_t bracket = str.Find('[');
 
         std::string isolatedType;
@@ -428,19 +408,8 @@ namespace BlackLua::Internal {
         return cost;
     }
 
-    TypeInfo* TypeChecker::InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, NodeExpr* srcExpr, CastType castType) {
-        NodeExpr* copy = Allocate<NodeExpr>(*srcExpr);
-
-        ExprImplicitCast* cast = Allocate<ExprImplicitCast>();
-        cast->Expression = copy;
-        cast->ResolvedCastType = castType;
-        cast->ResolvedSrcType = srcType;
-        cast->ResolvedDstType = dstType;
-
-        srcExpr->Data = cast;
-        srcExpr->Type = ExprValueType::RValue;
-
-        return cast->ResolvedDstType;
+    Expr* TypeChecker::InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastType castType) {
+        return m_Context->Allocate<ImplicitCastExpr>(m_Context, srcExpr, castType, dstType);
     }
 
 } // namespace BlackLua::Internal

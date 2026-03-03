@@ -1,10 +1,9 @@
 #pragma once
 
-#include "core.hpp"
+#include "black_lua/core.hpp"
 
 #include <cstddef>
 #include <utility>
-#include <iostream>
 
 namespace BlackLua {
 

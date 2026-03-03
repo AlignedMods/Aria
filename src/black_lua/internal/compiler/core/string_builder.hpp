@@ -1,9 +1,7 @@
 #pragma once
 
-#include "core.hpp"
-#include "context.hpp"
-#include "internal/allocator.hpp"
-#include "internal/compiler/core/string_view.hpp"
+#include "black_lua/internal/compiler/compilation_context.hpp"
+#include "black_lua/internal/compiler/core/string_view.hpp"
 
 #include <cstring>
 
@@ -26,9 +24,9 @@ namespace BlackLua::Internal {
         inline size_t Size() const { return m_Size; }
         inline const char* Data() const { return m_Str; }
 
-        inline void Append(Context* ctx, const StringView str) {
+        inline void Append(CompilationContext* ctx, const StringView str) {
             m_Capacity += str.Size();
-            char* newStr = reinterpret_cast<char*>(ctx->GetAllocator()->Allocate(m_Capacity));
+            char* newStr = reinterpret_cast<char*>(ctx->AllocateSized(m_Capacity));
             if (m_Str) {
                 memcpy(newStr, m_Str, m_Size);
             }

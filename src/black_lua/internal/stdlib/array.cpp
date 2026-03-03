@@ -1,5 +1,5 @@
-#include "internal/stdlib/array.hpp"
-#include "core.hpp"
+#include "black_lua/internal/stdlib/array.hpp"
+#include "black_lua/core.hpp"
 
 namespace BlackLua::Internal {
 

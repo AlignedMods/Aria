@@ -1,9 +1,10 @@
 #pragma once
 
-#include "internal/compiler/ast/expr.hpp"
-#include "internal/compiler/ast/stmt.hpp"
-#include "internal/vm/vm.hpp"
-#include "internal/compiler/reflection/compiler_reflection.hpp"
+#include "black_lua/internal/compiler/ast/expr.hpp"
+#include "black_lua/internal/compiler/ast/stmt.hpp"
+#include "black_lua/internal/compiler/ast/decl.hpp"
+#include "black_lua/internal/vm/vm.hpp"
+#include "black_lua/internal/compiler/reflection/compiler_reflection.hpp"
 
 namespace BlackLua::Internal {
 
@@ -25,8 +26,6 @@ namespace BlackLua::Internal {
         };
 
     public:
-        using OpCodes = std::vector<OpCode>;
-
         Emitter(const ASTNodes* nodes, Context* ctx);
 
         const CompilerReflectionData& GetReflectionData() const;

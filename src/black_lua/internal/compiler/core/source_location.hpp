@@ -1,7 +1,5 @@
 #pragma once
 
-#include "internal/compiler/core/string_view.hpp"
-
 namespace BlackLua::Internal {
 
     struct SourceLocation {

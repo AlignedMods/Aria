@@ -1,9 +1,12 @@
 #pragma once
 
-#include "internal/compiler/type_info.hpp"
-#include "internal/compiler/core/string_builder.hpp"
-#include "internal/compiler/ast/expr.hpp"
-#include "internal/compiler/ast/stmt.hpp"
+#include "black_lua/internal/compiler/types/type_info.hpp"
+#include "black_lua/internal/compiler/core/string_builder.hpp"
+#include "black_lua/internal/compiler/ast/expr.hpp"
+#include "black_lua/internal/compiler/ast/decl.hpp"
+#include "black_lua/internal/compiler/ast/stmt.hpp"
+
+#include <unordered_map>
 
 namespace BlackLua::Internal {
     
@@ -30,65 +33,53 @@ namespace BlackLua::Internal {
     // Its job is to resolve all type ambiguities and implicit casts
     class TypeChecker {
     public:
-        TypeChecker(Context* ctx, ASTNodes* nodes);
+        TypeChecker(CompilationContext* ctx);
 
     private:
         void CheckImpl();
 
-        TypeInfo* HandleExprConstant(NodeExpr* expr);
-        TypeInfo* HandleExprVarRef(NodeExpr* expr);
-        TypeInfo* HandleExprArrayAccess(NodeExpr* expr);
-        TypeInfo* HandleExprSelf(NodeExpr* expr);
-        TypeInfo* HandleExprMember(NodeExpr* expr);
-        TypeInfo* HandleExprMethodCall(NodeExpr* expr);
-        TypeInfo* HandleExprCall(NodeExpr* expr);
-        TypeInfo* HandleExprParen(NodeExpr* expr);
-        TypeInfo* HandleExprCast(NodeExpr* expr);
-        TypeInfo* HandleExprUnaryOperator(NodeExpr* expr);
-        TypeInfo* HandleExprBinaryOperator(NodeExpr* expr);
+        TypeInfo* HandleBooleanConstantExpr(Expr* expr);
+        TypeInfo* HandleCharacterConstantExpr(Expr* expr);
+        TypeInfo* HandleIntegerConstantExpr(Expr* expr);
+        TypeInfo* HandleFloatingConstantExpr(Expr* expr);
+        TypeInfo* HandleStringConstantExpr(Expr* expr);
+        TypeInfo* HandleVarRefExpr(Expr* expr);
+        TypeInfo* HandleCallExpr(Expr* expr);
+        TypeInfo* HandleParenExpr(Expr* expr);
+        TypeInfo* HandleCastExpr(Expr* expr);
+        TypeInfo* HandleUnaryOperatorExpr(Expr* expr);
+        TypeInfo* HandleBinaryOperatorExpr(Expr* expr);
 
-        TypeInfo* HandleNodeExpression(NodeExpr* expr);
+        TypeInfo* HandleExpr(Expr* expr);
 
-        void HandleStmtCompound(NodeStmt* stmt);
-        void HandleStmtVarDecl(NodeStmt* stmt);
-        void HandleStmtParamDecl(NodeStmt* stmt);
-        void HandleStmtFunctionDecl(NodeStmt* stmt);
-        void HandleStmtStructDecl(NodeStmt* stmt);
-        void HandleStmtFieldDecl(NodeStmt* stmt);
-        void HandleStmtMethodDecl(NodeStmt* stmt);
-        void HandleStmtWhile(NodeStmt* stmt);
-        void HandleStmtDoWhile(NodeStmt* stmt);
-        void HandleStmtFor(NodeStmt* stmt);
-        void HandleStmtIf(NodeStmt* stmt);
-        void HandleStmtReturn(NodeStmt* stmt);
+        void HandleVarDecl(Decl* decl);
+        void HandleParamDecl(Decl* decl);
+        void HandleFunctionDecl(Decl* decl);
 
-        void HandleNodeStatement(NodeStmt* stmt);
+        void HandleDecl(Decl* decl);
 
-        void HandleNode(Node* node);
+        void HandleCompoundStmt(Stmt* stmt);
+        void HandleWhileStmt(Stmt* stmt);
+        void HandleDoWhileStmt(Stmt* stmt);
+        void HandleForStmt(Stmt* stmt);
+        void HandleIfStmt(Stmt* stmt);
+        void HandleReturnStmt(Stmt* stmt);
 
-        TypeInfo* GetTypeInfoFromString(StringView str, bool lvalue);
+        void HandleStmt(Stmt* stmt);
+
+        TypeInfo* GetTypeInfoFromString(StringView str);
 
         // type1 is the destination type and type2 is the source type
         ConversionCost GetConversionCost(TypeInfo* dst, TypeInfo* src, bool srcLValue);
-        TypeInfo* InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, NodeExpr* srcExpr, CastType castType);
-
-        template <typename T>
-        T* Allocate() {
-            return m_Context->GetAllocator()->AllocateNamed<T>();
-        }
-
-        template <typename T, typename... Args>
-        T* Allocate(Args&&... args) {
-            return m_Context->GetAllocator()->AllocateNamed<T>(std::forward<Args>(args)...);
-        }
+        Expr* InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastType castType); // Returns the new ImplicitCastExpr
 
     private:
-        ASTNodes* m_Nodes = nullptr;
+        Stmt* m_RootASTNode = nullptr;
 
         std::vector<std::unordered_map<std::string, TypeInfo*>> m_Declarations;
         TypeInfo* m_ActiveReturnType = nullptr;
 
-        Context* m_Context = nullptr;
+        CompilationContext* m_Context = nullptr;
         friend class SemanticAnalyzer;
     };
 

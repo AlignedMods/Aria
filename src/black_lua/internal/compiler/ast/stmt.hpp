@@ -1,118 +1,118 @@
 #pragma once
 
-#include "internal/compiler/ast/node_list.hpp"
-#include "internal/compiler/core/string_view.hpp"
-#include "internal/compiler/core/string_builder.hpp"
-#include "internal/compiler/type_info.hpp"
-#include "internal/compiler/core/source_location.hpp"
-
-#include <variant>
+#include "black_lua/internal/compiler/core/vector.hpp"
+#include "black_lua/internal/compiler/core/string_view.hpp"
+#include "black_lua/internal/compiler/core/string_builder.hpp"
+#include "black_lua/internal/compiler/types/type_info.hpp"
+#include "black_lua/internal/compiler/core/source_location.hpp"
 
 namespace BlackLua::Internal {
 
-    struct NodeStmt;
+    struct Expr;
+    struct VarDecl;
 
-    struct StmtCompound {
-        NodeList Nodes{};
-    };
-    
-    struct StmtVarDecl {
-        StringView Identifier;
-        StringBuilder Type;
-    
-        NodeExpr* Value = nullptr;
-    
-        TypeInfo* ResolvedType = nullptr;
+    struct Stmt {
+        inline Stmt(CompilationContext* ctx)
+            : m_Context(ctx) {}
+
+        virtual void _Unused() const {}
+
+    protected:
+        CompilationContext* m_Context = nullptr;
     };
 
-    struct StmtParamDecl {
-        StringView Identifier;
-        StringBuilder Type;
+    struct CompoundStmt final : public Stmt {
+        CompoundStmt(CompilationContext* ctx, const TinyVector<Stmt*>& stmts)
+            : Stmt(ctx), m_Stmts(stmts) {}
 
-        TypeInfo* ResolvedType = nullptr;
-    };
+        inline TinyVector<Stmt*>& GetStmts() { return m_Stmts; }
+        inline const TinyVector<Stmt*>& GetStmts() const { return m_Stmts; }
 
-    struct StmtFunctionDecl {
-        StringView Name;
-        StringBuilder Signature;
-    
-        NodeList Parameters;
-        StringBuilder ReturnType;
-    
-        bool Extern = false;
-    
-        NodeStmt* Body = nullptr;
-
-        TypeInfo* ResolvedType = nullptr;
-    };
-    
-    struct StmtStructDecl {
-        StringView Identifier;
-    
-        NodeList Fields;
-    };
-    
-    struct StmtFieldDecl {
-        StringView Identifier;
-        StringBuilder Type;
+    private:
+        TinyVector<Stmt*> m_Stmts;
     };
 
-    struct StmtMethodDecl {
-        StringView Name;
-        StringBuilder Signature;
-    
-        NodeList Parameters;
-        StringBuilder ReturnType;
+    struct WhileStmt final : public Stmt {
+        WhileStmt(CompilationContext* ctx, Expr* condition, Stmt* body)
+            : Stmt(ctx), m_Condition(condition), m_Body(body) {}
 
-        NodeStmt* Body = nullptr;
-    
-        TypeInfo* ResolvedType = nullptr;
-    };
+        inline Expr* GetCondition() { return m_Condition; }
+        inline const Expr* GetCondition() const { return m_Condition; }
 
-    struct StmtWhile {
-        NodeExpr* Condition = nullptr;
-        NodeStmt* Body = nullptr;
-    };
-    
-    struct StmtDoWhile {
-        NodeExpr* Condition = nullptr;
-        NodeStmt* Body = nullptr;
-    };
-    
-    struct StmtFor {
-        NodeStmt* Prologue = nullptr; // int i = 0;
-        NodeExpr* Condition = nullptr; // i < 5;
-        NodeExpr* Epilogue = nullptr; // i += 1;
-        NodeStmt* Body = nullptr;
-    };
-    
-    struct StmtIf {
-        NodeExpr* Condition = nullptr;
-        NodeStmt* Body = nullptr;
-        NodeStmt* ElseBody = nullptr;
-    };
-    
-    struct StmtReturn {
-        NodeExpr* Value = nullptr;
-    };
+        inline Stmt* GetBody() { return m_Body; }
+        inline const Stmt* GetBody() const { return m_Body; }
 
-    struct NodeStmt {
-        std::variant<StmtCompound*,
-                     StmtVarDecl*, StmtParamDecl*, StmtFunctionDecl*,
-                     StmtStructDecl*, StmtFieldDecl*, StmtMethodDecl*,
-                     StmtWhile*, StmtDoWhile*, StmtFor*, StmtIf*,
-                     StmtReturn*,
-                     std::nullptr_t> Data;
-
-        SourceRange Range;
-        SourceLocation Loc;
+    private:
+        Expr* m_Condition = nullptr;
+        Stmt* m_Body = nullptr;
     };
+    
+    struct DoWhileStmt final : public Stmt {
+        DoWhileStmt(CompilationContext* ctx, Expr* condition, Stmt* body)
+            : Stmt(ctx), m_Condition(condition), m_Body(body) {}
 
-    template <typename T>
-    inline T* GetNode(NodeStmt* n) {
-        T** result = std::get_if<T*>(&n->Data);
-        if (result == nullptr) { return nullptr; }
-        return *result;
-    }
+        inline Expr* GetCondition() { return m_Condition; }
+        inline const Expr* GetCondition() const { return m_Condition; }
+
+        inline Stmt* GetBody() { return m_Body; }
+        inline const Stmt* GetBody() const { return m_Body; }
+
+    private:
+        Expr* m_Condition = nullptr;
+        Stmt* m_Body = nullptr;
+    };
+    
+    struct ForStmt final : public Stmt {
+        ForStmt(CompilationContext* ctx, Stmt* prologue, Expr* condition, Expr* epilogue, Stmt* body)
+            : Stmt(ctx), m_Prologue(prologue), m_Condition(condition), m_Epilogue(epilogue), m_Body(body) {}
+
+        inline Stmt* GetPrologue() { return m_Prologue; }
+        inline const Stmt* GetPrologue() const { return m_Prologue; }
+
+        inline Expr* GetCondition() { return m_Condition; }
+        inline const Expr* GetCondition() const { return m_Condition; }
+
+        inline Expr* GetEpilogue() { return m_Epilogue; }
+        inline const Expr* GetEpilogue() const { return m_Epilogue; }
+
+        inline Stmt* GetBody() { return m_Body; }
+        inline const Stmt* GetBody() const { return m_Body; }
+
+    private:
+        Stmt* m_Prologue = nullptr; // int i = 0;
+        Expr* m_Condition = nullptr; // i < 5;
+        Expr* m_Epilogue = nullptr; // i += 1;
+        Stmt* m_Body = nullptr;
+    };
+    
+    struct IfStmt final : public Stmt {
+        IfStmt(CompilationContext* ctx, Expr* condition, Stmt* body, Stmt* elseBody)
+            : Stmt(ctx), m_Condition(condition), m_Body(body), m_ElseBody(elseBody) {}
+
+        inline Expr* GetCondition() { return m_Condition; }
+        inline const Expr* GetCondition() const { return m_Condition; }
+
+        inline Stmt* GetBody() { return m_Body; }
+        inline const Stmt* GetBody() const { return m_Body; }
+
+        inline Stmt* GetElseBody() { return m_ElseBody; }
+        inline const Stmt* GetElseBody() const { return m_ElseBody; }
+
+    private:
+        Expr* m_Condition = nullptr;
+        Stmt* m_Body = nullptr;
+        Stmt* m_ElseBody = nullptr;
+    };
+    
+    struct ReturnStmt final : public Stmt {
+        ReturnStmt(CompilationContext* ctx, Expr* value)
+            : Stmt(ctx), m_Value(value) {}
+
+        inline Expr* GetValue() { return m_Value; }
+        inline const Expr* GetValue() const { return m_Value; }
+    
+    private:
+        Expr* m_Value = nullptr;
+    };
 
 } // namespace BlackLua::Internal

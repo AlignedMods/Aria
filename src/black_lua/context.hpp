@@ -8,15 +8,7 @@
 #include <string>
 
 namespace BlackLua::Internal {
-    class Parser;
-    class TypeChecker;
-    class SemanticAnalyzer;
-    class Emitter;
     class VM;
-
-    class StringBuilder;
-    struct NodeList;
-    struct TypeInfo;
 }
 
 namespace BlackLua {
@@ -98,22 +90,11 @@ namespace BlackLua {
     private:
         CompiledSource* GetCompiledSource(const std::string& module);
 
-        void ReportCompilerError(size_t line, size_t column, 
-                                 size_t startLine, size_t startColumn, 
-                                 size_t endLine, size_t endColumn, const std::string& error);
         void ReportRuntimeError(const std::string& error);
 
         Allocator* GetAllocator();
 
-        friend class Internal::Parser;
-        friend class Internal::TypeChecker;
-        friend class Internal::SemanticAnalyzer;
-        friend class Internal::Emitter;
         friend class Internal::VM;
-
-        friend class Internal::StringBuilder;
-        friend struct Internal::NodeList;
-        friend struct Internal::TypeInfo;
 
     private:
         std::unordered_map<std::string, CompiledSource*> m_Modules;

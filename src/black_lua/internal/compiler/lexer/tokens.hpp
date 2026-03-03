@@ -1,10 +1,8 @@
 #pragma once
 
-#include "core.hpp"
-#include "internal/compiler/core/string_view.hpp"
-#include "internal/compiler/core/source_location.hpp"
+#include "black_lua/internal/compiler/core/source_location.hpp"
+#include "black_lua/internal/compiler/core/string_view.hpp"
 
-#include <string>
 #include <vector>
 
 namespace BlackLua::Internal {
@@ -132,6 +130,8 @@ namespace BlackLua::Internal {
             case TokenType::DoubleDot: return "..";
             case TokenType::TripleDot: return "...";
 
+            case TokenType::Self: return "self";
+
             case TokenType::If: return "if";
             case TokenType::Else: return "else";
 
@@ -150,6 +150,7 @@ namespace BlackLua::Internal {
             case TokenType::True: return "true";
             case TokenType::False: return "false";
 
+            case TokenType::CharLit: return "char-lit";
             case TokenType::IntLit: return "int-lit";
             case TokenType::FloatLit: return "float-lit";
             case TokenType::StrLit: return "str-lit";
@@ -188,36 +189,6 @@ namespace BlackLua::Internal {
         SourceRange Loc;
     };
 
-    class Lexer {
-    public:
-        using Tokens = std::vector<Token>;
-
-        Lexer(StringView source);
-
-        const Tokens& GetTokens() const;
-
-    private:
-        void LexImpl();
-
-        // "Peek" at the next character in the source string,
-        // if it doesn't exist return NULL
-        // "if (Peek())" is the same as if (m_Index < m_Source.size())
-        const char* Peek();
-
-        // "Consume" the next character in the source string
-        // NOTE: Consume is not allowed to be called after the end of the source string
-        char Consume();
-
-        void AddToken(TokenType type, const SourceRange& loc, const StringView data = {});
-
-        size_t GetColumn(size_t index);
-
-    private:
-        Tokens m_Tokens;
-        size_t m_Index = 0;
-        StringView m_Source;
-        size_t m_CurrentLine = 1;
-        size_t m_CurrentLineStart = 0; // The number of characters it takes to get to this line (from the start of the file)
-    };
+    using Tokens = std::vector<Token>;
 
 } // namespace BlackLua::Internal

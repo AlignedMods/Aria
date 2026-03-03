@@ -11,7 +11,7 @@ workspace "BlackLua"
 
         files {"src/**.cpp", "src/**.hpp"}
 
-        includedirs { "src/black_lua", "src/vendor/fmt/include/" }
+        includedirs { "src/", "src/vendor/fmt/include/" }
 
         filter "configurations:Debug"
             symbols "On"
@@ -29,7 +29,7 @@ workspace "BlackLua"
 
         files { "tests/**.cpp", "tests/**.hpp" }
 
-        includedirs { "tests/", "src/black_lua/", "src/vendor/catch2/", "src/vendor/fmt/include/" }
+        includedirs { "tests/", "src/", "src/vendor/catch2/", "src/vendor/fmt/include/" }
 
         links { "BlackLua", "fmt" }
 
@@ -49,7 +49,7 @@ workspace "BlackLua"
 
         files { "example/example.cpp" }
 
-        includedirs { "src/black_lua/", "src/vendor/fmt/include/" }
+        includedirs { "src/", "src/vendor/fmt/include/" }
 
         links { "BlackLua", "fmt" }
 

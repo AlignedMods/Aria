@@ -1,6 +1,6 @@
 #pragma once
 
-#include "internal/compiler/type_info.hpp"
+#include "black_lua/internal/compiler/types/type_info.hpp"
 
 #include <unordered_map>
 #include <string>

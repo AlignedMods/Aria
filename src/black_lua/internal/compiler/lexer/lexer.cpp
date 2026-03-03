@@ -1,4 +1,4 @@
-#include "internal/compiler/lexer.hpp"
+#include "black_lua/internal/compiler/lexer/lexer.hpp"
 
 #define BLUA_TOKEN_DATA(str, type) \
     if (buf == str) { \
@@ -31,14 +31,9 @@
 
 namespace BlackLua::Internal {
 
-    Lexer::Lexer(StringView source) {
-        m_Source = source;
-
+    Lexer::Lexer(CompilationContext* ctx) {
+        m_Source = ctx->GetSourceCode();
         LexImpl();
-    }
-
-    const Lexer::Tokens& Lexer::GetTokens() const {
-        return m_Tokens;
     }
 
     void Lexer::LexImpl() {
@@ -343,6 +338,8 @@ namespace BlackLua::Internal {
                 continue;
             }
         }
+
+        m_Context.SetTokens(m_Tokens);
     }
 
     const char* Lexer::Peek() {

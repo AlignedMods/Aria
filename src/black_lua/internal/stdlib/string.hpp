@@ -1,6 +1,6 @@
 #pragma once
 
-#include "context.hpp"
+#include "black_lua/context.hpp"
 
 namespace BlackLua::Internal {
 

@@ -1,7 +1,6 @@
-#include "internal/compiler/disassembler.hpp"
+#include "black_lua/internal/compiler/codegen/disassembler.hpp"
 
 #include <string>
-#include <stdio.h>
 
 namespace BlackLua::Internal {
 

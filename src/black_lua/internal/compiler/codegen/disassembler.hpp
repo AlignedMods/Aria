@@ -1,6 +1,6 @@
 #pragma once
 
-#include "internal/vm/vm.hpp"
+#include "black_lua/internal/vm/vm.hpp"
 
 namespace BlackLua::Internal {
 
