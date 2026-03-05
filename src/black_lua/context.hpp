@@ -1,9 +1,7 @@
 #pragma once
 
-#include "core.hpp"
-
-#include <variant>
-#include <vector>
+#include <cstdint>
+#include <cstddef>
 #include <unordered_map>
 #include <string>
 

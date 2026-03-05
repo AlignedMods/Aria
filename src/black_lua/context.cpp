@@ -5,6 +5,7 @@
 #include "black_lua/internal/compiler/reflection/compiler_reflection.hpp"
 #include "black_lua/internal/stdlib/array.hpp"
 #include "black_lua/internal/stdlib/string.hpp"
+#include "black_lua/internal/vm/vm.hpp"
 
 #include <fstream>
 #include <sstream>
@@ -78,8 +79,7 @@ namespace BlackLua {
         CompiledSource* src = GetCompiledSource(module);
 
         m_CurrentCompiledSource = src;
-        // m_CurrentCompiledSource->VM.RunByteCode(src->CompilationContext.Get;
-        BLUA_ASSERT(false, "todo: add Context::Run()");
+        m_CurrentCompiledSource->VM.RunByteCode(src->CompilationContext.GetOpCodes().data(), src->CompilationContext.GetOpCodes().size());
     }
 
     std::string Context::DumpAST(const std::string& module) {
@@ -92,9 +92,8 @@ namespace BlackLua {
     std::string Context::Disassemble(const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
 
-        BLUA_ASSERT(false, "todo: add Context::Disassemble()");
-        // Internal::Disassembler d(&src->CompilationContext);
-        // return d.GetDisassembly();
+        Internal::Disassembler d(&src->CompilationContext.GetOpCodes());
+        return d.GetDisassembly();
     }
 
     void Context::PushBool(bool b, const std::string& module) {

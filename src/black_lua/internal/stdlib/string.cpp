@@ -1,5 +1,5 @@
-#include "internal/stdlib/string.hpp"
-#include "core.hpp"
+#include "black_lua/internal/stdlib/string.hpp"
+#include "black_lua/core.hpp"
 
 namespace BlackLua::Internal {
 

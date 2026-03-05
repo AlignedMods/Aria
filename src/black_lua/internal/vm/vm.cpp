@@ -1,6 +1,5 @@
-#include "internal/vm/vm.hpp"
-#include "internal/allocator.hpp"
-#include "context.hpp"
+#include "black_lua/internal/vm/vm.hpp"
+#include "black_lua/context.hpp"
 
 namespace BlackLua::Internal {
 
@@ -315,9 +314,9 @@ namespace BlackLua::Internal {
     }
 
     void VM::Run() {
-        #define CASE_LOAD(_enum, builtInType, varType) case OpCodeType::_enum: { \
+        #define CASE_LOAD(_enum, builtInType) case OpCodeType::_enum: { \
             OpCodeLoad l = std::get<OpCodeLoad>(op.Data); \
-            PushBytes(sizeof(builtInType), varType); \
+            PushBytes(sizeof(builtInType), l.ResolvedType); \
             memcpy(GetStackSlot(-1).Memory, &std::get<builtInType>(l.Data), sizeof(builtInType)); \
             break; \
         }
@@ -353,7 +352,7 @@ namespace BlackLua::Internal {
             memcpy(&lhs, GetStackSlot(m.LHSSlot).Memory, sizeof(builtinType)); \
             memcpy(&rhs, GetStackSlot(m.RHSSlot).Memory, sizeof(builtinType)); \
             builtinType result = builtinOp(lhs, rhs); \
-            PushBytes(sizeof(builtinType), GetStackSlot(m.LHSSlot).ResolvedType); \
+            PushBytes(sizeof(builtinType), m.ResolvedType); \
             StackSlot s = GetStackSlot(-1); \
             memcpy(s.Memory, &result, sizeof(builtinType)); \
             break; \
@@ -366,7 +365,7 @@ namespace BlackLua::Internal {
             memcpy(&lhs, GetStackSlot(m.LHSSlot).Memory, sizeof(builtinType)); \
             memcpy(&rhs, GetStackSlot(m.RHSSlot).Memory, sizeof(builtinType)); \
             bool result = builtinOp(lhs, rhs); \
-            PushBytes(1, TypeInfo::Create(m_Context, PrimitiveType::Bool)); \
+            PushBytes(1, m.ResolvedType); \
             StackSlot s = GetStackSlot(-1); \
             memcpy(s.Memory, &result, 1); \
             break; \
@@ -406,29 +405,29 @@ namespace BlackLua::Internal {
             CASE_BINEXPR_BOOL(mathop##F32, float,    op) \
             CASE_BINEXPR_BOOL(mathop##F64, double,   op)
 
-        #define CASE_CAST(_enum, sourceType, destType, varType) case OpCodeType::_enum: { \
-            StackSlotIndex v = std::get<StackSlotIndex>(op.Data); \
-            StackSlot s = GetStackSlot(v); \
+        #define CASE_CAST(_enum, sourceType, destType) case OpCodeType::_enum: { \
+            OpCodeCast cast = std::get<OpCodeCast>(op.Data); \
+            StackSlot s = GetStackSlot(cast.Slot); \
             sourceType t{}; \
             memcpy(&t, s.Memory, sizeof(sourceType)); \
             destType d = static_cast<destType>(t); \
-            PushBytes(sizeof(destType), varType); \
+            PushBytes(sizeof(destType), cast.ResolvedType); \
             StackSlot __a = GetStackSlot(-1); \
             memcpy(__a.Memory, &d, sizeof(destType)); \
             break; \
         }
 
         #define CASE_CAST_GROUP(_cast, _builtinType) \
-            CASE_CAST(Cast##_cast##ToI8,  _builtinType, int8_t,   TypeInfo::Create(m_Context, PrimitiveType::Char, true)) \
-            CASE_CAST(Cast##_cast##ToI16, _builtinType, int16_t,  TypeInfo::Create(m_Context, PrimitiveType::Short, true)) \
-            CASE_CAST(Cast##_cast##ToI32, _builtinType, int32_t,  TypeInfo::Create(m_Context, PrimitiveType::Int, true)) \
-            CASE_CAST(Cast##_cast##ToI64, _builtinType, int64_t,  TypeInfo::Create(m_Context, PrimitiveType::Long, true)) \
-            CASE_CAST(Cast##_cast##ToU8,  _builtinType, uint8_t,  TypeInfo::Create(m_Context, PrimitiveType::Char, false)) \
-            CASE_CAST(Cast##_cast##ToU16, _builtinType, uint16_t, TypeInfo::Create(m_Context, PrimitiveType::Short, false)) \
-            CASE_CAST(Cast##_cast##ToU32, _builtinType, uint32_t, TypeInfo::Create(m_Context, PrimitiveType::Int, false)) \
-            CASE_CAST(Cast##_cast##ToU64, _builtinType, uint64_t, TypeInfo::Create(m_Context, PrimitiveType::Long, false)) \
-            CASE_CAST(Cast##_cast##ToF32, _builtinType, float,    TypeInfo::Create(m_Context, PrimitiveType::Float)) \
-            CASE_CAST(Cast##_cast##ToF64, _builtinType, double,   TypeInfo::Create(m_Context, PrimitiveType::Double))
+            CASE_CAST(Cast##_cast##ToI8,  _builtinType, int8_t) \
+            CASE_CAST(Cast##_cast##ToI16, _builtinType, int16_t) \
+            CASE_CAST(Cast##_cast##ToI32, _builtinType, int32_t) \
+            CASE_CAST(Cast##_cast##ToI64, _builtinType, int64_t) \
+            CASE_CAST(Cast##_cast##ToU8,  _builtinType, uint8_t) \
+            CASE_CAST(Cast##_cast##ToU16, _builtinType, uint16_t) \
+            CASE_CAST(Cast##_cast##ToU32, _builtinType, uint32_t) \
+            CASE_CAST(Cast##_cast##ToU64, _builtinType, uint64_t) \
+            CASE_CAST(Cast##_cast##ToF32, _builtinType, float) \
+            CASE_CAST(Cast##_cast##ToF64, _builtinType, double)
 
         for (; m_ProgramCounter < m_ProgramSize; m_ProgramCounter++) {
             const OpCode& op = m_Program[m_ProgramCounter];
@@ -463,22 +462,22 @@ namespace BlackLua::Internal {
                     break;
                 }
 
-                CASE_LOAD(LoadI8,  i8,  TypeInfo::Create(m_Context, PrimitiveType::Char, true))
-                CASE_LOAD(LoadI16, i16, TypeInfo::Create(m_Context, PrimitiveType::Short, true))
-                CASE_LOAD(LoadI32, i32, TypeInfo::Create(m_Context, PrimitiveType::Int, true))
-                CASE_LOAD(LoadI64, i64, TypeInfo::Create(m_Context, PrimitiveType::Long, true))
+                CASE_LOAD(LoadI8,  i8)
+                CASE_LOAD(LoadI16, i16)
+                CASE_LOAD(LoadI32, i32)
+                CASE_LOAD(LoadI64, i64)
 
-                CASE_LOAD(LoadU8,  u8,  TypeInfo::Create(m_Context, PrimitiveType::Char, false))
-                CASE_LOAD(LoadU16, u16, TypeInfo::Create(m_Context, PrimitiveType::Short, false))
-                CASE_LOAD(LoadU32, u32, TypeInfo::Create(m_Context, PrimitiveType::Int, false))
-                CASE_LOAD(LoadU64, u64, TypeInfo::Create(m_Context, PrimitiveType::Long, false))
-
-                CASE_LOAD(LoadF32, f32, TypeInfo::Create(m_Context, PrimitiveType::Float))
-                CASE_LOAD(LoadF64, f64, TypeInfo::Create(m_Context, PrimitiveType::Double))
+                CASE_LOAD(LoadU8,  u8)
+                CASE_LOAD(LoadU16, u16)
+                CASE_LOAD(LoadU32, u32)
+                CASE_LOAD(LoadU64, u64)
+                                      
+                CASE_LOAD(LoadF32, f32)
+                CASE_LOAD(LoadF64, f64)
                 case OpCodeType::LoadStr: {
                     OpCodeLoad l = std::get<OpCodeLoad>(op.Data);
                     StringView str = std::get<StringView>(l.Data);
-                    PushBytes(str.Size(), TypeInfo::Create(m_Context, PrimitiveType::String));
+                    PushBytes(str.Size(), l.ResolvedType);
                     memcpy(GetStackSlot(-1).Memory, str.Data(), str.Size());
                     break;
                 }

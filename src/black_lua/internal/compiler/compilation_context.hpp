@@ -3,6 +3,7 @@
 #include "black_lua/internal/allocator.hpp"
 #include "black_lua/internal/compiler/core/source_location.hpp"
 #include "black_lua/internal/compiler/lexer/tokens.hpp"
+#include "black_lua/internal/vm/op_codes.hpp"
 
 namespace BlackLua::Internal {
 
@@ -50,6 +51,10 @@ namespace BlackLua::Internal {
         inline const Stmt* GetRootASTNode() const { return m_RootASTNode; }
         inline void SetRootASTNode(Stmt* node) { m_RootASTNode = node; }
 
+        inline std::vector<OpCode>& GetOpCodes() { return m_OpCodes; }
+        inline const std::vector<OpCode>& GetOpCodes() const { return m_OpCodes; }
+        inline void SetOpCodes(const std::vector<OpCode>& opcodes) { m_OpCodes = opcodes; }
+
         inline std::vector<CompilerError>& GetCompilerErrors() { return m_CompilerErrors; }
         inline const std::vector<CompilerError>& GetCompilerErrors() const { return m_CompilerErrors; }
 
@@ -78,6 +83,7 @@ namespace BlackLua::Internal {
         std::string m_SourceCode;
         Tokens m_Tokens;
         Stmt* m_RootASTNode;
+        std::vector<OpCode> m_OpCodes;
 
         std::vector<CompilerError> m_CompilerErrors;
     };

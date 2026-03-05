@@ -1,10 +1,10 @@
 #pragma once
 
-#include "internal/compiler/ast/expr.hpp"
-#include "internal/compiler/ast/stmt.hpp"
-#include "internal/compiler/semantic_analyzer/type_checker.hpp"
-#include "internal/vm/vm.hpp"
-#include "context.hpp"
+#include "black_lua/internal/compiler/ast/expr.hpp"
+#include "black_lua/internal/compiler/ast/decl.hpp"
+#include "black_lua/internal/compiler/ast/stmt.hpp"
+#include "black_lua/internal/compiler/semantic_analyzer/type_checker.hpp"
+#include "black_lua/internal/compiler/compilation_context.hpp"
 
 #include <unordered_map>
 
@@ -12,83 +12,78 @@ namespace BlackLua::Internal {
 
     class SemanticAnalyzer {
     private:
-        struct Declaration {
+        struct VariableDeclaration {
             TypeInfo* Type = nullptr;
-            NodeStmt* Decl = nullptr;
-            bool Extern = false;
+            VarDecl* SourceDecl = nullptr;
         };
 
+        struct ParameterDeclaration {
+            TypeInfo* Type = nullptr;
+            ParamDecl* SourceDecl = nullptr;
+        };
+
+        struct FunctionDeclaration {
+            TypeInfo* ReturnType = nullptr;
+            FunctionDecl* SourceDecl = nullptr;
+        };
+
+        using Declaration = std::variant<VariableDeclaration, ParameterDeclaration, FunctionDeclaration>;
+
         struct Scope {
-            TypeInfo* ReturnType = nullptr; // This is only a valid type in function scopes!
             std::unordered_map<std::string, Declaration> DeclaredSymbols;
         };
 
     public:
-        SemanticAnalyzer(ASTNodes* nodes, Context* ctx);
+        SemanticAnalyzer(CompilationContext* ctx);
 
     private:
         void AnalyzeImpl();
 
-        Node* Peek(size_t amount = 0);
-        Node* Consume();
+        TypeInfo* HandleBooleanConstantExpr(Expr* expr);
+        TypeInfo* HandleCharacterConstantExpr(Expr* expr);
+        TypeInfo* HandleIntegerConstantExpr(Expr* expr);
+        TypeInfo* HandleFloatingConstantExpr(Expr* expr);
+        TypeInfo* HandleStringConstantExpr(Expr* expr);
+        TypeInfo* HandleVarRefExpr(Expr* expr);
+        TypeInfo* HandleCallExpr(Expr* expr);
+        TypeInfo* HandleParenExpr(Expr* expr);
+        TypeInfo* HandleCastExpr(Expr* expr);
+        TypeInfo* HandleUnaryOperatorExpr(Expr* expr);
+        TypeInfo* HandleBinaryOperatorExpr(Expr* expr);
 
-        TypeInfo* HandleExprConstant(NodeExpr* expr);
-        TypeInfo* HandleExprVarRef(NodeExpr* expr);
-        TypeInfo* HandleExprArrayAccess(NodeExpr* expr);
-        TypeInfo* HandleExprSelf(NodeExpr* expr);
-        TypeInfo* HandleExprMember(NodeExpr* expr);
-        TypeInfo* HandleExprMethodCall(NodeExpr* expr);
-        TypeInfo* HandleExprCall(NodeExpr* expr);
-        TypeInfo* HandleExprParen(NodeExpr* expr);
-        TypeInfo* HandleExprCast(NodeExpr* expr);
-        TypeInfo* HandleExprUnaryOperator(NodeExpr* expr);
-        TypeInfo* HandleExprBinaryOperator(NodeExpr* expr);
+        TypeInfo* HandleExpr(Expr* expr);
 
-        TypeInfo* HandleNodeExpression(NodeExpr* expr);
+        void HandleTranslationUnitDecl(Decl* decl);
+        void HandleVarDecl(Decl* decl);
+        void HandleParamDecl(Decl* decl);
+        void HandleFunctionDecl(Decl* decl);
 
-        void HandleStmtCompound(NodeStmt* stmt);
-        void HandleStmtVarDecl(NodeStmt* stmt);
-        void HandleStmtParamDecl(NodeStmt* stmt);
-        void HandleStmtFunctionDecl(NodeStmt* stmt);
-        void HandleStmtStructDecl(NodeStmt* stmt);
-        void HandleStmtFieldDecl(NodeStmt* stmt);
-        void HandleStmtMethodDecl(NodeStmt* stmt);
-        void HandleStmtWhile(NodeStmt* stmt);
-        void HandleStmtDoWhile(NodeStmt* stmt);
-        void HandleStmtFor(NodeStmt* stmt);
-        void HandleStmtIf(NodeStmt* stmt);
-        void HandleStmtReturn(NodeStmt* stmt);
+        void HandleDecl(Decl* decl);
 
-        void HandleNodeStatement(NodeStmt* stmt);
+        void HandleCompoundStmt(Stmt* stmt);
+        void HandleWhileStmt(Stmt* stmt);
+        void HandleDoWhileStmt(Stmt* stmt);
+        void HandleForStmt(Stmt* stmt);
+        void HandleIfStmt(Stmt* stmt);
+        void HandleReturnStmt(Stmt* stmt);
 
-        void HandleNode(Node* node);
+        void HandleStmt(Stmt* stmt);
 
-        void PushScope(TypeInfo* returnType = nullptr);
+        void PushScope();
         void PopScope();
 
-        template <typename T>
-        T* Allocate() {
-            return m_Context->GetAllocator()->AllocateNamed<T>();
-        }
-
-        template <typename T, typename... Args>
-        T* Allocate(Args&&... args) {
-            return m_Context->GetAllocator()->AllocateNamed<T>(std::forward<Args>(args)...);
-        }
+        std::unordered_map<std::string, Declaration>& GetActiveDeclMap();
 
     private:
-        ASTNodes* m_Nodes = nullptr; // We modify these directly
-        size_t m_Index = 0;
+        Stmt* m_RootASTNode = nullptr;
 
-        std::unordered_map<std::string, Declaration> m_DeclaredSymbols;
-        std::unordered_map<std::string, StructDeclaration> m_DeclaredStructs;
-        
+        std::unordered_map<std::string, Declaration> m_GlobalDeclaredSymbols;
         std::vector<Scope> m_Scopes;
 
-        StructDeclaration* m_ActiveStruct = nullptr;
+        bool m_IsFunctionScope = false;
 
         TypeChecker m_TypeChecker;
-        Context* m_Context = nullptr;
+        CompilationContext* m_Context = nullptr;
     };
 
 } // namespace BlackLua::Internal

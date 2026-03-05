@@ -1,4 +1,4 @@
-#include "context.hpp"
+#include "black_lua/context.hpp"
 
 #include "catch2.hpp"
 
@@ -19,7 +19,7 @@ TEST_CASE("Runtime Basic Expressions") {
     BlackLua::Context ctx = BlackLua::Context::Create();
     ctx.CompileFile("tests/runtime/basic_expressions.bl", "Runtime Basic Expressions");
     ctx.AddExternalFunction("ShouldNeverBeCalled", [](BlackLua::Context* ctx) {
-        throw std::exception("function that shouldn't be called was called");
+        throw std::runtime_error("function that shouldn't be called was called");
     }, "Runtime Basic Expressions");
     ctx.Run("Runtime Basic Expressions");
     

@@ -32,7 +32,9 @@
 namespace BlackLua::Internal {
 
     Lexer::Lexer(CompilationContext* ctx) {
+        m_Context = ctx;
         m_Source = ctx->GetSourceCode();
+
         LexImpl();
     }
 
@@ -268,7 +270,7 @@ namespace BlackLua::Internal {
                         break;
                     }
 
-                    case '^^': {
+                    case '^': {
                         bool isEq = false;
 
                         if (Peek()) {
@@ -339,7 +341,7 @@ namespace BlackLua::Internal {
             }
         }
 
-        m_Context.SetTokens(m_Tokens);
+        m_Context->SetTokens(m_Tokens);
     }
 
     const char* Lexer::Peek() {

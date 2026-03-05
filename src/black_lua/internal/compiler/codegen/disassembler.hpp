@@ -1,6 +1,8 @@
 #pragma once
 
-#include "black_lua/internal/vm/vm.hpp"
+#include "black_lua/internal/vm/op_codes.hpp"
+
+#include <vector>
 
 namespace BlackLua::Internal {
 

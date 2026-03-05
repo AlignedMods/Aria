@@ -17,32 +17,62 @@ namespace BlackLua::Internal {
 
         struct Declaration {
             CompileStackSlot Slot;
-            size_t Size = 0;
             TypeInfo* Type = nullptr;
-            bool Extern = false;
-            bool Destruct = false;
+        };
 
-            StringView Identifier;
+        struct StackFrame {
+            size_t SlotCount = 0;
+            std::unordered_map<std::string, size_t> DeclaredSymbolMap;
+            std::vector<Declaration> DeclaredSymbols;
         };
 
     public:
-        Emitter(const ASTNodes* nodes, Context* ctx);
+        Emitter(CompilationContext* ctx);
 
-        const CompilerReflectionData& GetReflectionData() const;
-        const OpCodes& GetOpCodes() const;
-    
     private:
         void EmitImpl();
 
-        Node* Peek();
-        Node* Consume();
-    
+        CompileStackSlot EmitBooleanConstantExpr(Expr* expr);
+        CompileStackSlot EmitCharacterConstantExpr(Expr* expr);
+        CompileStackSlot EmitIntegerConstantExpr(Expr* expr);
+        CompileStackSlot EmitFloatingConstantExpr(Expr* expr);
+        CompileStackSlot EmitStringConstantExpr(Expr* expr);
+        CompileStackSlot EmitVarRefExpr(Expr* expr);
+        CompileStackSlot EmitCallExpr(Expr* expr);
+        CompileStackSlot EmitParenExpr(Expr* expr);
+        CompileStackSlot EmitCastExpr(Expr* expr);
+        CompileStackSlot EmitUnaryOperatorExpr(Expr* expr);
+        CompileStackSlot EmitBinaryOperatorExpr(Expr* expr);
+
+        CompileStackSlot EmitExpr(Expr* expr);
+
+        void EmitTranslationUnitDecl(Decl* decl);
+        void EmitVarDecl(Decl* decl);
+        void EmitParamDecl(Decl* decl);
+        void EmitFunctionDecl(Decl* decl);
+
+        void EmitDecl(Decl* decl);
+
+        void EmitCompoundStmt(Stmt* stmt);
+        void EmitWhileStmt(Stmt* stmt);
+        void EmitDoWhileStmt(Stmt* stmt);
+        void EmitForStmt(Stmt* stmt);
+        void EmitIfStmt(Stmt* stmt);
+        void EmitReturnStmt(Stmt* stmt);
+
+        void EmitStmt(Stmt* stmt);
+
+        void EmitFunctions(); // Emits all the defined functions
+
         StackSlotIndex CompileToRuntimeStackSlot(CompileStackSlot slot);
-    
+
         int32_t CreateLabel(const std::string& debugData = {});
         void PushBytes(size_t bytes, TypeInfo* type, const std::string& debugData = {});
+
+        bool IsStackFrameGlobal();
         void IncrementStackSlotCount();
         CompileStackSlot GetStackTop();
+
         void EmitDestructors(const std::vector<Declaration>& declarations);
 
         void PushStackFrame();
@@ -50,54 +80,18 @@ namespace BlackLua::Internal {
         void PopStackFrame();
         void PopCompilerStackFrame();
 
-        CompileStackSlot EmitNodeExpression(NodeExpr* expr);
-
-        void EmitNodeCompound(NodeStmt* stmt);
-    
-        void EmitNodeVarDecl(NodeStmt* stmt);
-        void EmitNodeParamDecl(NodeStmt* stmt);
-
-        void EmitNodeFunctionDecl(NodeStmt* stmt);
-
-        void EmitNodeStructDecl(NodeStmt* stmt);
-    
-        void EmitNodeWhile(NodeStmt* stmt);
-        void EmitNodeDoWhile(NodeStmt* stmt);
-    
-        void EmitNodeIf(NodeStmt* stmt);
-    
-        void EmitNodeReturn(NodeStmt* stmt);
-
-        void EmitNodeStatement(NodeStmt* stmt);
-
-        void EmitFunctions();
-    
-        void EmitNode(Node* node);
-    
     private:
-        OpCodes m_OpCodes;
-        size_t m_Index = 0;
-        const ASTNodes* m_Nodes = nullptr;
-    
-        size_t m_SlotCount = 0;
-        size_t m_LabelCount = 0;
-    
-        std::unordered_map<std::string, size_t> m_DeclaredSymbolMap;
-        std::vector<Declaration> m_DeclaredSymbols;
-
-        std::unordered_map<int32_t, NodeStmt*> m_FunctionsToDeclare; // We do not immediately declare functions, we actually do them last
-    
-        struct StackFrame {
-            StackFrame* Parent = nullptr;
-            size_t SlotCount = 0;
-            std::unordered_map<std::string, size_t> DeclaredSymbolMap;
-            std::vector<Declaration> DeclaredSymbols;
-        };
-    
-        StackFrame* m_CurrentStackFrame = nullptr;
-
+        std::vector<OpCode> m_OpCodes;
         CompilerReflectionData m_ReflectionData;
-        Context* m_Context = nullptr;
+
+        Stmt* m_RootASTNode = nullptr;
+
+        std::vector<StackFrame> m_StackFrames; // There is always one implicit top stack frame (global space)
+    
+        size_t m_LabelCount = 0;
+        std::unordered_map<int32_t, Decl*> m_FunctionsToDeclare; // We do not immediately declare functions, we actually do them last
+    
+        CompilationContext* m_Context = nullptr;
     };
 
 } // namespace BlackLua::Internal

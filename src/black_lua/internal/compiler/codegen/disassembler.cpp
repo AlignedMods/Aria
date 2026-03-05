@@ -78,9 +78,9 @@ namespace BlackLua::Internal {
             CASE_BINEXPR(mathop##F64, str, "f64")
 
         #define CASE_CAST(_enum, opStr, str) case OpCodeType::_enum: { \
-            StackSlotIndex i = std::get<StackSlotIndex>(op.Data); \
+            OpCodeCast c = std::get<OpCodeCast>(op.Data); \
             m_Output += fmt::format("{}cast {} {} ", m_Indentation, opStr, str); \
-            DisassembleStackSlotIndex(i); \
+            DisassembleStackSlotIndex(c.Slot); \
             m_Output += '\n'; \
             break; \
         }

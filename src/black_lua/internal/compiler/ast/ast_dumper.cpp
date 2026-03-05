@@ -15,11 +15,7 @@ namespace BlackLua::Internal {
     }
 
     void ASTDumper::DumpASTImpl() {
-        TranslationUnitDecl* tu = GetNode<TranslationUnitDecl>(m_RootASTNode);
-
-        for (Stmt* stmt : tu->GetStmts()) {
-            DumpStmt(stmt, 0);
-        }
+        DumpStmt(m_RootASTNode, 0);
     }
 
     void ASTDumper::DumpExpr(Expr* expr, size_t indentation) {
@@ -80,7 +76,14 @@ namespace BlackLua::Internal {
 
         if (decl == nullptr) return;
 
-        if (VarDecl* varDecl = GetNode<VarDecl>(decl)) {
+        if (TranslationUnitDecl* tuDecl = GetNode<TranslationUnitDecl>(decl)) {
+            m_Output += "TranslationUnitDecl\n";
+
+            for (Stmt* stmt : tuDecl->GetStmts()) {
+                DumpStmt(stmt, indentation + 4);
+            }
+            return;
+        } else if (VarDecl* varDecl = GetNode<VarDecl>(decl)) {
             m_Output += fmt::format("VarDecl '{}' '{}'\n", varDecl->GetRawIdentifier(), TypeInfoToString(varDecl->GetResolvedType()));
             if (varDecl->GetDefaultValue()) {
                 DumpExpr(varDecl->GetDefaultValue(), indentation + 4);
@@ -104,11 +107,19 @@ namespace BlackLua::Internal {
     }
 
     void ASTDumper::DumpStmt(Stmt* stmt, size_t indentation) {
+        if (stmt == nullptr) return;
+
+        if (Decl* decl = GetNode<Decl>(stmt)) {
+            DumpDecl(decl, indentation);
+            return;
+        } else if (Expr* expr = GetNode<Expr>(stmt)) {
+            DumpExpr(expr, indentation);
+            return;
+        }
+
         std::string ident;
         ident.append(indentation, ' ');
         m_Output += ident;
-
-        if (stmt == nullptr) return;
 
         if (CompoundStmt* compound = GetNode<CompoundStmt>(stmt)) {
             m_Output += fmt::format("CompoundStmt\n");
@@ -143,7 +154,7 @@ namespace BlackLua::Internal {
             m_Output += "ReturnStmt\n";
             DumpExpr(ret->GetValue(), indentation + 4);
             return;
-        }
+        } 
 
         BLUA_UNREACHABLE();
     }

@@ -1,4 +1,5 @@
 #include "black_lua/internal/compiler/parser/parser.hpp"
+#include "black_lua/internal/compiler/ast/ast.hpp"
 
 #include "fmt/format.h"
 
@@ -498,7 +499,7 @@ namespace BlackLua::Internal {
                     m_NeedsSemi = false;
                 }
 
-                return m_Context->Allocate<FunctionDecl>(m_Context, ident->Data, StringView(returnType.Data(), returnType.Size()), params, external, body);
+                return m_Context->Allocate<FunctionDecl>(m_Context, ident->Data, StringView(returnType.Data(), returnType.Size()), params, external, GetNode<CompoundStmt>(body));
             } else {
                 ErrorExpected("'('");
             }

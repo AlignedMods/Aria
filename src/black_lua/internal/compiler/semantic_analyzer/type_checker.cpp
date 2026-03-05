@@ -13,11 +13,7 @@ namespace BlackLua::Internal {
         // We always want to have at least one map for declarations (global space)
         m_Declarations.resize(1);
 
-        TranslationUnitDecl* tu = GetNode<TranslationUnitDecl>(m_RootASTNode);
-
-        for (Stmt* stmt : tu->GetStmts()) {
-            HandleStmt(stmt);
-        }
+        HandleStmt(m_RootASTNode);
     }
 
     TypeInfo* TypeChecker::HandleBooleanConstantExpr(Expr* expr) {
@@ -190,6 +186,14 @@ namespace BlackLua::Internal {
         BLUA_UNREACHABLE();
     }
 
+    void TypeChecker::HandleTranslationUnitDecl(Decl* decl) {
+        TranslationUnitDecl* tu = GetNode<TranslationUnitDecl>(decl);       
+
+        for (Stmt* stmt : tu->GetStmts()) {
+            HandleStmt(stmt);
+        }
+    }
+
     void TypeChecker::HandleVarDecl(Decl* decl) {
         VarDecl* varDecl = GetNode<VarDecl>(decl);
 
@@ -243,6 +247,24 @@ namespace BlackLua::Internal {
         }
 
         m_Declarations.pop_back();
+    }
+
+    void TypeChecker::HandleDecl(Decl* decl) {
+        if (GetNode<TranslationUnitDecl>(decl)) {
+            HandleTranslationUnitDecl(decl);
+            return;
+        } else if (GetNode<VarDecl>(decl)) {
+            HandleVarDecl(decl);
+            return;
+        } else if (GetNode<ParamDecl>(decl)) {
+            HandleParamDecl(decl);
+            return;
+        } else if (GetNode<FunctionDecl>(decl)) {
+            HandleFunctionDecl(decl);
+            return;
+        }
+
+        BLUA_UNREACHABLE();
     }
 
     void TypeChecker::HandleCompoundStmt(Stmt* stmt) {

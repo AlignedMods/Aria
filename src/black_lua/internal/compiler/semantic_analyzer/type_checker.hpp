@@ -52,6 +52,7 @@ namespace BlackLua::Internal {
 
         TypeInfo* HandleExpr(Expr* expr);
 
+        void HandleTranslationUnitDecl(Decl* decl);
         void HandleVarDecl(Decl* decl);
         void HandleParamDecl(Decl* decl);
         void HandleFunctionDecl(Decl* decl);
