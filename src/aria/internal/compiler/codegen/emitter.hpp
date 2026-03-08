@@ -19,10 +19,15 @@ namespace Aria::Internal {
             TypeInfo* Type = nullptr;
         };
 
-        struct StackFrame {
-            size_t SlotCount = 0;
+        struct Scope {
             std::unordered_map<std::string, size_t> DeclaredSymbolMap;
             std::vector<Declaration> DeclaredSymbols;
+        };
+
+        struct StackFrame {
+            size_t SlotCount = 0;
+            std::vector<Scope> Scopes;
+            std::string Name;
         };
 
     public:
@@ -39,6 +44,7 @@ namespace Aria::Internal {
         CompileMemRef EmitVarRefExpr(Expr* expr);
         CompileMemRef EmitCallExpr(Expr* expr);
         CompileMemRef EmitParenExpr(Expr* expr);
+        CompileMemRef EmitImplicitCastExpr(Expr* expr);
         CompileMemRef EmitCastExpr(Expr* expr);
         CompileMemRef EmitUnaryOperatorExpr(Expr* expr);
         CompileMemRef EmitBinaryOperatorExpr(Expr* expr);
@@ -47,7 +53,7 @@ namespace Aria::Internal {
 
         void EmitTranslationUnitDecl(Decl* decl);
         void EmitVarDecl(Decl* decl);
-        void EmitParamDecl(Decl* decl);
+        void EmitParamDecl(Decl* decl, const MemRef& mem);
         void EmitFunctionDecl(Decl* decl);
 
         void EmitDecl(Decl* decl);
@@ -65,14 +71,18 @@ namespace Aria::Internal {
 
         MemRef CompileToRuntimeMemRef(CompileMemRef mem);
 
-        bool IsStackFrameGlobal();
+        bool IsStartStackFrame();
+        bool IsGlobalScope();
         void IncrementStackSlotCount();
-        CompileMemRef GetStackTop();
+        CompileMemRef GetStackTop(size_t size, size_t offset = 0);
 
         void EmitDestructors(const std::vector<Declaration>& declarations);
 
-        void PushStackFrame();
+        void PushStackFrame(const std::string& name);
         void PopStackFrame();
+
+        void PushScope();
+        void PopScope();
 
     private:
         std::vector<OpCode> m_OpCodes;
@@ -80,8 +90,10 @@ namespace Aria::Internal {
 
         Stmt* m_RootASTNode = nullptr;
 
-        std::vector<StackFrame> m_StackFrames; // There is always one implicit top stack frame (global space)
-        std::unordered_map<int32_t, Decl*> m_FunctionsToDeclare; // We do not immediately declare functions, we actually do them last
+        StackFrame m_ActiveStackFrame;
+        Scope m_GlobalScope;
+
+        std::unordered_map<std::string, Decl*> m_FunctionsToDeclare; // We do not immediately declare functions, we actually do them last
     
         CompilationContext* m_Context = nullptr;
     };

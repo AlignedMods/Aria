@@ -268,13 +268,13 @@ namespace Aria::Internal {
 
         RunPrepass();
 
-        const std::string& signature = "_start$";
+        const std::string& signature = "_start$()";
 
-        ARIA_ASSERT(m_Functions.contains(signature), "Byte code does not contain _start$ function");
+        ARIA_ASSERT(m_Functions.contains(signature), "Byte code does not contain _start$() function");
         VMFunction& func = m_Functions.at(signature);
 
         // Perform a jump to the function
-        ARIA_ASSERT(func.Labels.contains("_entry$"), "_start$ function doesn't contain a \"_entry$\" label");
+        ARIA_ASSERT(func.Labels.contains("_entry$"), "_start$() function doesn't contain a \"_entry$\" label");
         m_ProgramCounter = func.Labels.at("_entry$");
         Run();
     }
@@ -457,7 +457,7 @@ namespace Aria::Internal {
 
                 case OpCodeType::SetGlobal: {
                     const OpCodeSetGlobal& g = std::get<OpCodeSetGlobal>(op.Data);
-                    m_GlobalMap[g.Name] = { m_StackSlots.back().Index, m_StackSlots.back().Size };
+                    m_GlobalMap[g.Name] = { m_StackSlots[m_StackSlotPointer - 1].Index, m_StackSlots[m_StackSlotPointer - 1].Size };
                     break;
                 };
 
@@ -499,8 +499,10 @@ namespace Aria::Internal {
                     const std::string& signature = std::get<std::string>(op.Data);
 
                     // Save the state in the current stack frame
-                    m_StackFrames.back().ReturnAddress = m_ProgramCounter;
+                    m_StackFrames.back().PreviousReturnAddress = m_ReturnAddress;
                     m_StackFrames.back().PreviousFunction = m_ActiveFunction;
+
+                    m_ReturnAddress = m_ProgramCounter + 1;
 
                     ARIA_ASSERT(m_Functions.contains(signature), "Calling unknown function");
                     VMFunction& func = m_Functions.at(signature);
@@ -522,12 +524,13 @@ namespace Aria::Internal {
                 case OpCodeType::Ret: {
                     ARIA_ASSERT(m_StackFrames.size() > 0, "Trying to return out of no stack frame!");
 
-                    if (m_StackFrames.back().ReturnAddress == SIZE_MAX) {
+                    if (m_ReturnAddress == SIZE_MAX) {
                         StopExecution();
                     } else {
-                        m_ProgramCounter = m_StackFrames.back().ReturnAddress;
+                        m_ProgramCounter = m_ReturnAddress;
                     }
 
+                    m_ReturnAddress = m_StackFrames.back().PreviousReturnAddress;
                     m_ActiveFunction = m_StackFrames.back().PreviousFunction;
                     break;
                 }
@@ -571,12 +574,19 @@ namespace Aria::Internal {
         #undef CASE_CAST
         #undef CASE_CAST_GROUP
     }
-
+    
     VMSlice VM::GetVMSlice(MemRef mem) {
         if (mem.ContainsStackSlot()) {
             auto s = mem.GetStackSlot();
             ARIA_ASSERT(s.Slot < m_StackSlotPointer, "Out of bounds stack slot index!");
-            StackSlot slot = m_StackSlots[m_StackSlotPointer + s.Slot];
+            StackSlot slot;
+
+            if (s.Slot >= 0) {
+                slot = m_StackSlots[s.Slot];
+            } else {
+                slot = m_StackSlots[m_StackSlotPointer + s.Slot];
+            }
+
             ARIA_ASSERT(s.Size <= slot.Size, "Stack slot index size is bigger than stack slot!");
             ARIA_ASSERT(slot.Index + s.Offset < m_StackPointer, "Out of bounds stack slot!");
             return VMSlice(&m_Stack[slot.Index + s.Offset], (s.Size != 0) ? s.Size : slot.Size);

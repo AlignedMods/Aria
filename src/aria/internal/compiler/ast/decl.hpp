@@ -36,9 +36,6 @@ namespace Aria::Internal {
         inline const Expr* GetDefaultValue() const { return m_DefaultValue; }
         inline void SetDefaultValue(Expr* expr) { m_DefaultValue = expr; }
 
-        inline bool IsGlobal() const { return m_IsGlobal; }
-        inline void SetGlobal(bool global) { m_IsGlobal = global; }
-
         inline TypeInfo* GetResolvedType() { return m_ResolvedType; }
         inline const TypeInfo* GetResolvedType() const { return m_ResolvedType; }
         inline void SetResolvedType(TypeInfo* type) { m_ResolvedType = type; }
@@ -46,7 +43,6 @@ namespace Aria::Internal {
     private:
         StringView m_Identifier;
         StringView m_ParsedType;
-        bool m_IsGlobal = false;
         Expr* m_DefaultValue = nullptr;
 
         TypeInfo* m_ResolvedType = nullptr;

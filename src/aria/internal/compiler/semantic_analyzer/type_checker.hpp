@@ -32,6 +32,12 @@ namespace Aria::Internal {
     // NOTE: The type checker serves as a prepass to the main semantic analysis
     // Its job is to resolve all type ambiguities and implicit casts
     class TypeChecker {
+    private:
+        struct Declaration {
+            TypeInfo* ResolvedType = nullptr;
+            Decl* SourceDeclaration = nullptr;
+        };
+
     public:
         TypeChecker(CompilationContext* ctx);
 
@@ -77,7 +83,7 @@ namespace Aria::Internal {
     private:
         Stmt* m_RootASTNode = nullptr;
 
-        std::vector<std::unordered_map<std::string, TypeInfo*>> m_Declarations;
+        std::vector<std::unordered_map<std::string, Declaration>> m_Declarations;
         TypeInfo* m_ActiveReturnType = nullptr;
 
         CompilationContext* m_Context = nullptr;

@@ -109,8 +109,8 @@ namespace Aria::Internal {
         struct StackFrame {
             size_t Offset = 0;
             size_t SlotOffset = 0;
-            size_t ReturnAddress = SIZE_MAX;
 
+            size_t PreviousReturnAddress = SIZE_MAX;
             VMFunction* PreviousFunction = nullptr;
         };
 
@@ -123,6 +123,8 @@ namespace Aria::Internal {
 
         std::unordered_map<std::string, VMFunction> m_Functions;
         std::unordered_map<std::string, ExternFn> m_ExternalFunctions;
+
+        size_t m_ReturnAddress = SIZE_MAX;
         VMFunction* m_ActiveFunction = nullptr;
 
         Context* m_Context = nullptr;

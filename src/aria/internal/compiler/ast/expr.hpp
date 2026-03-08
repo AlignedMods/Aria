@@ -11,6 +11,15 @@
 
 namespace Aria::Internal {
 
+#pragma region VarRefType
+
+    enum class VarRefType {
+        Local,
+        Global
+    };
+
+#pragma endregion
+
 #pragma region CastType
 
     enum class CastType {
@@ -230,6 +239,9 @@ namespace Aria::Internal {
         inline std::string GetIdentifier() const { return fmt::format("{}", m_Identifier); }
         inline StringView GetRawIdentifier() const { return m_Identifier; }
 
+        inline VarRefType GetType() const { return m_Type; }
+        inline void SetType(VarRefType type) { m_Type = type; }
+
         inline virtual TypeInfo* GetResolvedType() override { return m_ResolvedType; }
         inline virtual const TypeInfo* GetResolvedType() const override { return m_ResolvedType; }
         inline void SetResolvedType(TypeInfo* type) { m_ResolvedType = type; }
@@ -238,6 +250,8 @@ namespace Aria::Internal {
 
     private:
         StringView m_Identifier;
+
+        VarRefType m_Type = VarRefType::Local;
         TypeInfo* m_ResolvedType = nullptr;
     };
 
@@ -263,6 +277,7 @@ namespace Aria::Internal {
         inline StringView GetRawIdentifier() const { return m_Identifier; }
 
         inline TinyVector<Expr*> GetArguments() const { return m_Arguments; }
+        inline void SetArgument(size_t index, Expr* expr) { m_Arguments.Items[index] = expr; }
 
         inline bool IsExtern() const { return m_Extern; }
         inline void SetExtern(bool ext) { m_Extern = ext; }

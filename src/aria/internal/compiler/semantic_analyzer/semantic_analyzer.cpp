@@ -70,10 +70,6 @@ namespace Aria::Internal {
         d.Type = varDecl->GetResolvedType();
         d.SourceDecl = varDecl;
 
-        if (m_Scopes.size() == 0) {
-            varDecl->SetGlobal(true);
-        }
-
         map[varDecl->GetIdentifier()] = d;
     }
 
@@ -96,7 +92,7 @@ namespace Aria::Internal {
             PushScope();
 
             for (ParamDecl* p : fnDecl->GetParameters()) {
-                HandleParamDecl(decl);
+                HandleParamDecl(p);
             }
 
             HandleCompoundStmt(fnDecl->GetBody());
@@ -148,13 +144,13 @@ namespace Aria::Internal {
         ARIA_ASSERT(false, "todo");
     }
 
-    void SemanticAnalyzer::HandleReturnStmt(Stmt* stmt) {
-        ARIA_ASSERT(false, "todo");
-    }
+    void SemanticAnalyzer::HandleReturnStmt(Stmt* stmt) {}
 
     void SemanticAnalyzer::HandleStmt(Stmt* stmt) {
         if (GetNode<CompoundStmt>(stmt)) {
+            PushScope();
             HandleCompoundStmt(stmt);
+            PopScope();
             return;
         } else if (GetNode<WhileStmt>(stmt)) {
             HandleWhileStmt(stmt);

@@ -15,15 +15,16 @@ namespace Aria::Internal {
     }
 
     void Emitter::EmitImpl() {
-        m_OpCodes.emplace_back(OpCodeType::Function, "_start$");
+        m_OpCodes.emplace_back(OpCodeType::Function, "_start$()");
         m_OpCodes.emplace_back(OpCodeType::Label, "_entry$");
-        PushStackFrame();
+        PushStackFrame("_start$()");
 
         EmitStmt(m_RootASTNode);
 
+        m_ActiveStackFrame = {}; // We do not actually pop any stack frame, since the _start$() stack frame is essentially a global scope
         m_OpCodes.emplace_back(OpCodeType::Ret);
 
-        // EmitFunctions();
+        EmitFunctions();
 
         m_Context->SetOpCodes(m_OpCodes);
     }
@@ -32,14 +33,16 @@ namespace Aria::Internal {
         BooleanConstantExpr* bc = GetNode<BooleanConstantExpr>(expr);
 
         m_OpCodes.emplace_back(OpCodeType::LoadI8, OpCodeLoad(static_cast<i8>(bc->GetValue()), bc->GetResolvedType()));
-        return GetStackTop();
+        IncrementStackSlotCount();
+        return GetStackTop(1);
     }
 
     Emitter::CompileMemRef Emitter::EmitCharacterConstantExpr(Expr* expr) {
         CharacterConstantExpr* cc = GetNode<CharacterConstantExpr>(expr);
 
         m_OpCodes.emplace_back(OpCodeType::LoadI8, OpCodeLoad(cc->GetValue(), cc->GetResolvedType()));
-        return GetStackTop();
+        IncrementStackSlotCount();
+        return GetStackTop(1);
     }
 
     Emitter::CompileMemRef Emitter::EmitIntegerConstantExpr(Expr* expr) {
@@ -58,7 +61,8 @@ namespace Aria::Internal {
         };
 
         std::visit(visitor, ic->GetValue());
-        return GetStackTop();
+        IncrementStackSlotCount();
+        return GetStackTop(ic->GetResolvedType()->GetSize());
     }
 
     Emitter::CompileMemRef Emitter::EmitFloatingConstantExpr(Expr* expr) {
@@ -71,14 +75,126 @@ namespace Aria::Internal {
         };
 
         std::visit(visitor, fc->GetValue());
-        return GetStackTop();
+        IncrementStackSlotCount();
+        return GetStackTop(fc->GetResolvedType()->GetSize());
     }
 
     Emitter::CompileMemRef Emitter::EmitStringConstantExpr(Expr* expr) {
         StringConstantExpr* sc = GetNode<StringConstantExpr>(expr);
 
         m_OpCodes.emplace_back(OpCodeType::LoadStr, OpCodeLoad(sc->GetValue(), sc->GetResolvedType()));
-        return GetStackTop();
+        IncrementStackSlotCount();
+        return GetStackTop(sc->GetResolvedType()->GetSize());
+    }
+
+    Emitter::CompileMemRef Emitter::EmitVarRefExpr(Expr* expr) {
+        VarRefExpr* varRef = GetNode<VarRefExpr>(expr);
+
+        if (varRef->GetType() == VarRefType::Local) {
+            for (size_t i = m_ActiveStackFrame.Scopes.size(); i > 0; i--) {
+                Scope& s = m_ActiveStackFrame.Scopes[i - 1];
+                if (s.DeclaredSymbolMap.contains(varRef->GetIdentifier())) {
+                    Declaration& decl = s.DeclaredSymbols[s.DeclaredSymbolMap.at(varRef->GetIdentifier())];
+                    return CompileMemRef(decl.Mem);
+                }
+            }
+        } else if (varRef->GetType() == VarRefType::Global) {
+            return CompileMemRef(MemRef(varRef->GetIdentifier()));
+        }
+
+        ARIA_UNREACHABLE();
+    }
+
+    Emitter::CompileMemRef Emitter::EmitCallExpr(Expr* expr) {
+        CallExpr* call = GetNode<CallExpr>(expr);
+
+        std::vector<CompileMemRef> args;
+        for (Expr* arg : call->GetArguments()) {
+            args.push_back(EmitExpr(arg));
+        }
+
+        for (auto& mem : args) {
+            m_OpCodes.emplace_back(OpCodeType::Dup, CompileToRuntimeMemRef(mem));
+        }
+        
+        TypeInfo* retType = call->GetResolvedType();
+        if (retType->Type != PrimitiveType::Void) {
+            m_OpCodes.emplace_back(OpCodeType::Alloca, OpCodeAlloca(retType->GetSize(), retType));
+        }
+
+        m_OpCodes.emplace_back(OpCodeType::Call, fmt::format("{}()", call->GetRawIdentifier()));
+        return GetStackTop(retType->GetSize());
+    }
+
+    Emitter::CompileMemRef Emitter::EmitParenExpr(Expr* expr) {
+        ParenExpr* paren = GetNode<ParenExpr>(expr);
+        return EmitExpr(paren->GetChildExpr());
+    }
+
+    Emitter::CompileMemRef Emitter::EmitImplicitCastExpr(Expr* expr) {
+        ImplicitCastExpr* cast = GetNode<ImplicitCastExpr>(expr);
+        CompileMemRef child = EmitExpr(cast->GetChildExpr());
+
+        // The concept of an lvalue to rvalue cast is essentially to just load whatever value an lvalue holds
+        // Here this is done via a dup
+        if (cast->GetCastType() == CastType::LValueToRValue) {
+            m_OpCodes.emplace_back(OpCodeType::Dup, CompileToRuntimeMemRef(child));
+            IncrementStackSlotCount();
+            return GetStackTop(cast->GetResolvedType()->GetSize());
+        }
+
+        ARIA_ASSERT(false, "todo");
+    }
+
+    Emitter::CompileMemRef Emitter::EmitBinaryOperatorExpr(Expr* expr) {
+        BinaryOperatorExpr* binop = GetNode<BinaryOperatorExpr>(expr);
+       
+        #define BINOP(baseOp, type, _enum) \
+            if (binop->GetLHS()->GetResolvedType()->Type == PrimitiveType::_enum) { \
+                auto LHS = EmitExpr(binop->GetLHS()); \
+                auto RHS = EmitExpr(binop->GetRHS()); \
+                m_OpCodes.emplace_back(OpCodeType::baseOp##type, OpCodeMath(CompileToRuntimeMemRef(LHS), CompileToRuntimeMemRef(RHS))); \
+                IncrementStackSlotCount(); \
+                return GetStackTop(binop->GetResolvedType()->GetSize()); \
+            }
+            
+        #define BINOP_GROUP(binExpr, op) case BinaryOperatorType::binExpr: { \
+            if (binop->GetLHS()->GetResolvedType()->IsSigned()) { \
+                BINOP(op, I8, Bool) \
+                BINOP(op, I8, Char) \
+                BINOP(op, I16, Short) \
+                BINOP(op, I32, Int) \
+                BINOP(op, I64, Long) \
+            } else { \
+                BINOP(op, U8, Bool) \
+                BINOP(op, U8, Char) \
+                BINOP(op, U16, Short) \
+                BINOP(op, U32, Int) \
+                BINOP(op, U64, Long) \
+            } \
+            \
+            BINOP(op, F32, Float) \
+            BINOP(op, F64, Double) \
+            break; \
+        }
+
+        switch (binop->GetBinaryOperator()) {
+            BINOP_GROUP(Add, Add)
+            BINOP_GROUP(Sub, Sub)
+            BINOP_GROUP(Mul, Mul)
+            BINOP_GROUP(Div, Div)
+            BINOP_GROUP(Mod, Mod)
+
+            case BinaryOperatorType::Eq: {
+                auto LHS = EmitExpr(binop->GetLHS());
+                auto RHS = EmitExpr(binop->GetRHS());
+
+                m_OpCodes.emplace_back(OpCodeType::Copy, OpCodeCopy(CompileToRuntimeMemRef(LHS), CompileToRuntimeMemRef(RHS)));
+                return LHS;
+            }
+        }
+
+        ARIA_UNREACHABLE();
     }
 
     Emitter::CompileMemRef Emitter::EmitExpr(Expr* expr) {
@@ -92,6 +208,16 @@ namespace Aria::Internal {
             return EmitFloatingConstantExpr(expr);
         } else if (GetNode<StringConstantExpr>(expr)) {
             return EmitStringConstantExpr(expr);
+        } else if (GetNode<VarRefExpr>(expr)) {
+            return EmitVarRefExpr(expr);
+        } else if (GetNode<CallExpr>(expr)) {
+            return EmitCallExpr(expr);
+        } else if (GetNode<ParenExpr>(expr)) {
+            return EmitParenExpr(expr);
+        } else if (GetNode<ImplicitCastExpr>(expr)) {
+            return EmitImplicitCastExpr(expr);
+        } else if (GetNode<BinaryOperatorExpr>(expr)) {
+            return EmitBinaryOperatorExpr(expr);
         }
 
         ARIA_UNREACHABLE();
@@ -116,36 +242,39 @@ namespace Aria::Internal {
         }
 
         Declaration d;
-        d.Mem = GetStackTop();
+        d.Mem = GetStackTop(varDecl->GetResolvedType()->GetSize());
         d.Type = varDecl->GetResolvedType();
 
-        m_StackFrames.back().DeclaredSymbols.push_back(d);
-        m_StackFrames.back().DeclaredSymbolMap[varDecl->GetIdentifier()] = m_StackFrames.back().DeclaredSymbols.size() - 1;
-
-        if (varDecl->IsGlobal()) {
+        if (IsGlobalScope()) {
             m_OpCodes.emplace_back(OpCodeType::SetGlobal, OpCodeSetGlobal(varDecl->GetIdentifier()));
+
+            m_GlobalScope.DeclaredSymbols.push_back(d);
+            m_GlobalScope.DeclaredSymbolMap[varDecl->GetIdentifier()] = m_GlobalScope.DeclaredSymbols.size() - 1;
+        } else {
+            m_ActiveStackFrame.Scopes.back().DeclaredSymbols.push_back(d);
+            m_ActiveStackFrame.Scopes.back().DeclaredSymbolMap[varDecl->GetIdentifier()] = m_ActiveStackFrame.Scopes.back().DeclaredSymbols.size() - 1;
         }
     }
     
-    void Emitter::EmitParamDecl(Decl* decl) {
+    void Emitter::EmitParamDecl(Decl* decl, const MemRef& mem) {
         ParamDecl* paramDecl = GetNode<ParamDecl>(decl);
 
-        // PushBytes(paramDecl->GetResolvedType()->GetSize(), paramDecl->GetResolvedType());
-        // IncrementStackSlotCount();
+        m_OpCodes.emplace_back(OpCodeType::Dup, mem);
+        IncrementStackSlotCount();
+
+        Declaration d;
+        d.Mem = GetStackTop(paramDecl->GetResolvedType()->GetSize());
+        d.Type = paramDecl->GetResolvedType();
+        m_ActiveStackFrame.Scopes.back().DeclaredSymbols.push_back(d);
+        m_ActiveStackFrame.Scopes.back().DeclaredSymbolMap[paramDecl->GetIdentifier()] = m_ActiveStackFrame.Scopes.back().DeclaredSymbols.size() - 1;
     }
 
     void Emitter::EmitFunctionDecl(Decl* decl) {
-        ARIA_ASSERT(false, "todo: Emitter::EmitFunctionDecl()");
-        // FunctionDecl* fnDecl = GetNode<FunctionDecl>(decl);
+        FunctionDecl* fnDecl = GetNode<FunctionDecl>(decl);
 
-        // if (fnDecl->IsExtern()) { return; }
+        if (fnDecl->IsExtern()) { return; }
 
-        // Declaration d;
-        // d.Slot.Slot = m_LabelCount++;
-        // d.Type = fnDecl->GetResolvedType();
-
-        // m_StackFrames.back().DeclaredSymbols.push_back(d);
-        // m_StackFrames.back().DeclaredSymbolMap[fnDecl->GetIdentifier()] = m_StackFrames.back().DeclaredSymbols.size() - 1;
+        m_FunctionsToDeclare[fmt::format("{}()", fnDecl->GetRawIdentifier())] = decl;
     }
 
     void Emitter::EmitDecl(Decl* decl) {
@@ -154,9 +283,6 @@ namespace Aria::Internal {
             return;
         } else if (GetNode<VarDecl>(decl)) {
             EmitVarDecl(decl);
-            return;
-        } else if (GetNode<ParamDecl>(decl)) {
-            EmitParamDecl(decl);
             return;
         } else if (GetNode<FunctionDecl>(decl)) {
             EmitFunctionDecl(decl);
@@ -179,9 +305,24 @@ namespace Aria::Internal {
     void Emitter::EmitForStmt(Stmt* stmt) { ARIA_ASSERT(false, "todo: Emitter::EmitForStmt()"); }
     void Emitter::EmitIfStmt(Stmt* stmt) { ARIA_ASSERT(false, "todo: Emitter::EmitIfStmt()"); }
 
+    void Emitter::EmitReturnStmt(Stmt* stmt) {
+        ReturnStmt* ret = GetNode<ReturnStmt>(stmt);
+        if (ret->GetValue()) {
+            CompileMemRef val = EmitExpr(ret->GetValue());
+            MemRef retMem = MemRef(-(m_ActiveStackFrame.SlotCount + 1), ret->GetValue()->GetResolvedType()->GetSize());
+
+            m_OpCodes.emplace_back(OpCodeType::Copy, OpCodeCopy(retMem, CompileToRuntimeMemRef(val)));
+        }
+        
+        PopStackFrame();
+        m_OpCodes.emplace_back(OpCodeType::Ret);
+    }
+
     void Emitter::EmitStmt(Stmt* stmt) {
         if (GetNode<CompoundStmt>(stmt)) {
+            PushScope();
             EmitCompoundStmt(stmt);
+            PopScope();
             return;
         } else if (GetNode<WhileStmt>(stmt)) {
             EmitWhileStmt(stmt);
@@ -194,6 +335,9 @@ namespace Aria::Internal {
             return;
         } else if (GetNode<IfStmt>(stmt)) {
             EmitIfStmt(stmt);
+            return;
+        } else if (GetNode<ReturnStmt>(stmt)) {
+            EmitReturnStmt(stmt);
             return;
         } else if (Expr* expr = GetNode<Expr>(stmt)) {
             EmitExpr(expr);
@@ -209,8 +353,7 @@ namespace Aria::Internal {
     MemRef Emitter::CompileToRuntimeMemRef(CompileMemRef slot) {
         if (slot.Mem.ContainsStackSlot()) {
             auto s = slot.Mem.GetStackSlot();
-
-            return MemRef(s.Slot - static_cast<i32>(m_StackFrames.back().SlotCount - 1), s.Offset, s.Size);
+            return MemRef(s.Slot, s.Offset, s.Size);
         } else {
             return slot.Mem;
         }
@@ -218,14 +361,20 @@ namespace Aria::Internal {
         ARIA_UNREACHABLE();
     }
 
-    bool Emitter::IsStackFrameGlobal() { return m_StackFrames.size() == 1; }
-
-    void Emitter::IncrementStackSlotCount() {
-        m_StackFrames.back().SlotCount++;
+    bool Emitter::IsStartStackFrame() {
+        return m_ActiveStackFrame.Name == "_start$()";
     }
 
-    Emitter::CompileMemRef Emitter::GetStackTop() {
-        return CompileMemRef(MemRef(m_StackFrames.back().SlotCount, 0, 0));
+    bool Emitter::IsGlobalScope() {
+        return IsStartStackFrame() && m_ActiveStackFrame.Scopes.size() == 1;
+    }
+
+    void Emitter::IncrementStackSlotCount() {
+        m_ActiveStackFrame.SlotCount++;
+    }
+
+    Emitter::CompileMemRef Emitter::GetStackTop(size_t size, size_t offset) {
+        return CompileMemRef(MemRef(m_ActiveStackFrame.SlotCount - 1, size, offset));
     }
 
     void Emitter::EmitDestructors(const std::vector<Declaration>& declarations) {
@@ -241,48 +390,52 @@ namespace Aria::Internal {
         }
     }
 
-    void Emitter::PushStackFrame() {
+    void Emitter::PushStackFrame(const std::string& name) {
         m_OpCodes.emplace_back(OpCodeType::PushSF);
-
-        StackFrame sf;
-        sf.SlotCount = (m_StackFrames.size() > 0) ? m_StackFrames.back().SlotCount : 0;
-
-        m_StackFrames.push_back(sf);
+        m_ActiveStackFrame.Scopes.clear();
+        m_ActiveStackFrame.Scopes.emplace_back();
+        m_ActiveStackFrame.Name = name;
     }
 
     void Emitter::PopStackFrame() {
         m_OpCodes.emplace_back(OpCodeType::PopSF);
-        m_StackFrames.pop_back();
+        m_ActiveStackFrame.Scopes.clear();
+        m_ActiveStackFrame.Name.clear();
+    }
+
+    void Emitter::PushScope() {
+        m_ActiveStackFrame.Scopes.emplace_back();
+    }
+
+    void Emitter::PopScope() {
+        m_ActiveStackFrame.Scopes.pop_back();
     }
 
     void Emitter::EmitFunctions() {
-        ARIA_ASSERT(false, "todo: Emitter::EmitFunctions()");
-        // for (const auto&[label, stmt] : m_FunctionsToDeclare) {
-        //     if (FunctionDecl* decl = GetNode<FunctionDecl>(stmt)) {
-        //         if (decl->GetBody()) {
-        //             m_OpCodes.emplace_back(OpCodeType::Label, label);
+        for (const auto&[name, decl] : m_FunctionsToDeclare) {
+            if (FunctionDecl* fnDecl = GetNode<FunctionDecl>(decl)) {
+                if (fnDecl->GetBody()) {
+                    m_OpCodes.emplace_back(OpCodeType::Function, name);
+                    m_OpCodes.emplace_back(OpCodeType::Label, "_entry$");
 
-        //             PushCompilerStackFrame();
-        //             
-        //             size_t returnSlot = (decl->GetResolvedType()->Type == PrimitiveType::Void) ? 0 : 1;
-        //             
-        //             for (ParamDecl* p : decl->GetParameters()) {
-        //                 EmitParamDecl(p);
-        //                 int32_t argSlot = -static_cast<int32_t>(decl->GetParameters().Size + 1 + returnSlot); // The slot where the argument got passed from
-        //                 m_OpCodes.emplace_back(OpCodeType::Dup, argSlot);
-        //             }
-        //             
-        //             EmitCompoundStmt(decl->GetBody());
+                    PushStackFrame(name);
+                    
+                    size_t returnSlot = (fnDecl->GetResolvedType()->Type == PrimitiveType::Void) ? 0 : 1;
+                    
+                    for (ParamDecl* p : fnDecl->GetParameters()) {
+                        int32_t argSlot = -static_cast<int32_t>(fnDecl->GetParameters().Size + returnSlot); // The slot where the argument gets passed from
+                        EmitParamDecl(p, MemRef(argSlot, p->GetResolvedType()->GetSize()));
+                    }
+                    
+                    EmitCompoundStmt(fnDecl->GetBody());
 
-        //             if (m_OpCodes.back().Type != OpCodeType::Ret) {
-        //                 EmitDestructors(m_StackFrames.back().DeclaredSymbols);
-        //                 m_OpCodes.emplace_back(OpCodeType::Ret);
-        //             }
-        //             
-        //             PopCompilerStackFrame();
-        //         }
-        //     }
-        // }
+                    if (m_OpCodes.back().Type != OpCodeType::Ret) {
+                        PopStackFrame();
+                        m_OpCodes.emplace_back(OpCodeType::Ret);
+                    }
+                }
+            }
+        }
     }
 
 } // namespace Aria::Internal

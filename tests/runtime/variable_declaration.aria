@@ -2,3 +2,4 @@ bool f = false;
 bool t = true;
 int i = 99;
 int a;
+int b = i;

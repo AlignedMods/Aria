@@ -98,7 +98,7 @@ namespace Aria::Internal {
                 OpCodeAlloca a = std::get<OpCodeAlloca>(op.Data);
 
                 m_Output += m_Indentation;
-                m_Output += "push ";
+                m_Output += "alloca ";
                 m_Output += std::to_string(a.Size);
 
                 if (!op.DebugData.empty()) {
@@ -110,8 +110,14 @@ namespace Aria::Internal {
                 break;
             }
 
-            case OpCodeType::PushSF: m_Output += m_Indentation; m_Output += "pushsf\n"; break;
-            case OpCodeType::PopSF: m_Output += m_Indentation; m_Output += "popsf\n"; break;
+            case OpCodeType::PushSF: {
+                m_Output += fmt::format("{}pushsf\n", m_Indentation);
+                break;
+            }
+            case OpCodeType::PopSF: {
+                m_Output += fmt::format("{}popsf\n", m_Indentation);
+                break;
+            }
 
             case OpCodeType::Copy: {
                 OpCodeCopy c = std::get<OpCodeCopy>(op.Data);
@@ -150,7 +156,7 @@ namespace Aria::Internal {
 
             case OpCodeType::Function: {
                 const std::string& name = std::get<std::string>(op.Data);
-                m_Output += fmt::format("function {}:\n", name);
+                m_Output += fmt::format(".function {}:\n", name);
                 m_Indentation.clear();
                 m_Indentation.append(4, ' ');
                 break;

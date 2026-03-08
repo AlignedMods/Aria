@@ -110,6 +110,7 @@ namespace Aria::Internal {
 
         inline Expr* GetValue() { return m_Value; }
         inline const Expr* GetValue() const { return m_Value; }
+        inline void SetValue(Expr* expr) { m_Value = expr; }
     
     private:
         Expr* m_Value = nullptr;

@@ -662,13 +662,12 @@ namespace Aria::Internal {
     }
 
     Stmt* Parser::ParseReturn() {
-        ARIA_ASSERT(false, "todo: add return parsing");
-        // Token r = Consume(); // Consume "return"
+        Token r = Consume(); // Consume "return"
 
-        // StmtReturn* node = Allocate<StmtReturn>();
-        // node->Value = ParseExpression();
+        Expr* value = ParseExpression();
 
-        // return Allocate<NodeStmt>(node, SourceRange(r.Loc.Start, Peek(-1)->Loc.End), r.Loc.Start);
+        ReturnStmt* ret = m_Context->Allocate<ReturnStmt>(m_Context, value);
+        return ret;
     }
 
     Stmt* Parser::ParseStatement() {

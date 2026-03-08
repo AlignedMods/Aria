@@ -44,7 +44,7 @@ namespace Aria::Internal {
             }
             return;
         } else if (ParenExpr* paren = GetNode<ParenExpr>(expr)) {
-            m_Output += fmt::format("ParenExpr '{}", TypeInfoToString(paren->GetResolvedType()));
+            m_Output += fmt::format("ParenExpr '{}'\n", TypeInfoToString(paren->GetResolvedType()));
             DumpExpr(paren->GetChildExpr(), indentation + 4);
             return;
         } else if (CastExpr* cast = GetNode<CastExpr>(expr)) {

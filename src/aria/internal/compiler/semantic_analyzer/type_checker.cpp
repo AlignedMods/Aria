@@ -41,9 +41,16 @@ namespace Aria::Internal {
 
         std::string ident = ref->GetIdentifier();
         
-        for (auto it = m_Declarations.rbegin(); it != m_Declarations.rend(); it++) {
-            if (it->contains(ident)) {
-                ref->SetResolvedType(it->at(ident));
+        for (size_t i = m_Declarations.size(); i > 0; i--) {
+            auto& it = m_Declarations.at(i - 1);
+
+            if (it.contains(ident)) {
+                ref->SetResolvedType(it.at(ident).ResolvedType);
+                if (i - 1 == 0) {
+                    ref->SetType(VarRefType::Global);
+                } else {
+                    ref->SetType(VarRefType::Local);
+                }
                 return ref->GetResolvedType();
             }
         }
@@ -58,7 +65,34 @@ namespace Aria::Internal {
 
     TypeInfo* TypeChecker::HandleCallExpr(Expr* expr) {
         CallExpr* call = GetNode<CallExpr>(expr);
-        ARIA_ASSERT(false, "todo: TypeChecker::HandleCallExpr()");
+        
+        if (!m_Declarations.front().contains(call->GetIdentifier())) {
+            ARIA_ASSERT(false, "todo: error msg");
+        }
+        
+        Declaration d = m_Declarations.front().at(call->GetIdentifier());
+        FunctionDecl* fn = GetNode<FunctionDecl>(d.SourceDeclaration);
+
+        if (fn->GetParameters().Size != call->GetArguments().Size) {
+            ARIA_ASSERT(false, "todo: error msg");
+        }
+
+        for (size_t i = 0; i < fn->GetParameters().Size; i++) {
+            TypeInfo* paramType = fn->GetParameters().Items[i]->GetResolvedType();
+            TypeInfo* argType = HandleExpr(call->GetArguments().Items[i]);
+
+            ConversionCost cost = GetConversionCost(paramType, argType, call->GetArguments().Items[i]->IsLValue());
+            if (cost.CastNeeded) {
+                if (cost.ImplicitCastPossible) {
+                    call->SetArgument(i, InsertImplicitCast(paramType, argType, call->GetArguments().Items[i], cost.CastType));
+                } else {
+                    ARIA_ASSERT(false, "todo: error msg");
+                }
+            }
+        }
+
+        call->SetResolvedType(d.ResolvedType);
+        return d.ResolvedType;
     }
 
     TypeInfo* TypeChecker::HandleParenExpr(Expr* expr) {
@@ -94,28 +128,35 @@ namespace Aria::Internal {
                 ConversionCost costRHS = GetConversionCost(RHSType, LHSType, RHS->IsLValue());
 
                 if (costLHS.CastNeeded || costRHS.CastNeeded) {
+                    bool lhsCastNeeded = true;
+                    bool rhsCastNeeded = true;
+
                     if (costLHS.ConversionType == ConversionType::LValueToRValue) {
                         binop->SetLHS(InsertImplicitCast(LHSType, RHSType, LHS, costLHS.CastType));
                         RHSType = LHSType;
+                        lhsCastNeeded = false;
                     }
                     
                     if (costRHS.ConversionType == ConversionType::LValueToRValue) {
                         binop->SetRHS(InsertImplicitCast(RHSType, LHSType, RHS, costLHS.CastType));
                         LHSType = RHSType;
+                        rhsCastNeeded = false;
                     }
 
-                    if (costLHS.ConversionType == ConversionType::Promotion) {
-                        binop->SetLHS(InsertImplicitCast(LHSType, RHSType, LHS, costLHS.CastType));
-                        RHSType = LHSType;
-                    } else if (costRHS.ConversionType == ConversionType::Promotion) {
-                        binop->SetRHS(InsertImplicitCast(RHSType, LHSType, RHS, costLHS.CastType));
-                        LHSType = RHSType;
-                    } else {
-                        ARIA_ASSERT(false, "todo: add error for TypeChecker::HandleBinaryOperatorExpr()");
-                        // m_Context->ReportCompilerError(expr->Loc.Line, expr->Loc.Column, 
-                        //                                expr->Range.Start.Line, expr->Range.Start.Column,
-                        //                                expr->Range.End.Line, expr->Range.End.Column,
-                        //                                fmt::format("Mismatched types '{}' and '{}', no viable implicit cast", TypeInfoToString(LHSType), TypeInfoToString(RHSType)));
+                    if (lhsCastNeeded || rhsCastNeeded) {
+                        if (costLHS.ConversionType == ConversionType::Promotion) {
+                            binop->SetLHS(InsertImplicitCast(LHSType, RHSType, LHS, costLHS.CastType));
+                            RHSType = LHSType;
+                        } else if (costRHS.ConversionType == ConversionType::Promotion) {
+                            binop->SetRHS(InsertImplicitCast(RHSType, LHSType, RHS, costLHS.CastType));
+                            LHSType = RHSType;
+                        } else {
+                            ARIA_ASSERT(false, "todo: add error for TypeChecker::HandleBinaryOperatorExpr()");
+                            // m_Context->ReportCompilerError(expr->Loc.Line, expr->Loc.Column, 
+                            //                                expr->Range.Start.Line, expr->Range.Start.Column,
+                            //                                expr->Range.End.Line, expr->Range.End.Column,
+                            //                                fmt::format("Mismatched types '{}' and '{}', no viable implicit cast", TypeInfoToString(LHSType), TypeInfoToString(RHSType)));
+                        }
                     }
                 }
 
@@ -175,6 +216,8 @@ namespace Aria::Internal {
             return HandleVarRefExpr(expr);
         } else if (GetNode<CallExpr>(expr)) {
             return HandleCallExpr(expr);
+        } else if (GetNode<ParenExpr>(expr)) {
+            return HandleParenExpr(expr);
         } else if (GetNode<CastExpr>(expr)) {
             return HandleCastExpr(expr);
         } else if (GetNode<UnaryOperatorExpr>(expr)) {
@@ -214,7 +257,7 @@ namespace Aria::Internal {
         }
         
         std::string ident = varDecl->GetIdentifier();
-        m_Declarations.back()[ident] = varDecl->GetResolvedType();
+        m_Declarations.back()[ident] = { varDecl->GetResolvedType(), decl };
     }
 
     void TypeChecker::HandleParamDecl(Decl* decl) {
@@ -224,17 +267,18 @@ namespace Aria::Internal {
         paramDecl->SetResolvedType(resolvedType);
 
         std::string ident = paramDecl->GetIdentifier();
-        m_Declarations.back()[ident] = paramDecl->GetResolvedType();
+        m_Declarations.back()[ident] = { paramDecl->GetResolvedType(), decl };
     }
 
     void TypeChecker::HandleFunctionDecl(Decl* decl) {
         FunctionDecl* fnDecl = GetNode<FunctionDecl>(decl);
 
         TypeInfo* resolvedType = GetTypeInfoFromString(fnDecl->GetParsedType());
+        m_ActiveReturnType = resolvedType;
         fnDecl->SetResolvedType(resolvedType);
 
         std::string ident = fnDecl->GetIdentifier();
-        m_Declarations.front()[ident] = fnDecl->GetResolvedType();
+        m_Declarations.front()[ident] = { fnDecl->GetResolvedType(), decl };
         
         m_Declarations.emplace_back();
 
@@ -247,6 +291,8 @@ namespace Aria::Internal {
         }
 
         m_Declarations.pop_back();
+
+        m_ActiveReturnType = nullptr;
     }
 
     void TypeChecker::HandleDecl(Decl* decl) {
@@ -279,7 +325,26 @@ namespace Aria::Internal {
     void TypeChecker::HandleDoWhileStmt(Stmt* stmt) { ARIA_ASSERT(false, "todo"); }
     void TypeChecker::HandleForStmt(Stmt* stmt) { ARIA_ASSERT(false, "todo"); }
     void TypeChecker::HandleIfStmt(Stmt* stmt) { ARIA_ASSERT(false, "todo"); }
-    void TypeChecker::HandleReturnStmt(Stmt* stmt) { ARIA_ASSERT(false, "todo"); }
+
+    void TypeChecker::HandleReturnStmt(Stmt* stmt) {
+        ReturnStmt* ret = GetNode<ReturnStmt>(stmt);
+
+        if (m_ActiveReturnType == nullptr) {
+            ARIA_ASSERT(false, "todo: error msg");
+        }
+
+        Expr* value = ret->GetValue();
+        TypeInfo* valType = HandleExpr(value);
+
+        ConversionCost cost = GetConversionCost(m_ActiveReturnType, valType, value->IsLValue());
+        if (cost.CastNeeded) {
+            if (cost.ImplicitCastPossible) {
+                ret->SetValue(InsertImplicitCast(m_ActiveReturnType, valType, value, cost.CastType));
+            } else {
+                ARIA_ASSERT(false, "todo: error");
+            }
+        }
+    }
 
     void TypeChecker::HandleStmt(Stmt* stmt) {
         if (GetNode<CompoundStmt>(stmt)) {
@@ -374,6 +439,7 @@ namespace Aria::Internal {
             if (srcLValue) {
                 cost.CastNeeded = true;
                 cost.CastType = CastType::LValueToRValue;
+                cost.ConversionType = ConversionType::LValueToRValue;
             } else {
                 cost.CastNeeded = false;
             }
