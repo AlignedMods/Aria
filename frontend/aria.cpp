@@ -6,7 +6,8 @@ void PrintHelp(const char* appName) {
 }
 
 void AriaFN(Aria::Context* ctx) {
-    fmt::print("arg1: {}", ctx->GetInt(0));
+    fmt::print("arg1: {}\n", ctx->GetInt(0));
+    fmt::print("arg2: {}\n", ctx->GetInt(1));
     // ctx->StoreInt(-1, 4);
 }
 
@@ -22,7 +23,7 @@ int main(int argc, char** argv) {
     std::string fileName = argv[1];
     Aria::Context ctx;
     ctx.CompileFile(fileName, fileName);
-    ctx.AddExternalFunction("fn()", AriaFN, fileName);
+    ctx.AddExternalFunction("add()", AriaFN, fileName);
     fmt::print("{}", ctx.DumpAST(fileName));
     fmt::print("{}", ctx.Disassemble(fileName));
     ctx.Run(fileName);

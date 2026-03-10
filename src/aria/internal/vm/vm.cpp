@@ -124,7 +124,16 @@ namespace Aria::Internal {
 
         PushStackFrame();
         for (int32_t i = 0; i < argCount; i++) {
-            Dup(MemRef(-(i + 1 + retCount), 0, 0));
+            // The reason why this trick works is because when we dup an arg,
+            // The stack pointer gets incremented
+            // So for example:
+            // stack:
+            // 5, 6, 0
+            // dup -3:
+            // 5, 6, 0, 5
+            // dup -3:
+            // 5, 6, 0, 5, 6
+            Dup(MemRef(-(argCount + retCount), 0, 0));
         }
 
         // Do the call

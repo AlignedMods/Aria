@@ -84,7 +84,7 @@ namespace Aria::Internal {
             ConversionCost cost = GetConversionCost(paramType, argType, call->GetArguments().Items[i]->IsLValue());
             if (cost.CastNeeded) {
                 if (cost.ImplicitCastPossible) {
-                    call->SetArgument(i, InsertImplicitCast(paramType, argType, call->GetArguments().Items[i], cost.CastType));
+                    call->SetArgument(i, InsertImplicitCast(paramType, argType, call->GetArguments().Items[i], cost.CaType));
                 } else {
                     ARIA_ASSERT(false, "todo: error msg");
                 }
@@ -132,24 +132,24 @@ namespace Aria::Internal {
                     bool lhsCastNeeded = costLHS.CastNeeded;
                     bool rhsCastNeeded = costRHS.CastNeeded;
 
-                    if (costLHS.ConversionType == ConversionType::LValueToRValue) {
-                        binop->SetLHS(InsertImplicitCast(LHSType, RHSType, LHS, costLHS.CastType));
+                    if (costLHS.CoType == ConversionType::LValueToRValue) {
+                        binop->SetLHS(InsertImplicitCast(LHSType, RHSType, LHS, costLHS.CaType));
                         RHSType = LHSType;
                         lhsCastNeeded = false;
                     }
                     
-                    if (costRHS.ConversionType == ConversionType::LValueToRValue) {
-                        binop->SetRHS(InsertImplicitCast(RHSType, LHSType, RHS, costRHS.CastType));
+                    if (costRHS.CoType == ConversionType::LValueToRValue) {
+                        binop->SetRHS(InsertImplicitCast(RHSType, LHSType, RHS, costRHS.CaType));
                         LHSType = RHSType;
                         rhsCastNeeded = false;
                     }
 
                     if (lhsCastNeeded || rhsCastNeeded) {
-                        if (costLHS.ConversionType == ConversionType::Promotion) {
-                            binop->SetLHS(InsertImplicitCast(LHSType, RHSType, LHS, costLHS.CastType));
+                        if (costLHS.CoType == ConversionType::Promotion) {
+                            binop->SetLHS(InsertImplicitCast(LHSType, RHSType, LHS, costLHS.CaType));
                             RHSType = LHSType;
-                        } else if (costRHS.ConversionType == ConversionType::Promotion) {
-                            binop->SetRHS(InsertImplicitCast(RHSType, LHSType, RHS, costLHS.CastType));
+                        } else if (costRHS.CoType == ConversionType::Promotion) {
+                            binop->SetRHS(InsertImplicitCast(RHSType, LHSType, RHS, costLHS.CaType));
                             LHSType = RHSType;
                         } else {
                             ARIA_ASSERT(false, "todo: add error for TypeChecker::HandleBinaryOperatorExpr()");
@@ -183,7 +183,7 @@ namespace Aria::Internal {
 
                 if (cost.CastNeeded) {
                     if (cost.ImplicitCastPossible) {
-                        binop->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, cost.CastType));
+                        binop->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, cost.CaType));
                         RHSType = LHSType;
                     } else {
                         // m_Context->ReportCompilerError(binop->RHS->Loc.Line, binop->RHS->Loc.Column, 
@@ -250,7 +250,7 @@ namespace Aria::Internal {
             ConversionCost cost = GetConversionCost(resolvedType, valType, varDecl->GetDefaultValue()->IsLValue());
             if (cost.CastNeeded) {
                 if (cost.ImplicitCastPossible) {
-                    varDecl->SetDefaultValue(InsertImplicitCast(resolvedType, valType, varDecl->GetDefaultValue(), cost.CastType));
+                    varDecl->SetDefaultValue(InsertImplicitCast(resolvedType, valType, varDecl->GetDefaultValue(), cost.CaType));
                 } else {
                     ARIA_ASSERT(false, "todo: TypeChecker::HandleVarDecl() error");
                 }
@@ -340,7 +340,7 @@ namespace Aria::Internal {
         ConversionCost cost = GetConversionCost(m_ActiveReturnType, valType, value->IsLValue());
         if (cost.CastNeeded) {
             if (cost.ImplicitCastPossible) {
-                ret->SetValue(InsertImplicitCast(m_ActiveReturnType, valType, value, cost.CastType));
+                ret->SetValue(InsertImplicitCast(m_ActiveReturnType, valType, value, cost.CaType));
             } else {
                 ARIA_ASSERT(false, "todo: error");
             }
@@ -439,8 +439,8 @@ namespace Aria::Internal {
         if (TypeInfo::IsEqual(src, dst)) {
             if (srcLValue) {
                 cost.CastNeeded = true;
-                cost.CastType = CastType::LValueToRValue;
-                cost.ConversionType = ConversionType::LValueToRValue;
+                cost.CaType = CastType::LValueToRValue;
+                cost.CoType = ConversionType::LValueToRValue;
             } else {
                 cost.CastNeeded = false;
             }
@@ -451,23 +451,23 @@ namespace Aria::Internal {
         if (src->IsIntegral()) {
             if (dst->IsIntegral()) { // Int to int
                 if (src->GetSize() > dst->GetSize()) {
-                    cost.ConversionType = ConversionType::Narrowing;
-                    cost.CastType = CastType::Integral;
+                    cost.CoType = ConversionType::Narrowing;
+                    cost.CaType = CastType::Integral;
                 } else if (src->GetSize() < dst->GetSize()) {
-                    cost.ConversionType = ConversionType::Promotion;
-                    cost.CastType = CastType::Integral;
+                    cost.CoType = ConversionType::Promotion;
+                    cost.CaType = CastType::Integral;
                 } else {
                     if (src->IsSigned() == dst->IsSigned()) {
-                        cost.ConversionType = ConversionType::None;
+                        cost.CoType = ConversionType::None;
                         cost.CastNeeded = false;
                     } else {
-                        cost.ConversionType = ConversionType::SignChange;
+                        cost.CoType = ConversionType::SignChange;
                         cost.CastNeeded = true;
                     }
                 }
             } else if (dst->IsFloatingPoint()) { // Int to float
-                cost.ConversionType = ConversionType::Promotion;
-                cost.CastType = CastType::IntegralToFloating;
+                cost.CoType = ConversionType::Promotion;
+                cost.CaType = CastType::IntegralToFloating;
             } else {
                 cost.ExplicitCastPossible = false;
             }
@@ -476,19 +476,19 @@ namespace Aria::Internal {
         if (src->IsFloatingPoint()) {
             if (dst->IsFloatingPoint()) { // Float to float
                 if (src->GetSize() > dst->GetSize()) {
-                    cost.ConversionType = ConversionType::Narrowing;
-                    cost.CastType = CastType::Floating;
+                    cost.CoType = ConversionType::Narrowing;
+                    cost.CaType = CastType::Floating;
                 } else if (src->GetSize() < dst->GetSize()) {
-                    cost.ConversionType = ConversionType::Promotion;
-                    cost.CastType = CastType::Floating;
+                    cost.CoType = ConversionType::Promotion;
+                    cost.CaType = CastType::Floating;
                 } else {
-                    cost.ConversionType = ConversionType::None;
+                    cost.CoType = ConversionType::None;
                     cost.CastNeeded = false;
                 }
             } else if (dst->IsIntegral()) { // Float to int
                 cost.ImplicitCastPossible = false;
-                cost.ConversionType = ConversionType::Narrowing;
-                cost.CastType = CastType::FloatingToIntegral;
+                cost.CoType = ConversionType::Narrowing;
+                cost.CaType = CastType::FloatingToIntegral;
             } else {
                 cost.ExplicitCastPossible = false;
             }
