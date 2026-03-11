@@ -20,7 +20,7 @@ namespace Aria::Internal {
     TypeInfo* SemanticAnalyzer::HandleIntegerConstantExpr(Expr* expr) { return expr->GetResolvedType(); }
     TypeInfo* SemanticAnalyzer::HandleFloatingConstantExpr(Expr* expr) { return expr->GetResolvedType(); }
     TypeInfo* SemanticAnalyzer::HandleStringConstantExpr(Expr* expr) { return expr->GetResolvedType(); }
-    TypeInfo* SemanticAnalyzer::HandleVarRefExpr(Expr* expr) { return expr->GetResolvedType(); }
+    TypeInfo* SemanticAnalyzer::HandleDeclRefExpr(Expr* expr) { return expr->GetResolvedType(); }
     TypeInfo* SemanticAnalyzer::HandleCallExpr(Expr* expr) { return expr->GetResolvedType(); }
     TypeInfo* SemanticAnalyzer::HandleParenExpr(Expr* expr) { return expr->GetResolvedType(); }
     TypeInfo* SemanticAnalyzer::HandleCastExpr(Expr* expr) { return expr->GetResolvedType(); }
@@ -38,8 +38,8 @@ namespace Aria::Internal {
             return HandleFloatingConstantExpr(expr);
         } else if (GetNode<StringConstantExpr>(expr)) {
             return HandleStringConstantExpr(expr);
-        } else if (GetNode<VarRefExpr>(expr)) {
-            return HandleVarRefExpr(expr);
+        } else if (GetNode<DeclRefExpr>(expr)) {
+            return HandleDeclRefExpr(expr);
         } else if (GetNode<CallExpr>(expr)) {
             return HandleCallExpr(expr);
         } else if (GetNode<CastExpr>(expr)) {

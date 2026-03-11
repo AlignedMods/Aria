@@ -31,35 +31,55 @@ namespace Aria::Internal {
         name##U32, \
         name##U64,
 
+    struct StackSlotRef {
+        StackSlotRef() = default;
+        explicit StackSlotRef(i32 slot, size_t size, size_t offset = 0)
+            : Slot(slot), Size(size), Offset(offset) {}
+
+        i32 Slot = 0;
+        size_t Size = 0;
+        size_t Offset = 0;
+    };
+
+    struct GlobalVarRef {
+        GlobalVarRef() = default;
+        explicit GlobalVarRef(const std::string& name)
+            : Name(name) {}
+
+        std::string Name;
+    };
+
+    struct FunctionRef {
+        FunctionRef() = default;
+        explicit FunctionRef(const std::string& signature)
+            : Signature(signature) {}
+
+        std::string Signature;
+    };
+
     // A struct used to reference some memory at runtime
     // This memory could be a stack slot, global variable or pointer
     struct MemRef {
-    private:
-        struct StackSlotRef {
-            i32 Slot = 0;
-            size_t Size = 0;
-            size_t Offset = 0;
-        };
+        using MemRefStorage = std::variant<StackSlotRef, GlobalVarRef, FunctionRef>;
 
-    public:
         MemRef() {}
-        explicit MemRef(i32 stackSlot, size_t size, size_t offset = 0) : m_Data(StackSlotRef(stackSlot, size, offset)) {}
-        explicit MemRef(const std::string& global) : m_Data(global) {}
-        explicit MemRef(void* ptr) : m_Data(ptr) {}
+        MemRef(const MemRefStorage& data)
+            : m_Data(data) {}
 
         bool ContainsStackSlot() const { return std::get_if<StackSlotRef>(&m_Data) != nullptr; }
-        StackSlotRef GetStackSlot() const { return std::get<StackSlotRef>(m_Data); }
+        StackSlotRef& GetStackSlot() { return std::get<StackSlotRef>(m_Data); }
+        const StackSlotRef& GetStackSlot() const { return std::get<StackSlotRef>(m_Data); }
 
-        bool ContainsGlobal() const { return std::get_if<std::string>(&m_Data) != nullptr; }
-        std::string& GetGlobal() { return std::get<std::string>(m_Data); }
-        const std::string& GetGlobal() const { return std::get<std::string>(m_Data); }
+        bool ContainsGlobalVar() const { return std::get_if<GlobalVarRef>(&m_Data) != nullptr; }
+        GlobalVarRef& GetGlobalVar() { return std::get<GlobalVarRef>(m_Data); }
+        const GlobalVarRef& GetGlobalVar() const { return std::get<GlobalVarRef>(m_Data); }
 
-        bool ContainsPointer() const { return std::get_if<void*>(&m_Data) != nullptr; }
-        void* GetPointer() { return std::get<void*>(m_Data); }
-        const void* GetPointer() const { return std::get<void*>(m_Data); }
+        bool ContainsFunction() const { return std::get_if<FunctionRef>(&m_Data) != nullptr; }
+        FunctionRef& GetFunction() { return std::get<FunctionRef>(m_Data); }
+        const FunctionRef& GetFunction() const { return std::get<FunctionRef>(m_Data); }
 
     private:
-        std::variant<StackSlotRef, std::string, void*> m_Data;
+        MemRefStorage m_Data;
     };
 
     enum class OpCodeType {
@@ -254,7 +274,7 @@ namespace Aria::Internal {
     };
 
     struct OpCodeCall {
-        std::string Name;
+        MemRef Function;
         size_t ArgCount = 0;
         size_t RetCount = 0;
     };

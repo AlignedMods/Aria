@@ -11,6 +11,14 @@ namespace Aria::Internal {
     class Emitter {
     private:
         struct CompileMemRef {
+            CompileMemRef() = default;
+
+            CompileMemRef(const MemRef::MemRefStorage& mem)
+                : Mem(mem) {}
+
+            CompileMemRef(const MemRef& mem)
+                : Mem(mem) {}
+
             MemRef Mem;
         };
 
@@ -41,7 +49,7 @@ namespace Aria::Internal {
         CompileMemRef EmitIntegerConstantExpr(Expr* expr);
         CompileMemRef EmitFloatingConstantExpr(Expr* expr);
         CompileMemRef EmitStringConstantExpr(Expr* expr);
-        CompileMemRef EmitVarRefExpr(Expr* expr);
+        CompileMemRef EmitDeclRefExpr(Expr* expr);
         CompileMemRef EmitCallExpr(Expr* expr);
         CompileMemRef EmitParenExpr(Expr* expr);
         CompileMemRef EmitImplicitCastExpr(Expr* expr);

@@ -35,13 +35,14 @@ namespace Aria::Internal {
             m_Output += fmt::format("FloatingConstantExpr {} '{}' {}\n", fc->GetValue(), TypeInfoToString(fc->GetResolvedType()), ExprValueTypeToString(fc->GetValueType())); return;
         } else if (StringConstantExpr* sc = GetNode<StringConstantExpr>(expr)) {
             m_Output += fmt::format("StringConstantExpr \"{}\" '{}' {}\n", sc->GetValue(), TypeInfoToString(sc->GetResolvedType()), ExprValueTypeToString(sc->GetValueType())); return;
-        } else if (VarRefExpr* varRef = GetNode<VarRefExpr>(expr)) {
-            m_Output += fmt::format("VarRefExpr '{}' '{}' {}\n", varRef->GetRawIdentifier(), TypeInfoToString(varRef->GetResolvedType()), ExprValueTypeToString(varRef->GetValueType())); return;
+        } else if (DeclRefExpr* declRef = GetNode<DeclRefExpr>(expr)) {
+            m_Output += fmt::format("DeclRefExpr '{}' '{}' {}\n", declRef->GetRawIdentifier(), TypeInfoToString(declRef->GetResolvedType()), ExprValueTypeToString(declRef->GetValueType())); return;
         } else if (CallExpr* call = GetNode<CallExpr>(expr)) {
-            m_Output += fmt::format("CallExpr '{}'{}, '{}' {}\n", call->GetRawIdentifier(), call->IsExtern() ? " extern" : "", TypeInfoToString(call->GetResolvedType()), ExprValueTypeToString(call->GetValueType()));
+            m_Output += fmt::format("CallExpr '{}' {}\n", TypeInfoToString(call->GetResolvedType()), ExprValueTypeToString(call->GetValueType()));
             for (Expr* e : call->GetArguments()) {
                 DumpExpr(e, indentation + 4);
             }
+            DumpExpr(call->GetCallee(), indentation + 4);
             return;
         } else if (ParenExpr* paren = GetNode<ParenExpr>(expr)) {
             m_Output += fmt::format("ParenExpr '{}' {}\n", TypeInfoToString(paren->GetResolvedType()), ExprValueTypeToString(paren->GetValueType()));

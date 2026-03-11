@@ -87,19 +87,21 @@ namespace Aria::Internal {
         return GetStackTop(sc->GetResolvedType()->GetSize());
     }
 
-    Emitter::CompileMemRef Emitter::EmitVarRefExpr(Expr* expr) {
-        VarRefExpr* varRef = GetNode<VarRefExpr>(expr);
+    Emitter::CompileMemRef Emitter::EmitDeclRefExpr(Expr* expr) {
+        DeclRefExpr* declRef = GetNode<DeclRefExpr>(expr);
 
-        if (varRef->GetType() == VarRefType::Local) {
+        if (declRef->GetType() == DeclRefType::LocalVar) {
             for (size_t i = m_ActiveStackFrame.Scopes.size(); i > 0; i--) {
                 Scope& s = m_ActiveStackFrame.Scopes[i - 1];
-                if (s.DeclaredSymbolMap.contains(varRef->GetIdentifier())) {
-                    Declaration& decl = s.DeclaredSymbols[s.DeclaredSymbolMap.at(varRef->GetIdentifier())];
+                if (s.DeclaredSymbolMap.contains(declRef->GetIdentifier())) {
+                    Declaration& decl = s.DeclaredSymbols[s.DeclaredSymbolMap.at(declRef->GetIdentifier())];
                     return CompileMemRef(decl.Mem);
                 }
             }
-        } else if (varRef->GetType() == VarRefType::Global) {
-            return CompileMemRef(MemRef(varRef->GetIdentifier()));
+        } else if (declRef->GetType() == DeclRefType::GlobalVar) {
+            return CompileMemRef(GlobalVarRef(declRef->GetIdentifier()));
+        } else if (declRef->GetType() == DeclRefType::Function) {
+            return CompileMemRef(FunctionRef(fmt::format("{}()", declRef->GetRawIdentifier())));
         }
 
         ARIA_UNREACHABLE();
@@ -126,10 +128,12 @@ namespace Aria::Internal {
             retCount = 1;
         }
 
+        CompileMemRef callee = EmitExpr(call->GetCallee());
+
         if (call->IsExtern()) {
-            m_OpCodes.emplace_back(OpCodeType::CallExtern, OpCodeCall(fmt::format("{}()", call->GetRawIdentifier()), args.size(), retCount));
+            m_OpCodes.emplace_back(OpCodeType::CallExtern, OpCodeCall(CompileToRuntimeMemRef(callee), args.size(), retCount));
         } else {
-            m_OpCodes.emplace_back(OpCodeType::Call, fmt::format("{}()", call->GetRawIdentifier()));
+            m_OpCodes.emplace_back(OpCodeType::Call, OpCodeCall(CompileToRuntimeMemRef(callee), args.size(), retCount));
         }
         return GetStackTop(retType->GetSize());
     }
@@ -216,8 +220,8 @@ namespace Aria::Internal {
             return EmitFloatingConstantExpr(expr);
         } else if (GetNode<StringConstantExpr>(expr)) {
             return EmitStringConstantExpr(expr);
-        } else if (GetNode<VarRefExpr>(expr)) {
-            return EmitVarRefExpr(expr);
+        } else if (GetNode<DeclRefExpr>(expr)) {
+            return EmitDeclRefExpr(expr);
         } else if (GetNode<CallExpr>(expr)) {
             return EmitCallExpr(expr);
         } else if (GetNode<ParenExpr>(expr)) {
@@ -317,7 +321,7 @@ namespace Aria::Internal {
         ReturnStmt* ret = GetNode<ReturnStmt>(stmt);
         if (ret->GetValue()) {
             CompileMemRef val = EmitExpr(ret->GetValue());
-            MemRef retMem = MemRef(-(m_ActiveStackFrame.SlotCount + 1), ret->GetValue()->GetResolvedType()->GetSize());
+            MemRef retMem = { StackSlotRef(-(m_ActiveStackFrame.SlotCount + 1), ret->GetValue()->GetResolvedType()->GetSize()) };
 
             m_OpCodes.emplace_back(OpCodeType::Copy, OpCodeCopy(retMem, CompileToRuntimeMemRef(val)));
         }
@@ -375,7 +379,7 @@ namespace Aria::Internal {
     }
 
     Emitter::CompileMemRef Emitter::GetStackTop(size_t size, size_t offset) {
-        return CompileMemRef(MemRef(m_ActiveStackFrame.SlotCount - 1, size, offset));
+        return CompileMemRef(StackSlotRef(m_ActiveStackFrame.SlotCount - 1, size, offset));
     }
 
     void Emitter::EmitDestructors(const std::vector<Declaration>& declarations) {
@@ -425,7 +429,7 @@ namespace Aria::Internal {
                     
                     for (ParamDecl* p : fnDecl->GetParameters()) {
                         int32_t argSlot = -static_cast<int32_t>(fnDecl->GetParameters().Size + returnSlot); // The slot where the argument gets passed from
-                        EmitParamDecl(p, MemRef(argSlot, p->GetResolvedType()->GetSize()));
+                        EmitParamDecl(p, { StackSlotRef(argSlot, p->GetResolvedType()->GetSize()) });
                     }
                     
                     EmitCompoundStmt(fnDecl->GetBody());

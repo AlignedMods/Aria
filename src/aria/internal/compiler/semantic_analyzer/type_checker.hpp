@@ -36,6 +36,7 @@ namespace Aria::Internal {
         struct Declaration {
             TypeInfo* ResolvedType = nullptr;
             Decl* SourceDeclaration = nullptr;
+            DeclRefType DeclType = DeclRefType::LocalVar;
         };
 
     public:
@@ -49,7 +50,7 @@ namespace Aria::Internal {
         TypeInfo* HandleIntegerConstantExpr(Expr* expr);
         TypeInfo* HandleFloatingConstantExpr(Expr* expr);
         TypeInfo* HandleStringConstantExpr(Expr* expr);
-        TypeInfo* HandleVarRefExpr(Expr* expr);
+        TypeInfo* HandleDeclRefExpr(Expr* expr);
         TypeInfo* HandleCallExpr(Expr* expr);
         TypeInfo* HandleParenExpr(Expr* expr);
         TypeInfo* HandleCastExpr(Expr* expr);

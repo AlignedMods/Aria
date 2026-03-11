@@ -11,12 +11,21 @@
 
 namespace Aria::Internal {
 
-#pragma region VarRefType
+#pragma region DeclRefType
 
-    enum class VarRefType {
-        Local,
-        Global
+    enum class DeclRefType {
+        LocalVar,
+        GlobalVar,
+        Function
     };
+
+    inline const char* DeclRefTypeToString(DeclRefType type) {
+        switch (type) {
+        case DeclRefType::LocalVar:    return "LocalVar";
+        case DeclRefType::GlobalVar:   return "GlobalVar";
+        case DeclRefType::Function: return "Function";
+        }
+    }
 
 #pragma endregion
 
@@ -243,15 +252,15 @@ namespace Aria::Internal {
         StringView m_Value;
     };
 
-    struct VarRefExpr final : public Expr {
-        VarRefExpr(CompilationContext* ctx, StringView identifier)
+    struct DeclRefExpr final : public Expr {
+        DeclRefExpr(CompilationContext* ctx, StringView identifier)
             : Expr(ctx), m_Identifier(identifier) {}
 
         inline std::string GetIdentifier() const { return fmt::format("{}", m_Identifier); }
         inline StringView GetRawIdentifier() const { return m_Identifier; }
 
-        inline VarRefType GetType() const { return m_Type; }
-        inline void SetType(VarRefType type) { m_Type = type; }
+        inline DeclRefType GetType() const { return m_Type; }
+        inline void SetType(DeclRefType type) { m_Type = type; }
 
         inline virtual TypeInfo* GetResolvedType() override { return m_ResolvedType; }
         inline virtual const TypeInfo* GetResolvedType() const override { return m_ResolvedType; }
@@ -262,7 +271,7 @@ namespace Aria::Internal {
     private:
         StringView m_Identifier;
 
-        VarRefType m_Type = VarRefType::Local;
+        DeclRefType m_Type = DeclRefType::LocalVar;
         TypeInfo* m_ResolvedType = nullptr;
     };
 
@@ -281,11 +290,11 @@ namespace Aria::Internal {
     };
 
     struct CallExpr final : public Expr {
-        CallExpr(CompilationContext* ctx, StringView identifier, TinyVector<Expr*> args)
-            : Expr(ctx), m_Identifier(identifier), m_Arguments(args) {}
+        CallExpr(CompilationContext* ctx, DeclRefExpr* callee, TinyVector<Expr*> args)
+            : Expr(ctx), m_Callee(callee), m_Arguments(args) {}
 
-        inline std::string GetIdentifier() const { return fmt::format("{}", m_Identifier); }
-        inline StringView GetRawIdentifier() const { return m_Identifier; }
+        inline DeclRefExpr* GetCallee() { return m_Callee; }
+        inline const DeclRefExpr* GetCallee() const { return m_Callee; }
 
         inline TinyVector<Expr*> GetArguments() const { return m_Arguments; }
         inline void SetArgument(size_t index, Expr* expr) { m_Arguments.Items[index] = expr; }
@@ -300,7 +309,7 @@ namespace Aria::Internal {
         inline virtual ExprValueType GetValueType() const override { return ExprValueType::RValue; }
 
     private:
-        StringView m_Identifier;
+        DeclRefExpr* m_Callee;
         TinyVector<Expr*> m_Arguments;
         bool m_Extern = false;
 

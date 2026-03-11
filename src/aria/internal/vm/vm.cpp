@@ -76,7 +76,7 @@ namespace Aria::Internal {
         VMSlice src = GetVMSlice(mem);
 
         Alloca(src.Size, src.ResolvedType);
-        VMSlice dst = GetVMSlice(MemRef(-1, src.Size));
+        VMSlice dst = GetVMSlice({ StackSlotRef(-1, src.Size) });
         
         memcpy(dst.Memory, src.Memory, src.Size);
     }
@@ -133,7 +133,7 @@ namespace Aria::Internal {
             // 5, 6, 0, 5
             // dup -3:
             // 5, 6, 0, 5, 6
-            Dup(MemRef(-(argCount + retCount), 0, 0));
+            Dup({ StackSlotRef(-(argCount + retCount), 0, 0) });
         }
 
         // Do the call
@@ -307,7 +307,7 @@ namespace Aria::Internal {
         #define CASE_LOAD(_enum, builtInType) case OpCodeType::_enum: { \
             OpCodeLoad l = std::get<OpCodeLoad>(op.Data); \
             Alloca(sizeof(builtInType), l.ResolvedType); \
-            memcpy(GetVMSlice(MemRef(-1, sizeof(builtInType))).Memory, &std::get<builtInType>(l.Data), sizeof(builtInType)); \
+            memcpy(GetVMSlice({ StackSlotRef(-1, sizeof(builtInType)) }).Memory, &std::get<builtInType>(l.Data), sizeof(builtInType)); \
             break; \
         }
 
@@ -318,7 +318,7 @@ namespace Aria::Internal {
             memcpy(&value, s.Memory, sizeof(builtinType)); \
             builtinType result = builtinOp(value); \
             Alloca(sizeof(builtinType), s.ResolvedType); \
-            VMSlice newSlot = GetVMSlice(MemRef(-1, s.Size)); \
+            VMSlice newSlot = GetVMSlice({ StackSlotRef(-1, s.Size) }); \
             memcpy(newSlot.Memory, &result, sizeof(builtinType)); \
             break; \
         }
@@ -343,7 +343,7 @@ namespace Aria::Internal {
             memcpy(&rhs, GetVMSlice(m.RHSMem).Memory, sizeof(builtinType)); \
             builtinType result = builtinOp(lhs, rhs); \
             Alloca(sizeof(builtinType), m.ResolvedType); \
-            VMSlice s = GetVMSlice(MemRef(-1, sizeof(builtinType))); \
+            VMSlice s = GetVMSlice({ StackSlotRef(-1, sizeof(builtinType)) }); \
             memcpy(s.Memory, &result, sizeof(builtinType)); \
             break; \
         }
@@ -356,7 +356,7 @@ namespace Aria::Internal {
             memcpy(&rhs, GetVMSlice(m.RHSMem).Memory, sizeof(builtinType)); \
             bool result = builtinOp(lhs, rhs); \
             Alloca(1, m.ResolvedType); \
-            VMSlice s = GetVMSlice(MemRef(-1, 1)); \
+            VMSlice s = GetVMSlice({ StackSlotRef(-1, 1) }); \
             memcpy(s.Memory, &result, 1); \
             break; \
         }
@@ -402,7 +402,7 @@ namespace Aria::Internal {
             memcpy(&t, s.Memory, sizeof(sourceType)); \
             destType d = static_cast<destType>(t); \
             Alloca(sizeof(destType), cast.ResolvedType); \
-            VMSlice __a = GetVMSlice(MemRef(-1, sizeof(destType))); \
+            VMSlice __a = GetVMSlice({ StackSlotRef(-1, sizeof(destType)) }); \
             memcpy(__a.Memory, &d, sizeof(destType)); \
             break; \
         }
@@ -470,7 +470,7 @@ namespace Aria::Internal {
                     OpCodeLoad l = std::get<OpCodeLoad>(op.Data);
                     StringView str = std::get<StringView>(l.Data);
                     Alloca(str.Size(), l.ResolvedType);
-                    memcpy(GetVMSlice(MemRef(-1, str.Size())).Memory, str.Data(), str.Size());
+                    memcpy(GetVMSlice({ StackSlotRef(-1, str.Size()) }).Memory, str.Data(), str.Size());
                     break;
                 }
 
@@ -515,7 +515,10 @@ namespace Aria::Internal {
                 }
 
                 case OpCodeType::Call: {
-                    const std::string& signature = std::get<std::string>(op.Data);
+                    const OpCodeCall& call = std::get<OpCodeCall>(op.Data);
+
+                    ARIA_ASSERT(call.Function.ContainsFunction(), "todo");
+                    const std::string& sig = call.Function.GetFunction().Signature;
 
                     // Save the state in the current stack frame
                     m_StackFrames.back().PreviousReturnAddress = m_ReturnAddress;
@@ -523,8 +526,8 @@ namespace Aria::Internal {
 
                     m_ReturnAddress = m_ProgramCounter + 1;
 
-                    ARIA_ASSERT(m_Functions.contains(signature), "Calling unknown function");
-                    VMFunction& func = m_Functions.at(signature);
+                    ARIA_ASSERT(m_Functions.contains(sig), "Calling unknown function");
+                    VMFunction& func = m_Functions.at(sig);
 
                     // Perform a jump to the function
                     ARIA_ASSERT(func.Labels.contains("_entry$"), "All functions must contain a \"_entry$\" label");
@@ -535,7 +538,11 @@ namespace Aria::Internal {
 
                 case OpCodeType::CallExtern: {
                     const OpCodeCall& call = std::get<OpCodeCall>(op.Data);
-                    CallExtern(call.Name, call.ArgCount, call.RetCount);
+
+                    ARIA_ASSERT(call.Function.ContainsFunction(), "todo");
+                    const std::string& sig = call.Function.GetFunction().Signature;
+
+                    CallExtern(sig, call.ArgCount, call.RetCount);
                     break;
                 }
 
@@ -608,10 +615,10 @@ namespace Aria::Internal {
             ARIA_ASSERT(s.Size <= slot.Size, "Stack slot index size is bigger than stack slot!");
             ARIA_ASSERT(slot.Index + s.Offset < m_StackPointer, "Out of bounds stack slot!");
             return VMSlice(&m_Stack[slot.Index + s.Offset], (s.Size != 0) ? s.Size : slot.Size);
-        } else if (mem.ContainsGlobal()) {
-            const std::string& ident = mem.GetGlobal();
-            ARIA_ASSERT(m_GlobalMap.contains(ident), "Unknown global identifier!");
-            StackSlot slot = m_GlobalMap.at(ident);
+        } else if (mem.ContainsGlobalVar()) {
+            const GlobalVarRef& ref = mem.GetGlobalVar();
+            ARIA_ASSERT(m_GlobalMap.contains(ref.Name), "Unknown global identifier!");
+            StackSlot slot = m_GlobalMap.at(ref.Name);
             return VMSlice(&m_Stack[slot.Index], slot.Size);
         }
 

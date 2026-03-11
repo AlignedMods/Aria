@@ -193,16 +193,16 @@ namespace Aria::Internal {
             }
 
             case OpCodeType::Call: {
-                const std::string& name = std::get<std::string>(op.Data);
+                const OpCodeCall& call = std::get<OpCodeCall>(op.Data);
 
-                m_Output += fmt::format("{}call {}\n", m_Indentation, name);
+                m_Output += fmt::format("{}call {}\n", m_Indentation, DisassembleMemRef(call.Function));
                 break;
             }
 
             case OpCodeType::CallExtern: {
                 const OpCodeCall& call = std::get<OpCodeCall>(op.Data);
 
-                m_Output += fmt::format("{}call extern {}\n", m_Indentation, call.Name);
+                m_Output += fmt::format("{}call extern {}\n", m_Indentation, DisassembleMemRef(call.Function));
                 break;
             }
 
@@ -249,11 +249,14 @@ namespace Aria::Internal {
 
     std::string Disassembler::DisassembleMemRef(const MemRef& mem) {
         if (mem.ContainsStackSlot()) {
-            auto slot = mem.GetStackSlot();
-            return fmt::format("%[{}, {}, {}]", slot.Slot, slot.Size, slot.Offset);
-        } else if (mem.ContainsGlobal()) {
-            auto& global = mem.GetGlobal();
-            return fmt::format("${}", global);
+            StackSlotRef slot = mem.GetStackSlot();
+            return fmt::format("ss({}, {}, {})", slot.Slot, slot.Size, slot.Offset);
+        } else if (mem.ContainsGlobalVar()) {
+            const GlobalVarRef& global = mem.GetGlobalVar();
+            return fmt::format("g({})", global.Name);
+        } else if (mem.ContainsFunction()) {
+            const FunctionRef& func = mem.GetFunction();
+            return fmt::format("fn({})", func.Signature);
         }
 
         ARIA_UNREACHABLE();

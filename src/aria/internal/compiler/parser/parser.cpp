@@ -337,6 +337,8 @@ namespace Aria::Internal {
             case TokenType::Identifier: {
                 Token i = Consume();
 
+                final = m_Context->Allocate<DeclRefExpr>(m_Context, i.Data);
+
                 // Check if this is a function call
                 if (Match(TokenType::LeftParen)) {
                     Consume();
@@ -355,9 +357,7 @@ namespace Aria::Internal {
     
                     TryConsume(TokenType::RightParen, "')'");
     
-                    final = m_Context->Allocate<CallExpr>(m_Context, i.Data, args);
-                } else {
-                    final = m_Context->Allocate<VarRefExpr>(m_Context, i.Data);
+                    final = m_Context->Allocate<CallExpr>(m_Context, GetNode<DeclRefExpr>(final), args);
                 }
 
                 break;

@@ -36,8 +36,8 @@ namespace Aria::Internal {
         return expr->GetResolvedType();
     }
 
-    TypeInfo* TypeChecker::HandleVarRefExpr(Expr* expr) {
-        VarRefExpr* ref = GetNode<VarRefExpr>(expr);
+    TypeInfo* TypeChecker::HandleDeclRefExpr(Expr* expr) {
+        DeclRefExpr* ref = GetNode<DeclRefExpr>(expr);
 
         std::string ident = ref->GetIdentifier();
         
@@ -46,11 +46,7 @@ namespace Aria::Internal {
 
             if (it.contains(ident)) {
                 ref->SetResolvedType(it.at(ident).ResolvedType);
-                if (i - 1 == 0) {
-                    ref->SetType(VarRefType::Global);
-                } else {
-                    ref->SetType(VarRefType::Local);
-                }
+                ref->SetType(it.at(ident).DeclType);
                 return ref->GetResolvedType();
             }
         }
@@ -65,20 +61,16 @@ namespace Aria::Internal {
 
     TypeInfo* TypeChecker::HandleCallExpr(Expr* expr) {
         CallExpr* call = GetNode<CallExpr>(expr);
-        
-        if (!m_Declarations.front().contains(call->GetIdentifier())) {
-            ARIA_ASSERT(false, "todo: error msg");
-        }
-        
-        Declaration d = m_Declarations.front().at(call->GetIdentifier());
-        FunctionDecl* fn = GetNode<FunctionDecl>(d.SourceDeclaration);
 
-        if (fn->GetParameters().Size != call->GetArguments().Size) {
+        TypeInfo* calleeType = HandleExpr(call->GetCallee());
+        FunctionDeclaration& fnDecl = std::get<FunctionDeclaration>(calleeType->Data);
+
+        if (fnDecl.ParamTypes.Size != call->GetArguments().Size) {
             ARIA_ASSERT(false, "todo: error msg");
         }
 
-        for (size_t i = 0; i < fn->GetParameters().Size; i++) {
-            TypeInfo* paramType = fn->GetParameters().Items[i]->GetResolvedType();
+        for (size_t i = 0; i < fnDecl.ParamTypes.Size; i++) {
+            TypeInfo* paramType = fnDecl.ParamTypes.Items[i];
             TypeInfo* argType = HandleExpr(call->GetArguments().Items[i]);
 
             ConversionCost cost = GetConversionCost(paramType, argType, call->GetArguments().Items[i]->IsLValue());
@@ -91,9 +83,9 @@ namespace Aria::Internal {
             }
         }
 
-        call->SetExtern(fn->IsExtern());
-        call->SetResolvedType(d.ResolvedType);
-        return d.ResolvedType;
+        call->SetExtern(fnDecl.External);
+        call->SetResolvedType(fnDecl.ReturnType);
+        return fnDecl.ReturnType;
     }
 
     TypeInfo* TypeChecker::HandleParenExpr(Expr* expr) {
@@ -213,8 +205,8 @@ namespace Aria::Internal {
             return HandleFloatingConstantExpr(expr);
         } else if (GetNode<StringConstantExpr>(expr)) {
             return HandleStringConstantExpr(expr);
-        } else if (GetNode<VarRefExpr>(expr)) {
-            return HandleVarRefExpr(expr);
+        } else if (GetNode<DeclRefExpr>(expr)) {
+            return HandleDeclRefExpr(expr);
         } else if (GetNode<CallExpr>(expr)) {
             return HandleCallExpr(expr);
         } else if (GetNode<ParenExpr>(expr)) {
@@ -256,9 +248,14 @@ namespace Aria::Internal {
                 }
             }
         }
+
+        DeclRefType type = DeclRefType::LocalVar;
+        if (m_Declarations.size() == 1) {
+            type = DeclRefType::GlobalVar;
+        }
         
         std::string ident = varDecl->GetIdentifier();
-        m_Declarations.back()[ident] = { varDecl->GetResolvedType(), decl };
+        m_Declarations.back()[ident] = { varDecl->GetResolvedType(), decl, type };
     }
 
     void TypeChecker::HandleParamDecl(Decl* decl) {
@@ -274,17 +271,16 @@ namespace Aria::Internal {
     void TypeChecker::HandleFunctionDecl(Decl* decl) {
         FunctionDecl* fnDecl = GetNode<FunctionDecl>(decl);
 
-        TypeInfo* resolvedType = GetTypeInfoFromString(fnDecl->GetParsedType());
-        m_ActiveReturnType = resolvedType;
-        fnDecl->SetResolvedType(resolvedType);
+        TypeInfo* returnType = GetTypeInfoFromString(fnDecl->GetParsedType());
+        TinyVector<TypeInfo*> paramTypes;
+        m_ActiveReturnType = returnType;
 
-        std::string ident = fnDecl->GetIdentifier();
-        m_Declarations.front()[ident] = { fnDecl->GetResolvedType(), decl };
-        
         m_Declarations.emplace_back();
 
         for (ParamDecl* p : fnDecl->GetParameters()) {
             HandleParamDecl(p);
+            TypeInfo* pType = p->GetResolvedType();
+            paramTypes.Append(m_Context, pType);
         }
 
         if (fnDecl->GetBody()) {
@@ -292,8 +288,19 @@ namespace Aria::Internal {
         }
 
         m_Declarations.pop_back();
-
         m_ActiveReturnType = nullptr;
+
+        FunctionDeclaration fd;
+        fd.ParamTypes = paramTypes;
+        fd.ReturnType = returnType;
+        fd.External = fnDecl->IsExtern();
+        
+        TypeInfo* resolvedType = TypeInfo::Create(m_Context, PrimitiveType::Function, fd);
+        fnDecl->SetResolvedType(resolvedType);
+
+        std::string ident = fnDecl->GetIdentifier();
+        m_Declarations.front()[ident] = { fnDecl->GetResolvedType(), decl, DeclRefType::Function };
+
     }
 
     void TypeChecker::HandleDecl(Decl* decl) {

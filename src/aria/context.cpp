@@ -99,89 +99,89 @@ namespace Aria {
     void Context::PushBool(bool b, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
         src->VM.Alloca(sizeof(b), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool));
-        src->VM.StoreBool(Internal::MemRef(-1, sizeof(b)), b);
+        src->VM.StoreBool({ Internal::StackSlotRef(-1, sizeof(b)) }, b);
     }
 
     void Context::PushChar(int8_t c, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
         src->VM.Alloca(sizeof(c), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool));
-        src->VM.StoreChar(Internal::MemRef(-1, sizeof(c)), c);
+        src->VM.StoreChar({ Internal::StackSlotRef(-1, sizeof(c)) }, c);
     }
 
     void Context::PushShort(int16_t s, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
         src->VM.Alloca(sizeof(s), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool));
-        src->VM.StoreShort(Internal::MemRef(-1, sizeof(s)), s);
+        src->VM.StoreShort({ Internal::StackSlotRef(-1, sizeof(s)) }, s);
     }
 
     void Context::PushInt(int32_t i, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
         src->VM.Alloca(sizeof(i), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool));
-        src->VM.StoreInt(Internal::MemRef(-1, sizeof(i)), i);
+        src->VM.StoreInt({ Internal::StackSlotRef(-1, sizeof(i)) }, i);
     }
 
     void Context::PushLong(int64_t l, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
         src->VM.Alloca(sizeof(l), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool));
-        src->VM.StoreLong(Internal::MemRef(-1, sizeof(l)), l);
+        src->VM.StoreLong({ Internal::StackSlotRef(-1, sizeof(l)) }, l);
     }
 
     void Context::PushFloat(float f, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
         src->VM.Alloca(sizeof(f), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool));
-        src->VM.StoreFloat(Internal::MemRef(-1, sizeof(f)), f);
+        src->VM.StoreFloat({ Internal::StackSlotRef(-1, sizeof(f)) }, f);
     }
 
     void Context::PushDouble(double d, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
         src->VM.Alloca(sizeof(d), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool));
-        src->VM.StoreDouble(Internal::MemRef(-1, sizeof(d)), d);
+        src->VM.StoreDouble({ Internal::StackSlotRef(-1, sizeof(d)) }, d);
     }
 
     void Context::PushPointer(void* p, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
         src->VM.Alloca(sizeof(p), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool));
-        src->VM.StorePointer(Internal::MemRef(-1, sizeof(p)), p);
+        src->VM.StorePointer({ Internal::StackSlotRef(-1, sizeof(p)) }, p);
     }
 
     void Context::StoreBool(size_t index, bool b, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        src->VM.StoreBool(Internal::MemRef(index, sizeof(b)), b);
+        src->VM.StoreBool({ Internal::StackSlotRef(index, sizeof(b)) }, b);
     }
 
     void Context::StoreChar(size_t index, int8_t c, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        src->VM.StoreChar(Internal::MemRef(index, sizeof(c)), c);
+        src->VM.StoreChar({ Internal::StackSlotRef(index, sizeof(c)) }, c);
     }
 
     void Context::StoreShort(size_t index, int16_t s, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        src->VM.StoreShort(Internal::MemRef(index, sizeof(s)), s);
+        src->VM.StoreShort({ Internal::StackSlotRef(index, sizeof(s)) }, s);
     }
 
     void Context::StoreInt(size_t index, int32_t i, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        src->VM.StoreInt(Internal::MemRef(index, sizeof(i)), i);
+        src->VM.StoreInt({ Internal::StackSlotRef(index, sizeof(i)) }, i);
     }
 
     void Context::StoreLong(size_t index, int64_t l, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        src->VM.StoreLong(Internal::MemRef(index, sizeof(l)), l);
+        src->VM.StoreLong({ Internal::StackSlotRef(index, sizeof(l)) }, l);
     }
 
     void Context::StoreFloat(size_t index, float f, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        src->VM.StoreFloat(Internal::MemRef(index, sizeof(f)), f);
+        src->VM.StoreFloat({ Internal::StackSlotRef(index, sizeof(f)) }, f);
     }
 
     void Context::StoreDouble(size_t index, double d, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        src->VM.StoreDouble(Internal::MemRef(index, sizeof(d)), d);
+        src->VM.StoreDouble({ Internal::StackSlotRef(index, sizeof(d)) }, d);
     }
 
     void Context::StorePointer(size_t index, void* p, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        src->VM.StorePointer(Internal::MemRef(index, sizeof(p)), p);
+        src->VM.StorePointer({ Internal::StackSlotRef(index, sizeof(p)) }, p);
     }
 
     void Context::PushGlobal(const std::string& str, const std::string& module) {
@@ -214,47 +214,47 @@ namespace Aria {
 
     bool Context::GetBool(int32_t index, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        return src->VM.GetBool(Internal::MemRef(index, sizeof(bool)));
+        return src->VM.GetBool({ Internal::StackSlotRef(index, sizeof(bool)) });
     }
 
     int8_t Context::GetChar(int32_t index, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        return src->VM.GetChar(Internal::MemRef(index, sizeof(int8_t)));
+        return src->VM.GetChar({ Internal::StackSlotRef(index, sizeof(int8_t)) });
     }
 
     int16_t Context::GetShort(int32_t index, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        return src->VM.GetShort(Internal::MemRef(index, sizeof(int16_t)));
+        return src->VM.GetShort({ Internal::StackSlotRef(index, sizeof(int16_t)) });
     }
 
     int32_t Context::GetInt(int32_t index, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        return src->VM.GetInt(Internal::MemRef(index, sizeof(int32_t)));
+        return src->VM.GetInt({ Internal::StackSlotRef(index, sizeof(int32_t)) });
     }
 
     int64_t Context::GetLong(int32_t index, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        return src->VM.GetLong(Internal::MemRef(index, sizeof(int64_t)));
+        return src->VM.GetLong({ Internal::StackSlotRef(index, sizeof(int64_t)) });
     }
 
     float Context::GetFloat(int32_t index, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        return src->VM.GetFloat(Internal::MemRef(index, sizeof(float)));
+        return src->VM.GetFloat({ Internal::StackSlotRef(index, sizeof(float)) });
     }
 
     double Context::GetDouble(int32_t index, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        return src->VM.GetDouble(Internal::MemRef(index, sizeof(double)));
+        return src->VM.GetDouble({ Internal::StackSlotRef(index, sizeof(double)) });
     }
 
     void* Context::GetPointer(int32_t index, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        return src->VM.GetPointer(Internal::MemRef(index, sizeof(void*)));
+        return src->VM.GetPointer({ Internal::StackSlotRef(index, sizeof(void*)) });
     }
 
     StackSlot Context::GetStackSlot(int32_t index, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        Internal::VMSlice slice = src->VM.GetVMSlice(Internal::MemRef(index, 0, 0));
+        Internal::VMSlice slice = src->VM.GetVMSlice({ Internal::StackSlotRef(index, 0, 0) });
         return {slice.Memory, slice.Size};
     }
 
