@@ -83,7 +83,6 @@ namespace Aria::Internal {
             }
         }
 
-        call->SetExtern(fnDecl.External);
         call->SetResolvedType(fnDecl.ReturnType);
         return fnDecl.ReturnType;
     }
@@ -95,7 +94,31 @@ namespace Aria::Internal {
     }
 
     TypeInfo* TypeChecker::HandleCastExpr(Expr* expr) { ARIA_ASSERT(false, "todo: TypeChecker::HandleCastExpr()"); }
-    TypeInfo* TypeChecker::HandleUnaryOperatorExpr(Expr* expr) { ARIA_ASSERT(false, "todo: TypeChecker::HandleUnaryOperatorExpr()"); }
+
+    TypeInfo* TypeChecker::HandleUnaryOperatorExpr(Expr* expr) {
+        UnaryOperatorExpr* unop = GetNode<UnaryOperatorExpr>(expr);
+
+        TypeInfo* type = HandleExpr(unop->GetChildExpr());
+
+        ConversionCost cost = GetConversionCost(type, type, unop->GetChildExpr()->IsLValue());
+        if (cost.CastNeeded) {
+            if (cost.ImplicitCastPossible) {
+                unop->SetChildExpr(InsertImplicitCast(type, type, unop->GetChildExpr(), cost.CaType));
+            } else {
+                ARIA_ASSERT(false, "todo: TypeChecker::HandleVarDecl() error");
+            }
+        }
+
+        switch (unop->GetUnaryOperator()) {
+            case UnaryOperatorType::Negate: {
+                ARIA_ASSERT(type->IsNumeric(), "todo: add error message");
+                unop->SetResolvedType(type);
+                return type;
+            }
+        }
+
+        ARIA_UNREACHABLE();
+    }
 
     TypeInfo* TypeChecker::HandleBinaryOperatorExpr(Expr* expr) {
         BinaryOperatorExpr* binop = GetNode<BinaryOperatorExpr>(expr);
@@ -151,6 +174,16 @@ namespace Aria::Internal {
                             //                                fmt::format("Mismatched types '{}' and '{}', no viable implicit cast", TypeInfoToString(LHSType), TypeInfoToString(RHSType)));
                         }
                     }
+                }
+
+                if (binop->GetBinaryOperator() == BinaryOperatorType::Less ||
+                    binop->GetBinaryOperator() == BinaryOperatorType::LessOrEq ||
+                    binop->GetBinaryOperator() == BinaryOperatorType::Greater ||
+                    binop->GetBinaryOperator() == BinaryOperatorType::GreaterOrEq) 
+                {
+                    TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool);
+                    binop->SetResolvedType(boolType);
+                    return boolType;
                 }
 
                 binop->SetResolvedType(LHSType);
@@ -283,17 +316,10 @@ namespace Aria::Internal {
             paramTypes.Append(m_Context, pType);
         }
 
-        if (fnDecl->GetBody()) {
-            HandleCompoundStmt(fnDecl->GetBody());
-        }
-
-        m_Declarations.pop_back();
-        m_ActiveReturnType = nullptr;
-
+        // We make the function visible to itself by declaring it before the body
         FunctionDeclaration fd;
         fd.ParamTypes = paramTypes;
         fd.ReturnType = returnType;
-        fd.External = fnDecl->IsExtern();
         
         TypeInfo* resolvedType = TypeInfo::Create(m_Context, PrimitiveType::Function, fd);
         fnDecl->SetResolvedType(resolvedType);
@@ -301,6 +327,12 @@ namespace Aria::Internal {
         std::string ident = fnDecl->GetIdentifier();
         m_Declarations.front()[ident] = { fnDecl->GetResolvedType(), decl, DeclRefType::Function };
 
+        if (fnDecl->GetBody()) {
+            HandleCompoundStmt(fnDecl->GetBody());
+        }
+
+        m_Declarations.pop_back();
+        m_ActiveReturnType = nullptr;
     }
 
     void TypeChecker::HandleDecl(Decl* decl) {
@@ -332,7 +364,12 @@ namespace Aria::Internal {
     void TypeChecker::HandleWhileStmt(Stmt* stmt) { ARIA_ASSERT(false, "todo"); }
     void TypeChecker::HandleDoWhileStmt(Stmt* stmt) { ARIA_ASSERT(false, "todo"); }
     void TypeChecker::HandleForStmt(Stmt* stmt) { ARIA_ASSERT(false, "todo"); }
-    void TypeChecker::HandleIfStmt(Stmt* stmt) { ARIA_ASSERT(false, "todo"); }
+
+    void TypeChecker::HandleIfStmt(Stmt* stmt) {
+        IfStmt* ifs = GetNode<IfStmt>(stmt);
+        HandleExpr(ifs->GetCondition());
+        HandleStmt(ifs->GetBody());
+    }
 
     void TypeChecker::HandleReturnStmt(Stmt* stmt) {
         ReturnStmt* ret = GetNode<ReturnStmt>(stmt);
@@ -368,6 +405,9 @@ namespace Aria::Internal {
             return;
         } else if (GetNode<ForStmt>(stmt)) {
             HandleForStmt(stmt);
+            return;
+        } else if (GetNode<IfStmt>(stmt)) {
+            HandleIfStmt(stmt);
             return;
         } else if (GetNode<ReturnStmt>(stmt)) {
             HandleReturnStmt(stmt);

@@ -39,8 +39,9 @@ namespace Aria::Internal {
         explicit VM(Context* ctx);
 
         void Alloca(size_t size, TypeInfo* type);
-        void Copy(MemRef dstMem, MemRef srcMem);
-        void Dup(MemRef mem);
+        void Pop(size_t count);
+        void Copy (i32 dstSlot, i32 srcSlot);
+        void Dup  (i32 slot);
 
         // Creates a new stack frame
         void PushStackFrame();
@@ -52,29 +53,31 @@ namespace Aria::Internal {
         void Call(int32_t label);
         void CallExtern(const std::string& signature, size_t argCount, size_t retCount);
         
-        void StoreBool   (MemRef mem, bool b);
-        void StoreChar   (MemRef mem, int8_t c);
-        void StoreShort  (MemRef mem, int16_t ch);
-        void StoreInt    (MemRef mem, int32_t i);
-        void StoreLong   (MemRef mem, int64_t l);
-        void StoreFloat  (MemRef mem, float f);
-        void StoreDouble (MemRef mem, double d);
-        void StorePointer(MemRef mem, void* p);
+        void StoreBool   (i32 slot, bool b);
+        void StoreChar   (i32 slot, int8_t c);
+        void StoreShort  (i32 slot, int16_t ch);
+        void StoreInt    (i32 slot, int32_t i);
+        void StoreLong   (i32 slot, int64_t l);
+        void StoreSize   (i32 slot, size_t sz);
+        void StoreFloat  (i32 slot, float f);
+        void StoreDouble (i32 slot, double d);
+        void StorePointer(i32 slot, void* p);
 
-        bool    GetBool   (MemRef mem);
-        int8_t  GetChar   (MemRef mem);
-        int16_t GetShort  (MemRef mem);
-        int32_t GetInt    (MemRef mem);
-        int64_t GetLong   (MemRef mem);
-        float   GetFloat  (MemRef mem);
-        double  GetDouble (MemRef mem);
-        void*   GetPointer(MemRef mem);
+        bool    GetBool   (i32 slot);
+        int8_t  GetChar   (i32 slot);
+        int16_t GetShort  (i32 slot);
+        int32_t GetInt    (i32 slot);
+        int64_t GetLong   (i32 slot);
+        size_t  GetSize   (i32 slot);
+        float   GetFloat  (i32 slot);
+        double  GetDouble (i32 slot);
+        void*   GetPointer(i32 slot);
 
         // Run an array of op codes in the VM, executing each operations one at a time
         void RunByteCode(const OpCode* data, size_t count);
         void Run();
 
-        VMSlice GetVMSlice(MemRef mem);
+        VMSlice GetVMSlice(i32 slot);
 
         void StopExecution();
 
@@ -92,28 +95,34 @@ namespace Aria::Internal {
         void RunPrepass();
         
     private:
-        // For local variables and temporaries
+        // The raw stack memory
+        // The stack is used for pretty much everything in the language
+        // Even global variables are stored on the stack (a part of the stack that doesn't get freed until the end of the program)
         std::vector<u8> m_Stack;
         size_t m_StackPointer = 0;
+
+        // Stack slots are essentially an abstraction over raw stack memory
+        // They store basic things like an index into stack memory and the size of the slot
         std::vector<StackSlot> m_StackSlots;
         int32_t m_StackSlotPointer = 0;
 
-        // NOTE: Global variables point to stack memory!
-        // However specifically memory in the "_start$" function, which does not pop any stack frames
-        // Only when the "_exit$" function gets called does the stack frame get popped
-        // Note that _exit$ gets called when the VM gets destroyed
-        std::unordered_map<std::string, StackSlot> m_GlobalMap;
+        // A map of all global variables
+        // These variables are still stored on the stack however they aren't freed until the end of the program
+        std::unordered_map<std::string, i32> m_GlobalMap;
 
         struct StackFrame {
             size_t Offset = 0;
             size_t SlotOffset = 0;
+
+            // A map of all local variables (including function parameters)
+            // These variables are only valid during a single stack frame
+            std::unordered_map<size_t, i32> LocalMap;
 
             size_t PreviousReturnAddress = SIZE_MAX;
             VMFunction* PreviousFunction = nullptr;
         };
 
         std::vector<StackFrame> m_StackFrames;
-        size_t m_CurrentReturnAdress = SIZE_MAX;
 
         const OpCode* m_Program = nullptr;
         size_t m_ProgramSize = 0;

@@ -8,7 +8,7 @@ namespace Aria::Internal {
 
     class Disassembler {
     public:
-        Disassembler(const std::vector<OpCode>* opcodes);
+        Disassembler(const std::vector<OpCode>* opcodes, bool verbose);
 
         std::string& GetDisassembly();
 
@@ -16,10 +16,9 @@ namespace Aria::Internal {
         void DisassembleImpl();
         void DisassembleOpCode(const OpCode& op);
 
-        std::string DisassembleMemRef(const MemRef& mem);
-
     private:
         const std::vector<OpCode>* m_OpCodes;
+        bool m_Verbose = false;
 
         std::string m_Output;
         std::string m_Indentation;

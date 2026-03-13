@@ -140,9 +140,7 @@ namespace Aria::Internal {
         ARIA_ASSERT(false, "todo");
     }
 
-    void SemanticAnalyzer::HandleIfStmt(Stmt* stmt) {
-        ARIA_ASSERT(false, "todo");
-    }
+    void SemanticAnalyzer::HandleIfStmt(Stmt* stmt) {}
 
     void SemanticAnalyzer::HandleReturnStmt(Stmt* stmt) {}
 
@@ -160,6 +158,9 @@ namespace Aria::Internal {
             return;
         } else if (GetNode<ForStmt>(stmt)) {
             HandleForStmt(stmt);
+            return;
+        } else if (GetNode<IfStmt>(stmt)) {
+            HandleIfStmt(stmt);
             return;
         } else if (GetNode<ReturnStmt>(stmt)) {
             HandleReturnStmt(stmt);

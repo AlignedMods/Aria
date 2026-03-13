@@ -31,62 +31,11 @@ namespace Aria::Internal {
         name##U32, \
         name##U64,
 
-    struct StackSlotRef {
-        StackSlotRef() = default;
-        explicit StackSlotRef(i32 slot, size_t size, size_t offset = 0)
-            : Slot(slot), Size(size), Offset(offset) {}
-
-        i32 Slot = 0;
-        size_t Size = 0;
-        size_t Offset = 0;
-    };
-
-    struct GlobalVarRef {
-        GlobalVarRef() = default;
-        explicit GlobalVarRef(const std::string& name)
-            : Name(name) {}
-
-        std::string Name;
-    };
-
-    struct FunctionRef {
-        FunctionRef() = default;
-        explicit FunctionRef(const std::string& signature)
-            : Signature(signature) {}
-
-        std::string Signature;
-    };
-
-    // A struct used to reference some memory at runtime
-    // This memory could be a stack slot, global variable or pointer
-    struct MemRef {
-        using MemRefStorage = std::variant<StackSlotRef, GlobalVarRef, FunctionRef>;
-
-        MemRef() {}
-        MemRef(const MemRefStorage& data)
-            : m_Data(data) {}
-
-        bool ContainsStackSlot() const { return std::get_if<StackSlotRef>(&m_Data) != nullptr; }
-        StackSlotRef& GetStackSlot() { return std::get<StackSlotRef>(m_Data); }
-        const StackSlotRef& GetStackSlot() const { return std::get<StackSlotRef>(m_Data); }
-
-        bool ContainsGlobalVar() const { return std::get_if<GlobalVarRef>(&m_Data) != nullptr; }
-        GlobalVarRef& GetGlobalVar() { return std::get<GlobalVarRef>(m_Data); }
-        const GlobalVarRef& GetGlobalVar() const { return std::get<GlobalVarRef>(m_Data); }
-
-        bool ContainsFunction() const { return std::get_if<FunctionRef>(&m_Data) != nullptr; }
-        FunctionRef& GetFunction() { return std::get<FunctionRef>(m_Data); }
-        const FunctionRef& GetFunction() const { return std::get<FunctionRef>(m_Data); }
-
-    private:
-        MemRefStorage m_Data;
-    };
-
     enum class OpCodeType {
         Nop,
 
         Alloca,
-        Copy,
+        Store,
         Dup,
 
         PushSF,
@@ -104,7 +53,14 @@ namespace Aria::Internal {
         LoadF64,
         LoadStr,
 
-        SetGlobal,
+        DeclareGlobal,
+        DeclareLocal,
+
+        LoadGlobal,
+        LoadLocal,
+        LoadPtrGlobal,
+        LoadPtrLocal,
+
         Function,
         Label,
         Jmp,
@@ -112,10 +68,9 @@ namespace Aria::Internal {
         Jf,
 
         Call,
-        CallExtern,
         Ret,
 
-        TYPED_OP(Negate)
+        TYPED_OP(Neg)
 
         TYPED_OP(Add)
         TYPED_OP(Sub)
@@ -244,6 +199,8 @@ namespace Aria::Internal {
         CastF64ToU64,
         CastF64ToF32,
         CastF64ToF64,
+
+        Comment // Used only for debugging
     };
 
     #undef TYPED_OP
@@ -253,47 +210,27 @@ namespace Aria::Internal {
         TypeInfo* ResolvedType = nullptr;
     };
 
-    struct OpCodeCopy {
-        MemRef DstMem{};
-        MemRef SrcMem{};
-    };
-
     struct OpCodeLoad {
         std::variant<i8, u8, i16, u16, i32, u32, i64, u64, f32, f64, StringView> Data;
         TypeInfo* ResolvedType = nullptr;
     };
 
-    struct OpCodeSetGlobal {
-        std::string Name;
-        MemRef Mem;
-    };
-
-    struct OpCodeConditionalJump {
-        MemRef Mem{};
-        std::string Label;
-    };
-
     struct OpCodeCall {
-        MemRef Function;
         size_t ArgCount = 0;
         size_t RetCount = 0;
     };
 
     struct OpCodeMath {
-        MemRef LHSMem{};
-        MemRef RHSMem{};
-
         TypeInfo* ResolvedType = nullptr;
     };
 
     struct OpCodeCast {
-        MemRef Mem{};
         TypeInfo* ResolvedType = nullptr;
     };
 
     struct OpCode {
         OpCodeType Type = OpCodeType::Nop;
-        std::variant<MemRef, std::string, OpCodeAlloca, OpCodeCopy, OpCodeLoad, OpCodeSetGlobal, OpCodeConditionalJump, OpCodeCall, OpCodeMath, OpCodeCast> Data;
+        std::variant<size_t, std::string, OpCodeAlloca, OpCodeLoad, OpCodeCall, OpCodeMath, OpCodeCast> Data;
         std::string DebugData; // Optional debug data the compiler can provide
     };
 

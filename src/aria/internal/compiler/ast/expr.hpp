@@ -21,9 +21,9 @@ namespace Aria::Internal {
 
     inline const char* DeclRefTypeToString(DeclRefType type) {
         switch (type) {
-        case DeclRefType::LocalVar:    return "LocalVar";
-        case DeclRefType::GlobalVar:   return "GlobalVar";
-        case DeclRefType::Function: return "Function";
+            case DeclRefType::LocalVar:    return "LocalVar";
+            case DeclRefType::GlobalVar:   return "GlobalVar";
+            case DeclRefType::Function:    return "Function";
         }
     }
 
@@ -299,8 +299,6 @@ namespace Aria::Internal {
         inline TinyVector<Expr*> GetArguments() const { return m_Arguments; }
         inline void SetArgument(size_t index, Expr* expr) { m_Arguments.Items[index] = expr; }
 
-        inline bool IsExtern() const { return m_Extern; }
-        inline void SetExtern(bool ext) { m_Extern = ext; }
 
         inline virtual TypeInfo* GetResolvedType() override { return m_ResolvedType; }
         inline virtual const TypeInfo* GetResolvedType() const override { return m_ResolvedType; }
@@ -311,7 +309,6 @@ namespace Aria::Internal {
     private:
         DeclRefExpr* m_Callee;
         TinyVector<Expr*> m_Arguments;
-        bool m_Extern = false;
 
         TypeInfo* m_ResolvedType = nullptr;
     };
@@ -397,6 +394,7 @@ namespace Aria::Internal {
 
         inline Expr* GetChildExpr() { return m_Expression; }
         inline const Expr* GetChildExpr() const { return m_Expression; }
+        inline void SetChildExpr(Expr* expr) { m_Expression = expr; }
 
         inline UnaryOperatorType GetUnaryOperator() const { return m_Operator; }
 

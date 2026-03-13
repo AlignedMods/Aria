@@ -624,27 +624,13 @@ namespace Aria::Internal {
     }
 
     Stmt* Parser::ParseIf() {
-        ARIA_ASSERT(false, "todo: add if parsing");
-        // Token i = Consume(); // Consume "if"
+        // ARIA_ASSERT(false, "todo: add if parsing");
+        Token i = Consume(); // Consume "if"
 
-        // StmtIf* node = Allocate<StmtIf>();
-        // TryConsume(TokenType::LeftParen, "'('");
+        Expr* condition = ParseExpression();
+        Stmt* body = ParseStatement();
 
-        // node->Condition = ParseExpression();
-
-        // TryConsume(TokenType::RightParen, "')'");
-        // SourceLocation end = Peek(-1)->Loc.End;
-        // node->Body = ParseCompoundInline();
-
-        // if (Match(TokenType::Else)) {
-        //     Consume();
-
-        //     node->ElseBody = ParseCompoundInline();
-        // }
-
-        // m_NeedsSemi = false;
-
-        // return Allocate<NodeStmt>(node, SourceRange(i.Loc.Start, end), i.Loc.Start);
+        return m_Context->Allocate<IfStmt>(m_Context, condition, body, nullptr);
     }
 
     Stmt* Parser::ParseBreak() {

@@ -38,7 +38,6 @@ namespace Aria::Internal {
     struct FunctionDeclaration {
         TypeInfo* ReturnType = nullptr;
         TinyVector<TypeInfo*> ParamTypes;
-        bool External = false;
     };
 
     struct ArrayDeclaration {
@@ -80,6 +79,10 @@ namespace Aria::Internal {
 
         bool IsFloatingPoint() const {
             return Type == PrimitiveType::Float || Type == PrimitiveType::Double;
+        }
+
+        bool IsNumeric() const {
+            return IsIntegral() || IsFloatingPoint();
         }
 
         bool IsSigned() const {
@@ -165,10 +168,6 @@ namespace Aria::Internal {
 
             case PrimitiveType::Function: {
                 FunctionDeclaration decl = std::get<FunctionDeclaration>(type->Data);
-
-                if (decl.External) {
-                    str = "extern ";
-                }
 
                 str += TypeInfoToString(decl.ReturnType);
                 str += "(";

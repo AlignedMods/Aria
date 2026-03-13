@@ -4,8 +4,9 @@
 
 namespace Aria::Internal {
 
-    Disassembler::Disassembler(const std::vector<OpCode>* opcodes) {
+    Disassembler::Disassembler(const std::vector<OpCode>* opcodes, bool verbose) {
         m_OpCodes = opcodes;
+        m_Verbose = verbose;
 
         DisassembleImpl();
     }
@@ -23,13 +24,12 @@ namespace Aria::Internal {
     void Disassembler::DisassembleOpCode(const OpCode& op) {
         #define CASE_LOAD(_enum, builtInType, str) case OpCodeType::_enum: { \
             OpCodeLoad l = std::get<OpCodeLoad>(op.Data); \
-            m_Output += fmt::format("{}load{} {}\n", m_Indentation, str, std::get<builtInType>(l.Data)); \
+            m_Output += fmt::format("{}load      {} {}\n", m_Indentation, str, std::get<builtInType>(l.Data)); \
             break; \
         }
 
         #define CASE_UNARYEXPR(_enum, opStr, str) case OpCodeType::_enum: { \
-            MemRef mem = std::get<MemRef>(op.Data); \
-            m_Output += fmt::format("{}{}{} {}\n", m_Indentation, opStr, str, DisassembleMemRef(mem)); \
+            m_Output += fmt::format("{}{} {}\n", m_Indentation, opStr, str); \
             break; \
         }
 
@@ -46,8 +46,7 @@ namespace Aria::Internal {
             CASE_UNARYEXPR(unaryop##F64, str, "f64")
 
         #define CASE_BINEXPR(_enum, opStr, str) case OpCodeType::_enum: { \
-            OpCodeMath m = std::get<OpCodeMath>(op.Data); \
-            m_Output += fmt::format("{}{}{} {} {}\n", m_Indentation, opStr, str, DisassembleMemRef(m.LHSMem), DisassembleMemRef(m.RHSMem)); \
+            m_Output += fmt::format("{}{}     {}\n", m_Indentation, opStr, str); \
             break; \
         }
 
@@ -74,8 +73,7 @@ namespace Aria::Internal {
             CASE_BINEXPR(mathop##F64, str, "f64")
 
         #define CASE_CAST(_enum, opStr, str) case OpCodeType::_enum: { \
-            OpCodeCast c = std::get<OpCodeCast>(op.Data); \
-            m_Output += fmt::format("{}cast {} {} {}\n", m_Indentation, opStr, str, DisassembleMemRef(c.Mem)); \
+            m_Output += fmt::format("{}cast {} {}\n", m_Indentation, opStr, str); \
             break; \
         }
 
@@ -98,7 +96,7 @@ namespace Aria::Internal {
                 OpCodeAlloca a = std::get<OpCodeAlloca>(op.Data);
 
                 m_Output += m_Indentation;
-                m_Output += "alloca ";
+                m_Output += "alloca    ";
                 m_Output += std::to_string(a.Size);
 
                 if (!op.DebugData.empty()) {
@@ -119,17 +117,13 @@ namespace Aria::Internal {
                 break;
             }
 
-            case OpCodeType::Copy: {
-                OpCodeCopy c = std::get<OpCodeCopy>(op.Data);
-
-                m_Output += fmt::format("{}copy {} {}\n", m_Indentation, DisassembleMemRef(c.DstMem), DisassembleMemRef(c.SrcMem));
+            case OpCodeType::Store: {
+                m_Output += fmt::format("{}store\n", m_Indentation);
                 break;
             }
 
             case OpCodeType::Dup: {
-                MemRef mem = std::get<MemRef>(op.Data);
-
-                m_Output += fmt::format("{}dup {}\n", m_Indentation, DisassembleMemRef(mem));
+                m_Output += fmt::format("{}dup\n", m_Indentation);
                 break;
             }
 
@@ -148,9 +142,39 @@ namespace Aria::Internal {
 
             CASE_LOAD(LoadStr, StringView, "str")
 
-            case OpCodeType::SetGlobal: {
-                const OpCodeSetGlobal& global = std::get<OpCodeSetGlobal>(op.Data);
-                m_Output += fmt::format("{}setglobal {}\n", m_Indentation, global.Name);
+            case OpCodeType::DeclareGlobal: {
+                const std::string& global = std::get<std::string>(op.Data);
+                m_Output += fmt::format("{}declg     {}\n", m_Indentation, global);
+                break;
+            }
+
+            case OpCodeType::DeclareLocal: {
+                size_t index = std::get<size_t>(op.Data);
+                m_Output += fmt::format("{}decll     {}\n", m_Indentation, index);
+                break;
+            }
+
+            case OpCodeType::LoadGlobal: {
+                const std::string& global = std::get<std::string>(op.Data);
+                m_Output += fmt::format("{}loadg     {}\n", m_Indentation, global);
+                break;
+            }
+
+            case OpCodeType::LoadLocal: {
+                size_t index = std::get<size_t>(op.Data);
+                m_Output += fmt::format("{}loadl     {}\n", m_Indentation, index);
+                break;
+            }
+
+            case OpCodeType::LoadPtrGlobal: {
+                const std::string& global = std::get<std::string>(op.Data);
+                m_Output += fmt::format("{}loadptrg  {}\n", m_Indentation, global);
+                break;
+            }
+
+            case OpCodeType::LoadPtrLocal: {
+                size_t index = std::get<size_t>(op.Data);
+                m_Output += fmt::format("{}loadptrl  {}\n", m_Indentation, index);
                 break;
             }
 
@@ -174,69 +198,69 @@ namespace Aria::Internal {
             case OpCodeType::Jmp: {
                 const std::string& name = std::get<std::string>(op.Data);
 
-                m_Output += fmt::format("{}jmp {}\n", m_Indentation, name);
+                m_Output += fmt::format("{}jmp       {}\n", m_Indentation, name);
                 break;
             }
 
             case OpCodeType::Jt: {
-                const OpCodeConditionalJump& jump = std::get<OpCodeConditionalJump>(op.Data);
+                const std::string& label = std::get<std::string>(op.Data);
 
-                m_Output += fmt::format("{}jt {}\n", m_Indentation, DisassembleMemRef(jump.Mem), jump.Label);
+                m_Output += fmt::format("{}jt        {}\n", m_Indentation, label);
                 break;
             }
 
             case OpCodeType::Jf: {
-                const OpCodeConditionalJump& jump = std::get<OpCodeConditionalJump>(op.Data);
+                const std::string& label = std::get<std::string>(op.Data);
 
-                m_Output += fmt::format("{}jf {}\n", m_Indentation, DisassembleMemRef(jump.Mem), jump.Label);
+                m_Output += fmt::format("{}jf        {}\n", m_Indentation, label);
                 break;
             }
 
             case OpCodeType::Call: {
                 const OpCodeCall& call = std::get<OpCodeCall>(op.Data);
 
-                m_Output += fmt::format("{}call {}\n", m_Indentation, DisassembleMemRef(call.Function));
-                break;
-            }
-
-            case OpCodeType::CallExtern: {
-                const OpCodeCall& call = std::get<OpCodeCall>(op.Data);
-
-                m_Output += fmt::format("{}call extern {}\n", m_Indentation, DisassembleMemRef(call.Function));
+                m_Output += fmt::format("{}call      {} {}\n", m_Indentation, call.ArgCount, call.RetCount);
                 break;
             }
 
             case OpCodeType::Ret: m_Output += m_Indentation; m_Output += "ret\n"; break;
 
-            CASE_UNARYEXPR_GROUP(Negate, "neg")
+            CASE_UNARYEXPR_GROUP(Neg, "neg  ")
 
-            CASE_BINEXPR_GROUP(Add, "add")
-            CASE_BINEXPR_GROUP(Sub, "sub")
-            CASE_BINEXPR_GROUP(Mul, "mul")
-            CASE_BINEXPR_GROUP(Div, "div")
-            CASE_BINEXPR_GROUP(Mod, "mod")
+            CASE_BINEXPR_GROUP(Add, "add  ")
+            CASE_BINEXPR_GROUP(Sub, "sub  ")
+            CASE_BINEXPR_GROUP(Mul, "mul  ")
+            CASE_BINEXPR_GROUP(Div, "div  ")
+            CASE_BINEXPR_GROUP(Mod, "mod  ")
 
-            CASE_BINEXPR_INTEGRAL_GROUP(And, "and")
-            CASE_BINEXPR_INTEGRAL_GROUP(Or, "or")
-            CASE_BINEXPR_INTEGRAL_GROUP(Xor, "xor")
+            CASE_BINEXPR_INTEGRAL_GROUP(And, "and  ")
+            CASE_BINEXPR_INTEGRAL_GROUP(Or,  "or   ")
+            CASE_BINEXPR_INTEGRAL_GROUP(Xor, "xor  ")
 
-            CASE_BINEXPR_GROUP(Cmp, "cmp")
-            CASE_BINEXPR_GROUP(Ncmp, "ncmp")
-            CASE_BINEXPR_GROUP(Lt, "lt")
-            CASE_BINEXPR_GROUP(Lte, "lte")
-            CASE_BINEXPR_GROUP(Gt, "gt")
-            CASE_BINEXPR_GROUP(Gte, "gte")
+            CASE_BINEXPR_GROUP(Cmp,  "cmp  ")
+            CASE_BINEXPR_GROUP(Ncmp, "ncmp ")
+            CASE_BINEXPR_GROUP(Lt,   "lt   ")
+            CASE_BINEXPR_GROUP(Lte,  "lte  ")
+            CASE_BINEXPR_GROUP(Gt,   "gt   ")
+            CASE_BINEXPR_GROUP(Gte,  "gte  ")
 
-            CASE_CAST_GROUP(I8, "i8");
+            CASE_CAST_GROUP(I8,  "i8");
             CASE_CAST_GROUP(I16, "i16");
             CASE_CAST_GROUP(I32, "i32");
             CASE_CAST_GROUP(I64, "i64");
-            CASE_CAST_GROUP(U8, "u8");
+            CASE_CAST_GROUP(U8,  "u8");
             CASE_CAST_GROUP(U16, "u16");
             CASE_CAST_GROUP(U32, "u32");
             CASE_CAST_GROUP(U64, "u64");
             CASE_CAST_GROUP(F32, "f32");
             CASE_CAST_GROUP(F64, "f64");
+
+            case OpCodeType::Comment: {
+                const std::string& c = std::get<std::string>(op.Data);
+
+                m_Output += fmt::format("{}// {}", m_Indentation, c);
+                break;
+            }
         }
 
         #undef CASE_UNARYEXPR
@@ -245,21 +269,6 @@ namespace Aria::Internal {
         #undef CASE_BINEXPR_GROUP
         #undef CASE_CAST
         #undef CASE_CAST_GROUP
-    }
-
-    std::string Disassembler::DisassembleMemRef(const MemRef& mem) {
-        if (mem.ContainsStackSlot()) {
-            StackSlotRef slot = mem.GetStackSlot();
-            return fmt::format("ss({}, {}, {})", slot.Slot, slot.Size, slot.Offset);
-        } else if (mem.ContainsGlobalVar()) {
-            const GlobalVarRef& global = mem.GetGlobalVar();
-            return fmt::format("g({})", global.Name);
-        } else if (mem.ContainsFunction()) {
-            const FunctionRef& func = mem.GetFunction();
-            return fmt::format("fn({})", func.Signature);
-        }
-
-        ARIA_UNREACHABLE();
     }
 
 } // namespace Aria::Internal

@@ -10,20 +10,8 @@ namespace Aria::Internal {
 
     class Emitter {
     private:
-        struct CompileMemRef {
-            CompileMemRef() = default;
-
-            CompileMemRef(const MemRef::MemRefStorage& mem)
-                : Mem(mem) {}
-
-            CompileMemRef(const MemRef& mem)
-                : Mem(mem) {}
-
-            MemRef Mem;
-        };
-
         struct Declaration {
-            CompileMemRef Mem;
+            std::variant<size_t, std::string> Data;
             TypeInfo* Type = nullptr;
         };
 
@@ -34,6 +22,7 @@ namespace Aria::Internal {
 
         struct StackFrame {
             size_t SlotCount = 0;
+            size_t LocalCount = 0;
             std::vector<Scope> Scopes;
             std::string Name;
         };
@@ -44,24 +33,24 @@ namespace Aria::Internal {
     private:
         void EmitImpl();
 
-        CompileMemRef EmitBooleanConstantExpr(Expr* expr);
-        CompileMemRef EmitCharacterConstantExpr(Expr* expr);
-        CompileMemRef EmitIntegerConstantExpr(Expr* expr);
-        CompileMemRef EmitFloatingConstantExpr(Expr* expr);
-        CompileMemRef EmitStringConstantExpr(Expr* expr);
-        CompileMemRef EmitDeclRefExpr(Expr* expr);
-        CompileMemRef EmitCallExpr(Expr* expr);
-        CompileMemRef EmitParenExpr(Expr* expr);
-        CompileMemRef EmitImplicitCastExpr(Expr* expr);
-        CompileMemRef EmitCastExpr(Expr* expr);
-        CompileMemRef EmitUnaryOperatorExpr(Expr* expr);
-        CompileMemRef EmitBinaryOperatorExpr(Expr* expr);
+        void EmitBooleanConstantExpr(Expr* expr);
+        void EmitCharacterConstantExpr(Expr* expr);
+        void EmitIntegerConstantExpr(Expr* expr);
+        void EmitFloatingConstantExpr(Expr* expr);
+        void EmitStringConstantExpr(Expr* expr);
+        void EmitDeclRefExpr(Expr* expr, bool lvalue);
+        void EmitCallExpr(Expr* expr);
+        void EmitParenExpr(Expr* expr);
+        void EmitImplicitCastExpr(Expr* expr);
+        void EmitCastExpr(Expr* expr);
+        void EmitUnaryOperatorExpr(Expr* expr);
+        void EmitBinaryOperatorExpr(Expr* expr);
 
-        CompileMemRef EmitExpr(Expr* expr);
+        void EmitExpr(Expr* expr);
 
         void EmitTranslationUnitDecl(Decl* decl);
         void EmitVarDecl(Decl* decl);
-        void EmitParamDecl(Decl* decl, const MemRef& mem);
+        void EmitParamDecl(Decl* decl, i32 slot);
         void EmitFunctionDecl(Decl* decl);
 
         void EmitDecl(Decl* decl);
@@ -77,12 +66,9 @@ namespace Aria::Internal {
 
         void EmitFunctions(); // Emits all the defined functions
 
-        MemRef CompileToRuntimeMemRef(CompileMemRef mem);
-
         bool IsStartStackFrame();
         bool IsGlobalScope();
         void IncrementStackSlotCount();
-        CompileMemRef GetStackTop(size_t size, size_t offset = 0);
 
         void EmitDestructors(const std::vector<Declaration>& declarations);
 
@@ -102,6 +88,9 @@ namespace Aria::Internal {
         Scope m_GlobalScope;
 
         std::unordered_map<std::string, Decl*> m_FunctionsToDeclare; // We do not immediately declare functions, we actually do them last
+
+        // Counters
+        size_t m_IfCounter = 0;
     
         CompilationContext* m_Context = nullptr;
     };

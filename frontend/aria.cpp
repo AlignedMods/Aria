@@ -5,10 +5,8 @@ void PrintHelp(const char* appName) {
     fmt::println("  {} <file>", appName);
 }
 
-void AriaFN(Aria::Context* ctx) {
-    fmt::print("arg1: {}\n", ctx->GetInt(0));
-    fmt::print("arg2: {}\n", ctx->GetInt(1));
-    // ctx->StoreInt(-1, 4);
+void PrintInt(Aria::Context* ctx) {
+    fmt::print("{}\n", ctx->GetInt(0));
 }
 
 int main(int argc, char** argv) {
@@ -23,9 +21,12 @@ int main(int argc, char** argv) {
     std::string fileName = argv[1];
     Aria::Context ctx;
     ctx.CompileFile(fileName, fileName);
-    ctx.AddExternalFunction("add()", AriaFN, fileName);
+    ctx.AddExternalFunction("PrintInt()", PrintInt, fileName);
     fmt::print("{}", ctx.DumpAST(fileName));
-    fmt::print("{}", ctx.Disassemble(fileName));
+    fmt::print("{}", ctx.Disassemble(fileName, false));
     ctx.Run(fileName);
+    
+    fmt::print("result: {}", ctx.GetInt(-1));
+
     ctx.FreeModule(fileName);
 }
