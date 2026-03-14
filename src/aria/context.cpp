@@ -98,49 +98,49 @@ namespace Aria {
 
     void Context::PushBool(bool b, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        src->VM.Alloca(sizeof(b), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool));
+        src->VM.Alloca(sizeof(b), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool), src->VM.m_LocalStack);
         src->VM.StoreBool(-1 , b);
     }
 
     void Context::PushChar(int8_t c, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        src->VM.Alloca(sizeof(c), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool));
+        src->VM.Alloca(sizeof(c), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool), src->VM.m_LocalStack);
         src->VM.StoreChar(-1, c);
     }
 
     void Context::PushShort(int16_t s, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        src->VM.Alloca(sizeof(s), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool));
+        src->VM.Alloca(sizeof(s), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool), src->VM.m_LocalStack);
         src->VM.StoreShort(-1, s);
     }
 
     void Context::PushInt(int32_t i, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        src->VM.Alloca(sizeof(i), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool));
+        src->VM.Alloca(sizeof(i), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool), src->VM.m_LocalStack);
         src->VM.StoreInt(-1, i);
     }
 
     void Context::PushLong(int64_t l, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        src->VM.Alloca(sizeof(l), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool));
+        src->VM.Alloca(sizeof(l), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool), src->VM.m_LocalStack);
         src->VM.StoreLong(-1, l);
     }
 
     void Context::PushFloat(float f, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        src->VM.Alloca(sizeof(f), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool));
+        src->VM.Alloca(sizeof(f), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool), src->VM.m_LocalStack);
         src->VM.StoreFloat(-1, f);
     }
 
     void Context::PushDouble(double d, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        src->VM.Alloca(sizeof(d), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool));
+        src->VM.Alloca(sizeof(d), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool), src->VM.m_LocalStack);
         src->VM.StoreDouble(-1, d);
     }
 
     void Context::PushPointer(void* p, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        src->VM.Alloca(sizeof(p), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool));
+        src->VM.Alloca(sizeof(p), Internal::TypeInfo::Create(&src->CompilationContext, Internal::PrimitiveType::Bool), src->VM.m_LocalStack);
         src->VM.StorePointer(-1, p);
     }
 
@@ -187,11 +187,7 @@ namespace Aria {
     void Context::PushGlobal(const std::string& str, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
 
-        // ARIA_ASSERT(src->ReflectionData.Declarations.contains(str), "Trying to push an unknown global variable");
-        // ARIA_ASSERT(src->ReflectionData.Declarations.at(str).Type == Internal::ReflectionType::Variable, "Trying to push a non-variable global (perhaps a function)");
-
-        // src->VM.Ref(std::get<int32_t>(src->ReflectionData.Declarations.at(str).Data), src->ReflectionData.Declarations.at(str).ResolvedType);
-        ARIA_ASSERT(false, "todo: add Context::PushGlobal()");
+        src->VM.Dup(src->VM.m_GlobalMap[str], src->VM.m_LocalStack, src->VM.m_GlobalStack);
     }
 
     void Context::PushField(int32_t index, const std::string& name, const std::string& module) {
@@ -254,8 +250,9 @@ namespace Aria {
 
     StackSlot Context::GetStackSlot(int32_t index, const std::string& module) {
         CompiledSource* src = GetCompiledSource(module);
-        Internal::VMSlice slice = src->VM.GetVMSlice({ index });
-        return {slice.Memory, slice.Size};
+        // Internal::VMSlice slice = src->VM.GetVMSlice(index, src->VM.);
+        // return {slice.Memory, slice.Size};
+        ARIA_ASSERT(false, "todo");
     }
 
     void Context::AddExternalFunction(const std::string& name, ExternFn fn, const std::string& module) {

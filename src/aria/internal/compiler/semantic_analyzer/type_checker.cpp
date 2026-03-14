@@ -298,7 +298,7 @@ namespace Aria::Internal {
         paramDecl->SetResolvedType(resolvedType);
 
         std::string ident = paramDecl->GetIdentifier();
-        m_Declarations.back()[ident] = { paramDecl->GetResolvedType(), decl };
+        m_Declarations.back()[ident] = { paramDecl->GetResolvedType(), decl, DeclRefType::ParamVar };
     }
 
     void TypeChecker::HandleFunctionDecl(Decl* decl) {

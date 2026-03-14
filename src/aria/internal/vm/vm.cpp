@@ -41,66 +41,72 @@ namespace Aria::Internal {
     T Gte(T lhs, T rhs) { return lhs >= rhs; }
 
     VM::VM(Context* ctx) {
-        m_Stack.resize(4 * 1024 * 1024); // 4MB stack by default
-        m_StackSlots.resize(1024); // 1024 slots by default
+        m_LocalStack.   Reserve(32 * 1024, 2048);
+        m_FunctionStack.Reserve(4 * 1024, 256);
+        m_GlobalStack.  Reserve(16 * 1024, 1024);
 
         m_Context = ctx;
     }
 
-    void VM::Alloca(size_t size, TypeInfo* type) {
+    void VM::Alloca(size_t size, TypeInfo* type, Stack& stack) {
         size_t alignedSize = ((size + 8 - 1) / 8) * 8; // We need to handle 8 byte alignment since some CPU's will require it
         
         ARIA_ASSERT(alignedSize % 8 == 0, "Memory not aligned to 8 bytes correctly!");
-        ARIA_ASSERT(m_StackPointer + alignedSize < m_Stack.max_size(), "Stack overflow, allocating an insane amount of memory!");
+        ARIA_ASSERT(stack.StackPointer + alignedSize < stack.Stack.max_size(), "Local stack overflow, allocating an insane amount of memory!");
 
-        m_StackPointer += alignedSize;
+        stack.StackPointer += alignedSize;
 
-        if (m_StackSlotPointer + 1 >= m_StackSlots.size()) {
-            m_StackSlots.resize(m_StackSlots.size() * 2);
+        // Add more stack slots if needed
+        if (stack.StackSlotPointer + 1 >= stack.StackSlots.size()) {
+            stack.StackSlots.resize(stack.StackSlots.size() * 2);
         }
-
-        m_StackSlots[m_StackSlotPointer] = { m_StackPointer - alignedSize, size };
-        m_StackSlotPointer++;
-    }
-
-    void VM::Pop(size_t count) {
-        m_StackPointer = m_StackSlots[m_StackSlotPointer - count].Index;
-        m_StackSlotPointer -= count;
-    }
-
-    void VM::Copy(i32 dstSlot, i32 srcSlot) {
-        VMSlice dst = GetVMSlice(dstSlot);
-        VMSlice src = GetVMSlice(srcSlot);
-
-        ARIA_ASSERT(dst.Size == src.Size, "Invalid VM::Copy() call, sizes of both slots must be the same!");
-
-        memcpy(dst.Memory, src.Memory, src.Size);
-    }
-
-    void VM::Dup(i32 slot) {
-        VMSlice src = GetVMSlice(slot);
-
-        Alloca(src.Size, src.ResolvedType);
-        VMSlice dst = GetVMSlice(-1);
         
-        memcpy(dst.Memory, src.Memory, src.Size);
+        stack.StackSlots[stack.StackSlotPointer++] = { stack.StackPointer - alignedSize, size };
+    }
+
+    void VM::Pop(size_t count, Stack& stack) {
+        stack.StackPointer = stack.StackSlots[stack.StackSlotPointer - count].Index;
+        stack.StackSlotPointer -= count;
+    }
+
+    void VM::Copy(i32 dstSlot, i32 srcSlot, Stack& dst, Stack& src) {
+        VMSlice dstSlice = GetVMSlice(dstSlot, dst);
+        VMSlice srcSlice = GetVMSlice(srcSlot, src);
+
+        ARIA_ASSERT(dstSlice.Size == srcSlice.Size, "Invalid VM::Copy() call, sizes of both slots must be the same!");
+
+        memcpy(dstSlice.Memory, srcSlice.Memory, srcSlice.Size);
+    }
+
+    void VM::Dup(i32 slot, Stack& dst, Stack& src) {
+        VMSlice srcSlot = GetVMSlice(slot, src);
+
+        Alloca(srcSlot.Size, srcSlot.ResolvedType, dst);
+        VMSlice dstSlot = GetVMSlice(-1, dst);
+        
+        memcpy(dstSlot.Memory, srcSlot.Memory, srcSlot.Size);
     }
 
     void VM::PushStackFrame() {
+        // Save the state of all stacks
+        m_LocalStack.StackSlotBasePointer = m_LocalStack.StackSlotPointer;
+        m_FunctionStack.StackSlotBasePointer = m_FunctionStack.StackSlotPointer;
+        m_GlobalStack.StackSlotBasePointer = m_GlobalStack.StackSlotPointer;
+
         StackFrame newStackFrame;
-        newStackFrame.Offset = m_StackPointer;
-        newStackFrame.SlotOffset = m_StackSlotPointer;
         newStackFrame.PreviousFunction = m_ActiveFunction;
 
         m_StackFrames.push_back(newStackFrame);
     }
 
     void VM::PopStackFrame() {
-        ARIA_ASSERT(m_StackFrames.size() > 0, "Calling PopStackFrame() with no active stack frame!");
+        ARIA_ASSERT(m_StackFrames.size() > 0, "Calling VM::PopStackFrame() with no active stack frame!");
 
-        StackFrame current = m_StackFrames.back();
-        m_StackPointer = current.Offset;
-        m_StackSlotPointer = current.SlotOffset;
+        // Restore the state of all stacks
+        m_LocalStack.StackSlotPointer = m_LocalStack.StackSlotBasePointer;
+        m_FunctionStack.StackSlotPointer = m_FunctionStack.StackSlotBasePointer;
+        m_GlobalStack.StackSlotPointer = m_GlobalStack.StackSlotBasePointer;
+
         m_StackFrames.pop_back();
     }
 
@@ -132,62 +138,62 @@ namespace Aria::Internal {
     }
 
     void VM::StoreBool(i32 slot, bool b) {
-        VMSlice s = GetVMSlice(slot);
+        VMSlice s = GetVMSlice(slot, m_LocalStack);
         ARIA_ASSERT(s.Size == 1, "Cannot store a bool in a slot with a size that isn't 1!");
         int8_t bb = static_cast<int8_t>(b);
         memcpy(s.Memory, &bb, 1);
     }
 
     void VM::StoreChar(i32 slot, int8_t c) {
-        VMSlice s = GetVMSlice(slot);
+        VMSlice s = GetVMSlice(slot, m_LocalStack);
         ARIA_ASSERT(s.Size == 1, "Cannot store a char in a slot with a size that isn't 1!");
         memcpy(s.Memory, &c, 1);
     }
 
     void VM::StoreShort(i32 slot, int16_t sh) {
-        VMSlice s = GetVMSlice(slot);
+        VMSlice s = GetVMSlice(slot, m_LocalStack);
         ARIA_ASSERT(s.Size == 2, "Cannot store a short in a slot with a size that isn't 2!");
         memcpy(s.Memory, &sh, 2);
     }
 
     void VM::StoreInt(i32 slot, int32_t i) {
-        VMSlice s = GetVMSlice(slot);
+        VMSlice s = GetVMSlice(slot, m_LocalStack);
         ARIA_ASSERT(s.Size == 4, "Cannot store an int in a slot with a size that isn't 4!");
         memcpy(s.Memory, &i, 4);
     }
 
     void VM::StoreLong(i32 slot, int64_t l) {
-        VMSlice s = GetVMSlice(slot);
+        VMSlice s = GetVMSlice(slot, m_LocalStack);
         ARIA_ASSERT(s.Size == 8, "Cannot store a long in a slot with a size that isn't 8!");
         memcpy(s.Memory, &l, 8);
     }
 
     void VM::StoreSize(i32 slot, size_t sz) {
-        VMSlice s = GetVMSlice(slot);
+        VMSlice s = GetVMSlice(slot, m_LocalStack);
         ARIA_ASSERT(s.Size == sizeof(size_t), "Cannot store a size_t in a slot with a size that isn't sizeof(size_t)!");
         memcpy(s.Memory, &sz, sizeof(size_t));
     }
 
     void VM::StoreFloat(i32 slot, float f) {
-        VMSlice s = GetVMSlice(slot);
+        VMSlice s = GetVMSlice(slot, m_LocalStack);
         ARIA_ASSERT(s.Size == 4, "Cannot store a float in a slot with a size that isn't 4!");
         memcpy(s.Memory, &f, 4);
     }
 
     void VM::StoreDouble(i32 slot, double d) {
-        VMSlice s = GetVMSlice(slot);
+        VMSlice s = GetVMSlice(slot, m_LocalStack);
         ARIA_ASSERT(s.Size == 8, "Cannot store a double in a slot with a size that isn't 8!");
         memcpy(s.Memory, &d, 8);
     }
 
     void VM::StorePointer(i32 slot, void* p) {
-        VMSlice s = GetVMSlice(slot);
+        VMSlice s = GetVMSlice(slot, m_LocalStack);
         ARIA_ASSERT(s.Size == sizeof(void*), "Cannot store a double in a slot with a size that isn't sizeof(void*)!");
         memcpy(s.Memory, &p, sizeof(void*));
     }
 
     bool VM::GetBool(i32 slot) {
-        VMSlice s = GetVMSlice(slot);
+        VMSlice s = GetVMSlice(slot, m_LocalStack);
 
         ARIA_ASSERT(s.Size == 1, "Invalid GetBool() call!");
 
@@ -197,7 +203,7 @@ namespace Aria::Internal {
     }
 
     int8_t VM::GetChar(i32 slot) {
-        VMSlice s = GetVMSlice(slot);
+        VMSlice s = GetVMSlice(slot, m_LocalStack);
 
         ARIA_ASSERT(s.Size == 1, "Invalid GetChar() call!");
 
@@ -207,7 +213,7 @@ namespace Aria::Internal {
     }
 
     int16_t VM::GetShort(i32 slot) {
-        VMSlice s = GetVMSlice(slot);
+        VMSlice s = GetVMSlice(slot, m_LocalStack);
 
         ARIA_ASSERT(s.Size == 2, "Invalid GetShort() call!");
 
@@ -217,7 +223,7 @@ namespace Aria::Internal {
     }
 
     int32_t VM::GetInt(i32 slot) {
-        VMSlice s = GetVMSlice(slot);
+        VMSlice s = GetVMSlice(slot, m_LocalStack);
 
         ARIA_ASSERT(s.Size == 4, "Invalid GetInt() call!");
 
@@ -227,7 +233,7 @@ namespace Aria::Internal {
     }
 
     int64_t VM::GetLong(i32 slot) {
-        VMSlice s = GetVMSlice(slot);
+        VMSlice s = GetVMSlice(slot, m_LocalStack);
 
         ARIA_ASSERT(s.Size == 8, "Invalid GetLong() call!");
 
@@ -237,7 +243,7 @@ namespace Aria::Internal {
     }
 
     size_t VM::GetSize(i32 slot) {
-        VMSlice s = GetVMSlice(slot);
+        VMSlice s = GetVMSlice(slot, m_LocalStack);
 
         ARIA_ASSERT(s.Size == sizeof(size_t), "Invalid GetLong() call!");
 
@@ -247,7 +253,7 @@ namespace Aria::Internal {
     }
 
     float VM::GetFloat(i32 slot) {
-        VMSlice s = GetVMSlice(slot);
+        VMSlice s = GetVMSlice(slot, m_LocalStack);
 
         ARIA_ASSERT(s.Size == 4, "Invalid GetFloat() call!");
 
@@ -257,7 +263,7 @@ namespace Aria::Internal {
     }
 
     double VM::GetDouble(i32 slot) {
-        VMSlice s = GetVMSlice(slot);
+        VMSlice s = GetVMSlice(slot, m_LocalStack);
 
         ARIA_ASSERT(s.Size == 8, "Invalid GetDouble() call!");
 
@@ -267,7 +273,7 @@ namespace Aria::Internal {
     }
 
     void* VM::GetPointer(i32 slot) {
-        VMSlice s = GetVMSlice(slot);
+        VMSlice s = GetVMSlice(slot, m_LocalStack);
 
         ARIA_ASSERT(s.Size == sizeof(void*), "Invalid GetPointer() call!");
 
@@ -296,19 +302,19 @@ namespace Aria::Internal {
     void VM::Run() {
         #define CASE_LOAD(_enum, builtInType) case OpCodeType::_enum: { \
             OpCodeLoad l = std::get<OpCodeLoad>(op.Data); \
-            Alloca(sizeof(builtInType), l.ResolvedType); \
-            memcpy(GetVMSlice(-1).Memory, &std::get<builtInType>(l.Data), sizeof(builtInType)); \
+            Alloca(sizeof(builtInType), l.ResolvedType, m_LocalStack); \
+            memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<builtInType>(l.Data), sizeof(builtInType)); \
             break; \
         }
 
         #define CASE_UNARYEXPR(_enum, builtinType, builtinOp) case OpCodeType::_enum: { \
-            VMSlice s = GetVMSlice(-1); \
+            VMSlice s = GetVMSlice(-1, m_LocalStack); \
             builtinType value{}; \
             memcpy(&value, s.Memory, sizeof(builtinType)); \
             builtinType result = builtinOp(value); \
-            Pop(1); \
-            Alloca(sizeof(builtinType), s.ResolvedType); \
-            VMSlice newSlot = GetVMSlice(-1); \
+            Pop(1, m_LocalStack); \
+            Alloca(sizeof(builtinType), s.ResolvedType, m_LocalStack); \
+            VMSlice newSlot = GetVMSlice(-1, m_LocalStack); \
             memcpy(newSlot.Memory, &result, sizeof(builtinType)); \
             break; \
         }
@@ -329,12 +335,12 @@ namespace Aria::Internal {
             OpCodeMath m = std::get<OpCodeMath>(op.Data); \
             builtinType lhs{}; \
             builtinType rhs{}; \
-            memcpy(&lhs, GetVMSlice(-2).Memory, sizeof(builtinType)); \
-            memcpy(&rhs, GetVMSlice(-1).Memory, sizeof(builtinType)); \
+            memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(builtinType)); \
+            memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(builtinType)); \
             builtinType result = builtinOp(lhs, rhs); \
-            Pop(2); \
-            Alloca(sizeof(builtinType), m.ResolvedType); \
-            VMSlice s = GetVMSlice(-1); \
+            Pop(2, m_LocalStack); \
+            Alloca(sizeof(builtinType), m.ResolvedType, m_LocalStack); \
+            VMSlice s = GetVMSlice(-1, m_LocalStack); \
             memcpy(s.Memory, &result, sizeof(builtinType)); \
             break; \
         }
@@ -343,12 +349,12 @@ namespace Aria::Internal {
             OpCodeMath m = std::get<OpCodeMath>(op.Data); \
             builtinType lhs{}; \
             builtinType rhs{}; \
-            memcpy(&lhs, GetVMSlice(-2).Memory, sizeof(builtinType)); \
-            memcpy(&rhs, GetVMSlice(-1).Memory, sizeof(builtinType)); \
+            memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(builtinType)); \
+            memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(builtinType)); \
             bool result = builtinOp(lhs, rhs); \
-            Pop(2); \
-            Alloca(1, m.ResolvedType); \
-            VMSlice s = GetVMSlice(-1); \
+            Pop(2, m_LocalStack); \
+            Alloca(1, m.ResolvedType, m_LocalStack); \
+            VMSlice s = GetVMSlice(-1, m_LocalStack); \
             memcpy(s.Memory, &result, 1); \
             break; \
         }
@@ -389,13 +395,13 @@ namespace Aria::Internal {
 
         #define CASE_CAST(_enum, sourceType, destType) case OpCodeType::_enum: { \
             OpCodeCast cast = std::get<OpCodeCast>(op.Data); \
-            VMSlice s = GetVMSlice(-1); \
+            VMSlice s = GetVMSlice(-1, m_LocalStack); \
             sourceType t{}; \
             memcpy(&t, s.Memory, sizeof(sourceType)); \
             destType d = static_cast<destType>(t); \
-            Pop(1); \
-            Alloca(sizeof(destType), cast.ResolvedType); \
-            VMSlice __a = GetVMSlice(-1); \
+            Pop(1, m_LocalStack); \
+            Alloca(sizeof(destType), cast.ResolvedType, m_LocalStack); \
+            VMSlice __a = GetVMSlice(-1, m_LocalStack); \
             memcpy(__a.Memory, &d, sizeof(destType)); \
             break; \
         }
@@ -421,21 +427,21 @@ namespace Aria::Internal {
                 case OpCodeType::Alloca: {
                     OpCodeAlloca alloca = std::get<OpCodeAlloca>(op.Data);
 
-                    Alloca(alloca.Size, alloca.ResolvedType);
+                    Alloca(alloca.Size, alloca.ResolvedType, m_LocalStack);
                     break;
                 }
 
                 case OpCodeType::Store: {
                     void* dst = GetPointer(-2);
-                    VMSlice src = GetVMSlice(-1);
+                    VMSlice src = GetVMSlice(-1, m_LocalStack);
 
                     memcpy(dst, src.Memory, src.Size);
-                    Pop(2);
+                    Pop(2, m_LocalStack);
                     break;
                 }
 
                 case OpCodeType::Dup: {
-                    Dup(-1);
+                    Dup(-1, m_LocalStack, m_LocalStack);
                     break;
                 }
 
@@ -464,48 +470,86 @@ namespace Aria::Internal {
                 case OpCodeType::LoadStr: {
                     OpCodeLoad l = std::get<OpCodeLoad>(op.Data);
                     StringView str = std::get<StringView>(l.Data);
-                    Alloca(str.Size(), l.ResolvedType);
-                    memcpy(GetVMSlice(-1).Memory, str.Data(), str.Size());
+                    Alloca(str.Size(), l.ResolvedType, m_LocalStack);
+                    memcpy(GetVMSlice(-1, m_LocalStack).Memory, str.Data(), str.Size());
                     break;
                 }
 
                 case OpCodeType::DeclareGlobal: {
                     const std::string& g = std::get<std::string>(op.Data);
-                    m_GlobalMap[g] = { m_StackSlotPointer - 1 };
+
+                    VMSlice src = GetVMSlice(-1, m_LocalStack);
+
+                    Alloca(src.Size, src.ResolvedType, m_GlobalStack);
+                    VMSlice dst = GetVMSlice(-1, m_GlobalStack);
+
+                    memcpy(dst.Memory, src.Memory, src.Size);
+                    Pop(1, m_LocalStack); // Pop the local stack slot which we just copied
+
+                    m_GlobalMap[g] = { static_cast<i32>(m_GlobalStack.StackSlotPointer) - 1 };
                     break;
                 };
 
                 case OpCodeType::DeclareLocal: {
                     size_t index = std::get<size_t>(op.Data);
-                    m_StackFrames.back().LocalMap[index] = { m_StackSlotPointer - 1 };
+                    m_StackFrames.back().LocalMap[index] = { static_cast<i32>(m_LocalStack.StackSlotPointer) - 1 };
                     break;
                 };
 
                 case OpCodeType::LoadGlobal: {
                     const std::string& g = std::get<std::string>(op.Data);
-                    Dup(m_GlobalMap.at(g));
+                    Dup(m_GlobalMap.at(g), m_LocalStack, m_GlobalStack);
                     break;
                 }
 
                 case OpCodeType::LoadLocal: {
                     size_t index = std::get<size_t>(op.Data);
-                    Dup(m_StackFrames.back().LocalMap.at(index));
+                    Dup(m_StackFrames.back().LocalMap.at(index), m_LocalStack, m_LocalStack);
+                    break;
+                }
+
+                case OpCodeType::LoadArg: {
+                    // size_t index = std::get<size_t>(op.Data);
+                    // // Since arguments are pushed in reverse order
+                    // // And the return slot is the last thing before the function call
+                    // // We can get arguments from the slots before the return slot
+                    // i32 retSlot = -(static_cast<i32>(m_StackSlotPointer - m_StackFrames.back().SlotOffset) + 1);
+                    // i32 slot = retSlot - (index + 1);
+                    // Dup(slot);
+                    ARIA_ASSERT(false, "todo");
+                    break;
+                }
+
+                case OpCodeType::LoadFunc: {
+                    // const std::string& fn = std::get<std::string>(op.Data);
+                    // 
+                    // Alloca(sizeof(void*), nullptr);
+                    // StorePointer(-1, const_cast<char*>(fn.c_str()));
+                    ARIA_ASSERT(false, "todo");
                     break;
                 }
 
                 case OpCodeType::LoadPtrGlobal: {
                     const std::string& g = std::get<std::string>(op.Data);
-                    VMSlice slice = GetVMSlice(m_GlobalMap.at(g));
-                    Alloca(sizeof(void*), slice.ResolvedType);
+                    VMSlice slice = GetVMSlice(m_GlobalMap.at(g), m_GlobalStack);
+                    Alloca(sizeof(void*), slice.ResolvedType, m_LocalStack);
                     StorePointer(-1, slice.Memory);
                     break;
                 }
 
                 case OpCodeType::LoadPtrLocal: {
                     size_t index = std::get<size_t>(op.Data);
-                    VMSlice slice = GetVMSlice(m_StackFrames.back().LocalMap.at(index));
-                    Alloca(sizeof(void*), slice.ResolvedType);
+                    VMSlice slice = GetVMSlice(m_StackFrames.back().LocalMap.at(index), m_LocalStack);
+                    Alloca(sizeof(void*), slice.ResolvedType, m_LocalStack);
                     StorePointer(-1, slice.Memory);
+                    break;
+                }
+
+                case OpCodeType::LoadPtrRet: {
+                    // VMSlice slice = GetVMSlice(-(static_cast<i32>(m_StackSlotPointer - m_StackFrames.back().SlotOffset) + 1));
+                    // Alloca(sizeof(void*), nullptr);
+                    // StorePointer(-1, slice.Memory);
+                    ARIA_ASSERT(false, "todo");
                     break;
                 }
 
@@ -544,37 +588,38 @@ namespace Aria::Internal {
                 }
 
                 case OpCodeType::Call: {
-                    const OpCodeCall& call = std::get<OpCodeCall>(op.Data);
+                    // const OpCodeCall& call = std::get<OpCodeCall>(op.Data);
+                    // 
+                    // // Stack is supposed to be:
+                    // // func (signature, stored as a char*)
+                    // // arg1
+                    // // arg2
+                    // // ...
+                    // // ret slot
+                    // std::string sig = reinterpret_cast<char*>(GetPointer(-static_cast<i32>(call.ArgCount + call.RetCount + 1)));
+                    // 
+                    // // Check if we have an external function
+                    // if (m_ExternalFunctions.contains(sig)) {
+                    //     CallExtern(sig, call.ArgCount, call.RetCount);
+                    //     break;
+                    // }
+                    // 
+                    // // Now check for aria functions
+                    // ARIA_ASSERT(m_Functions.contains(sig), "Calling unknown function");
+                    // VMFunction& func = m_Functions.at(sig);
+                    // 
+                    // // Save the state in the current stack frame
+                    // m_StackFrames.back().PreviousReturnAddress = m_ReturnAddress;
+                    // m_StackFrames.back().PreviousFunction = m_ActiveFunction;
+                    // 
+                    // m_ReturnAddress = m_ProgramCounter;
+                    // 
+                    // // Perform a jump to the function
+                    // ARIA_ASSERT(func.Labels.contains("_entry$"), "All functions must contain a \"_entry$\" label");
+                    // m_ProgramCounter = func.Labels.at("_entry$");
+                    // m_ActiveFunction = &func;
 
-                    // Stack is supposed to be:
-                    // func (signature, stored as a char*)
-                    // arg1
-                    // arg2
-                    // ...
-                    // ret slot
-                    std::string sig = reinterpret_cast<char*>(GetPointer(-static_cast<i32>(call.ArgCount + call.RetCount + 1)));
-
-                    // Check if we have an external function
-                    if (m_ExternalFunctions.contains(sig)) {
-                        CallExtern(sig, call.ArgCount, call.RetCount);
-                        break;
-                    }
-
-                    // Now check for aria functions
-                    ARIA_ASSERT(m_Functions.contains(sig), "Calling unknown function");
-                    VMFunction& func = m_Functions.at(sig);
-
-                    // Save the state in the current stack frame
-                    m_StackFrames.back().PreviousReturnAddress = m_ReturnAddress;
-                    m_StackFrames.back().PreviousFunction = m_ActiveFunction;
-
-                    m_ReturnAddress = m_ProgramCounter + 1;
-
-                    // Perform a jump to the function
-                    ARIA_ASSERT(func.Labels.contains("_entry$"), "All functions must contain a \"_entry$\" label");
-                    m_ProgramCounter = func.Labels.at("_entry$");
-                    m_ActiveFunction = &func;
-
+                    ARIA_ASSERT(false, "todo");
                     break;
                 }
 
@@ -596,37 +641,7 @@ namespace Aria::Internal {
 
                 CASE_BINEXPR_GROUP(Add, Add)
                 CASE_BINEXPR_GROUP(Sub, Sub)
-                case OpCodeType::MulI8: {
-                    OpCodeMath m = std::get<OpCodeMath>(op.Data); int8_t lhs{}; int8_t rhs{}; memcpy(&lhs, GetVMSlice(-2).Memory, sizeof(int8_t)); memcpy(&rhs, GetVMSlice(-1).Memory, sizeof(int8_t)); int8_t result = Mul(lhs, rhs); Pop(2); Alloca(sizeof(int8_t), m.ResolvedType); VMSlice s = GetVMSlice(-1); memcpy(s.Memory, &result, sizeof(int8_t)); break;
-                } case OpCodeType::MulI16: {
-                    OpCodeMath m = std::get<OpCodeMath>(op.Data); int16_t lhs{}; int16_t rhs{}; memcpy(&lhs, GetVMSlice(-2).Memory, sizeof(int16_t)); memcpy(&rhs, GetVMSlice(-1).Memory, sizeof(int16_t)); int16_t result = Mul(lhs, rhs); Pop(2); Alloca(sizeof(int16_t), m.ResolvedType); VMSlice s = GetVMSlice(-1); memcpy(s.Memory, &result, sizeof(int16_t)); break;
-                } case OpCodeType::MulI32: {
-                    OpCodeMath m = std::get<OpCodeMath>(op.Data); 
-                    int32_t lhs{}; 
-                    int32_t rhs{}; 
-                    memcpy(&lhs, GetVMSlice(-2).Memory, sizeof(int32_t)); 
-                    memcpy(&rhs, GetVMSlice(-1).Memory, sizeof(int32_t)); 
-                    int32_t result = Mul(lhs, rhs); 
-                    Pop(2); 
-                    Alloca(sizeof(int32_t), m.ResolvedType); 
-                    VMSlice s = GetVMSlice(-1); 
-                    memcpy(s.Memory, &result, sizeof(int32_t)); 
-                    break;
-                } case OpCodeType::MulI64: {
-                    OpCodeMath m = std::get<OpCodeMath>(op.Data); int64_t lhs{}; int64_t rhs{}; memcpy(&lhs, GetVMSlice(-2).Memory, sizeof(int64_t)); memcpy(&rhs, GetVMSlice(-1).Memory, sizeof(int64_t)); int64_t result = Mul(lhs, rhs); Pop(2); Alloca(sizeof(int64_t), m.ResolvedType); VMSlice s = GetVMSlice(-1); memcpy(s.Memory, &result, sizeof(int64_t)); break;
-                } case OpCodeType::MulU8: {
-                    OpCodeMath m = std::get<OpCodeMath>(op.Data); uint8_t lhs{}; uint8_t rhs{}; memcpy(&lhs, GetVMSlice(-2).Memory, sizeof(uint8_t)); memcpy(&rhs, GetVMSlice(-1).Memory, sizeof(uint8_t)); uint8_t result = Mul(lhs, rhs); Pop(2); Alloca(sizeof(uint8_t), m.ResolvedType); VMSlice s = GetVMSlice(-1); memcpy(s.Memory, &result, sizeof(uint8_t)); break;
-                } case OpCodeType::MulU16: {
-                    OpCodeMath m = std::get<OpCodeMath>(op.Data); uint16_t lhs{}; uint16_t rhs{}; memcpy(&lhs, GetVMSlice(-2).Memory, sizeof(uint16_t)); memcpy(&rhs, GetVMSlice(-1).Memory, sizeof(uint16_t)); uint16_t result = Mul(lhs, rhs); Pop(2); Alloca(sizeof(uint16_t), m.ResolvedType); VMSlice s = GetVMSlice(-1); memcpy(s.Memory, &result, sizeof(uint16_t)); break;
-                } case OpCodeType::MulU32: {
-                    OpCodeMath m = std::get<OpCodeMath>(op.Data); uint32_t lhs{}; uint32_t rhs{}; memcpy(&lhs, GetVMSlice(-2).Memory, sizeof(uint32_t)); memcpy(&rhs, GetVMSlice(-1).Memory, sizeof(uint32_t)); uint32_t result = Mul(lhs, rhs); Pop(2); Alloca(sizeof(uint32_t), m.ResolvedType); VMSlice s = GetVMSlice(-1); memcpy(s.Memory, &result, sizeof(uint32_t)); break;
-                } case OpCodeType::MulU64: {
-                    OpCodeMath m = std::get<OpCodeMath>(op.Data); uint64_t lhs{}; uint64_t rhs{}; memcpy(&lhs, GetVMSlice(-2).Memory, sizeof(uint64_t)); memcpy(&rhs, GetVMSlice(-1).Memory, sizeof(uint64_t)); uint64_t result = Mul(lhs, rhs); Pop(2); Alloca(sizeof(uint64_t), m.ResolvedType); VMSlice s = GetVMSlice(-1); memcpy(s.Memory, &result, sizeof(uint64_t)); break;
-                } case OpCodeType::MulF32: {
-                    OpCodeMath m = std::get<OpCodeMath>(op.Data); float lhs{}; float rhs{}; memcpy(&lhs, GetVMSlice(-2).Memory, sizeof(float)); memcpy(&rhs, GetVMSlice(-1).Memory, sizeof(float)); float result = Mul(lhs, rhs); Pop(2); Alloca(sizeof(float), m.ResolvedType); VMSlice s = GetVMSlice(-1); memcpy(s.Memory, &result, sizeof(float)); break;
-                } case OpCodeType::MulF64: {
-                    OpCodeMath m = std::get<OpCodeMath>(op.Data); double lhs{}; double rhs{}; memcpy(&lhs, GetVMSlice(-2).Memory, sizeof(double)); memcpy(&rhs, GetVMSlice(-1).Memory, sizeof(double)); double result = Mul(lhs, rhs); Pop(2); Alloca(sizeof(double), m.ResolvedType); VMSlice s = GetVMSlice(-1); memcpy(s.Memory, &result, sizeof(double)); break;
-                }
+                CASE_BINEXPR_GROUP(Mul, Mul)
                 CASE_BINEXPR_GROUP(Div, Div)
                 CASE_BINEXPR_GROUP(Mod, Mod)
 
@@ -664,16 +679,16 @@ namespace Aria::Internal {
         #undef CASE_CAST_GROUP
     }
     
-    VMSlice VM::GetVMSlice(i32 index) {
+    VMSlice VM::GetVMSlice(i32 index, Stack& stack) {
         StackSlot slot;
 
         if (index < 0) {
-            slot = m_StackSlots[m_StackSlotPointer + index];
+            slot = stack.StackSlots[stack.StackSlotPointer + index];
         } else {
-            slot = m_StackSlots[m_StackFrames.back().SlotOffset + index];
+            slot = stack.StackSlots[stack.StackSlotBasePointer + index];
         }
 
-        return VMSlice(&m_Stack[slot.Index], slot.Size);
+        return VMSlice(&stack.Stack[slot.Index], slot.Size);
     }
 
     void VM::StopExecution() {

@@ -15,6 +15,7 @@ namespace Aria::Internal {
 
     enum class DeclRefType {
         LocalVar,
+        ParamVar,
         GlobalVar,
         Function
     };
@@ -22,6 +23,7 @@ namespace Aria::Internal {
     inline const char* DeclRefTypeToString(DeclRefType type) {
         switch (type) {
             case DeclRefType::LocalVar:    return "LocalVar";
+            case DeclRefType::ParamVar:    return "ParamVar";
             case DeclRefType::GlobalVar:   return "GlobalVar";
             case DeclRefType::Function:    return "Function";
         }

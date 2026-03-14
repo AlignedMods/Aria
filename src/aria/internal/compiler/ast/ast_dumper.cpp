@@ -36,7 +36,7 @@ namespace Aria::Internal {
         } else if (StringConstantExpr* sc = GetNode<StringConstantExpr>(expr)) {
             m_Output += fmt::format("StringConstantExpr \"{}\" '{}' {}\n", sc->GetValue(), TypeInfoToString(sc->GetResolvedType()), ExprValueTypeToString(sc->GetValueType())); return;
         } else if (DeclRefExpr* declRef = GetNode<DeclRefExpr>(expr)) {
-            m_Output += fmt::format("DeclRefExpr '{}' '{}' {}\n", declRef->GetRawIdentifier(), TypeInfoToString(declRef->GetResolvedType()), ExprValueTypeToString(declRef->GetValueType())); return;
+            m_Output += fmt::format("DeclRefExpr '{}' '{}' {} {}\n", declRef->GetRawIdentifier(), TypeInfoToString(declRef->GetResolvedType()), DeclRefTypeToString(declRef->GetType()), ExprValueTypeToString(declRef->GetValueType())); return;
         } else if (CallExpr* call = GetNode<CallExpr>(expr)) {
             m_Output += fmt::format("CallExpr '{}' {}\n", TypeInfoToString(call->GetResolvedType()), ExprValueTypeToString(call->GetValueType()));
             for (Expr* e : call->GetArguments()) {

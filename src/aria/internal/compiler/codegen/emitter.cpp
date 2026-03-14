@@ -100,6 +100,11 @@ namespace Aria::Internal {
                     IncrementStackSlotCount();
                 }
             }
+        } else if (declRef->GetType() == DeclRefType::ParamVar) {
+            ARIA_ASSERT(lvalue == false, "Cannot get a ParamVar as an lvalue!");
+
+            m_OpCodes.emplace_back(OpCodeType::LoadArg, m_ActiveStackFrame.Parameters.at(declRef->GetIdentifier()));
+            IncrementStackSlotCount();
         } else if (declRef->GetType() == DeclRefType::GlobalVar) {
             if (lvalue) {
                 m_OpCodes.emplace_back(OpCodeType::LoadPtrGlobal, declRef->GetIdentifier());
@@ -108,35 +113,30 @@ namespace Aria::Internal {
             }
 
             IncrementStackSlotCount();
+        } else if (declRef->GetType() == DeclRefType::Function) {
+            m_OpCodes.emplace_back(OpCodeType::LoadFunc, fmt::format("{}()", declRef->GetRawIdentifier()));
+            IncrementStackSlotCount();
         }
     }
 
     void Emitter::EmitCallExpr(Expr* expr) {
         CallExpr* call = GetNode<CallExpr>(expr);
 
-        // std::vector<CompileMemRef> args;
-        // for (Expr* arg : call->GetArguments()) {
-        //     args.push_back(EmitExpr(arg));
-        // }
-        // 
-        // for (auto& mem : args) {
-        //     m_OpCodes.emplace_back(OpCodeType::Dup, CompileToRuntimeMemRef(mem));
-        //     IncrementStackSlotCount();
-        // }
-        // 
-        // bool retCount = 0;
-        // TypeInfo* retType = call->GetResolvedType();
-        // if (retType->Type != PrimitiveType::Void) {
-        //     m_OpCodes.emplace_back(OpCodeType::Alloca, OpCodeAlloca(retType->GetSize(), retType));
-        //     IncrementStackSlotCount();
-        //     retCount = 1;
-        // }
-        // 
-        // CompileMemRef callee = EmitExpr(call->GetCallee());
-        // 
-        // m_OpCodes.emplace_back(OpCodeType::Call, OpCodeCall(CompileToRuntimeMemRef(callee), args.size(), retCount));
-        // return GetStackTop(retType->GetSize());
-        ARIA_UNREACHABLE();
+        size_t retCount = 0;
+        TypeInfo* retType = call->GetResolvedType();
+        if (retType->Type != PrimitiveType::Void) {
+            m_OpCodes.emplace_back(OpCodeType::Alloca, OpCodeAlloca(retType->GetSize(), retType));
+            IncrementStackSlotCount();
+            retCount = 1;
+        }
+
+        EmitExpr(call->GetCallee());
+
+        for (size_t i = call->GetArguments().Size; i > 0; i--) {
+            EmitExpr(call->GetArguments().Items[i - 1]);
+        }
+
+        m_OpCodes.emplace_back(OpCodeType::Call, OpCodeCall(call->GetArguments().Size));
     }
 
     void Emitter::EmitParenExpr(Expr* expr) {
@@ -298,18 +298,9 @@ namespace Aria::Internal {
         }
     }
     
-    void Emitter::EmitParamDecl(Decl* decl, i32 slot) {
-        // ParamDecl* paramDecl = GetNode<ParamDecl>(decl);
-        // 
-        // m_OpCodes.emplace_back(OpCodeType::Dup, mem);
-        // IncrementStackSlotCount();
-        // 
-        // Declaration d;
-        // d.Mem = GetStackTop(paramDecl->GetResolvedType()->GetSize());
-        // d.Type = paramDecl->GetResolvedType();
-        // m_ActiveStackFrame.Scopes.back().DeclaredSymbols.push_back(d);
-        // m_ActiveStackFrame.Scopes.back().DeclaredSymbolMap[paramDecl->GetIdentifier()] = m_ActiveStackFrame.Scopes.back().DeclaredSymbols.size() - 1;
-        ARIA_UNREACHABLE();
+    void Emitter::EmitParamDecl(Decl* decl) {
+        ParamDecl* param = GetNode<ParamDecl>(decl);
+        m_ActiveStackFrame.Parameters[param->GetIdentifier()] = m_ActiveStackFrame.ParameterCount++;
     }
 
     void Emitter::EmitFunctionDecl(Decl* decl) {
@@ -366,12 +357,11 @@ namespace Aria::Internal {
 
     void Emitter::EmitReturnStmt(Stmt* stmt) {
         ReturnStmt* ret = GetNode<ReturnStmt>(stmt);
-        // if (ret->GetValue()) {
-        //     CompileMemRef val = EmitExpr(ret->GetValue());
-        //     MemRef retMem = { StackSlotRef(-static_cast<i32>(m_ActiveStackFrame.SlotCount + 1), ret->GetValue()->GetResolvedType()->GetSize()) };
-        // 
-        //     m_OpCodes.emplace_back(OpCodeType::Copy, OpCodeCopy(retMem, CompileToRuntimeMemRef(val)));
-        // }
+        if (ret->GetValue()) {
+            m_OpCodes.emplace_back(OpCodeType::LoadPtrRet);
+            EmitExpr(ret->GetValue());
+            m_OpCodes.emplace_back(OpCodeType::Store);
+        }
         
         m_OpCodes.emplace_back(OpCodeType::PopSF);
         m_OpCodes.emplace_back(OpCodeType::Ret);
@@ -467,8 +457,7 @@ namespace Aria::Internal {
                     size_t returnSlot = (fnDecl->GetResolvedType()->Type == PrimitiveType::Void) ? 0 : 1;
                     
                     for (ParamDecl* p : fnDecl->GetParameters()) {
-                        int32_t argSlot = -static_cast<int32_t>(fnDecl->GetParameters().Size + returnSlot); // The slot where the argument gets passed from
-                        EmitParamDecl(p, argSlot);
+                        EmitParamDecl(p);
                     }
                     
                     EmitCompoundStmt(fnDecl->GetBody());

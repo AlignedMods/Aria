@@ -34,14 +34,31 @@ namespace Aria::Internal {
         std::unordered_map<std::string, size_t> Labels;
     };
 
+    // A structure which has a linear block of memory (the stack)
+    // And stack slots which can be used to access the raw stack memory
+    struct Stack {
+        // The raw stack memory
+        std::vector<u8> Stack;
+        size_t StackPointer = 0;
+
+        // Stack slots are essentially an abstraction over raw stack memory
+        // They store basic things like an index into stack memory and the size of the slot
+        std::vector<StackSlot> StackSlots;
+        size_t StackSlotPointer = 0;
+        size_t StackSlotBasePointer = 0;
+
+        inline void Reserve(size_t size, size_t slotCount) { Stack.resize(size); StackSlots.resize(slotCount); }
+    };
+
     class VM {
     public:
         explicit VM(Context* ctx);
 
-        void Alloca(size_t size, TypeInfo* type);
-        void Pop(size_t count);
-        void Copy (i32 dstSlot, i32 srcSlot);
-        void Dup  (i32 slot);
+        // Allocates memory on a stack (local, function, global, ..)
+        void Alloca(size_t size, TypeInfo* type, Stack& stack);
+        void Pop   (size_t count, Stack& stack);
+        void Copy  (i32 dstSlot, i32 srcSlot, Stack& dst, Stack& src);
+        void Dup   (i32 slot, Stack& dst, Stack& src);
 
         // Creates a new stack frame
         void PushStackFrame();
@@ -77,7 +94,7 @@ namespace Aria::Internal {
         void RunByteCode(const OpCode* data, size_t count);
         void Run();
 
-        VMSlice GetVMSlice(i32 slot);
+        VMSlice GetVMSlice(i32 slot, Stack& stack);
 
         void StopExecution();
 
@@ -95,27 +112,13 @@ namespace Aria::Internal {
         void RunPrepass();
         
     private:
-        // The raw stack memory
-        // The stack is used for pretty much everything in the language
-        // Even global variables are stored on the stack (a part of the stack that doesn't get freed until the end of the program)
-        std::vector<u8> m_Stack;
-        size_t m_StackPointer = 0;
+        Stack m_LocalStack; // Used for things like expressions and local variables
+        Stack m_FunctionStack; // Used to store data about function calls
+        Stack m_GlobalStack; // Used for global variables
 
-        // Stack slots are essentially an abstraction over raw stack memory
-        // They store basic things like an index into stack memory and the size of the slot
-        std::vector<StackSlot> m_StackSlots;
-        int32_t m_StackSlotPointer = 0;
-
-        // A map of all global variables
-        // These variables are still stored on the stack however they aren't freed until the end of the program
         std::unordered_map<std::string, i32> m_GlobalMap;
 
         struct StackFrame {
-            size_t Offset = 0;
-            size_t SlotOffset = 0;
-
-            // A map of all local variables (including function parameters)
-            // These variables are only valid during a single stack frame
             std::unordered_map<size_t, i32> LocalMap;
 
             size_t PreviousReturnAddress = SIZE_MAX;
@@ -135,6 +138,8 @@ namespace Aria::Internal {
         VMFunction* m_ActiveFunction = nullptr;
 
         Context* m_Context = nullptr;
+
+        friend Aria::Context;
     };
 
 } // namespace Aria::Internal

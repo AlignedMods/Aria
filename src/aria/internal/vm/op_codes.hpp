@@ -58,8 +58,12 @@ namespace Aria::Internal {
 
         LoadGlobal,
         LoadLocal,
+        LoadArg,
+        LoadFunc,
+
         LoadPtrGlobal,
         LoadPtrLocal,
+        LoadPtrRet,
 
         Function,
         Label,
@@ -217,7 +221,6 @@ namespace Aria::Internal {
 
     struct OpCodeCall {
         size_t ArgCount = 0;
-        size_t RetCount = 0;
     };
 
     struct OpCodeMath {

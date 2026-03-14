@@ -24,12 +24,12 @@ namespace Aria::Internal {
     void Disassembler::DisassembleOpCode(const OpCode& op) {
         #define CASE_LOAD(_enum, builtInType, str) case OpCodeType::_enum: { \
             OpCodeLoad l = std::get<OpCodeLoad>(op.Data); \
-            m_Output += fmt::format("{}load      {} {}\n", m_Indentation, str, std::get<builtInType>(l.Data)); \
+            m_Output += fmt::format("{}ld.{}    {}\n", m_Indentation, str, std::get<builtInType>(l.Data)); \
             break; \
         }
 
         #define CASE_UNARYEXPR(_enum, opStr, str) case OpCodeType::_enum: { \
-            m_Output += fmt::format("{}{} {}\n", m_Indentation, opStr, str); \
+            m_Output += fmt::format("{}{}.{}\n", m_Indentation, opStr, str); \
             break; \
         }
 
@@ -46,7 +46,7 @@ namespace Aria::Internal {
             CASE_UNARYEXPR(unaryop##F64, str, "f64")
 
         #define CASE_BINEXPR(_enum, opStr, str) case OpCodeType::_enum: { \
-            m_Output += fmt::format("{}{}     {}\n", m_Indentation, opStr, str); \
+            m_Output += fmt::format("{}{}.{}\n", m_Indentation, opStr, str); \
             break; \
         }
 
@@ -99,11 +99,6 @@ namespace Aria::Internal {
                 m_Output += "alloca    ";
                 m_Output += std::to_string(a.Size);
 
-                if (!op.DebugData.empty()) {
-                    m_Output += "    ; ";
-                    m_Output += op.DebugData;
-                }
-
                 m_Output += '\n';
                 break;
             }
@@ -127,12 +122,12 @@ namespace Aria::Internal {
                 break;
             }
 
-            CASE_LOAD(LoadI8,  i8,  "i8")
+            CASE_LOAD(LoadI8,  i8,  "i8 ")
             CASE_LOAD(LoadI16, i16, "i16")
             CASE_LOAD(LoadI32, i32, "i32")
             CASE_LOAD(LoadI64, i64, "i64")
 
-            CASE_LOAD(LoadU8,  u8,  "u8")
+            CASE_LOAD(LoadU8,  u8,  "u8 ")
             CASE_LOAD(LoadU16, u16, "u16")
             CASE_LOAD(LoadU32, u32, "u32")
             CASE_LOAD(LoadU64, u64, "u64")
@@ -156,25 +151,42 @@ namespace Aria::Internal {
 
             case OpCodeType::LoadGlobal: {
                 const std::string& global = std::get<std::string>(op.Data);
-                m_Output += fmt::format("{}loadg     {}\n", m_Indentation, global);
+                m_Output += fmt::format("{}ld.g      {}\n", m_Indentation, global);
                 break;
             }
 
             case OpCodeType::LoadLocal: {
                 size_t index = std::get<size_t>(op.Data);
-                m_Output += fmt::format("{}loadl     {}\n", m_Indentation, index);
+                m_Output += fmt::format("{}ld.l      {}\n", m_Indentation, index);
+                break;
+            }
+
+            case OpCodeType::LoadArg: {
+                size_t index = std::get<size_t>(op.Data);
+                m_Output += fmt::format("{}ld.arg    {}\n", m_Indentation, index);
+                break;
+            }
+
+            case OpCodeType::LoadFunc: {
+                const std::string& func = std::get<std::string>(op.Data);
+                m_Output += fmt::format("{}ld.fn     {}\n", m_Indentation, func);
                 break;
             }
 
             case OpCodeType::LoadPtrGlobal: {
                 const std::string& global = std::get<std::string>(op.Data);
-                m_Output += fmt::format("{}loadptrg  {}\n", m_Indentation, global);
+                m_Output += fmt::format("{}ldptr.g   {}\n", m_Indentation, global);
                 break;
             }
 
             case OpCodeType::LoadPtrLocal: {
                 size_t index = std::get<size_t>(op.Data);
-                m_Output += fmt::format("{}loadptrl  {}\n", m_Indentation, index);
+                m_Output += fmt::format("{}ldptr.l   {}\n", m_Indentation, index);
+                break;
+            }
+
+            case OpCodeType::LoadPtrRet: {
+                m_Output += fmt::format("{}ldptr.ret\n", m_Indentation);
                 break;
             }
 
@@ -219,30 +231,30 @@ namespace Aria::Internal {
             case OpCodeType::Call: {
                 const OpCodeCall& call = std::get<OpCodeCall>(op.Data);
 
-                m_Output += fmt::format("{}call      {} {}\n", m_Indentation, call.ArgCount, call.RetCount);
+                m_Output += fmt::format("{}call      {}\n", m_Indentation, call.ArgCount);
                 break;
             }
 
             case OpCodeType::Ret: m_Output += m_Indentation; m_Output += "ret\n"; break;
 
-            CASE_UNARYEXPR_GROUP(Neg, "neg  ")
+            CASE_UNARYEXPR_GROUP(Neg, "neg      ")
 
-            CASE_BINEXPR_GROUP(Add, "add  ")
-            CASE_BINEXPR_GROUP(Sub, "sub  ")
-            CASE_BINEXPR_GROUP(Mul, "mul  ")
-            CASE_BINEXPR_GROUP(Div, "div  ")
-            CASE_BINEXPR_GROUP(Mod, "mod  ")
+            CASE_BINEXPR_GROUP(Add, "add")
+            CASE_BINEXPR_GROUP(Sub, "sub")
+            CASE_BINEXPR_GROUP(Mul, "mul")
+            CASE_BINEXPR_GROUP(Div, "div")
+            CASE_BINEXPR_GROUP(Mod, "mod")
 
-            CASE_BINEXPR_INTEGRAL_GROUP(And, "and  ")
-            CASE_BINEXPR_INTEGRAL_GROUP(Or,  "or   ")
-            CASE_BINEXPR_INTEGRAL_GROUP(Xor, "xor  ")
+            CASE_BINEXPR_INTEGRAL_GROUP(And, "and")
+            CASE_BINEXPR_INTEGRAL_GROUP(Or,  "or")
+            CASE_BINEXPR_INTEGRAL_GROUP(Xor, "xor")
 
-            CASE_BINEXPR_GROUP(Cmp,  "cmp  ")
-            CASE_BINEXPR_GROUP(Ncmp, "ncmp ")
-            CASE_BINEXPR_GROUP(Lt,   "lt   ")
-            CASE_BINEXPR_GROUP(Lte,  "lte  ")
-            CASE_BINEXPR_GROUP(Gt,   "gt   ")
-            CASE_BINEXPR_GROUP(Gte,  "gte  ")
+            CASE_BINEXPR_GROUP(Cmp,  "cmp")
+            CASE_BINEXPR_GROUP(Ncmp, "ncmp")
+            CASE_BINEXPR_GROUP(Lt,   "lt")
+            CASE_BINEXPR_GROUP(Lte,  "lte")
+            CASE_BINEXPR_GROUP(Gt,   "gt")
+            CASE_BINEXPR_GROUP(Gte,  "gte")
 
             CASE_CAST_GROUP(I8,  "i8");
             CASE_CAST_GROUP(I16, "i16");

@@ -25,6 +25,9 @@ namespace Aria::Internal {
             size_t LocalCount = 0;
             std::vector<Scope> Scopes;
             std::string Name;
+
+            std::unordered_map<std::string, size_t> Parameters;
+            size_t ParameterCount = 0;
         };
 
     public:
@@ -50,7 +53,7 @@ namespace Aria::Internal {
 
         void EmitTranslationUnitDecl(Decl* decl);
         void EmitVarDecl(Decl* decl);
-        void EmitParamDecl(Decl* decl, i32 slot);
+        void EmitParamDecl(Decl* decl);
         void EmitFunctionDecl(Decl* decl);
 
         void EmitDecl(Decl* decl);

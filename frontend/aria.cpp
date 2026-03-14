@@ -26,7 +26,8 @@ int main(int argc, char** argv) {
     fmt::print("{}", ctx.Disassemble(fileName, false));
     ctx.Run(fileName);
     
-    fmt::print("result: {}", ctx.GetInt(-1));
+    ctx.PushGlobal("y");
+    fmt::print("result: {}", ctx.GetFloat(-1));
 
     ctx.FreeModule(fileName);
 }
