@@ -139,13 +139,19 @@ namespace Aria::Internal {
 
             case OpCodeType::DeclareGlobal: {
                 const std::string& global = std::get<std::string>(op.Data);
-                m_Output += fmt::format("{}declg     {}\n", m_Indentation, global);
+                m_Output += fmt::format("{}decl.g    {}\n", m_Indentation, global);
                 break;
             }
 
             case OpCodeType::DeclareLocal: {
                 size_t index = std::get<size_t>(op.Data);
-                m_Output += fmt::format("{}decll     {}\n", m_Indentation, index);
+                m_Output += fmt::format("{}decl.l    {}\n", m_Indentation, index);
+                break;
+            }
+
+            case OpCodeType::DeclareArg: {
+                size_t index = std::get<size_t>(op.Data);
+                m_Output += fmt::format("{}decl.arg  {}\n", m_Indentation, index);
                 break;
             }
 

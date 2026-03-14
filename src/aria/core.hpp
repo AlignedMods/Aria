@@ -5,7 +5,7 @@
 #include "fmt/color.h"
 
 #ifdef _WIN32
-    #define ARIA_DEBUGBREAK() __debugbreak();
+    #define ARIA_DEBUGBREAK() __debugbreak()
 #elif __linux__
     #include <signal.h>
     #define ARIA_DEBUGBREAK() raise(SIGTRAP)

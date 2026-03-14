@@ -122,18 +122,19 @@ namespace Aria::Internal {
     void Emitter::EmitCallExpr(Expr* expr) {
         CallExpr* call = GetNode<CallExpr>(expr);
 
+        EmitExpr(call->GetCallee());
+
+        for (size_t i = 0; i < call->GetArguments().Size; i++) {
+            EmitExpr(call->GetArguments().Items[i]);
+            m_OpCodes.emplace_back(OpCodeType::DeclareArg, i);
+        }
+
         size_t retCount = 0;
         TypeInfo* retType = call->GetResolvedType();
         if (retType->Type != PrimitiveType::Void) {
             m_OpCodes.emplace_back(OpCodeType::Alloca, OpCodeAlloca(retType->GetSize(), retType));
             IncrementStackSlotCount();
             retCount = 1;
-        }
-
-        EmitExpr(call->GetCallee());
-
-        for (size_t i = call->GetArguments().Size; i > 0; i--) {
-            EmitExpr(call->GetArguments().Items[i - 1]);
         }
 
         m_OpCodes.emplace_back(OpCodeType::Call, OpCodeCall(call->GetArguments().Size));
@@ -147,8 +148,6 @@ namespace Aria::Internal {
     void Emitter::EmitImplicitCastExpr(Expr* expr) {
         ImplicitCastExpr* cast = GetNode<ImplicitCastExpr>(expr);
         
-        // The concept of an lvalue to rvalue cast is essentially to just load whatever value an lvalue holds
-        // Here this is done via a dup
         if (cast->GetCastType() == CastType::LValueToRValue) {
             return EmitDeclRefExpr(cast->GetChildExpr(), false);
         }

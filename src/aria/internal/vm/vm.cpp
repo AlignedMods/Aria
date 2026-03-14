@@ -88,13 +88,14 @@ namespace Aria::Internal {
     }
 
     void VM::PushStackFrame() {
-        // Save the state of all stacks
-        m_LocalStack.StackSlotBasePointer = m_LocalStack.StackSlotPointer;
-        m_FunctionStack.StackSlotBasePointer = m_FunctionStack.StackSlotPointer;
-        m_GlobalStack.StackSlotBasePointer = m_GlobalStack.StackSlotPointer;
-
         StackFrame newStackFrame;
+        newStackFrame.PLSSBP = m_LocalStack.StackSlotBasePointer;
+        newStackFrame.PLSBP = m_LocalStack.StackBasePointer;
         newStackFrame.PreviousFunction = m_ActiveFunction;
+
+        // Save the state of the local stack (function stack gets handled with call/ret)
+        m_LocalStack.StackSlotBasePointer = m_LocalStack.StackSlotPointer;
+        m_LocalStack.StackBasePointer = m_LocalStack.StackPointer;
 
         m_StackFrames.push_back(newStackFrame);
     }
@@ -102,10 +103,12 @@ namespace Aria::Internal {
     void VM::PopStackFrame() {
         ARIA_ASSERT(m_StackFrames.size() > 0, "Calling VM::PopStackFrame() with no active stack frame!");
 
-        // Restore the state of all stacks
+        // Restore the state of the local stack
         m_LocalStack.StackSlotPointer = m_LocalStack.StackSlotBasePointer;
-        m_FunctionStack.StackSlotPointer = m_FunctionStack.StackSlotBasePointer;
-        m_GlobalStack.StackSlotPointer = m_GlobalStack.StackSlotBasePointer;
+        m_LocalStack.StackPointer = m_LocalStack.StackBasePointer;
+
+        m_LocalStack.StackSlotBasePointer = m_StackFrames.back().PLSSBP;
+        m_LocalStack.StackBasePointer = m_StackFrames.back().PLSBP;
 
         m_StackFrames.pop_back();
     }
@@ -130,70 +133,74 @@ namespace Aria::Internal {
         // Run();
     }
 
-    void VM::CallExtern(const std::string& signature, size_t argCount, size_t retCount) {
+    void VM::CallExtern(const std::string& signature) {
         ARIA_ASSERT(m_ExternalFunctions.contains(signature), "Calling CallExtern() on a non-existent extern function!");
 
         // Do the call
         m_ExternalFunctions.at(signature)(m_Context);
+
+        // Cleanup the stack
+        m_FunctionStack.StackSlotPointer = m_FunctionStack.StackSlotBasePointer;
+        m_FunctionStack.StackPointer = m_FunctionStack.StackBasePointer;
     }
 
-    void VM::StoreBool(i32 slot, bool b) {
-        VMSlice s = GetVMSlice(slot, m_LocalStack);
+    void VM::StoreBool(i32 slot, bool b, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
         ARIA_ASSERT(s.Size == 1, "Cannot store a bool in a slot with a size that isn't 1!");
         int8_t bb = static_cast<int8_t>(b);
         memcpy(s.Memory, &bb, 1);
     }
 
-    void VM::StoreChar(i32 slot, int8_t c) {
-        VMSlice s = GetVMSlice(slot, m_LocalStack);
+    void VM::StoreChar(i32 slot, int8_t c, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
         ARIA_ASSERT(s.Size == 1, "Cannot store a char in a slot with a size that isn't 1!");
         memcpy(s.Memory, &c, 1);
     }
 
-    void VM::StoreShort(i32 slot, int16_t sh) {
-        VMSlice s = GetVMSlice(slot, m_LocalStack);
+    void VM::StoreShort(i32 slot, int16_t sh, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
         ARIA_ASSERT(s.Size == 2, "Cannot store a short in a slot with a size that isn't 2!");
         memcpy(s.Memory, &sh, 2);
     }
 
-    void VM::StoreInt(i32 slot, int32_t i) {
-        VMSlice s = GetVMSlice(slot, m_LocalStack);
+    void VM::StoreInt(i32 slot, int32_t i, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
         ARIA_ASSERT(s.Size == 4, "Cannot store an int in a slot with a size that isn't 4!");
         memcpy(s.Memory, &i, 4);
     }
 
-    void VM::StoreLong(i32 slot, int64_t l) {
-        VMSlice s = GetVMSlice(slot, m_LocalStack);
+    void VM::StoreLong(i32 slot, int64_t l, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
         ARIA_ASSERT(s.Size == 8, "Cannot store a long in a slot with a size that isn't 8!");
         memcpy(s.Memory, &l, 8);
     }
 
-    void VM::StoreSize(i32 slot, size_t sz) {
-        VMSlice s = GetVMSlice(slot, m_LocalStack);
+    void VM::StoreSize(i32 slot, size_t sz, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
         ARIA_ASSERT(s.Size == sizeof(size_t), "Cannot store a size_t in a slot with a size that isn't sizeof(size_t)!");
         memcpy(s.Memory, &sz, sizeof(size_t));
     }
 
-    void VM::StoreFloat(i32 slot, float f) {
-        VMSlice s = GetVMSlice(slot, m_LocalStack);
+    void VM::StoreFloat(i32 slot, float f, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
         ARIA_ASSERT(s.Size == 4, "Cannot store a float in a slot with a size that isn't 4!");
         memcpy(s.Memory, &f, 4);
     }
 
-    void VM::StoreDouble(i32 slot, double d) {
-        VMSlice s = GetVMSlice(slot, m_LocalStack);
+    void VM::StoreDouble(i32 slot, double d, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
         ARIA_ASSERT(s.Size == 8, "Cannot store a double in a slot with a size that isn't 8!");
         memcpy(s.Memory, &d, 8);
     }
 
-    void VM::StorePointer(i32 slot, void* p) {
-        VMSlice s = GetVMSlice(slot, m_LocalStack);
+    void VM::StorePointer(i32 slot, void* p, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
         ARIA_ASSERT(s.Size == sizeof(void*), "Cannot store a double in a slot with a size that isn't sizeof(void*)!");
         memcpy(s.Memory, &p, sizeof(void*));
     }
 
-    bool VM::GetBool(i32 slot) {
-        VMSlice s = GetVMSlice(slot, m_LocalStack);
+    bool VM::GetBool(i32 slot, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
 
         ARIA_ASSERT(s.Size == 1, "Invalid GetBool() call!");
 
@@ -202,8 +209,8 @@ namespace Aria::Internal {
         return b;
     }
 
-    int8_t VM::GetChar(i32 slot) {
-        VMSlice s = GetVMSlice(slot, m_LocalStack);
+    int8_t VM::GetChar(i32 slot, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
 
         ARIA_ASSERT(s.Size == 1, "Invalid GetChar() call!");
 
@@ -212,8 +219,8 @@ namespace Aria::Internal {
         return c;
     }
 
-    int16_t VM::GetShort(i32 slot) {
-        VMSlice s = GetVMSlice(slot, m_LocalStack);
+    int16_t VM::GetShort(i32 slot, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
 
         ARIA_ASSERT(s.Size == 2, "Invalid GetShort() call!");
 
@@ -222,8 +229,8 @@ namespace Aria::Internal {
         return sh;
     }
 
-    int32_t VM::GetInt(i32 slot) {
-        VMSlice s = GetVMSlice(slot, m_LocalStack);
+    int32_t VM::GetInt(i32 slot, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
 
         ARIA_ASSERT(s.Size == 4, "Invalid GetInt() call!");
 
@@ -232,8 +239,8 @@ namespace Aria::Internal {
         return i;
     }
 
-    int64_t VM::GetLong(i32 slot) {
-        VMSlice s = GetVMSlice(slot, m_LocalStack);
+    int64_t VM::GetLong(i32 slot, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
 
         ARIA_ASSERT(s.Size == 8, "Invalid GetLong() call!");
 
@@ -242,8 +249,8 @@ namespace Aria::Internal {
         return l;
     }
 
-    size_t VM::GetSize(i32 slot) {
-        VMSlice s = GetVMSlice(slot, m_LocalStack);
+    size_t VM::GetSize(i32 slot, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
 
         ARIA_ASSERT(s.Size == sizeof(size_t), "Invalid GetLong() call!");
 
@@ -252,8 +259,8 @@ namespace Aria::Internal {
         return sz;
     }
 
-    float VM::GetFloat(i32 slot) {
-        VMSlice s = GetVMSlice(slot, m_LocalStack);
+    float VM::GetFloat(i32 slot, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
 
         ARIA_ASSERT(s.Size == 4, "Invalid GetFloat() call!");
 
@@ -262,8 +269,8 @@ namespace Aria::Internal {
         return f;
     }
 
-    double VM::GetDouble(i32 slot) {
-        VMSlice s = GetVMSlice(slot, m_LocalStack);
+    double VM::GetDouble(i32 slot, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
 
         ARIA_ASSERT(s.Size == 8, "Invalid GetDouble() call!");
 
@@ -272,8 +279,8 @@ namespace Aria::Internal {
         return d;
     }
 
-    void* VM::GetPointer(i32 slot) {
-        VMSlice s = GetVMSlice(slot, m_LocalStack);
+    void* VM::GetPointer(i32 slot, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
 
         ARIA_ASSERT(s.Size == sizeof(void*), "Invalid GetPointer() call!");
 
@@ -432,7 +439,7 @@ namespace Aria::Internal {
                 }
 
                 case OpCodeType::Store: {
-                    void* dst = GetPointer(-2);
+                    void* dst = GetPointer(-2, m_LocalStack);
                     VMSlice src = GetVMSlice(-1, m_LocalStack);
 
                     memcpy(dst, src.Memory, src.Size);
@@ -496,6 +503,19 @@ namespace Aria::Internal {
                     break;
                 };
 
+                case OpCodeType::DeclareArg: {
+                    size_t index = std::get<size_t>(op.Data);
+
+                    VMSlice src = GetVMSlice(-1, m_LocalStack);
+
+                    Alloca(src.Size, src.ResolvedType, m_FunctionStack);
+                    VMSlice dst = GetVMSlice(-1, m_FunctionStack);
+
+                    memcpy(dst.Memory, src.Memory, src.Size);
+                    Pop(1, m_LocalStack); // Pop the local stack slot which we just copied
+                    break;
+                };
+
                 case OpCodeType::LoadGlobal: {
                     const std::string& g = std::get<std::string>(op.Data);
                     Dup(m_GlobalMap.at(g), m_LocalStack, m_GlobalStack);
@@ -509,23 +529,16 @@ namespace Aria::Internal {
                 }
 
                 case OpCodeType::LoadArg: {
-                    // size_t index = std::get<size_t>(op.Data);
-                    // // Since arguments are pushed in reverse order
-                    // // And the return slot is the last thing before the function call
-                    // // We can get arguments from the slots before the return slot
-                    // i32 retSlot = -(static_cast<i32>(m_StackSlotPointer - m_StackFrames.back().SlotOffset) + 1);
-                    // i32 slot = retSlot - (index + 1);
-                    // Dup(slot);
-                    ARIA_ASSERT(false, "todo");
+                    size_t index = std::get<size_t>(op.Data);
+                    Dup(index + 1, m_LocalStack, m_FunctionStack);
                     break;
                 }
 
                 case OpCodeType::LoadFunc: {
-                    // const std::string& fn = std::get<std::string>(op.Data);
-                    // 
-                    // Alloca(sizeof(void*), nullptr);
-                    // StorePointer(-1, const_cast<char*>(fn.c_str()));
-                    ARIA_ASSERT(false, "todo");
+                    const std::string& fn = std::get<std::string>(op.Data);
+                    
+                    Alloca(sizeof(void*), nullptr, m_FunctionStack);
+                    StorePointer(-1, const_cast<char*>(fn.c_str()), m_FunctionStack);
                     break;
                 }
 
@@ -533,7 +546,7 @@ namespace Aria::Internal {
                     const std::string& g = std::get<std::string>(op.Data);
                     VMSlice slice = GetVMSlice(m_GlobalMap.at(g), m_GlobalStack);
                     Alloca(sizeof(void*), slice.ResolvedType, m_LocalStack);
-                    StorePointer(-1, slice.Memory);
+                    StorePointer(-1, slice.Memory, m_LocalStack);
                     break;
                 }
 
@@ -541,15 +554,14 @@ namespace Aria::Internal {
                     size_t index = std::get<size_t>(op.Data);
                     VMSlice slice = GetVMSlice(m_StackFrames.back().LocalMap.at(index), m_LocalStack);
                     Alloca(sizeof(void*), slice.ResolvedType, m_LocalStack);
-                    StorePointer(-1, slice.Memory);
+                    StorePointer(-1, slice.Memory, m_LocalStack);
                     break;
                 }
 
                 case OpCodeType::LoadPtrRet: {
-                    // VMSlice slice = GetVMSlice(-(static_cast<i32>(m_StackSlotPointer - m_StackFrames.back().SlotOffset) + 1));
-                    // Alloca(sizeof(void*), nullptr);
-                    // StorePointer(-1, slice.Memory);
-                    ARIA_ASSERT(false, "todo");
+                    VMSlice slice = GetVMSlice(-(static_cast<i32>(m_LocalStack.StackSlotPointer - m_LocalStack.StackSlotBasePointer) + 1), m_LocalStack);
+                    Alloca(sizeof(void*), nullptr, m_LocalStack);
+                    StorePointer(-1, slice.Memory, m_LocalStack);
                     break;
                 }
 
@@ -568,7 +580,7 @@ namespace Aria::Internal {
                 case OpCodeType::Jt: {
                     const std::string& label = std::get<std::string>(op.Data);
 
-                    if (GetBool(-1) == true) {
+                    if (GetBool(-1, m_LocalStack) == true) {
                         ARIA_ASSERT(m_ActiveFunction->Labels.contains(label), "Trying to jump to an unknown label!");
                         m_ProgramCounter = m_ActiveFunction->Labels.at(label);
                     }
@@ -579,7 +591,7 @@ namespace Aria::Internal {
                 case OpCodeType::Jf: {
                     const std::string& label = std::get<std::string>(op.Data);
 
-                    if (GetBool(-1) == false) {
+                    if (GetBool(-1, m_LocalStack) == false) {
                         ARIA_ASSERT(m_ActiveFunction->Labels.contains(label), "Trying to jump to an unknown label!");
                         m_ProgramCounter = m_ActiveFunction->Labels.at(label);
                     }
@@ -588,38 +600,31 @@ namespace Aria::Internal {
                 }
 
                 case OpCodeType::Call: {
-                    // const OpCodeCall& call = std::get<OpCodeCall>(op.Data);
-                    // 
-                    // // Stack is supposed to be:
-                    // // func (signature, stored as a char*)
-                    // // arg1
-                    // // arg2
-                    // // ...
-                    // // ret slot
-                    // std::string sig = reinterpret_cast<char*>(GetPointer(-static_cast<i32>(call.ArgCount + call.RetCount + 1)));
-                    // 
-                    // // Check if we have an external function
-                    // if (m_ExternalFunctions.contains(sig)) {
-                    //     CallExtern(sig, call.ArgCount, call.RetCount);
-                    //     break;
-                    // }
-                    // 
-                    // // Now check for aria functions
-                    // ARIA_ASSERT(m_Functions.contains(sig), "Calling unknown function");
-                    // VMFunction& func = m_Functions.at(sig);
-                    // 
-                    // // Save the state in the current stack frame
-                    // m_StackFrames.back().PreviousReturnAddress = m_ReturnAddress;
-                    // m_StackFrames.back().PreviousFunction = m_ActiveFunction;
-                    // 
-                    // m_ReturnAddress = m_ProgramCounter;
-                    // 
-                    // // Perform a jump to the function
-                    // ARIA_ASSERT(func.Labels.contains("_entry$"), "All functions must contain a \"_entry$\" label");
-                    // m_ProgramCounter = func.Labels.at("_entry$");
-                    // m_ActiveFunction = &func;
+                    const OpCodeCall& call = std::get<OpCodeCall>(op.Data);
+                    
+                    std::string sig = reinterpret_cast<char*>(GetPointer(0, m_FunctionStack));
+                    
+                    // Check if we have an external function
+                    if (m_ExternalFunctions.contains(sig)) {
+                        CallExtern(sig);
+                        break;
+                    }
+                    
+                    // Now check for aria functions
+                    ARIA_ASSERT(m_Functions.contains(sig), "Calling unknown function");
+                    VMFunction& func = m_Functions.at(sig);
+                    
+                    // Save the state in the current stack frame
+                    m_StackFrames.back().PreviousReturnAddress = m_ReturnAddress;
+                    m_StackFrames.back().PreviousFunction = m_ActiveFunction;
+                    
+                    m_ReturnAddress = m_ProgramCounter;
 
-                    ARIA_ASSERT(false, "todo");
+                    // Perform a jump to the function
+                    ARIA_ASSERT(func.Labels.contains("_entry$"), "All functions must contain a \"_entry$\" label");
+                    m_ProgramCounter = func.Labels.at("_entry$");
+                    m_ActiveFunction = &func;
+
                     break;
                 }
 

@@ -40,6 +40,7 @@ namespace Aria::Internal {
         // The raw stack memory
         std::vector<u8> Stack;
         size_t StackPointer = 0;
+        size_t StackBasePointer = 0;
 
         // Stack slots are essentially an abstraction over raw stack memory
         // They store basic things like an index into stack memory and the size of the slot
@@ -68,27 +69,27 @@ namespace Aria::Internal {
         void AddExtern(const std::string& signature, ExternFn fn);
 
         void Call(int32_t label);
-        void CallExtern(const std::string& signature, size_t argCount, size_t retCount);
+        void CallExtern(const std::string& signature);
         
-        void StoreBool   (i32 slot, bool b);
-        void StoreChar   (i32 slot, int8_t c);
-        void StoreShort  (i32 slot, int16_t ch);
-        void StoreInt    (i32 slot, int32_t i);
-        void StoreLong   (i32 slot, int64_t l);
-        void StoreSize   (i32 slot, size_t sz);
-        void StoreFloat  (i32 slot, float f);
-        void StoreDouble (i32 slot, double d);
-        void StorePointer(i32 slot, void* p);
+        void StoreBool   (i32 slot, bool b    , Stack& stack);
+        void StoreChar   (i32 slot, int8_t c  , Stack& stack);
+        void StoreShort  (i32 slot, int16_t ch, Stack& stack);
+        void StoreInt    (i32 slot, int32_t i , Stack& stack);
+        void StoreLong   (i32 slot, int64_t l , Stack& stack);
+        void StoreSize   (i32 slot, size_t sz , Stack& stack);
+        void StoreFloat  (i32 slot, float f   , Stack& stack);
+        void StoreDouble (i32 slot, double d  , Stack& stack);
+        void StorePointer(i32 slot, void* p   , Stack& stack);
 
-        bool    GetBool   (i32 slot);
-        int8_t  GetChar   (i32 slot);
-        int16_t GetShort  (i32 slot);
-        int32_t GetInt    (i32 slot);
-        int64_t GetLong   (i32 slot);
-        size_t  GetSize   (i32 slot);
-        float   GetFloat  (i32 slot);
-        double  GetDouble (i32 slot);
-        void*   GetPointer(i32 slot);
+        bool    GetBool   (i32 slot, Stack& stack);
+        int8_t  GetChar   (i32 slot, Stack& stack);
+        int16_t GetShort  (i32 slot, Stack& stack);
+        int32_t GetInt    (i32 slot, Stack& stack);
+        int64_t GetLong   (i32 slot, Stack& stack);
+        size_t  GetSize   (i32 slot, Stack& stack);
+        float   GetFloat  (i32 slot, Stack& stack);
+        double  GetDouble (i32 slot, Stack& stack);
+        void*   GetPointer(i32 slot, Stack& stack);
 
         // Run an array of op codes in the VM, executing each operations one at a time
         void RunByteCode(const OpCode* data, size_t count);
@@ -119,6 +120,9 @@ namespace Aria::Internal {
         std::unordered_map<std::string, i32> m_GlobalMap;
 
         struct StackFrame {
+            size_t PLSSBP = 0; // PreviousLocalStackSlotBasePointer
+            size_t PLSBP = 0;  // PreviousLocalStackBasePointer
+
             std::unordered_map<size_t, i32> LocalMap;
 
             size_t PreviousReturnAddress = SIZE_MAX;

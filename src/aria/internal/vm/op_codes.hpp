@@ -55,6 +55,7 @@ namespace Aria::Internal {
 
         DeclareGlobal,
         DeclareLocal,
+        DeclareArg,
 
         LoadGlobal,
         LoadLocal,

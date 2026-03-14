@@ -65,6 +65,7 @@ namespace Aria {
         void StorePointer(size_t index, void* p,   const std::string& module = {});
 
         void PushGlobal(const std::string& str, const std::string& module = {});
+        void PushArg(size_t index, const std::string& module = {});
         void PushField(int32_t index, const std::string& name, const std::string& module = {});
 
         bool      GetBool     (int32_t index, const std::string& module = {});
@@ -76,6 +77,8 @@ namespace Aria {
         double    GetDouble   (int32_t index, const std::string& module = {});
         void*     GetPointer  (int32_t index, const std::string& module = {});
         StackSlot GetStackSlot(int32_t index, const std::string& module = {});
+
+        void Pop(size_t count, const std::string& module = {});
 
         void AddExternalFunction(const std::string& name, ExternFn fn, const std::string& module);
         void Call(const std::string& str, const std::string& module);
