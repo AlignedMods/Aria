@@ -28,17 +28,17 @@ namespace Aria::Internal {
     T Xor(T lhs, T rhs) { return lhs ^ rhs; }
 
     template <typename T>
-    T Cmp(T lhs, T rhs) { return lhs == rhs; }
+    bool Cmp(T lhs, T rhs) { return lhs == rhs; }
     template <typename T>
-    T Ncmp(T lhs, T rhs) { return lhs != rhs; }
+    bool Ncmp(T lhs, T rhs) { return lhs != rhs; }
     template <typename T>
-    T Lt(T lhs, T rhs) { return lhs < rhs; }
+    bool Lt(T lhs, T rhs) { return lhs < rhs; }
     template <typename T>
-    T Lte(T lhs, T rhs) { return lhs <= rhs; }
+    bool Lte(T lhs, T rhs) { return lhs <= rhs; }
     template <typename T>
-    T Gt(T lhs, T rhs) { return lhs > rhs; }
+    bool Gt(T lhs, T rhs) { return lhs > rhs; }
     template <typename T>
-    T Gte(T lhs, T rhs) { return lhs >= rhs; }
+    bool Gte(T lhs, T rhs) { return lhs >= rhs; }
 
     VM::VM(Context* ctx) {
         m_LocalStack.   Reserve(32 * 1024, 2048);
@@ -65,8 +65,14 @@ namespace Aria::Internal {
     }
 
     void VM::Pop(size_t count, Stack& stack) {
+        size_t sp = stack.StackPointer;
         stack.StackPointer = stack.StackSlots[stack.StackSlotPointer - count].Index;
         stack.StackSlotPointer -= count;
+
+        // Fill the space we just popped with zeros (useful for debugging, however a bit of a waste in release builds)
+        #ifdef _DEBUG
+            memset(&stack.Stack[stack.StackPointer], 0, sp - stack.StackPointer);
+        #endif
     }
 
     void VM::Copy(i32 dstSlot, i32 srcSlot, Stack& dst, Stack& src) {
@@ -361,8 +367,7 @@ namespace Aria::Internal {
             bool result = builtinOp(lhs, rhs); \
             Pop(2, m_LocalStack); \
             Alloca(1, m.ResolvedType, m_LocalStack); \
-            VMSlice s = GetVMSlice(-1, m_LocalStack); \
-            memcpy(s.Memory, &result, 1); \
+            StoreBool(-1, result, m_LocalStack); \
             break; \
         }
 
@@ -529,7 +534,8 @@ namespace Aria::Internal {
                 }
 
                 case OpCodeType::LoadArg: {
-                    size_t index = std::get<size_t>(op.Data);
+                    i32 index = static_cast<i32>(std::get<size_t>(op.Data));
+
                     Dup(index + 1, m_LocalStack, m_FunctionStack);
                     break;
                 }
@@ -617,7 +623,11 @@ namespace Aria::Internal {
                     // Save the state in the current stack frame
                     m_StackFrames.back().PreviousReturnAddress = m_ReturnAddress;
                     m_StackFrames.back().PreviousFunction = m_ActiveFunction;
-                    
+
+                    // Save function stack
+                    m_StackFrames.back().PFSSBP = m_FunctionStack.StackSlotBasePointer;
+                    m_StackFrames.back().PFSBP = m_FunctionStack.StackBasePointer;
+
                     m_ReturnAddress = m_ProgramCounter;
 
                     // Perform a jump to the function
@@ -625,11 +635,21 @@ namespace Aria::Internal {
                     m_ProgramCounter = func.Labels.at("_entry$");
                     m_ActiveFunction = &func;
 
+                    // Set up the function stack
+                    m_FunctionStack.StackSlotBasePointer = m_FunctionStack.StackSlotPointer - call.ArgCount - 1;
+                    m_FunctionStack.StackBasePointer = m_FunctionStack.StackSlots[m_FunctionStack.StackSlotBasePointer].Index;
+
                     break;
                 }
 
                 case OpCodeType::Ret: {
                     ARIA_ASSERT(m_StackFrames.size() > 0, "Trying to return out of no stack frame!");
+
+                    m_FunctionStack.StackSlotBasePointer = m_StackFrames.back().PFSSBP;
+                    m_FunctionStack.StackBasePointer = m_StackFrames.back().PFSBP;
+
+                    m_FunctionStack.StackSlotPointer = m_FunctionStack.StackSlotBasePointer;
+                    m_FunctionStack.StackPointer = m_FunctionStack.StackBasePointer;
 
                     if (m_ReturnAddress == SIZE_MAX) {
                         StopExecution();

@@ -123,6 +123,9 @@ namespace Aria::Internal {
             size_t PLSSBP = 0; // PreviousLocalStackSlotBasePointer
             size_t PLSBP = 0;  // PreviousLocalStackBasePointer
 
+            size_t PFSSBP = 0; // PreviousFunctionStackSlotBasePointer
+            size_t PFSBP = 0; // PreviousFunctionStackBasePointer
+
             std::unordered_map<size_t, i32> LocalMap;
 
             size_t PreviousReturnAddress = SIZE_MAX;

@@ -138,7 +138,9 @@ namespace Aria::Internal {
             case BinaryOperatorType::Less:
             case BinaryOperatorType::LessOrEq:
             case BinaryOperatorType::Greater:
-            case BinaryOperatorType::GreaterOrEq: {
+            case BinaryOperatorType::GreaterOrEq:
+            case BinaryOperatorType::IsEq: 
+            case BinaryOperatorType::IsNotEq: {
                 // See which conversion would be better
                 ConversionCost costLHS = GetConversionCost(LHSType, RHSType, LHS->IsLValue());
                 ConversionCost costRHS = GetConversionCost(RHSType, LHSType, RHS->IsLValue());
@@ -179,7 +181,9 @@ namespace Aria::Internal {
                 if (binop->GetBinaryOperator() == BinaryOperatorType::Less ||
                     binop->GetBinaryOperator() == BinaryOperatorType::LessOrEq ||
                     binop->GetBinaryOperator() == BinaryOperatorType::Greater ||
-                    binop->GetBinaryOperator() == BinaryOperatorType::GreaterOrEq) 
+                    binop->GetBinaryOperator() == BinaryOperatorType::GreaterOrEq ||
+                    binop->GetBinaryOperator() == BinaryOperatorType::IsEq ||
+                    binop->GetBinaryOperator() == BinaryOperatorType::IsNotEq) 
                 {
                     TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool);
                     binop->SetResolvedType(boolType);

@@ -225,6 +225,8 @@ namespace Aria::Internal {
             BINOP_GROUP(LessOrEq,    Lte)
             BINOP_GROUP(Greater,     Gt)
             BINOP_GROUP(GreaterOrEq, Lte)
+            BINOP_GROUP(IsEq,        Cmp)
+            BINOP_GROUP(IsNotEq,     Ncmp)
         
             case BinaryOperatorType::Eq: {
                 EmitExpr(binop->GetLHS());
