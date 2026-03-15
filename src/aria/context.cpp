@@ -274,6 +274,21 @@ namespace Aria {
         ARIA_ASSERT(m_Modules.contains(module), "Current context does not contain the requested module!");
         CompiledSource* src = m_Modules.at(module);
 
+        Internal::CompilerReflectionData& reflection = src->CompilationContext.GetReflectionData();
+        ARIA_ASSERT(reflection.Declarations.contains(str), "Module does not contain function");
+
+        // Push the function signature (NOTE: not actually used for anything, the VM just expects it to be there)
+        src->VM.Alloca(1, nullptr, src->VM.m_FunctionStack);
+
+        // Move arguments onto the function stack
+        for (size_t i = 0; i < argCount; i++) {
+            src->VM.Dup(-static_cast<Internal::i32>(i + 1), src->VM.m_FunctionStack, src->VM.m_LocalStack);
+        }
+        src->VM.Pop(argCount, src->VM.m_LocalStack);
+
+        // Allocate the return slot
+        src->VM.Alloca(reflection.Declarations.at(str).ResolvedType->GetSize(), reflection.Declarations.at(str).ResolvedType, src->VM.m_LocalStack);
+
         src->VM.Call(str, argCount);
     }
 

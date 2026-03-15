@@ -76,7 +76,7 @@ namespace Aria::Internal {
             CASE_BINEXPR(mathop##F64, str, "f64")
 
         #define CASE_CAST(_enum, opStr, str) case OpCodeType::_enum: { \
-            m_Output += fmt::format("{}cast {} {}\n", m_Indentation, opStr, str); \
+            m_Output += fmt::format("{}cast.{}.{}\n", m_Indentation, opStr, str); \
             break; \
         }
 

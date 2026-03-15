@@ -4,6 +4,7 @@
 #include "aria/internal/compiler/core/source_location.hpp"
 #include "aria/internal/compiler/lexer/tokens.hpp"
 #include "aria/internal/vm/op_codes.hpp"
+#include "aria/internal/compiler/reflection/compiler_reflection.hpp"
 
 namespace Aria::Internal {
 
@@ -55,6 +56,10 @@ namespace Aria::Internal {
         inline const std::vector<OpCode>& GetOpCodes() const { return m_OpCodes; }
         inline void SetOpCodes(const std::vector<OpCode>& opcodes) { m_OpCodes = opcodes; }
 
+        inline CompilerReflectionData& GetReflectionData() { return m_ReflectionData; }
+        inline const CompilerReflectionData& GetReflectionData() const { return m_ReflectionData; }
+        inline void SetReflectionData(const CompilerReflectionData& data) { m_ReflectionData = data; }
+
         inline std::vector<CompilerError>& GetCompilerErrors() { return m_CompilerErrors; }
         inline const std::vector<CompilerError>& GetCompilerErrors() const { return m_CompilerErrors; }
 
@@ -84,6 +89,8 @@ namespace Aria::Internal {
         Tokens m_Tokens;
         Stmt* m_RootASTNode;
         std::vector<OpCode> m_OpCodes;
+
+        CompilerReflectionData m_ReflectionData;
 
         std::vector<CompilerError> m_CompilerErrors;
     };

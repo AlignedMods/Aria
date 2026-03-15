@@ -93,7 +93,25 @@ namespace Aria::Internal {
         return paren->GetResolvedType();
     }
 
-    TypeInfo* TypeChecker::HandleCastExpr(Expr* expr) { ARIA_ASSERT(false, "todo: TypeChecker::HandleCastExpr()"); }
+    TypeInfo* TypeChecker::HandleCastExpr(Expr* expr) {
+        CastExpr* cast = GetNode<CastExpr>(expr);
+
+        TypeInfo* srcType = HandleExpr(cast->GetChildExpr());
+        TypeInfo* dstType = GetTypeInfoFromString(cast->GetParsedType());
+
+        ConversionCost cost = GetConversionCost(dstType, srcType, cast->GetChildExpr()->IsLValue());
+
+        if (cost.CastNeeded) {
+            if (cost.ExplicitCastPossible) {
+                cast->SetResolvedType(dstType);
+                cast->SetCastType(cost.CaType);
+            } else {
+                ARIA_ASSERT(false, "todo: add error message");
+            }
+        }
+
+        return dstType;
+    }
 
     TypeInfo* TypeChecker::HandleUnaryOperatorExpr(Expr* expr) {
         UnaryOperatorExpr* unop = GetNode<UnaryOperatorExpr>(expr);

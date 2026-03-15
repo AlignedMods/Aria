@@ -49,7 +49,11 @@ namespace Aria::Internal {
         void EmitUnaryOperatorExpr(Expr* expr);
         void EmitBinaryOperatorExpr(Expr* expr);
 
-        void EmitExpr(Expr* expr);
+        // The "lvalue" parameters signifies whether certain expressions that can be either lvalues or rvalue (eg. DeclRefExpr)
+        // Should be loaded as an lvalue or rvalue
+        // lvalue means load the pointer while rvalue means load the value
+        // In most cases however this flag won't do much
+        void EmitExpr(Expr* expr, bool lvalue = true);
 
         void EmitTranslationUnitDecl(Decl* decl);
         void EmitVarDecl(Decl* decl);

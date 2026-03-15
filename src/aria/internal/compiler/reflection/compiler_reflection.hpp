@@ -1,11 +1,11 @@
 #pragma once
 
-#include "aria/internal/compiler/types/type_info.hpp"
-
 #include <unordered_map>
 #include <string>
 
 namespace Aria::Internal {
+
+    struct TypeInfo;
 
     enum class ReflectionType {
         Variable,
@@ -15,7 +15,6 @@ namespace Aria::Internal {
     struct CompilerReflectionDeclaration {
         TypeInfo* ResolvedType = nullptr;
         ReflectionType Type = ReflectionType::Variable;
-        std::variant<int32_t> Data;
     };
 
     struct CompilerReflectionData {

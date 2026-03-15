@@ -22,12 +22,13 @@ namespace Aria::Internal {
 
         EmitStmt(m_RootASTNode);
 
-        m_ActiveStackFrame = {}; // We do not actually pop any stack frame, since the _start$() stack frame is essentially a global scope
+        PopStackFrame();
         m_OpCodes.emplace_back(OpCodeType::Ret);
 
         EmitFunctions();
 
         m_Context->SetOpCodes(m_OpCodes);
+        m_Context->SetReflectionData(m_ReflectionData);
     }
 
     void Emitter::EmitBooleanConstantExpr(Expr* expr) {
@@ -148,12 +149,152 @@ namespace Aria::Internal {
 
     void Emitter::EmitImplicitCastExpr(Expr* expr) {
         ImplicitCastExpr* cast = GetNode<ImplicitCastExpr>(expr);
+
+        #define CASE_CAST(dstResolvedType, dstVMType, srcVMType) \
+            if (dstType->Type == PrimitiveType::dstResolvedType) { \
+                m_OpCodes.emplace_back(OpCodeType::Cast##srcVMType##To##dstVMType, OpCodeCast(dstType)); \
+            }
+
+        #define CASE_CAST_TO_INTEGRAL(srcResolvedType, srcVMType) \
+            if (srcType->Type == PrimitiveType::srcResolvedType) { \
+                CASE_CAST(Char,   I8,  srcVMType) \
+                CASE_CAST(UChar,  U8,  srcVMType) \
+                CASE_CAST(Short,  I16, srcVMType) \
+                CASE_CAST(UShort, U16, srcVMType) \
+                CASE_CAST(Int,    I32, srcVMType) \
+                CASE_CAST(UInt,   U32, srcVMType) \
+                CASE_CAST(Long,   I64, srcVMType) \
+                CASE_CAST(ULong,  U64, srcVMType) \
+            }
+
+        #define CASE_CAST_TO_FLOATING(srcResolvedType, srcVMType) \
+            if (srcType->Type == PrimitiveType::srcResolvedType) { \
+                CASE_CAST(Float,  F32, srcVMType) \
+                CASE_CAST(Double, F64, srcVMType) \
+            }
         
         if (cast->GetCastType() == CastType::LValueToRValue) {
-            return EmitDeclRefExpr(cast->GetChildExpr(), false);
+            return EmitExpr(cast->GetChildExpr(), false);
+        } else if (cast->GetCastType() == CastType::Integral) {
+            EmitExpr(cast->GetChildExpr(), false);
+
+            TypeInfo* dstType = cast->GetResolvedType();
+            TypeInfo* srcType = cast->GetChildExpr()->GetResolvedType();
+
+            CASE_CAST_TO_INTEGRAL(Char,   I8)
+            CASE_CAST_TO_INTEGRAL(UChar,  U8)
+            CASE_CAST_TO_INTEGRAL(Short,  I16)
+            CASE_CAST_TO_INTEGRAL(UShort, U16)
+            CASE_CAST_TO_INTEGRAL(Int,    I32)
+            CASE_CAST_TO_INTEGRAL(UInt,   U32)
+            CASE_CAST_TO_INTEGRAL(Long,   I64)
+            CASE_CAST_TO_INTEGRAL(ULong,  U64)
+
+            return;
+        } else if (cast->GetCastType() == CastType::IntegralToFloating) {
+            EmitExpr(cast->GetChildExpr(), false);
+
+            TypeInfo* dstType = cast->GetResolvedType();
+            TypeInfo* srcType = cast->GetChildExpr()->GetResolvedType();
+
+            CASE_CAST_TO_FLOATING(Char,   I8)
+            CASE_CAST_TO_FLOATING(UChar,  U8)
+            CASE_CAST_TO_FLOATING(Short,  I16)
+            CASE_CAST_TO_FLOATING(UShort, U16)
+            CASE_CAST_TO_FLOATING(Int,    I32)
+            CASE_CAST_TO_FLOATING(UInt,   U32)
+            CASE_CAST_TO_FLOATING(Long,   I64)
+            CASE_CAST_TO_FLOATING(ULong,  U64)
+
+            return;
+        } else if (cast->GetCastType() == CastType::Floating) {
+            EmitExpr(cast->GetChildExpr(), false);
+
+            TypeInfo* dstType = cast->GetResolvedType();
+            TypeInfo* srcType = cast->GetChildExpr()->GetResolvedType();
+
+            CASE_CAST_TO_FLOATING(Float,  F32)
+            CASE_CAST_TO_FLOATING(Double, F64)
+
+            return;
+        } else if (cast->GetCastType() == CastType::FloatingToIntegral) {
+            EmitExpr(cast->GetChildExpr(), false);
+
+            TypeInfo* dstType = cast->GetResolvedType();
+            TypeInfo* srcType = cast->GetChildExpr()->GetResolvedType();
+
+            CASE_CAST_TO_INTEGRAL(Float,  F32)
+            CASE_CAST_TO_INTEGRAL(Double, F64)
+
+            return;
         }
 
-        // ARIA_ASSERT(false, "todo");
+        ARIA_UNREACHABLE();
+    }
+
+    void Emitter::EmitCastExpr(Expr* expr) {
+        CastExpr* cast = GetNode<CastExpr>(expr);
+
+        if (cast->GetCastType() == CastType::LValueToRValue) {
+            return EmitDeclRefExpr(cast->GetChildExpr(), false);
+        } else if (cast->GetCastType() == CastType::Integral) {
+            EmitExpr(cast->GetChildExpr(), false);
+
+            TypeInfo* dstType = cast->GetResolvedType();
+            TypeInfo* srcType = cast->GetChildExpr()->GetResolvedType();
+
+            CASE_CAST_TO_INTEGRAL(Char,   I8)
+            CASE_CAST_TO_INTEGRAL(UChar,  U8)
+            CASE_CAST_TO_INTEGRAL(Short,  I16)
+            CASE_CAST_TO_INTEGRAL(UShort, U16)
+            CASE_CAST_TO_INTEGRAL(Int,    I32)
+            CASE_CAST_TO_INTEGRAL(UInt,   U32)
+            CASE_CAST_TO_INTEGRAL(Long,   I64)
+            CASE_CAST_TO_INTEGRAL(ULong,  U64)
+
+            return;
+        } else if (cast->GetCastType() == CastType::IntegralToFloating) {
+            EmitExpr(cast->GetChildExpr(), false);
+
+            TypeInfo* dstType = cast->GetResolvedType();
+            TypeInfo* srcType = cast->GetChildExpr()->GetResolvedType();
+
+            CASE_CAST_TO_FLOATING(Char,   I8)
+            CASE_CAST_TO_FLOATING(UChar,  U8)
+            CASE_CAST_TO_FLOATING(Short,  I16)
+            CASE_CAST_TO_FLOATING(UShort, U16)
+            CASE_CAST_TO_FLOATING(Int,    I32)
+            CASE_CAST_TO_FLOATING(UInt,   U32)
+            CASE_CAST_TO_FLOATING(Long,   I64)
+            CASE_CAST_TO_FLOATING(ULong,  U64)
+
+            return;
+        } else if (cast->GetCastType() == CastType::Floating) {
+            EmitExpr(cast->GetChildExpr(), false);
+
+            TypeInfo* dstType = cast->GetResolvedType();
+            TypeInfo* srcType = cast->GetChildExpr()->GetResolvedType();
+
+            CASE_CAST_TO_FLOATING(Float,  F32)
+            CASE_CAST_TO_FLOATING(Double, F64)
+
+            return;
+        } else if (cast->GetCastType() == CastType::FloatingToIntegral) {
+            EmitExpr(cast->GetChildExpr(), false);
+
+            TypeInfo* dstType = cast->GetResolvedType();
+            TypeInfo* srcType = cast->GetChildExpr()->GetResolvedType();
+
+            CASE_CAST_TO_INTEGRAL(Float,  F32)
+            CASE_CAST_TO_INTEGRAL(Double, F64)
+
+            return;
+        }
+
+        #undef CASE_CAST_TO_INTEGRAL
+        #undef CASE_CAST_TO_FLOATING
+
+        ARIA_UNREACHABLE();
     }
 
     void Emitter::EmitUnaryOperatorExpr(Expr* expr) {
@@ -270,7 +411,7 @@ namespace Aria::Internal {
         }
     }
 
-    void Emitter::EmitExpr(Expr* expr) {
+    void Emitter::EmitExpr(Expr* expr, bool lvalue) {
         if (GetNode<BooleanConstantExpr>(expr)) {
             return EmitBooleanConstantExpr(expr);
         } else if (GetNode<CharacterConstantExpr>(expr)) {
@@ -282,11 +423,13 @@ namespace Aria::Internal {
         } else if (GetNode<StringConstantExpr>(expr)) {
             return EmitStringConstantExpr(expr);
         } else if (GetNode<DeclRefExpr>(expr)) {
-            return EmitDeclRefExpr(expr, true);
+            return EmitDeclRefExpr(expr, lvalue);
         } else if (GetNode<CallExpr>(expr)) {
             return EmitCallExpr(expr);
         } else if (GetNode<ParenExpr>(expr)) {
             return EmitParenExpr(expr);
+        } else if (GetNode<CastExpr>(expr)) {
+            return EmitCastExpr(expr);
         } else if (GetNode<ImplicitCastExpr>(expr)) {
             return EmitImplicitCastExpr(expr);
         } else if (GetNode<UnaryOperatorExpr>(expr)) {
@@ -540,6 +683,12 @@ namespace Aria::Internal {
                     }
 
                     PopStackFrame();
+
+                    CompilerReflectionDeclaration d;
+                    d.ResolvedType = fnDecl->GetResolvedType();
+                    d.Type = ReflectionType::Function;
+
+                    m_ReflectionData.Declarations[name] = d;
                 }
             }
         }

@@ -80,8 +80,9 @@ namespace Aria {
 
         void Pop(size_t count, const std::string& module = {});
 
-        void AddExternalFunction(const std::string& name, ExternFn fn, const std::string& module);
         void Call(const std::string& str, size_t argCount, const std::string& module);
+
+        void AddExternalFunction(const std::string& name, ExternFn fn, const std::string& module);
 
         void SetRuntimeErrorHandler(RuntimeErrorHandlerFn fn);
         void SetCompilerErrorHandler(CompilerErrorHandlerFn fn);

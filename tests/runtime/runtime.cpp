@@ -103,32 +103,36 @@ TEST_CASE("Runtime Control Flow") {
 }
 
 TEST_CASE("Runtime Recursion") {
-    // Aria::Context ctx = Aria::Context::Create();
-    // ctx.CompileFile("tests/runtime/recursion.bl", "Runtime Recursion");
-    // ctx.Run("Runtime Recursion");
-    // 
-    // ctx.PushInt(10);
-    // ctx.Call("Fib", "Runtime Recursion");
-    // REQUIRE(ctx.GetInt(-1) == 55);
-    // ctx.Pop(2);
-    // 
-    // ctx.PushInt(20);
-    // ctx.Call("Fib", "Runtime Recursion");
-    // REQUIRE(ctx.GetInt(-1) == 6765);
-    // ctx.Pop(2);
+    Aria::Context ctx = Aria::Context::Create();
+    ctx.CompileFile("tests/runtime/recursion.aria", "Runtime Recursion");
+    ctx.Run("Runtime Recursion");
+    
+    ctx.PushInt(10);
+    ctx.Call("Fib()", 1, "Runtime Recursion");
+    REQUIRE(ctx.GetInt(-1) == 55);
+    ctx.Pop(1);
+    
+    ctx.PushInt(20);
+    ctx.Call("Fib()", 1, "Runtime Recursion");
+    REQUIRE(ctx.GetInt(-1) == 6765);
+    ctx.Pop(1);
 }
 
 TEST_CASE("Runtime Casts") {
-    // Aria::Context ctx = Aria::Context::Create();
-    // ctx.CompileFile("tests/runtime/casts.bl", "Runtime Casts");
-    // ctx.Run("Runtime Casts");
-    // 
-    // ctx.PushGlobal("a");
-    // REQUIRE(ctx.GetInt(-1) == 2);
-    // ctx.PushGlobal("b");
-    // REQUIRE((ctx.GetFloat(-1) > 1.9999f && ctx.GetFloat(-1) < 2.0001f)); // Due to floating point inaccuracies we don't require exact matching numbers
-    // ctx.PushGlobal("c");
-    // REQUIRE(ctx.GetLong(-1) == static_cast<int64_t>(5));
+    Aria::Context ctx = Aria::Context::Create();
+    ctx.CompileFile("tests/runtime/casts.aria", "Runtime Casts");
+    ctx.Run("Runtime Casts");
+
+    ctx.PushGlobal("a");
+    REQUIRE(ctx.GetInt(-1) == 2);
+    ctx.PushGlobal("b");
+    REQUIRE((ctx.GetFloat(-1) > 1.9999f && ctx.GetFloat(-1) < 2.0001f)); // Due to floating point inaccuracies we don't require exact matching numbers
+    ctx.PushGlobal("c");
+    REQUIRE(ctx.GetLong(-1) == static_cast<int64_t>(5));
+    ctx.PushGlobal("d");
+    REQUIRE((ctx.GetDouble(-1) > 9.9999999 && ctx.GetDouble(-1) < 10.000000001));
+
+    ctx.Pop(4);
 }
 
 TEST_CASE("Runtime Structs") {

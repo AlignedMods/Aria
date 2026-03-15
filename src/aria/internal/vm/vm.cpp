@@ -124,19 +124,18 @@ namespace Aria::Internal {
     }
 
     void VM::Call(const std::string& signature, size_t argCount) {
-        // Now check for aria functions
         ARIA_ASSERT(m_Functions.contains(signature), "Calling unknown function");
         VMFunction& func = m_Functions.at(signature);
         
-        // Save the state in the current stack frame
-        m_StackFrames.back().PreviousReturnAddress = m_ReturnAddress;
-        m_StackFrames.back().PreviousFunction = m_ActiveFunction;
+        // This function can only be called when the program is in a "halted" state AKA doing nothing
+        // Therefore when we finish with execution we want to go back to that state
+        m_StackFrames.back().PreviousReturnAddress = m_ProgramSize;
+        m_StackFrames.back().PreviousFunction = nullptr;
+        m_ReturnAddress = m_ProgramSize;
 
         // Save function stack
         m_StackFrames.back().PFSSBP = m_FunctionStack.StackSlotBasePointer;
         m_StackFrames.back().PFSBP = m_FunctionStack.StackBasePointer;
-
-        m_ReturnAddress = m_ProgramCounter;
 
         // Perform a jump to the function
         ARIA_ASSERT(func.Labels.contains("_entry$"), "All functions must contain a \"_entry$\" label");
@@ -144,14 +143,18 @@ namespace Aria::Internal {
         m_ActiveFunction = &func;
 
         // Set up the function stack
-        m_FunctionStack.StackSlotBasePointer = m_FunctionStack.StackSlotPointer - argCount;
+        m_FunctionStack.StackSlotBasePointer = m_FunctionStack.StackSlotPointer - argCount - 1;
         m_FunctionStack.StackBasePointer = m_FunctionStack.StackSlots[m_FunctionStack.StackSlotBasePointer].Index;
 
         Run();
     }
 
-    void VM::CallExtern(const std::string& signature) {
+    void VM::CallExtern(const std::string& signature, size_t argCount) {
         ARIA_ASSERT(m_ExternalFunctions.contains(signature), "Calling CallExtern() on a non-existent extern function!");
+
+        // Set up the function stack
+        m_FunctionStack.StackSlotBasePointer = m_FunctionStack.StackSlotPointer - argCount - 1;
+        m_FunctionStack.StackBasePointer = m_FunctionStack.StackSlots[m_FunctionStack.StackSlotBasePointer].Index;
 
         // Do the call
         m_ExternalFunctions.at(signature)(m_Context);
@@ -624,7 +627,7 @@ namespace Aria::Internal {
                     
                     // Check if we have an external function
                     if (m_ExternalFunctions.contains(sig)) {
-                        CallExtern(sig);
+                        CallExtern(sig, call.ArgCount);
                         break;
                     }
                     
@@ -655,8 +658,6 @@ namespace Aria::Internal {
                 }
 
                 case OpCodeType::Ret: {
-                    ARIA_ASSERT(m_StackFrames.size() > 0, "Trying to return out of no stack frame!");
-
                     m_FunctionStack.StackSlotPointer = m_FunctionStack.StackSlotBasePointer;
                     m_FunctionStack.StackPointer = m_FunctionStack.StackBasePointer;
 
@@ -671,6 +672,7 @@ namespace Aria::Internal {
 
                     m_ReturnAddress = m_StackFrames.back().PreviousReturnAddress;
                     m_ActiveFunction = m_StackFrames.back().PreviousFunction;
+
                     break;
                 }
 

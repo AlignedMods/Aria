@@ -1,3 +1,4 @@
 int a = (int)2.0;
 float b = (float)a;
 long c = (long)(b + 3.0);
+double d = (double)(int)(c + c);
