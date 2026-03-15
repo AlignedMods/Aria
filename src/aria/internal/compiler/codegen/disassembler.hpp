@@ -19,6 +19,7 @@ namespace Aria::Internal {
     private:
         const std::vector<OpCode>* m_OpCodes;
         bool m_Verbose = false;
+        size_t m_ProgramCounter = 0;
 
         std::string m_Output;
         std::string m_Indentation;

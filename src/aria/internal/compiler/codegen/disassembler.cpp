@@ -17,7 +17,10 @@ namespace Aria::Internal {
 
     void Disassembler::DisassembleImpl() {
         for (const auto& op : *m_OpCodes) {
+            m_Output += fmt::format("{:05d}: ", m_ProgramCounter);
+
             DisassembleOpCode(op);
+            m_ProgramCounter++;
         }
     }
 

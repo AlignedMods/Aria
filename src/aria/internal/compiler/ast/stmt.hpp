@@ -38,6 +38,7 @@ namespace Aria::Internal {
 
         inline Expr* GetCondition() { return m_Condition; }
         inline const Expr* GetCondition() const { return m_Condition; }
+        inline void SetCondition(Expr* expr) { m_Condition = expr; }
 
         inline Stmt* GetBody() { return m_Body; }
         inline const Stmt* GetBody() const { return m_Body; }
@@ -53,6 +54,7 @@ namespace Aria::Internal {
 
         inline Expr* GetCondition() { return m_Condition; }
         inline const Expr* GetCondition() const { return m_Condition; }
+        inline void SetCondition(Expr* expr) { m_Condition = expr; }
 
         inline Stmt* GetBody() { return m_Body; }
         inline const Stmt* GetBody() const { return m_Body; }

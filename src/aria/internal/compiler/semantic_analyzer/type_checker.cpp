@@ -226,6 +226,33 @@ namespace Aria::Internal {
                 binop->SetResolvedType(LHSType);
                 return LHSType;
             }
+
+            case BinaryOperatorType::BitAnd:
+            case BinaryOperatorType::BitOr: {
+                TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool);
+
+                ConversionCost costLHS = GetConversionCost(boolType, RHSType, LHS->IsLValue());
+                ConversionCost costRHS = GetConversionCost(boolType, LHSType, RHS->IsLValue());
+
+                if (costLHS.CastNeeded) {
+                    if (costLHS.ImplicitCastPossible) {
+                        binop->SetLHS(InsertImplicitCast(boolType, LHSType, LHS, costLHS.CaType));
+                    } else {
+                        ARIA_ASSERT(false, "todo: add error for TypeChecker::HandleBinaryOperatorExpr()");
+                    }
+                }
+
+                if (costRHS.CastNeeded) {
+                    if (costRHS.ImplicitCastPossible) {
+                        binop->SetRHS(InsertImplicitCast(boolType, RHSType, RHS, costRHS.CaType));
+                    } else {
+                        ARIA_ASSERT(false, "todo: add error for TypeChecker::HandleBinaryOperatorExpr()");
+                    }
+                }
+
+                binop->SetResolvedType(boolType);
+                return boolType;
+            }
         }
 
         ARIA_UNREACHABLE();
@@ -365,8 +392,42 @@ namespace Aria::Internal {
         }
     }
 
-    void TypeChecker::HandleWhileStmt(Stmt* stmt) { ARIA_ASSERT(false, "todo"); }
-    void TypeChecker::HandleDoWhileStmt(Stmt* stmt) { ARIA_ASSERT(false, "todo"); }
+    void TypeChecker::HandleWhileStmt(Stmt* stmt) {
+        WhileStmt* wh = GetNode<WhileStmt>(stmt);
+
+        TypeInfo* type = HandleExpr(wh->GetCondition());
+        TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool);
+
+        ConversionCost cost = GetConversionCost(boolType, type, wh->GetCondition()->IsLValue());
+        if (cost.CastNeeded) {
+            if (cost.ImplicitCastPossible) {
+                wh->SetCondition(InsertImplicitCast(boolType, type, wh->GetCondition(), cost.CaType));
+            } else {
+                ARIA_ASSERT(false, "todo");
+            }
+        }
+
+        HandleStmt(wh->GetBody());
+    }
+
+    void TypeChecker::HandleDoWhileStmt(Stmt* stmt) {
+        DoWhileStmt* wh = GetNode<DoWhileStmt>(stmt);
+
+        TypeInfo* type = HandleExpr(wh->GetCondition());
+        TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool);
+
+        ConversionCost cost = GetConversionCost(boolType, type, wh->GetCondition()->IsLValue());
+        if (cost.CastNeeded) {
+            if (cost.ImplicitCastPossible) {
+                wh->SetCondition(InsertImplicitCast(boolType, type, wh->GetCondition(), cost.CaType));
+            } else {
+                ARIA_ASSERT(false, "todo");
+            }
+        }
+
+        HandleStmt(wh->GetBody());
+    }
+
     void TypeChecker::HandleForStmt(Stmt* stmt) { ARIA_ASSERT(false, "todo"); }
 
     void TypeChecker::HandleIfStmt(Stmt* stmt) {

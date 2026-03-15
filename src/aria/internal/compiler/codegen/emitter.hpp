@@ -93,6 +93,10 @@ namespace Aria::Internal {
         std::unordered_map<std::string, Decl*> m_FunctionsToDeclare; // We do not immediately declare functions, we actually do them last
 
         // Counters
+        size_t m_AndCounter = 0;
+        size_t m_OrCounter = 0;
+        size_t m_WhileCounter = 0;
+        size_t m_DoWhileCounter = 0;
         size_t m_IfCounter = 0;
     
         CompilationContext* m_Context = nullptr;

@@ -253,7 +253,7 @@ namespace Aria::Internal {
             case TokenType::True: {
                 Consume();
     
-                final = m_Context->Allocate<BooleanConstantExpr>(m_Context, false);
+                final = m_Context->Allocate<BooleanConstantExpr>(m_Context, true);
                 break;
             }
     
@@ -573,9 +573,7 @@ namespace Aria::Internal {
     Stmt* Parser::ParseWhile() {
         Token w = Consume(); // Consume "while"
 
-        TryConsume(TokenType::LeftParen, "'('");
         Expr* condition = ParseExpression();
-        TryConsume(TokenType::RightParen, "')'");
         Stmt* body = ParseCompoundInline();
 
         m_NeedsSemi = false;
@@ -584,47 +582,33 @@ namespace Aria::Internal {
     }
 
     Stmt* Parser::ParseDoWhile() {
-        ARIA_ASSERT(false, "todo: add do while parsing");
-        // Token d = Consume(); // Consume "do"
+        Token d = Consume(); // Consume "do"
 
-        // StmtDoWhile* node = Allocate<StmtDoWhile>();
-        // node->Body = ParseCompoundInline();
+        Stmt* body = ParseCompoundInline();
+        TryConsume(TokenType::While, "while");
+        Expr* condition = ParseExpression();
 
-        // TryConsume(TokenType::While, "while");
-        // TryConsume(TokenType::LeftParen, "'('");
-        // node->Condition = ParseExpression();
-        // TryConsume(TokenType::RightParen, "')'");
-
-        // m_NeedsSemi = false;
-
-        // return Allocate<NodeStmt>(node, d.Loc);
+        return m_Context->Allocate<DoWhileStmt>(m_Context, condition, body);
     }
 
     Stmt* Parser::ParseFor() {
-        ARIA_ASSERT(false, "todo: add for parsing");
-        // Token f = Consume(); // Consume "for"
+        Token f = Consume(); // Consume "for"
 
-        // StmtFor* node = Allocate<StmtFor>();
-        // TryConsume(TokenType::LeftParen, "'('");
+        TryConsume(TokenType::LeftParen, "'('");
+        
+        Stmt* prologue = ParseStatement();
+        Expr* condition = ParseExpression();
+        TryConsume(TokenType::Semi, "';'");
+        Expr* epilogue = ParseExpression();
 
-        // node->Prologue = ParseStatement();
+        TryConsume(TokenType::RightParen, "')'");
 
-        // node->Condition = ParseExpression();
-        // TryConsume(TokenType::Semi, "';'");
+        Stmt* body = ParseCompoundInline();
 
-        // node->Epilogue = ParseExpression();
-        // TryConsume(TokenType::RightParen, "')'");
-
-        // SourceLocation end = Peek(-1)->Loc.End;
-        // node->Body = ParseCompoundInline();
-
-        // m_NeedsSemi = false;
-
-        // return Allocate<NodeStmt>(node, SourceRange(f.Loc.Start, end), f.Loc.Start);
+        return m_Context->Allocate<ForStmt>(m_Context, prologue, condition, epilogue, body);
     }
 
     Stmt* Parser::ParseIf() {
-        // ARIA_ASSERT(false, "todo: add if parsing");
         Token i = Consume(); // Consume "if"
 
         Expr* condition = ParseExpression();

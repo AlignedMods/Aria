@@ -123,20 +123,31 @@ namespace Aria::Internal {
         m_ExternalFunctions[signature] = fn;
     }
 
-    void VM::Call(int32_t label) {
-        ARIA_ASSERT(false, "todo: VM::Call()");
-        // // Perform a jump
-        // size_t pc = m_ProgramCounter;
+    void VM::Call(const std::string& signature, size_t argCount) {
+        // Now check for aria functions
+        ARIA_ASSERT(m_Functions.contains(signature), "Calling unknown function");
+        VMFunction& func = m_Functions.at(signature);
+        
+        // Save the state in the current stack frame
+        m_StackFrames.back().PreviousReturnAddress = m_ReturnAddress;
+        m_StackFrames.back().PreviousFunction = m_ActiveFunction;
 
-        // ARIA_ASSERT(m_Labels.contains(label), "Trying to jump to an unknown label!");
-        // m_ProgramCounter = m_Labels.at(label) + 1;
+        // Save function stack
+        m_StackFrames.back().PFSSBP = m_FunctionStack.StackSlotBasePointer;
+        m_StackFrames.back().PFSBP = m_FunctionStack.StackBasePointer;
 
-        // PushStackFrame();
+        m_ReturnAddress = m_ProgramCounter;
 
-        // m_StackFrames.back().ReturnAddress = pc;
-        // m_StackFrames.back().ReturnSlot = m_StackSlotPointer;
+        // Perform a jump to the function
+        ARIA_ASSERT(func.Labels.contains("_entry$"), "All functions must contain a \"_entry$\" label");
+        m_ProgramCounter = func.Labels.at("_entry$");
+        m_ActiveFunction = &func;
 
-        // Run();
+        // Set up the function stack
+        m_FunctionStack.StackSlotBasePointer = m_FunctionStack.StackSlotPointer - argCount;
+        m_FunctionStack.StackBasePointer = m_FunctionStack.StackSlots[m_FunctionStack.StackSlotBasePointer].Index;
+
+        Run();
     }
 
     void VM::CallExtern(const std::string& signature) {
@@ -305,6 +316,7 @@ namespace Aria::Internal {
 
         ARIA_ASSERT(m_Functions.contains(signature), "Byte code does not contain _start$() function");
         VMFunction& func = m_Functions.at(signature);
+        m_ActiveFunction = &func;
 
         // Perform a jump to the function
         ARIA_ASSERT(func.Labels.contains("_entry$"), "_start$() function doesn't contain a \"_entry$\" label");
@@ -504,7 +516,7 @@ namespace Aria::Internal {
 
                 case OpCodeType::DeclareLocal: {
                     size_t index = std::get<size_t>(op.Data);
-                    m_StackFrames.back().LocalMap[index] = { static_cast<i32>(m_LocalStack.StackSlotPointer) - 1 };
+                    m_StackFrames.back().LocalMap[index] = { static_cast<i32>(m_LocalStack.StackSlotPointer - m_LocalStack.StackSlotBasePointer) - 1 };
                     break;
                 };
 
@@ -608,7 +620,7 @@ namespace Aria::Internal {
                 case OpCodeType::Call: {
                     const OpCodeCall& call = std::get<OpCodeCall>(op.Data);
                     
-                    std::string sig = reinterpret_cast<char*>(GetPointer(0, m_FunctionStack));
+                    std::string sig = reinterpret_cast<char*>(GetPointer(-(static_cast<i32>(call.ArgCount) + 1), m_FunctionStack));
                     
                     // Check if we have an external function
                     if (m_ExternalFunctions.contains(sig)) {
@@ -645,11 +657,11 @@ namespace Aria::Internal {
                 case OpCodeType::Ret: {
                     ARIA_ASSERT(m_StackFrames.size() > 0, "Trying to return out of no stack frame!");
 
-                    m_FunctionStack.StackSlotBasePointer = m_StackFrames.back().PFSSBP;
-                    m_FunctionStack.StackBasePointer = m_StackFrames.back().PFSBP;
-
                     m_FunctionStack.StackSlotPointer = m_FunctionStack.StackSlotBasePointer;
                     m_FunctionStack.StackPointer = m_FunctionStack.StackBasePointer;
+
+                    m_FunctionStack.StackSlotBasePointer = m_StackFrames.back().PFSSBP;
+                    m_FunctionStack.StackBasePointer = m_StackFrames.back().PFSBP;
 
                     if (m_ReturnAddress == SIZE_MAX) {
                         StopExecution();
@@ -676,7 +688,36 @@ namespace Aria::Internal {
 
                 CASE_BINEXPR_BOOL_GROUP(Cmp, Cmp)
                 CASE_BINEXPR_BOOL_GROUP(Ncmp, Ncmp)
-                CASE_BINEXPR_BOOL_GROUP(Lt, Lt)
+                case OpCodeType::LtI8: {
+                    OpCodeMath m = std::get<OpCodeMath>(op.Data); int8_t lhs{}; int8_t rhs{}; memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(int8_t)); memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(int8_t)); bool result = Lt(lhs, rhs); Pop(2, m_LocalStack); Alloca(1, m.ResolvedType, m_LocalStack); StoreBool(-1, result, m_LocalStack); break;
+                } case OpCodeType::LtI16: {
+                    OpCodeMath m = std::get<OpCodeMath>(op.Data); int16_t lhs{}; int16_t rhs{}; memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(int16_t)); memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(int16_t)); bool result = Lt(lhs, rhs); Pop(2, m_LocalStack); Alloca(1, m.ResolvedType, m_LocalStack); StoreBool(-1, result, m_LocalStack); break;
+                } case OpCodeType::LtI32: {
+                    OpCodeMath m = std::get<OpCodeMath>(op.Data); 
+                    int32_t lhs{}; 
+                    int32_t rhs{}; 
+                    memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(int32_t)); 
+                    memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(int32_t)); 
+                    bool result = Lt(lhs, rhs); 
+                    Pop(2, m_LocalStack); 
+                    Alloca(1, m.ResolvedType, m_LocalStack); 
+                    StoreBool(-1, result, m_LocalStack); 
+                    break;
+                } case OpCodeType::LtI64: {
+                    OpCodeMath m = std::get<OpCodeMath>(op.Data); int64_t lhs{}; int64_t rhs{}; memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(int64_t)); memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(int64_t)); bool result = Lt(lhs, rhs); Pop(2, m_LocalStack); Alloca(1, m.ResolvedType, m_LocalStack); StoreBool(-1, result, m_LocalStack); break;
+                } case OpCodeType::LtU8: {
+                    OpCodeMath m = std::get<OpCodeMath>(op.Data); uint8_t lhs{}; uint8_t rhs{}; memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(uint8_t)); memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(uint8_t)); bool result = Lt(lhs, rhs); Pop(2, m_LocalStack); Alloca(1, m.ResolvedType, m_LocalStack); StoreBool(-1, result, m_LocalStack); break;
+                } case OpCodeType::LtU16: {
+                    OpCodeMath m = std::get<OpCodeMath>(op.Data); uint16_t lhs{}; uint16_t rhs{}; memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(uint16_t)); memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(uint16_t)); bool result = Lt(lhs, rhs); Pop(2, m_LocalStack); Alloca(1, m.ResolvedType, m_LocalStack); StoreBool(-1, result, m_LocalStack); break;
+                } case OpCodeType::LtU32: {
+                    OpCodeMath m = std::get<OpCodeMath>(op.Data); uint32_t lhs{}; uint32_t rhs{}; memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(uint32_t)); memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(uint32_t)); bool result = Lt(lhs, rhs); Pop(2, m_LocalStack); Alloca(1, m.ResolvedType, m_LocalStack); StoreBool(-1, result, m_LocalStack); break;
+                } case OpCodeType::LtU64: {
+                    OpCodeMath m = std::get<OpCodeMath>(op.Data); uint64_t lhs{}; uint64_t rhs{}; memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(uint64_t)); memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(uint64_t)); bool result = Lt(lhs, rhs); Pop(2, m_LocalStack); Alloca(1, m.ResolvedType, m_LocalStack); StoreBool(-1, result, m_LocalStack); break;
+                } case OpCodeType::LtF32: {
+                    OpCodeMath m = std::get<OpCodeMath>(op.Data); float lhs{}; float rhs{}; memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(float)); memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(float)); bool result = Lt(lhs, rhs); Pop(2, m_LocalStack); Alloca(1, m.ResolvedType, m_LocalStack); StoreBool(-1, result, m_LocalStack); break;
+                } case OpCodeType::LtF64: {
+                    OpCodeMath m = std::get<OpCodeMath>(op.Data); double lhs{}; double rhs{}; memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(double)); memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(double)); bool result = Lt(lhs, rhs); Pop(2, m_LocalStack); Alloca(1, m.ResolvedType, m_LocalStack); StoreBool(-1, result, m_LocalStack); break;
+                }
                 CASE_BINEXPR_BOOL_GROUP(Lte, Lte)
                 CASE_BINEXPR_BOOL_GROUP(Gt, Gt)
                 CASE_BINEXPR_BOOL_GROUP(Gte, Gte)

@@ -17,6 +17,7 @@ namespace Aria::Internal {
     void Emitter::EmitImpl() {
         m_OpCodes.emplace_back(OpCodeType::Function, "_start$()");
         m_OpCodes.emplace_back(OpCodeType::Label, "_entry$");
+        m_OpCodes.emplace_back(OpCodeType::PushSF);
         PushStackFrame("_start$()");
 
         EmitStmt(m_RootASTNode);
@@ -152,7 +153,7 @@ namespace Aria::Internal {
             return EmitDeclRefExpr(cast->GetChildExpr(), false);
         }
 
-        ARIA_ASSERT(false, "todo");
+        // ARIA_ASSERT(false, "todo");
     }
 
     void Emitter::EmitUnaryOperatorExpr(Expr* expr) {
@@ -188,7 +189,8 @@ namespace Aria::Internal {
 
     void Emitter::EmitBinaryOperatorExpr(Expr* expr) {
         BinaryOperatorExpr* binop = GetNode<BinaryOperatorExpr>(expr);
-       
+      
+
         #define BINOP(baseOp, type, _enum) \
             if (binop->GetLHS()->GetResolvedType()->Type == PrimitiveType::_enum) { \
                 EmitExpr(binop->GetLHS()); \
@@ -228,11 +230,42 @@ namespace Aria::Internal {
             BINOP_GROUP(IsEq,        Cmp)
             BINOP_GROUP(IsNotEq,     Ncmp)
         
+            case BinaryOperatorType::BitAnd: {
+                std::string andEnd = fmt::format("and.end_{}", m_AndCounter);
+                m_AndCounter++;
+
+                EmitExpr(binop->GetLHS());
+                m_OpCodes.emplace_back(OpCodeType::Jf, andEnd);
+                EmitExpr(binop->GetRHS());
+                m_OpCodes.emplace_back(OpCodeType::AndI8, OpCodeMath(binop->GetResolvedType()));
+                m_OpCodes.emplace_back(OpCodeType::Jmp, andEnd);
+
+                m_OpCodes.emplace_back(OpCodeType::Label, andEnd);
+
+                break;
+            }
+
+            case BinaryOperatorType::BitOr: {
+                std::string orEnd = fmt::format("or.end_{}", m_OrCounter);
+                m_OrCounter++;
+
+                EmitExpr(binop->GetLHS());
+                m_OpCodes.emplace_back(OpCodeType::Jt, orEnd);
+                EmitExpr(binop->GetRHS());
+                m_OpCodes.emplace_back(OpCodeType::OrI8, OpCodeMath(binop->GetResolvedType()));
+                m_OpCodes.emplace_back(OpCodeType::Jmp, orEnd);
+
+                m_OpCodes.emplace_back(OpCodeType::Label, orEnd);
+
+                break;
+            }
+
             case BinaryOperatorType::Eq: {
                 EmitExpr(binop->GetLHS());
                 EmitExpr(binop->GetRHS());
 
                 m_OpCodes.emplace_back(OpCodeType::Store);
+                break;
             }
         }
     }
@@ -335,8 +368,37 @@ namespace Aria::Internal {
         }
     }
 
-    void Emitter::EmitWhileStmt(Stmt* stmt) { ARIA_ASSERT(false, "todo: Emitter::EmitWhileStmt()"); }
-    void Emitter::EmitDoWhileStmt(Stmt* stmt) { ARIA_ASSERT(false, "todo: Emitter::EmitDoWhileStmt()"); }
+    void Emitter::EmitWhileStmt(Stmt* stmt) {
+        WhileStmt* wh = GetNode<WhileStmt>(stmt);
+
+        std::string loopStart = fmt::format("while.start_{}", m_WhileCounter);
+        std::string loopEnd = fmt::format("while.end_{}", m_WhileCounter);
+        m_WhileCounter++;
+
+        m_OpCodes.emplace_back(OpCodeType::Label, loopStart);
+        EmitExpr(wh->GetCondition());
+        m_OpCodes.emplace_back(OpCodeType::Jf, loopEnd);
+        EmitStmt(wh->GetBody());
+
+        m_OpCodes.emplace_back(OpCodeType::Jmp, loopStart);
+
+        m_OpCodes.emplace_back(OpCodeType::Label, loopEnd);
+    }
+
+    void Emitter::EmitDoWhileStmt(Stmt* stmt) {
+        DoWhileStmt* wh = GetNode<DoWhileStmt>(stmt);
+
+        std::string loopStart = fmt::format("dowhile.start_{}", m_DoWhileCounter);
+        std::string loopEnd = fmt::format("dowhile.end_{}", m_DoWhileCounter);
+        m_DoWhileCounter++;
+
+        m_OpCodes.emplace_back(OpCodeType::Label, loopStart);
+        EmitStmt(wh->GetBody());
+
+        EmitExpr(wh->GetCondition());
+        m_OpCodes.emplace_back(OpCodeType::Jt, loopStart);
+    }
+
     void Emitter::EmitForStmt(Stmt* stmt) { ARIA_ASSERT(false, "todo: Emitter::EmitForStmt()"); }
 
     void Emitter::EmitIfStmt(Stmt* stmt) {
@@ -426,16 +488,24 @@ namespace Aria::Internal {
     }
 
     void Emitter::PushStackFrame(const std::string& name) {
-        m_OpCodes.emplace_back(OpCodeType::PushSF);
         m_ActiveStackFrame.Scopes.clear();
         m_ActiveStackFrame.Scopes.emplace_back();
         m_ActiveStackFrame.Name = name;
     }
 
     void Emitter::PopStackFrame() {
-        m_OpCodes.emplace_back(OpCodeType::PopSF);
         m_ActiveStackFrame.Scopes.clear();
         m_ActiveStackFrame.Name.clear();
+        m_ActiveStackFrame.Parameters.clear();
+        m_ActiveStackFrame.ParameterCount = 0;
+        m_ActiveStackFrame.LocalCount = 0;
+
+        // Reset counters
+        m_AndCounter = 0;
+        m_OrCounter = 0;
+        m_WhileCounter = 0;
+        m_DoWhileCounter = 0;
+        m_IfCounter = 0;
     }
 
     void Emitter::PushScope() {
@@ -453,6 +523,7 @@ namespace Aria::Internal {
                     m_OpCodes.emplace_back(OpCodeType::Function, name);
                     m_OpCodes.emplace_back(OpCodeType::Label, "_entry$");
 
+                    m_OpCodes.emplace_back(OpCodeType::PushSF);
                     PushStackFrame(name);
                     
                     size_t returnSlot = (fnDecl->GetResolvedType()->Type == PrimitiveType::Void) ? 0 : 1;
@@ -464,9 +535,11 @@ namespace Aria::Internal {
                     EmitCompoundStmt(fnDecl->GetBody());
 
                     if (m_OpCodes.back().Type != OpCodeType::Ret) {
-                        PopStackFrame();
+                        m_OpCodes.emplace_back(OpCodeType::PopSF);
                         m_OpCodes.emplace_back(OpCodeType::Ret);
                     }
+
+                    PopStackFrame();
                 }
             }
         }

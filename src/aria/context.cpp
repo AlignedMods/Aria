@@ -32,7 +32,7 @@ namespace Aria {
     void Context::CompileFile(const std::string& path, const std::string& module) {
         std::ifstream file(path);
         if (!file.is_open()) {
-            fmt::print(stderr, "Failed to open file: {}!\n", path);
+            fmt::print(fmt::fg(fmt::color::pale_violet_red), "Failed to open file: {}!\n", path);
             return;
         }
 
@@ -270,18 +270,11 @@ namespace Aria {
         src->VM.AddExtern(name, fn);
     }
 
-    void Context::Call(const std::string& str, const std::string& module) {
+    void Context::Call(const std::string& str, size_t argCount, const std::string& module) {
         ARIA_ASSERT(m_Modules.contains(module), "Current context does not contain the requested module!");
         CompiledSource* src = m_Modules.at(module);
 
-        ARIA_ASSERT(false, "Add Context::Call()");
-        // ARIA_ASSERT(src->ReflectionData.Declarations.contains(str), "Trying to call an unknown function");
-        // ARIA_ASSERT(src->ReflectionData.Declarations.at(str).Type == Internal::ReflectionType::Function, "Trying to call an non-function");
-        // size_t size = src->ReflectionData.Declarations.at(str).ResolvedType->GetSize();
-        // if (size > 0) {
-        //     src->VM.PushBytes(size, src->ReflectionData.Declarations.at(str).ResolvedType);
-        // }
-        // src->VM.Call(std::get<int32_t>(src->ReflectionData.Declarations.at(str).Data));
+        src->VM.Call(str, argCount);
     }
 
     void Context::SetRuntimeErrorHandler(RuntimeErrorHandlerFn fn) {

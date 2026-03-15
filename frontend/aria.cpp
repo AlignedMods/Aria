@@ -18,17 +18,27 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    std::string fileName = argv[1];
-    Aria::Context ctx;
-    ctx.CompileFile(fileName, fileName);
-    ctx.AddExternalFunction("PrintInt()", PrintInt, fileName);
-    fmt::print("{}", ctx.DumpAST(fileName));
-    fmt::print("{}", ctx.Disassemble(fileName, false));
-    ctx.Run(fileName);
+    // std::string fileName = argv[1];
+    // Aria::Context ctx;
+    // ctx.CompileFile(fileName, fileName);
+    // ctx.AddExternalFunction("PrintInt()", PrintInt, fileName);
+    // fmt::print("{}", ctx.DumpAST(fileName));
+    // fmt::print("{}", ctx.Disassemble(fileName, false));
+    // ctx.Run(fileName);
+    // 
+    // ctx.PushGlobal("a");
+    // fmt::print("a = {}", ctx.GetInt(-1));
+    // ctx.Pop(1);
+    // 
+    // ctx.FreeModule(fileName);
 
-    ctx.PushGlobal("a");
-    fmt::print("a = {}", ctx.GetInt(-1));
-    ctx.Pop(1);
+    Aria::Context ctx = Aria::Context::Create();
+    ctx.CompileFile("tests/runtime/basic_expressions.aria", "Runtime Basic Expressions");
+    ctx.AddExternalFunction("ShouldNeverBeCalled", [](Aria::Context* ctx) {
+        throw std::runtime_error("function that shouldn't be called was called");
+    }, "Runtime Basic Expressions");
+    fmt::print("{}", ctx.DumpAST("Runtime Basic Expressions"));
+    fmt::print("{}", ctx.Disassemble("Runtime Basic Expressions", false));
+    ctx.Run("Runtime Basic Expressions");
 
-    ctx.FreeModule(fileName);
 }

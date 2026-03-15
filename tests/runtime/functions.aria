@@ -14,7 +14,7 @@ int otherResult = 0; // This is here to confirm that you can have code in betwee
 
 void main() {
     result = add(5, 9);
-    result += add(sub(6, 3), 7);
+    result = result + add(sub(6, 3), 7);
     otherResult = result + 2;
 
     ExternalFunction(5, 9 * 7 + 3, (5 + 5) * 5);

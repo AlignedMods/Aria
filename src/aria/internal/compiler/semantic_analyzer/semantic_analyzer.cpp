@@ -42,6 +42,8 @@ namespace Aria::Internal {
             return HandleDeclRefExpr(expr);
         } else if (GetNode<CallExpr>(expr)) {
             return HandleCallExpr(expr);
+        } else if (GetNode<ParenExpr>(expr)) {
+            return HandleParenExpr(expr);
         } else if (GetNode<CastExpr>(expr)) {
             return HandleCastExpr(expr);
         } else if (GetNode<UnaryOperatorExpr>(expr)) {
@@ -129,11 +131,17 @@ namespace Aria::Internal {
 
 
     void SemanticAnalyzer::HandleWhileStmt(Stmt* stmt) {
-        ARIA_ASSERT(false, "todo");
+        WhileStmt* wh = GetNode<WhileStmt>(stmt);
+
+        HandleExpr(wh->GetCondition());
+        HandleStmt(wh->GetBody());
     }
 
     void SemanticAnalyzer::HandleDoWhileStmt(Stmt* stmt) {
-        ARIA_ASSERT(false, "todo");
+        DoWhileStmt* wh = GetNode<DoWhileStmt>(stmt);
+
+        HandleExpr(wh->GetCondition());
+        HandleStmt(wh->GetBody());
     }
 
     void SemanticAnalyzer::HandleForStmt(Stmt* stmt) {

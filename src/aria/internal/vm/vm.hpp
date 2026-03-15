@@ -68,7 +68,7 @@ namespace Aria::Internal {
 
         void AddExtern(const std::string& signature, ExternFn fn);
 
-        void Call(int32_t label);
+        void Call(const std::string& signature, size_t argCount);
         void CallExtern(const std::string& signature);
         
         void StoreBool   (i32 slot, bool b    , Stack& stack);

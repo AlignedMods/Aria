@@ -1,10 +1,11 @@
 #include "aria/context.hpp"
+#include "aria/core.hpp"
 
 #include "catch2.hpp"
 
 TEST_CASE("Runtime Variable Declaration") {
     Aria::Context ctx = Aria::Context::Create();
-    ctx.CompileFile("tests/runtime/variable_declaration.bl", "Runtime Variable Declaration");
+    ctx.CompileFile("tests/runtime/variable_declaration.aria", "Runtime Variable Declaration");
     ctx.Run("Runtime Variable Declaration");
     
     ctx.PushGlobal("f");
@@ -13,12 +14,14 @@ TEST_CASE("Runtime Variable Declaration") {
     REQUIRE(ctx.GetBool(-1) == true);
     ctx.PushGlobal("i");
     REQUIRE(ctx.GetInt(-1) == 99);
+
+    ctx.Pop(3);
 }
 
 TEST_CASE("Runtime Basic Expressions") {
     Aria::Context ctx = Aria::Context::Create();
-    ctx.CompileFile("tests/runtime/basic_expressions.bl", "Runtime Basic Expressions");
-    ctx.AddExternalFunction("ShouldNeverBeCalled", [](Aria::Context* ctx) {
+    ctx.CompileFile("tests/runtime/basic_expressions.aria", "Runtime Basic Expressions");
+    ctx.AddExternalFunction("ShouldNeverBeCalled()", [](Aria::Context* ctx) {
         throw std::runtime_error("function that shouldn't be called was called");
     }, "Runtime Basic Expressions");
     ctx.Run("Runtime Basic Expressions");
@@ -50,43 +53,53 @@ TEST_CASE("Runtime Basic Expressions") {
 }
 
 TEST_CASE("Runtime Functions") {
-    // Aria::Context ctx = Aria::Context::Create();
-    // ctx.CompileFile("tests/runtime/functions.bl", "Runtime Functions");
-    // ctx.AddExternalFunction("ExternalFunction", [](Aria::Context* ctx) {
-    //     REQUIRE(ctx->GetInt(-3) == 5);
-    //     REQUIRE(ctx->GetInt(-2) == 66);
-    //     REQUIRE(ctx->GetInt(-1) == 50);
-    // }, "Runtime Functions");
-    // ctx.Run("Runtime Functions");
-    // 
-    // ctx.Call("main", "Runtime Functions");
-    // 
-    // ctx.PushGlobal("result");
-    // REQUIRE(ctx.GetInt(-1) == 24);
-    // ctx.PushGlobal("otherResult");
-    // REQUIRE(ctx.GetInt(-1) == 26);
+    Aria::Context ctx = Aria::Context::Create();
+    ctx.CompileFile("tests/runtime/functions.aria", "Runtime Functions");
+    ctx.AddExternalFunction("ExternalFunction()", [](Aria::Context* ctx) {
+        ctx->PushArg(0);
+        ctx->PushArg(1);
+        ctx->PushArg(2);
+        REQUIRE(ctx->GetInt(-3) == 5);
+        REQUIRE(ctx->GetInt(-2) == 66);
+        REQUIRE(ctx->GetInt(-1) == 50);
+        ctx->Pop(3);
+    }, "Runtime Functions");
+    ctx.Run("Runtime Functions");
+
+    ctx.Call("main()", 0, "Runtime Functions");
+    
+    ctx.PushGlobal("result");
+    REQUIRE(ctx.GetInt(-1) == 24);
+    ctx.PushGlobal("otherResult");
+    REQUIRE(ctx.GetInt(-1) == 26);
+    ctx.Pop(2);
 }
 
 TEST_CASE("Runtime Control Flow") {
-    // Aria::Context ctx = Aria::Context::Create();
-    // ctx.CompileFile("tests/runtime/control_flow.bl", "Runtime Control Flow");
-    // ctx.Run("Runtime Control Flow");
-    // 
-    // ctx.Call("While", "Runtime Control Flow");
-    // REQUIRE(ctx.GetInt(-1) == 10);
-    // ctx.Pop(1);
-    // 
-    // ctx.Call("DoWhile1", "Runtime Control Flow");
-    // REQUIRE(ctx.GetInt(-1) == 10);
-    // ctx.Pop(1);
-    // 
-    // ctx.Call("DoWhile2", "Runtime Control Flow");
-    // REQUIRE(ctx.GetBool(-1) == true);
-    // ctx.Pop(1);
-    // 
-    // ctx.Call("If", "Runtime Control Flow");
-    // REQUIRE(ctx.GetBool(-1) == false);
-    // ctx.Pop(1);
+    Aria::Context ctx = Aria::Context::Create();
+    ctx.CompileFile("tests/runtime/control_flow.aria", "Runtime Control Flow");
+
+    ctx.Run("Runtime Control Flow");
+    
+    ctx.PushInt(0);
+    ctx.Call("While()", 0, "Runtime Control Flow");
+    REQUIRE(ctx.GetInt(-1) == 10);
+    ctx.Pop(1);
+    
+    ctx.PushInt(0);
+    ctx.Call("DoWhile1()", 0, "Runtime Control Flow");
+    REQUIRE(ctx.GetInt(-1) == 10);
+    ctx.Pop(1);
+    
+    ctx.PushBool(false);
+    ctx.Call("DoWhile2()", 0, "Runtime Control Flow");
+    REQUIRE(ctx.GetBool(-1) == true);
+    ctx.Pop(1);
+    
+    ctx.PushBool(false);
+    ctx.Call("If()", 0, "Runtime Control Flow");
+    REQUIRE(ctx.GetBool(-1) == false);
+    ctx.Pop(1);
 }
 
 TEST_CASE("Runtime Recursion") {
