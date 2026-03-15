@@ -13,7 +13,7 @@ namespace Aria {
 
     struct Context;
 
-    struct CompiledSource;
+    struct Module;
     class Allocator;
 
     using RuntimeErrorHandlerFn = void(*)(const std::string& error);
@@ -32,71 +32,72 @@ namespace Aria {
         Context();
         static Context Create();
 
-        void CompileFile(const std::string& path, const std::string& module);
+        void CompileFile(const std::string& path,     const std::string& module);
         void CompileString(const std::string& source, const std::string& module);
+
+        // Sets up the current module which will be used up until the next
+        // SetActiveModule call
+        void SetActiveModule(const std::string& module);
 
         // Deallocates the given module
         void FreeModule(const std::string& module);
 
         // Run the compiled string in the VM
         // Dissasemble the byte emitted byte code
-        void Run(const std::string& module);
+        void Run();
 
-        std::string DumpAST(const std::string& module);
-        // Returns a string containing the disassembled byte code
-        std::string Disassemble(const std::string& module, bool verbose);
+        std::string DumpAST();
+        std::string Disassemble();
 
-        void PushBool   (bool b,    const std::string& module = {});
-        void PushChar   (int8_t c,  const std::string& module = {});
-        void PushShort  (int16_t s, const std::string& module = {});
-        void PushInt    (int32_t i, const std::string& module = {});
-        void PushLong   (int64_t l, const std::string& module = {});
-        void PushFloat  (float f,   const std::string& module = {});
-        void PushDouble (double f,  const std::string& module = {});
-        void PushPointer(void* p,   const std::string& module = {});
+        void PushBool   (bool b);
+        void PushChar   (int8_t c);
+        void PushShort  (int16_t s);
+        void PushInt    (int32_t i);
+        void PushLong   (int64_t l);
+        void PushFloat  (float f);
+        void PushDouble (double f);
+        void PushPointer(void* p);
 
-        void StoreBool   (size_t index, bool b,    const std::string& module = {});
-        void StoreChar   (size_t index, int8_t c,  const std::string& module = {});
-        void StoreShort  (size_t index, int16_t s, const std::string& module = {});
-        void StoreInt    (size_t index, int32_t i, const std::string& module = {});
-        void StoreLong   (size_t index, int64_t l, const std::string& module = {});
-        void StoreFloat  (size_t index, float f,   const std::string& module = {});
-        void StoreDouble (size_t index, double d,  const std::string& module = {});
-        void StorePointer(size_t index, void* p,   const std::string& module = {});
+        void StoreBool   (size_t index, bool b);
+        void StoreChar   (size_t index, int8_t c);
+        void StoreShort  (size_t index, int16_t s);
+        void StoreInt    (size_t index, int32_t i);
+        void StoreLong   (size_t index, int64_t l);
+        void StoreFloat  (size_t index, float f);
+        void StoreDouble (size_t index, double d);
+        void StorePointer(size_t index, void* p);
 
-        void PushGlobal(const std::string& str, const std::string& module = {});
-        void PushArg(size_t index, const std::string& module = {});
-        void PushField(int32_t index, const std::string& name, const std::string& module = {});
+        void PushGlobal(const std::string& str);
+        void PushArg(size_t index);
+        void PushField(int32_t index, const std::string& name);
 
-        bool      GetBool     (int32_t index, const std::string& module = {});
-        int8_t    GetChar     (int32_t index, const std::string& module = {});
-        int16_t   GetShort    (int32_t index, const std::string& module = {});
-        int32_t   GetInt      (int32_t index, const std::string& module = {});
-        int64_t   GetLong     (int32_t index, const std::string& module = {});
-        float     GetFloat    (int32_t index, const std::string& module = {});
-        double    GetDouble   (int32_t index, const std::string& module = {});
-        void*     GetPointer  (int32_t index, const std::string& module = {});
-        StackSlot GetStackSlot(int32_t index, const std::string& module = {});
+        bool      GetBool     (int32_t index);
+        int8_t    GetChar     (int32_t index);
+        int16_t   GetShort    (int32_t index);
+        int32_t   GetInt      (int32_t index);
+        int64_t   GetLong     (int32_t index);
+        float     GetFloat    (int32_t index);
+        double    GetDouble   (int32_t index);
+        void*     GetPointer  (int32_t index);
+        StackSlot GetStackSlot(int32_t index);
 
-        void Pop(size_t count, const std::string& module = {});
+        void Pop(size_t count);
 
-        void Call(const std::string& str, size_t argCount, const std::string& module);
+        void Call(const std::string& str, size_t argCount);
 
-        void AddExternalFunction(const std::string& name, ExternFn fn, const std::string& module);
+        void AddExternalFunction(const std::string& name, ExternFn fn);
 
         void SetRuntimeErrorHandler(RuntimeErrorHandlerFn fn);
         void SetCompilerErrorHandler(CompilerErrorHandlerFn fn);
 
     private:
-        CompiledSource* GetCompiledSource(const std::string& module);
-
         void ReportRuntimeError(const std::string& error);
 
         friend class Internal::VM;
 
     private:
-        std::unordered_map<std::string, CompiledSource*> m_Modules;
-        CompiledSource* m_CurrentCompiledSource = nullptr;
+        std::unordered_map<std::string, Module*> m_Modules;
+        Module* m_ActiveModule = nullptr;
 
         RuntimeErrorHandlerFn m_RuntimeErrorHandler = nullptr;
         CompilerErrorHandlerFn m_CompilerErrorHandler = nullptr;

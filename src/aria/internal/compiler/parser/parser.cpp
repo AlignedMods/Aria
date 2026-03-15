@@ -364,52 +364,36 @@ namespace Aria::Internal {
             }
         }
 
-        // Handle member access (foo.bar) and array access (foo[5])
-        // NOTE: This is currently not avalible, AST refactoring in progress
-        // while (Match(TokenType::Dot) || Match(TokenType::LeftBracket)) {
-        //     Token op = Consume();
+        // Handle member access (foo.bar) and member call expressions (foo.add())
+        while (Match(TokenType::Dot)) {
+            Token op = Consume();
 
-        //     if (op.Type == TokenType::Dot) {
-        //         Token* member = TryConsume(TokenType::Identifier, "identifier");
-        //         if (!member) { return nullptr; }
+            if (op.Type == TokenType::Dot) {
+                Token* member = TryConsume(TokenType::Identifier, "identifier");
+                if (!member) { return nullptr; }
 
-        //         if (Match(TokenType::LeftParen)) {
-        //             Consume();
-    
-        //             ExprMethodCall* methodExpr = Allocate<ExprMethodCall>();
-        //             methodExpr->Member = member->Data;
-        //             methodExpr->Parent = final;
-    
-        //             while (!Match(TokenType::RightParen)) {
-        //                 NodeExpr* val = ParseExpression();
-    
-        //                 if (Match(TokenType::Comma)) {
-        //                     Consume();
-        //                 }
-    
-        //                 methodExpr->Arguments.Append(m_Context, Allocate<Node>(val));
-        //             }
-    
-        //             TryConsume(TokenType::RightParen, "')'");
-    
-        //             final = Allocate<NodeExpr>(methodExpr, SourceRange(final->Range.Start, Peek(-1)->Loc.End), op.Loc.Start);
-        //         } else {
-        //             ExprMember* memExpr = Allocate<ExprMember>();
+                final = m_Context->Allocate<MemberExpr>(m_Context, member->Data, final);
 
-        //             memExpr->Member = member->Data;
-        //             memExpr->Parent = final;
-        //             final = Allocate<NodeExpr>(memExpr, SourceRange(final->Range.Start, Peek(-1)->Loc.End), op.Loc.Start);
-        //         }
-        //     } else if (op.Type == TokenType::LeftBracket) {
-        //         ExprArrayAccess* arrExpr = Allocate<ExprArrayAccess>();
+                if (Match(TokenType::LeftParen)) {
+                    Consume();
+    
+                    TinyVector<Expr*> args;
+                    while (!Match(TokenType::RightParen)) {
+                        Expr* val = ParseExpression();
+    
+                        if (Match(TokenType::Comma)) {
+                            Consume();
+                        }
+    
+                        args.Append(m_Context, val);
+                    }
+    
+                    TryConsume(TokenType::RightParen, "')'");
 
-        //         arrExpr->Index = ParseExpression();
-        //         arrExpr->Parent = final;
-        //         TryConsume(TokenType::RightBracket, "']'");
-
-        //         final = Allocate<NodeExpr>(arrExpr, SourceRange(final->Range.Start, Peek(-1)->Loc.End), op.Loc.Start);
-        //     }
-        // }
+                    final = m_Context->Allocate<MethodCallExpr>(m_Context, GetNode<MemberExpr>(final), args);
+                }
+            }
+        }
 
         return final;
     }
@@ -517,57 +501,45 @@ namespace Aria::Internal {
     }
 
     Stmt* Parser::ParseStructDecl() {
-        ARIA_ASSERT(false, "todo: add struct parsing");
-        // Token s = Consume(); // Consume "struct"
+        Token s = Consume(); // Consume "struct"
 
-        // Token* ident = TryConsume(TokenType::Identifier, "indentifier");
+        Token* ident = TryConsume(TokenType::Identifier, "indentifier");
 
-        // if (!ident) { return nullptr; }
-        // m_DeclaredTypes[fmt::format("{}", ident->Data)] = true;
+        if (!ident) { return nullptr; }
+        m_DeclaredTypes[fmt::format("{}", ident->Data)] = true;
 
-        // StmtStructDecl* node = Allocate<StmtStructDecl>();
-        // node->Identifier = ident->Data;
+        TinyVector<Decl*> fields;
 
-        // TryConsume(TokenType::LeftCurly, "'{'");
+        TryConsume(TokenType::LeftCurly, "'{'");
 
-        // while (!Match(TokenType::RightCurly)) {
-        //     if (IsVariableType()) {
-        //         Node* field = nullptr;
-        //         StringBuilder type = ParseVariableType();
+        while (!Match(TokenType::RightCurly)) {
+            if (IsVariableType()) {
+                StringBuilder type = ParseVariableType();
 
-        //         Token* fieldName = TryConsume(TokenType::Identifier, "identifier");
-        //         if (!fieldName) { return nullptr; }
+                Token* fieldName = TryConsume(TokenType::Identifier, "identifier");
+                if (!fieldName) { return nullptr; }
 
-        //         if (Match(TokenType::LeftParen)) {
-        //             Consume();
+                if (Match(TokenType::LeftParen)) {
+                    Consume();
 
-        //             StmtMethodDecl* decl = Allocate<StmtMethodDecl>();
-        //             decl->Name = fieldName->Data;
-        //             decl->ReturnType = type;
+                    TinyVector<ParamDecl*> params = ParseFunctionParameters();
+                    TryConsume(TokenType::RightParen, "')'");
 
-        //             NodeList params = ParseFunctionParameters();
-        //             TryConsume(TokenType::RightParen, "')'");
+                    Stmt* body = ParseCompound();
 
-        //             decl->Parameters = params;
-        //             decl->Body = ParseCompound();
+                    fields.Append(m_Context, m_Context->Allocate<MethodDecl>(m_Context, fieldName->Data, StringView(type.Data(), type.Size()), params));
+                } else {
+                    TryConsume(TokenType::Semi, "';'");
 
-        //             node->Fields.Append(m_Context, Allocate<Node>(Allocate<NodeStmt>(decl, fieldName->Loc)));
-        //         } else {
-        //             StmtFieldDecl* decl = Allocate<StmtFieldDecl>();
-        //             decl->Identifier = fieldName->Data;
-        //             decl->Type = type;
+                    fields.Append(m_Context, m_Context->Allocate<FieldDecl>(m_Context, fieldName->Data, StringView(type.Data(), type.Size())));
+                }
+            }
+        }
+        
+        TryConsume(TokenType::RightCurly, "'}'");
 
-        //             TryConsume(TokenType::Semi, "';'");
-
-        //             node->Fields.Append(m_Context, Allocate<Node>(Allocate<NodeStmt>(decl, fieldName->Loc)));
-        //         }
-        //     }
-        // }
-
-        // TryConsume(TokenType::RightCurly, "'}'");
-
-        // m_NeedsSemi = false;
-        // return Allocate<NodeStmt>(node, SourceRange(s.Loc.Start, Peek(-1)->Loc.End), ident->Loc.Start);
+        m_NeedsSemi = false;
+        return m_Context->Allocate<StructDecl>(m_Context, ident->Data, fields);
     }
 
     Stmt* Parser::ParseWhile() {
@@ -681,6 +653,10 @@ namespace Aria::Internal {
 
         if (m_NeedsSemi) {
             TryConsume(TokenType::Semi, "';'");
+        }
+
+        while (Match(TokenType::Semi)) {
+            Consume();
         }
 
         m_NeedsSemi = true;

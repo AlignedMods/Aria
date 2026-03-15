@@ -6,7 +6,7 @@
 TEST_CASE("Runtime Variable Declaration") {
     Aria::Context ctx = Aria::Context::Create();
     ctx.CompileFile("tests/runtime/variable_declaration.aria", "Runtime Variable Declaration");
-    ctx.Run("Runtime Variable Declaration");
+    ctx.Run();
     
     ctx.PushGlobal("f");
     REQUIRE(ctx.GetBool(-1) == false);
@@ -23,8 +23,8 @@ TEST_CASE("Runtime Basic Expressions") {
     ctx.CompileFile("tests/runtime/basic_expressions.aria", "Runtime Basic Expressions");
     ctx.AddExternalFunction("ShouldNeverBeCalled()", [](Aria::Context* ctx) {
         throw std::runtime_error("function that shouldn't be called was called");
-    }, "Runtime Basic Expressions");
-    ctx.Run("Runtime Basic Expressions");
+    });
+    ctx.Run();
     
     ctx.PushGlobal("a");
     REQUIRE(ctx.GetInt(-1) == 10);
@@ -63,10 +63,10 @@ TEST_CASE("Runtime Functions") {
         REQUIRE(ctx->GetInt(-2) == 66);
         REQUIRE(ctx->GetInt(-1) == 50);
         ctx->Pop(3);
-    }, "Runtime Functions");
-    ctx.Run("Runtime Functions");
+    });
+    ctx.Run();
 
-    ctx.Call("main()", 0, "Runtime Functions");
+    ctx.Call("main()", 0);
     
     ctx.PushGlobal("result");
     REQUIRE(ctx.GetInt(-1) == 24);
@@ -79,25 +79,25 @@ TEST_CASE("Runtime Control Flow") {
     Aria::Context ctx = Aria::Context::Create();
     ctx.CompileFile("tests/runtime/control_flow.aria", "Runtime Control Flow");
 
-    ctx.Run("Runtime Control Flow");
+    ctx.Run();
     
     ctx.PushInt(0);
-    ctx.Call("While()", 0, "Runtime Control Flow");
+    ctx.Call("While()", 0);
     REQUIRE(ctx.GetInt(-1) == 10);
     ctx.Pop(1);
     
     ctx.PushInt(0);
-    ctx.Call("DoWhile1()", 0, "Runtime Control Flow");
+    ctx.Call("DoWhile1()", 0);
     REQUIRE(ctx.GetInt(-1) == 10);
     ctx.Pop(1);
     
     ctx.PushBool(false);
-    ctx.Call("DoWhile2()", 0, "Runtime Control Flow");
+    ctx.Call("DoWhile2()", 0);
     REQUIRE(ctx.GetBool(-1) == true);
     ctx.Pop(1);
     
     ctx.PushBool(false);
-    ctx.Call("If()", 0, "Runtime Control Flow");
+    ctx.Call("If()", 0);
     REQUIRE(ctx.GetBool(-1) == false);
     ctx.Pop(1);
 }
@@ -105,15 +105,15 @@ TEST_CASE("Runtime Control Flow") {
 TEST_CASE("Runtime Recursion") {
     Aria::Context ctx = Aria::Context::Create();
     ctx.CompileFile("tests/runtime/recursion.aria", "Runtime Recursion");
-    ctx.Run("Runtime Recursion");
+    ctx.Run();
     
     ctx.PushInt(10);
-    ctx.Call("Fib()", 1, "Runtime Recursion");
+    ctx.Call("Fib()", 1);
     REQUIRE(ctx.GetInt(-1) == 55);
     ctx.Pop(1);
     
     ctx.PushInt(20);
-    ctx.Call("Fib()", 1, "Runtime Recursion");
+    ctx.Call("Fib()", 1);
     REQUIRE(ctx.GetInt(-1) == 6765);
     ctx.Pop(1);
 }
@@ -121,7 +121,7 @@ TEST_CASE("Runtime Recursion") {
 TEST_CASE("Runtime Casts") {
     Aria::Context ctx = Aria::Context::Create();
     ctx.CompileFile("tests/runtime/casts.aria", "Runtime Casts");
-    ctx.Run("Runtime Casts");
+    ctx.Run();
 
     ctx.PushGlobal("a");
     REQUIRE(ctx.GetInt(-1) == 2);
@@ -136,16 +136,16 @@ TEST_CASE("Runtime Casts") {
 }
 
 TEST_CASE("Runtime Structs") {
-    // Aria::Context ctx = Aria::Context::Create();
-    // ctx.CompileFile("tests/runtime/structs.bl", "Runtime Structs");
-    // ctx.Run("Runtime Structs");
-    // 
-    // ctx.PushGlobal("p");
-    // ctx.Call("Player::GetX", "Runtime Structs");
-    // REQUIRE((ctx.GetFloat(-1) > 4.9999f && ctx.GetFloat(-1) < 5.0001f));
-    // ctx.Pop(1); // Pop the return value
-    // ctx.Call("Player::GetY", "Runtime Structs");
-    // REQUIRE((ctx.GetFloat(-1) > 3.9999f && ctx.GetFloat(-1) < 4.0001f));
+    Aria::Context ctx = Aria::Context::Create();
+    ctx.CompileFile("tests/runtime/structs.aria", "Runtime Structs");
+    ctx.Run();
+    
+    ctx.PushGlobal("p");
+    ctx.Call("Player::GetX", 0);
+    REQUIRE((ctx.GetFloat(-1) > 4.9999f && ctx.GetFloat(-1) < 5.0001f));
+    ctx.Pop(1); // Pop the return value
+    ctx.Call("Player::GetY", 0);
+    REQUIRE((ctx.GetFloat(-1) > 3.9999f && ctx.GetFloat(-1) < 4.0001f));
 }
 
 TEST_CASE("Runtime Arrays") {

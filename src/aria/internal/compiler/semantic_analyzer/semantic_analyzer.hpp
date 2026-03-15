@@ -45,7 +45,9 @@ namespace Aria::Internal {
         TypeInfo* HandleFloatingConstantExpr(Expr* expr);
         TypeInfo* HandleStringConstantExpr(Expr* expr);
         TypeInfo* HandleDeclRefExpr(Expr* expr);
+        TypeInfo* HandleMemberExpr(Expr* expr);
         TypeInfo* HandleCallExpr(Expr* expr);
+        TypeInfo* HandleMethodCallExpr(Expr* expr);
         TypeInfo* HandleParenExpr(Expr* expr);
         TypeInfo* HandleCastExpr(Expr* expr);
         TypeInfo* HandleUnaryOperatorExpr(Expr* expr);
@@ -57,6 +59,7 @@ namespace Aria::Internal {
         void HandleVarDecl(Decl* decl);
         void HandleParamDecl(Decl* decl);
         void HandleFunctionDecl(Decl* decl);
+        void HandleStructDecl(Decl* decl);
 
         void HandleDecl(Decl* decl);
 

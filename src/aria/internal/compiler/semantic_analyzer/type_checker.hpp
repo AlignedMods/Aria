@@ -51,7 +51,9 @@ namespace Aria::Internal {
         TypeInfo* HandleFloatingConstantExpr(Expr* expr);
         TypeInfo* HandleStringConstantExpr(Expr* expr);
         TypeInfo* HandleDeclRefExpr(Expr* expr);
+        TypeInfo* HandleMemberExpr(Expr* expr, bool searchMethods = false);
         TypeInfo* HandleCallExpr(Expr* expr);
+        TypeInfo* HandleMethodCallExpr(Expr* expr);
         TypeInfo* HandleParenExpr(Expr* expr);
         TypeInfo* HandleCastExpr(Expr* expr);
         TypeInfo* HandleUnaryOperatorExpr(Expr* expr);
@@ -63,6 +65,7 @@ namespace Aria::Internal {
         void HandleVarDecl(Decl* decl);
         void HandleParamDecl(Decl* decl);
         void HandleFunctionDecl(Decl* decl);
+        void HandleStructDecl(Decl* decl);
 
         void HandleDecl(Decl* decl);
 
@@ -86,6 +89,8 @@ namespace Aria::Internal {
 
         std::vector<std::unordered_map<std::string, Declaration>> m_Declarations;
         TypeInfo* m_ActiveReturnType = nullptr;
+
+        std::unordered_map<std::string, TypeInfo*> m_DeclaredTypes;
 
         CompilationContext* m_Context = nullptr;
         friend class SemanticAnalyzer;

@@ -277,6 +277,33 @@ namespace Aria::Internal {
         TypeInfo* m_ResolvedType = nullptr;
     };
 
+    struct MemberExpr final : public Expr {
+        MemberExpr(CompilationContext* ctx, StringView member, Expr* parent)
+            : Expr(ctx), m_Member(member), m_Parent(parent) {}
+
+        inline StringView GetMember() const { return m_Member; }
+
+        inline Expr* GetParent() { return m_Parent; }
+        inline const Expr* GetParent() const { return m_Parent; }
+
+        inline TypeInfo* GetParentType() { return m_ParentType; }
+        inline const TypeInfo* GetParentType() const { return m_ParentType; }
+        inline void SetParentType(TypeInfo* type) { m_ParentType = type; }
+
+        inline virtual TypeInfo* GetResolvedType() override { return m_ResolvedType; }
+        inline virtual const TypeInfo* GetResolvedType() const override { return m_ResolvedType; }
+        inline void SetResolvedType(TypeInfo* type) { m_ResolvedType = type; }
+
+        inline virtual ExprValueType GetValueType() const override { return ExprValueType::LValue; }
+
+    private:
+        StringView m_Member;
+        Expr* m_Parent = nullptr;
+
+        TypeInfo* m_ParentType = nullptr;
+        TypeInfo* m_ResolvedType = nullptr;
+    };
+
     struct SelfExpr final : public Expr {
         SelfExpr(CompilationContext* ctx)
             : Expr(ctx) {}
@@ -301,7 +328,6 @@ namespace Aria::Internal {
         inline TinyVector<Expr*> GetArguments() const { return m_Arguments; }
         inline void SetArgument(size_t index, Expr* expr) { m_Arguments.Items[index] = expr; }
 
-
         inline virtual TypeInfo* GetResolvedType() override { return m_ResolvedType; }
         inline virtual const TypeInfo* GetResolvedType() const override { return m_ResolvedType; }
         inline void SetResolvedType(TypeInfo* type) { m_ResolvedType = type; }
@@ -312,6 +338,30 @@ namespace Aria::Internal {
         DeclRefExpr* m_Callee;
         TinyVector<Expr*> m_Arguments;
 
+        TypeInfo* m_ResolvedType = nullptr;
+    };
+
+    struct MethodCallExpr final : public Expr {
+        MethodCallExpr(CompilationContext* ctx, MemberExpr* callee, TinyVector<Expr*> args)
+            : Expr(ctx), m_Callee(callee), m_Arguments(args) {}
+    
+        inline MemberExpr* GetCallee() { return m_Callee; }
+        inline const MemberExpr* GetCallee() const { return m_Callee; }
+    
+        inline TinyVector<Expr*> GetArguments() const { return m_Arguments; }
+        inline void SetArgument(size_t index, Expr* expr) { m_Arguments.Items[index] = expr; }
+    
+    
+        inline virtual TypeInfo* GetResolvedType() override { return m_ResolvedType; }
+        inline virtual const TypeInfo* GetResolvedType() const override { return m_ResolvedType; }
+        inline void SetResolvedType(TypeInfo* type) { m_ResolvedType = type; }
+    
+        inline virtual ExprValueType GetValueType() const override { return ExprValueType::RValue; }
+    
+    private:
+        MemberExpr* m_Callee;
+        TinyVector<Expr*> m_Arguments;
+    
         TypeInfo* m_ResolvedType = nullptr;
     };
     

@@ -68,11 +68,6 @@ namespace Aria::Internal {
         size_t sp = stack.StackPointer;
         stack.StackPointer = stack.StackSlots[stack.StackSlotPointer - count].Index;
         stack.StackSlotPointer -= count;
-
-        // Fill the space we just popped with zeros (useful for debugging, however a bit of a waste in release builds)
-        #ifdef _DEBUG
-            memset(&stack.Stack[stack.StackPointer], 0, sp - stack.StackPointer);
-        #endif
     }
 
     void VM::Copy(i32 dstSlot, i32 srcSlot, Stack& dst, Stack& src) {
@@ -548,6 +543,16 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case OpCodeType::LoadOffset: {
+                    OpCodeOffset off = std::get<OpCodeOffset>(op.Data);
+                    u8* base = reinterpret_cast<u8*>(GetPointer(-1, m_LocalStack));
+                    Pop(1, m_LocalStack);
+
+                    Alloca(off.Size, off.ResolvedType, m_LocalStack);
+                    memcpy(GetVMSlice(-1, m_LocalStack).Memory, base + off.Offset, off.Size);
+                    break;
+                }
+
                 case OpCodeType::LoadArg: {
                     i32 index = static_cast<i32>(std::get<size_t>(op.Data));
 
@@ -576,6 +581,15 @@ namespace Aria::Internal {
                     VMSlice slice = GetVMSlice(m_StackFrames.back().LocalMap.at(index), m_LocalStack);
                     Alloca(sizeof(void*), slice.ResolvedType, m_LocalStack);
                     StorePointer(-1, slice.Memory, m_LocalStack);
+                    break;
+                }
+
+                case OpCodeType::LoadPtrOffset: {
+                    OpCodeOffset off = std::get<OpCodeOffset>(op.Data);
+                    u8* base = reinterpret_cast<u8*>(GetPointer(-1, m_LocalStack));
+                    Pop(1, m_LocalStack);
+                    Alloca(sizeof(void*), off.ResolvedType, m_LocalStack);
+                    StorePointer(-1, base + off.Offset, m_LocalStack);
                     break;
                 }
 

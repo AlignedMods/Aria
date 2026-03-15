@@ -21,8 +21,10 @@ int main(int argc, char** argv) {
     std::string fileName = argv[1];
     Aria::Context ctx;
     ctx.CompileFile(fileName, fileName);
-    ctx.AddExternalFunction("PrintInt()", PrintInt, fileName);
-    ctx.Run(fileName);
+    ctx.AddExternalFunction("PrintInt()", PrintInt);
+    fmt::print("{}", ctx.DumpAST());
+    fmt::print("{}", ctx.Disassemble());
+    ctx.Run();
 
     ctx.FreeModule(fileName);
 }

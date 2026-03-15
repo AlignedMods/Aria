@@ -51,9 +51,16 @@ namespace Aria::Internal {
         TypeInfo* ResolvedType = nullptr;
     };
 
+    struct StructMethodDeclaration {
+        StringView Identifier;
+        TypeInfo* ReturnType = nullptr;
+        TinyVector<TypeInfo*> ParamTypes;
+    };
+
     struct StructDeclaration {
         StringView Identifier;
         TinyVector<StructFieldDeclaration> Fields;
+        TinyVector<StructMethodDeclaration> Methods;
 
         size_t Size = 0;
     };

@@ -59,10 +59,69 @@ namespace Aria::Internal {
         return nullptr;
     }
 
+    TypeInfo* TypeChecker::HandleMemberExpr(Expr* expr, bool searchMethods) {
+        MemberExpr* mem = GetNode<MemberExpr>(expr);
+
+        TypeInfo* parentType = HandleExpr(mem->GetParent());
+        TypeInfo* memberType = nullptr;
+        StructDeclaration& sd = std::get<StructDeclaration>(parentType->Data);
+
+        if (searchMethods) {
+            for (const auto& method : sd.Methods) {
+                if (method.Identifier == mem->GetMember()) {
+                    memberType = TypeInfo::Create(m_Context, PrimitiveType::Function, FunctionDeclaration(method.ReturnType, method.ParamTypes));
+                }
+            }
+        } else {
+            for (const auto& field : sd.Fields) {
+                if (field.Identifier == mem->GetMember()) {
+                    memberType = field.ResolvedType;
+                }
+            }
+        }
+
+        if (!memberType) {
+            ARIA_ASSERT(false, "todo: add error msg");
+        }
+
+        mem->SetParentType(parentType);
+        mem->SetResolvedType(memberType);
+
+        return memberType;
+    }
+
     TypeInfo* TypeChecker::HandleCallExpr(Expr* expr) {
         CallExpr* call = GetNode<CallExpr>(expr);
 
         TypeInfo* calleeType = HandleExpr(call->GetCallee());
+        FunctionDeclaration& fnDecl = std::get<FunctionDeclaration>(calleeType->Data);
+
+        if (fnDecl.ParamTypes.Size != call->GetArguments().Size) {
+            ARIA_ASSERT(false, "todo: error msg");
+        }
+
+        for (size_t i = 0; i < fnDecl.ParamTypes.Size; i++) {
+            TypeInfo* paramType = fnDecl.ParamTypes.Items[i];
+            TypeInfo* argType = HandleExpr(call->GetArguments().Items[i]);
+
+            ConversionCost cost = GetConversionCost(paramType, argType, call->GetArguments().Items[i]->IsLValue());
+            if (cost.CastNeeded) {
+                if (cost.ImplicitCastPossible) {
+                    call->SetArgument(i, InsertImplicitCast(paramType, argType, call->GetArguments().Items[i], cost.CaType));
+                } else {
+                    ARIA_ASSERT(false, "todo: error msg");
+                }
+            }
+        }
+
+        call->SetResolvedType(fnDecl.ReturnType);
+        return fnDecl.ReturnType;
+    }
+
+    TypeInfo* TypeChecker::HandleMethodCallExpr(Expr* expr) {
+        MethodCallExpr* call = GetNode<MethodCallExpr>(expr);
+        TypeInfo* calleeType = HandleMemberExpr(call->GetCallee(), true);
+
         FunctionDeclaration& fnDecl = std::get<FunctionDeclaration>(calleeType->Data);
 
         if (fnDecl.ParamTypes.Size != call->GetArguments().Size) {
@@ -289,8 +348,12 @@ namespace Aria::Internal {
             return HandleStringConstantExpr(expr);
         } else if (GetNode<DeclRefExpr>(expr)) {
             return HandleDeclRefExpr(expr);
+        } else if (GetNode<MemberExpr>(expr)) {
+            return HandleMemberExpr(expr);
         } else if (GetNode<CallExpr>(expr)) {
             return HandleCallExpr(expr);
+        } else if (GetNode<MethodCallExpr>(expr)) {
+            return HandleMethodCallExpr(expr);
         } else if (GetNode<ParenExpr>(expr)) {
             return HandleParenExpr(expr);
         } else if (GetNode<CastExpr>(expr)) {
@@ -384,19 +447,61 @@ namespace Aria::Internal {
         m_ActiveReturnType = nullptr;
     }
 
+    void TypeChecker::HandleStructDecl(Decl* decl) {
+        StructDecl* s = GetNode<StructDecl>(decl);
+
+        StructDeclaration d;
+        d.Identifier = s->GetRawIdentifier();
+
+        for (Decl* field : s->GetFields()) {
+            if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
+                StructFieldDeclaration sfd;
+                sfd.Identifier = fd->GetRawIdentifier();
+                sfd.Offset = d.Size;
+                sfd.ResolvedType = GetTypeInfoFromString(fd->GetParsedType());
+
+                d.Size += sfd.ResolvedType->GetSize();
+                
+                fd->SetResolvedType(sfd.ResolvedType);
+                d.Fields.Append(m_Context, sfd);
+            } else if (MethodDecl* md = GetNode<MethodDecl>(field)) {
+                StructMethodDeclaration smd;
+
+                TypeInfo* returnType = GetTypeInfoFromString(md->GetParsedType());
+                TinyVector<TypeInfo*> paramTypes;
+                m_ActiveReturnType = returnType;
+
+                m_Declarations.emplace_back();
+
+                for (ParamDecl* p : md->GetParameters()) {
+                    HandleParamDecl(p);
+                    TypeInfo* pType = p->GetResolvedType();
+                    paramTypes.Append(m_Context, pType);
+                }
+
+                smd.Identifier = md->GetRawIdentifier();
+                smd.ReturnType = returnType;
+                smd.ParamTypes = paramTypes;
+
+                md->SetResolvedType(TypeInfo::Create(m_Context, PrimitiveType::Function, FunctionDeclaration(returnType, paramTypes)));
+                d.Methods.Append(m_Context, smd);
+            }
+        }
+
+        m_DeclaredTypes[s->GetIdentifier()] = TypeInfo::Create(m_Context, PrimitiveType::Structure, d);
+    }
+
     void TypeChecker::HandleDecl(Decl* decl) {
         if (GetNode<TranslationUnitDecl>(decl)) {
-            HandleTranslationUnitDecl(decl);
-            return;
+            return HandleTranslationUnitDecl(decl);
         } else if (GetNode<VarDecl>(decl)) {
-            HandleVarDecl(decl);
-            return;
+            return HandleVarDecl(decl);
         } else if (GetNode<ParamDecl>(decl)) {
-            HandleParamDecl(decl);
-            return;
+            return HandleParamDecl(decl);
         } else if (GetNode<FunctionDecl>(decl)) {
-            HandleFunctionDecl(decl);
-            return;
+            return HandleFunctionDecl(decl);
+        } else if (GetNode<StructDecl>(decl)) {
+            return HandleStructDecl(decl);
         }
 
         ARIA_UNREACHABLE();
@@ -538,23 +643,13 @@ namespace Aria::Internal {
         #undef TYPE
 
         // Handle user defined type
-        if (type->Type == PrimitiveType::Invalid) {
-            ARIA_ASSERT(false, "todo");
-            // if (m_DeclaredStructs.contains(isolatedType)) {
-            //     type->Type = PrimitiveType::Structure;
-            //     type->Data = m_DeclaredStructs.at(isolatedType);
-            // } else {
-            //     ErrorUndeclaredIdentifier(StringView(isolatedType.c_str(), isolatedType.size()), 0, 0);
-            // }
-        }
-
-        if (array) {
-            ARIA_ASSERT(false, "todo");
-            // ArrayDeclaration decl;
-            // decl.Type = type;
-            // 
-            // VariableType* arrType = CreateVarType(m_Context, PrimitiveType::Array, decl);
-            // type = arrType;
+        if (!type) {
+            if (m_DeclaredTypes.contains(isolatedType)) {
+                type = m_DeclaredTypes.at(isolatedType);
+            } else {
+                // ErrorUndeclaredIdentifier(StringView(isolatedType.c_str(), isolatedType.size()), 0, 0);
+                ARIA_ASSERT(false, "todo");
+            }
         }
 
         return type;

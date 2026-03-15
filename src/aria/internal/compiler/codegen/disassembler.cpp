@@ -170,6 +170,12 @@ namespace Aria::Internal {
                 break;
             }
 
+            case OpCodeType::LoadOffset: {
+                OpCodeOffset off = std::get<OpCodeOffset>(op.Data);
+                m_Output += fmt::format("{}ld.off    {} {}\n", m_Indentation, off.Offset, off.Size);
+                break;
+            }
+
             case OpCodeType::LoadArg: {
                 size_t index = std::get<size_t>(op.Data);
                 m_Output += fmt::format("{}ld.arg    {}\n", m_Indentation, index);
@@ -191,6 +197,12 @@ namespace Aria::Internal {
             case OpCodeType::LoadPtrLocal: {
                 size_t index = std::get<size_t>(op.Data);
                 m_Output += fmt::format("{}ldptr.l   {}\n", m_Indentation, index);
+                break;
+            }
+
+            case OpCodeType::LoadPtrOffset: {
+                OpCodeOffset off = std::get<OpCodeOffset>(op.Data);
+                m_Output += fmt::format("{}ldptr.off {} {}\n", m_Indentation, off.Offset, off.Size);
                 break;
             }
 

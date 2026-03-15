@@ -99,25 +99,27 @@ namespace Aria::Internal {
     };
 
     struct StructDecl final : public Decl {
-        StructDecl(CompilationContext* ctx, StringView identifier, TinyVector<Decl> fields)
+        StructDecl(CompilationContext* ctx, StringView identifier, TinyVector<Decl*> fields)
             : Decl(ctx), m_Identifier(identifier), m_Fields(fields) {}
 
         inline std::string GetIdentifier() const { return fmt::format("{}", m_Identifier); }
         inline StringView GetRawIdentifier() const { return m_Identifier; }
 
-        inline TinyVector<Decl> GetFields() const { return m_Fields; }
+        inline TinyVector<Decl*> GetFields() const { return m_Fields; }
 
     private:
         StringView m_Identifier;
-        TinyVector<Decl> m_Fields;
+        TinyVector<Decl*> m_Fields;
     };
 
     struct FieldDecl final : public Decl {
-        FieldDecl(CompilationContext* ctx, StringView identifier)
-            : Decl(ctx), m_Identifier(identifier) {}
+        FieldDecl(CompilationContext* ctx, StringView identifier, StringView parsedType)
+            : Decl(ctx), m_Identifier(identifier), m_ParsedType(parsedType) {}
 
         inline std::string GetIdentifier() const { return fmt::format("{}", m_Identifier); }
         inline StringView GetRawIdentifier() const { return m_Identifier; }
+
+        inline StringView GetParsedType() const { return m_ParsedType; }
 
         inline TypeInfo* GetResolvedType() { return m_ResolvedType; }
         inline const TypeInfo* GetResolvedType() const { return m_ResolvedType; }
@@ -125,18 +127,21 @@ namespace Aria::Internal {
 
     private:
         StringView m_Identifier;
+        StringView m_ParsedType;
         
         TypeInfo* m_ResolvedType = nullptr;
     };
 
     struct MethodDecl final : public Decl {
-        MethodDecl(CompilationContext* ctx, StringView identifier, TinyVector<ParamDecl> parameters)
-            : Decl(ctx), m_Identifier(identifier), m_Parameters(parameters) {}
+        MethodDecl(CompilationContext* ctx, StringView identifier, StringView parsedType, TinyVector<ParamDecl*> parameters)
+            : Decl(ctx), m_Identifier(identifier), m_Parameters(parameters), m_ParsedType(parsedType) {}
 
         inline std::string GetIdentifier() const { return fmt::format("{}", m_Identifier); }
         inline StringView GetRawIdentifier() const { return m_Identifier; }
 
-        inline TinyVector<ParamDecl> GetParameters() const { return m_Parameters; }
+        inline StringView GetParsedType() const { return m_ParsedType; }
+
+        inline TinyVector<ParamDecl*> GetParameters() const { return m_Parameters; }
 
         inline TypeInfo* GetResolvedType() { return m_ResolvedType; }
         inline const TypeInfo* GetResolvedType() const { return m_ResolvedType; }
@@ -144,7 +149,8 @@ namespace Aria::Internal {
 
     private:
         StringView m_Identifier;
-        TinyVector<ParamDecl> m_Parameters;
+        StringView m_ParsedType;
+        TinyVector<ParamDecl*> m_Parameters;
 
         TypeInfo* m_ResolvedType = nullptr;
     };

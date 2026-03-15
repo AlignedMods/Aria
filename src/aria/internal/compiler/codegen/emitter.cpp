@@ -121,6 +121,23 @@ namespace Aria::Internal {
         }
     }
 
+    void Emitter::EmitMemberExpr(Expr* expr, bool lvalue) {
+        MemberExpr* mem = GetNode<MemberExpr>(expr);
+
+        EmitExpr(mem->GetParent(), true);
+        StructDeclaration& sd = std::get<StructDeclaration>(mem->GetParentType()->Data);
+
+        for (const auto& field : sd.Fields) {
+            if (field.Identifier == mem->GetMember()) {
+                if (lvalue) {
+                    m_OpCodes.emplace_back(OpCodeType::LoadPtrOffset, OpCodeOffset(field.Offset, field.ResolvedType->GetSize(), field.ResolvedType));
+                } else {
+                    m_OpCodes.emplace_back(OpCodeType::LoadOffset, OpCodeOffset(field.Offset, field.ResolvedType->GetSize(), field.ResolvedType));
+                }
+            }
+        }
+    }
+
     void Emitter::EmitCallExpr(Expr* expr) {
         CallExpr* call = GetNode<CallExpr>(expr);
 
@@ -424,6 +441,8 @@ namespace Aria::Internal {
             return EmitStringConstantExpr(expr);
         } else if (GetNode<DeclRefExpr>(expr)) {
             return EmitDeclRefExpr(expr, lvalue);
+        } else if (GetNode<MemberExpr>(expr)) {
+            return EmitMemberExpr(expr, lvalue);
         } else if (GetNode<CallExpr>(expr)) {
             return EmitCallExpr(expr);
         } else if (GetNode<ParenExpr>(expr)) {
@@ -488,16 +507,19 @@ namespace Aria::Internal {
         m_FunctionsToDeclare[fmt::format("{}()", fnDecl->GetRawIdentifier())] = decl;
     }
 
+    void Emitter::EmitStructDecl(Decl* decl) {
+        StructDecl* s = GetNode<StructDecl>(decl);
+    }
+
     void Emitter::EmitDecl(Decl* decl) {
         if (GetNode<TranslationUnitDecl>(decl)) {
-            EmitTranslationUnitDecl(decl);
-            return;
+            return EmitTranslationUnitDecl(decl);
         } else if (GetNode<VarDecl>(decl)) {
-            EmitVarDecl(decl);
-            return;
+            return EmitVarDecl(decl);
         } else if (GetNode<FunctionDecl>(decl)) {
-            EmitFunctionDecl(decl);
-            return;
+            return EmitFunctionDecl(decl);
+        } else if (GetNode<StructDecl>(decl)) {
+            return EmitStructDecl(decl);
         }
 
         ARIA_UNREACHABLE();

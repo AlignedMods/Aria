@@ -21,7 +21,9 @@ namespace Aria::Internal {
     TypeInfo* SemanticAnalyzer::HandleFloatingConstantExpr(Expr* expr) { return expr->GetResolvedType(); }
     TypeInfo* SemanticAnalyzer::HandleStringConstantExpr(Expr* expr) { return expr->GetResolvedType(); }
     TypeInfo* SemanticAnalyzer::HandleDeclRefExpr(Expr* expr) { return expr->GetResolvedType(); }
+    TypeInfo* SemanticAnalyzer::HandleMemberExpr(Expr* expr) { return expr->GetResolvedType(); }
     TypeInfo* SemanticAnalyzer::HandleCallExpr(Expr* expr) { return expr->GetResolvedType(); }
+    TypeInfo* SemanticAnalyzer::HandleMethodCallExpr(Expr* expr) { return expr->GetResolvedType(); }
     TypeInfo* SemanticAnalyzer::HandleParenExpr(Expr* expr) { return expr->GetResolvedType(); }
     TypeInfo* SemanticAnalyzer::HandleCastExpr(Expr* expr) { return expr->GetResolvedType(); }
     TypeInfo* SemanticAnalyzer::HandleUnaryOperatorExpr(Expr* expr) { return expr->GetResolvedType(); }
@@ -40,8 +42,12 @@ namespace Aria::Internal {
             return HandleStringConstantExpr(expr);
         } else if (GetNode<DeclRefExpr>(expr)) {
             return HandleDeclRefExpr(expr);
+        } else if (GetNode<MemberExpr>(expr)) {
+            return HandleMemberExpr(expr);
         } else if (GetNode<CallExpr>(expr)) {
             return HandleCallExpr(expr);
+        } else if (GetNode<MethodCallExpr>(expr)) {
+            return HandleMethodCallExpr(expr);
         } else if (GetNode<ParenExpr>(expr)) {
             return HandleParenExpr(expr);
         } else if (GetNode<CastExpr>(expr)) {
@@ -103,19 +109,19 @@ namespace Aria::Internal {
         }
     }
 
+    void SemanticAnalyzer::HandleStructDecl(Decl* decl) {}
+
     void SemanticAnalyzer::HandleDecl(Decl* decl) {
         if (GetNode<TranslationUnitDecl>(decl)) {
-            HandleTranslationUnitDecl(decl);
-            return;
+            return HandleTranslationUnitDecl(decl);
         } else if (GetNode<VarDecl>(decl)) {
-            HandleVarDecl(decl);
-            return;
+            return HandleVarDecl(decl);
         } else if (GetNode<ParamDecl>(decl)) {
-            HandleParamDecl(decl);
-            return;
+            return HandleParamDecl(decl);
         } else if (GetNode<FunctionDecl>(decl)) {
-            HandleFunctionDecl(decl);
-            return;
+            return HandleFunctionDecl(decl);
+        } else if (GetNode<StructDecl>(decl)) {
+            return HandleStructDecl(decl);
         }
 
         ARIA_UNREACHABLE();
@@ -128,7 +134,6 @@ namespace Aria::Internal {
             HandleStmt(s);
         }
     }
-
 
     void SemanticAnalyzer::HandleWhileStmt(Stmt* stmt) {
         WhileStmt* wh = GetNode<WhileStmt>(stmt);

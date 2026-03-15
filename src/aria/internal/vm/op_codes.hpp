@@ -59,11 +59,13 @@ namespace Aria::Internal {
 
         LoadGlobal,
         LoadLocal,
+        LoadOffset,
         LoadArg,
         LoadFunc,
 
         LoadPtrGlobal,
         LoadPtrLocal,
+        LoadPtrOffset,
         LoadPtrRet,
 
         Function,
@@ -220,6 +222,12 @@ namespace Aria::Internal {
         TypeInfo* ResolvedType = nullptr;
     };
 
+    struct OpCodeOffset {
+        size_t Offset = 0;
+        size_t Size = 0;
+        TypeInfo* ResolvedType = nullptr;
+    };
+
     struct OpCodeCall {
         size_t ArgCount = 0;
     };
@@ -234,7 +242,7 @@ namespace Aria::Internal {
 
     struct OpCode {
         OpCodeType Type = OpCodeType::Nop;
-        std::variant<size_t, std::string, OpCodeAlloca, OpCodeLoad, OpCodeCall, OpCodeMath, OpCodeCast> Data;
+        std::variant<size_t, std::string, OpCodeAlloca, OpCodeLoad, OpCodeOffset, OpCodeCall, OpCodeMath, OpCodeCast> Data;
         std::string DebugData; // Optional debug data the compiler can provide
     };
 

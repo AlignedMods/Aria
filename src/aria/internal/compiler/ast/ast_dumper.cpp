@@ -37,6 +37,10 @@ namespace Aria::Internal {
             m_Output += fmt::format("StringConstantExpr \"{}\" '{}' {}\n", sc->GetValue(), TypeInfoToString(sc->GetResolvedType()), ExprValueTypeToString(sc->GetValueType())); return;
         } else if (DeclRefExpr* declRef = GetNode<DeclRefExpr>(expr)) {
             m_Output += fmt::format("DeclRefExpr '{}' '{}' {} {}\n", declRef->GetRawIdentifier(), TypeInfoToString(declRef->GetResolvedType()), DeclRefTypeToString(declRef->GetType()), ExprValueTypeToString(declRef->GetValueType())); return;
+        } else if (MemberExpr* mem = GetNode<MemberExpr>(expr)) {
+            m_Output += fmt::format("MemberExpr '{}' '{}' {}\n", mem->GetMember(), TypeInfoToString(mem->GetResolvedType()), ExprValueTypeToString(mem->GetValueType()));
+            DumpExpr(mem->GetParent(), indentation + 4);
+            return;
         } else if (CallExpr* call = GetNode<CallExpr>(expr)) {
             m_Output += fmt::format("CallExpr '{}' {}\n", TypeInfoToString(call->GetResolvedType()), ExprValueTypeToString(call->GetValueType()));
             for (Expr* e : call->GetArguments()) {
@@ -101,6 +105,25 @@ namespace Aria::Internal {
             if (fnDecl->GetBody()) {
                 DumpStmt(fnDecl->GetBody(), indentation + 4);
             }
+            return;
+        } else if (StructDecl* structDecl = GetNode<StructDecl>(decl)) {
+            m_Output += fmt::format("StructDecl '{}'\n", structDecl->GetRawIdentifier());
+            for (const auto& field : structDecl->GetFields()) {
+                DumpDecl(field, indentation + 4);
+            }
+            return;
+        } else if (FieldDecl* fieldDecl = GetNode<FieldDecl>(decl)) {
+            m_Output += fmt::format("FieldDecl '{}' '{}'\n", fieldDecl->GetRawIdentifier(), TypeInfoToString(fieldDecl->GetResolvedType()));
+            return;
+        } else if (MethodDecl* methodDecl = GetNode<MethodDecl>(decl)) {
+            m_Output += fmt::format("MethodDecl '{}' '{}'\n", methodDecl->GetRawIdentifier(), TypeInfoToString(methodDecl->GetResolvedType()));
+            for (Decl* p : methodDecl->GetParameters()) {
+                DumpDecl(p, indentation + 4);
+            }
+
+            // if (methodDecl->GetBody()) {
+            //     DumpStmt(methodDecl->GetBody(), indentation + 4);
+            // }
             return;
         }
         
