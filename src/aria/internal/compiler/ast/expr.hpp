@@ -169,9 +169,6 @@ namespace Aria::Internal {
         virtual const TypeInfo* GetResolvedType() const = 0;
 
         virtual ExprValueType GetValueType() const = 0;
-
-        inline bool IsLValue() const { return GetValueType() == ExprValueType::LValue; }
-        inline bool IsRValue() const { return GetValueType() == ExprValueType::RValue; }
     };
 
     using IntegerStorage = std::variant<i8, u8, i16, u16, i32, u32, i64, u64>;

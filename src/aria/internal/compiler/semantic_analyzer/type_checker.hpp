@@ -81,7 +81,7 @@ namespace Aria::Internal {
         TypeInfo* GetTypeInfoFromString(StringView str);
 
         // type1 is the destination type and type2 is the source type
-        ConversionCost GetConversionCost(TypeInfo* dst, TypeInfo* src, bool srcLValue);
+        ConversionCost GetConversionCost(TypeInfo* dst, TypeInfo* src, ExprValueType srcType);
         Expr* InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastType castType); // Returns the new ImplicitCastExpr
 
     private:

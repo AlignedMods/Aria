@@ -15,7 +15,7 @@ namespace Aria::Internal {
         inline Stmt(CompilationContext* ctx)
             : m_Context(ctx) {}
 
-        virtual void _Unused() const {}
+        virtual ~Stmt() {}
 
     protected:
         CompilationContext* m_Context = nullptr;

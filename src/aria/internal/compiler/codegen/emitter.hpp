@@ -36,25 +36,21 @@ namespace Aria::Internal {
     private:
         void EmitImpl();
 
-        void EmitBooleanConstantExpr(Expr* expr);
-        void EmitCharacterConstantExpr(Expr* expr);
-        void EmitIntegerConstantExpr(Expr* expr);
-        void EmitFloatingConstantExpr(Expr* expr);
-        void EmitStringConstantExpr(Expr* expr);
-        void EmitDeclRefExpr(Expr* expr, bool lvalue);
-        void EmitMemberExpr(Expr* expr, bool lvalue);
-        void EmitCallExpr(Expr* expr);
-        void EmitParenExpr(Expr* expr);
-        void EmitImplicitCastExpr(Expr* expr);
-        void EmitCastExpr(Expr* expr);
-        void EmitUnaryOperatorExpr(Expr* expr);
-        void EmitBinaryOperatorExpr(Expr* expr);
+        void EmitBooleanConstantExpr(Expr* expr,   ExprValueType type);
+        void EmitCharacterConstantExpr(Expr* expr, ExprValueType type);
+        void EmitIntegerConstantExpr(Expr* expr,   ExprValueType type);
+        void EmitFloatingConstantExpr(Expr* expr,  ExprValueType type);
+        void EmitStringConstantExpr(Expr* expr,    ExprValueType type);
+        void EmitDeclRefExpr(Expr* expr,           ExprValueType type);
+        void EmitMemberExpr(Expr* expr,            ExprValueType type);
+        void EmitCallExpr(Expr* expr,              ExprValueType type);
+        void EmitParenExpr(Expr* expr,             ExprValueType type);
+        void EmitImplicitCastExpr(Expr* expr,      ExprValueType type);
+        void EmitCastExpr(Expr* expr,              ExprValueType type);
+        void EmitUnaryOperatorExpr(Expr* expr,     ExprValueType type);
+        void EmitBinaryOperatorExpr(Expr* expr,    ExprValueType type);
 
-        // The "lvalue" parameters signifies whether certain expressions that can be either lvalues or rvalue (eg. DeclRefExpr)
-        // Should be loaded as an lvalue or rvalue
-        // lvalue means load the pointer while rvalue means load the value
-        // In most cases however this flag won't do much
-        void EmitExpr(Expr* expr, bool lvalue = true);
+        void EmitExpr(Expr* expr, ExprValueType type);
 
         void EmitTranslationUnitDecl(Decl* decl);
         void EmitVarDecl(Decl* decl);

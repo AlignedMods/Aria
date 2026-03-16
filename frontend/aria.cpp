@@ -17,7 +17,7 @@ int main(int argc, char** argv) {
         PrintHelp(argv[0]);
         return 0;
     }
-
+    
     std::string fileName = argv[1];
     Aria::Context ctx;
     ctx.CompileFile(fileName, fileName);
@@ -25,6 +25,6 @@ int main(int argc, char** argv) {
     fmt::print("{}", ctx.DumpAST());
     fmt::print("{}", ctx.Disassemble());
     ctx.Run();
-
+    
     ctx.FreeModule(fileName);
 }

@@ -104,7 +104,7 @@ namespace Aria::Internal {
             TypeInfo* paramType = fnDecl.ParamTypes.Items[i];
             TypeInfo* argType = HandleExpr(call->GetArguments().Items[i]);
 
-            ConversionCost cost = GetConversionCost(paramType, argType, call->GetArguments().Items[i]->IsLValue());
+            ConversionCost cost = GetConversionCost(paramType, argType, call->GetArguments().Items[i]->GetValueType());
             if (cost.CastNeeded) {
                 if (cost.ImplicitCastPossible) {
                     call->SetArgument(i, InsertImplicitCast(paramType, argType, call->GetArguments().Items[i], cost.CaType));
@@ -132,7 +132,7 @@ namespace Aria::Internal {
             TypeInfo* paramType = fnDecl.ParamTypes.Items[i];
             TypeInfo* argType = HandleExpr(call->GetArguments().Items[i]);
 
-            ConversionCost cost = GetConversionCost(paramType, argType, call->GetArguments().Items[i]->IsLValue());
+            ConversionCost cost = GetConversionCost(paramType, argType, call->GetArguments().Items[i]->GetValueType());
             if (cost.CastNeeded) {
                 if (cost.ImplicitCastPossible) {
                     call->SetArgument(i, InsertImplicitCast(paramType, argType, call->GetArguments().Items[i], cost.CaType));
@@ -158,7 +158,7 @@ namespace Aria::Internal {
         TypeInfo* srcType = HandleExpr(cast->GetChildExpr());
         TypeInfo* dstType = GetTypeInfoFromString(cast->GetParsedType());
 
-        ConversionCost cost = GetConversionCost(dstType, srcType, cast->GetChildExpr()->IsLValue());
+        ConversionCost cost = GetConversionCost(dstType, srcType, cast->GetChildExpr()->GetValueType());
 
         if (cost.CastNeeded) {
             if (cost.ExplicitCastPossible) {
@@ -177,7 +177,7 @@ namespace Aria::Internal {
 
         TypeInfo* type = HandleExpr(unop->GetChildExpr());
 
-        ConversionCost cost = GetConversionCost(type, type, unop->GetChildExpr()->IsLValue());
+        ConversionCost cost = GetConversionCost(type, type, unop->GetChildExpr()->GetValueType());
         if (cost.CastNeeded) {
             if (cost.ImplicitCastPossible) {
                 unop->SetChildExpr(InsertImplicitCast(type, type, unop->GetChildExpr(), cost.CaType));
@@ -219,8 +219,8 @@ namespace Aria::Internal {
             case BinaryOperatorType::IsEq: 
             case BinaryOperatorType::IsNotEq: {
                 // See which conversion would be better
-                ConversionCost costLHS = GetConversionCost(LHSType, RHSType, LHS->IsLValue());
-                ConversionCost costRHS = GetConversionCost(RHSType, LHSType, RHS->IsLValue());
+                ConversionCost costLHS = GetConversionCost(LHSType, RHSType, LHS->GetValueType());
+                ConversionCost costRHS = GetConversionCost(RHSType, LHSType, RHS->GetValueType());
 
                 if (costLHS.CastNeeded || costRHS.CastNeeded) {
                     bool lhsCastNeeded = costLHS.CastNeeded;
@@ -277,7 +277,7 @@ namespace Aria::Internal {
             case BinaryOperatorType::DivInPlace:
             case BinaryOperatorType::ModInPlace:
             case BinaryOperatorType::Eq: {
-                if (!binop->GetLHS()->IsLValue()) {
+                if (binop->GetLHS()->GetValueType() != ExprValueType::LValue) {
                     // m_Context->ReportCompilerError(binop->LHS->Loc.Line, binop->LHS->Loc.Column, 
                     //                                binop->LHS->Range.Start.Line, binop->LHS->Range.Start.Column,
                     //                                binop->LHS->Range.End.Line, binop->LHS->Range.End.Column,
@@ -285,7 +285,7 @@ namespace Aria::Internal {
                     ARIA_ASSERT(false, "todo: add error for TypeChecker::HandleBinaryOperatorExpr()");
                 }
 
-                ConversionCost cost = GetConversionCost(LHSType, RHSType, binop->GetRHS()->IsLValue());
+                ConversionCost cost = GetConversionCost(LHSType, RHSType, binop->GetRHS()->GetValueType());
 
                 if (cost.CastNeeded) {
                     if (cost.ImplicitCastPossible) {
@@ -308,8 +308,8 @@ namespace Aria::Internal {
             case BinaryOperatorType::BitOr: {
                 TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool);
 
-                ConversionCost costLHS = GetConversionCost(boolType, RHSType, LHS->IsLValue());
-                ConversionCost costRHS = GetConversionCost(boolType, LHSType, RHS->IsLValue());
+                ConversionCost costLHS = GetConversionCost(boolType, RHSType, LHS->GetValueType());
+                ConversionCost costRHS = GetConversionCost(boolType, LHSType, RHS->GetValueType());
 
                 if (costLHS.CastNeeded) {
                     if (costLHS.ImplicitCastPossible) {
@@ -384,7 +384,7 @@ namespace Aria::Internal {
         if (varDecl->GetDefaultValue()) {
             TypeInfo* valType = HandleExpr(varDecl->GetDefaultValue());
 
-            ConversionCost cost = GetConversionCost(resolvedType, valType, varDecl->GetDefaultValue()->IsLValue());
+            ConversionCost cost = GetConversionCost(resolvedType, valType, varDecl->GetDefaultValue()->GetValueType());
             if (cost.CastNeeded) {
                 if (cost.ImplicitCastPossible) {
                     varDecl->SetDefaultValue(InsertImplicitCast(resolvedType, valType, varDecl->GetDefaultValue(), cost.CaType));
@@ -521,7 +521,7 @@ namespace Aria::Internal {
         TypeInfo* type = HandleExpr(wh->GetCondition());
         TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool);
 
-        ConversionCost cost = GetConversionCost(boolType, type, wh->GetCondition()->IsLValue());
+        ConversionCost cost = GetConversionCost(boolType, type, wh->GetCondition()->GetValueType());
         if (cost.CastNeeded) {
             if (cost.ImplicitCastPossible) {
                 wh->SetCondition(InsertImplicitCast(boolType, type, wh->GetCondition(), cost.CaType));
@@ -539,7 +539,7 @@ namespace Aria::Internal {
         TypeInfo* type = HandleExpr(wh->GetCondition());
         TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool);
 
-        ConversionCost cost = GetConversionCost(boolType, type, wh->GetCondition()->IsLValue());
+        ConversionCost cost = GetConversionCost(boolType, type, wh->GetCondition()->GetValueType());
         if (cost.CastNeeded) {
             if (cost.ImplicitCastPossible) {
                 wh->SetCondition(InsertImplicitCast(boolType, type, wh->GetCondition(), cost.CaType));
@@ -569,7 +569,7 @@ namespace Aria::Internal {
         Expr* value = ret->GetValue();
         TypeInfo* valType = HandleExpr(value);
 
-        ConversionCost cost = GetConversionCost(m_ActiveReturnType, valType, value->IsLValue());
+        ConversionCost cost = GetConversionCost(m_ActiveReturnType, valType, value->GetValueType());
         if (cost.CastNeeded) {
             if (cost.ImplicitCastPossible) {
                 ret->SetValue(InsertImplicitCast(m_ActiveReturnType, valType, value, cost.CaType));
@@ -655,14 +655,14 @@ namespace Aria::Internal {
         return type;
     }
 
-    ConversionCost TypeChecker::GetConversionCost(TypeInfo* dst, TypeInfo* src, bool srcLValue) {
+    ConversionCost TypeChecker::GetConversionCost(TypeInfo* dst, TypeInfo* src, ExprValueType srcType) {
         ConversionCost cost{};
         cost.CastNeeded = true;
         cost.ExplicitCastPossible = true;
         cost.ImplicitCastPossible = true;
 
         if (TypeInfo::IsEqual(src, dst)) {
-            if (srcLValue) {
+            if (srcType == ExprValueType::LValue) {
                 cost.CastNeeded = true;
                 cost.CaType = CastType::LValueToRValue;
                 cost.CoType = ConversionType::LValueToRValue;
