@@ -14,6 +14,7 @@ namespace Aria::Internal {
 
     struct CompilerReflectionDeclaration {
         TypeInfo* ResolvedType = nullptr;
+        size_t ResolvedTypeSize = 0;
         ReflectionType Type = ReflectionType::Variable;
     };
 

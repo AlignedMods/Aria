@@ -251,7 +251,7 @@ namespace Aria {
         m_ActiveModule->VM.Pop(argCount, m_ActiveModule->VM.m_LocalStack);
 
         // Allocate the return slot
-        m_ActiveModule->VM.Alloca(reflection.Declarations.at(str).ResolvedType->GetSize(), reflection.Declarations.at(str).ResolvedType, m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.Alloca(reflection.Declarations.at(str).ResolvedTypeSize, reflection.Declarations.at(str).ResolvedType, m_ActiveModule->VM.m_LocalStack);
 
         m_ActiveModule->VM.Call(str, argCount);
     }

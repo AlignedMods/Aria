@@ -15,6 +15,11 @@ namespace Aria::Internal {
             TypeInfo* Type = nullptr;
         };
 
+        struct RuntimeStructDeclaration {
+            size_t Size = 0;
+            std::unordered_map<std::string, size_t> FieldOffsets;
+        };
+
         struct Scope {
             std::unordered_map<std::string, size_t> DeclaredSymbolMap;
             std::vector<Declaration> DeclaredSymbols;
@@ -83,6 +88,8 @@ namespace Aria::Internal {
         void PushScope();
         void PopScope();
 
+        size_t TypeGetSize(TypeInfo* t);
+
     private:
         std::vector<OpCode> m_OpCodes;
         CompilerReflectionData m_ReflectionData;
@@ -91,6 +98,8 @@ namespace Aria::Internal {
 
         StackFrame m_ActiveStackFrame;
         Scope m_GlobalScope;
+
+        std::unordered_map<std::string, RuntimeStructDeclaration> m_Structs;
 
         std::unordered_map<std::string, Decl*> m_FunctionsToDeclare; // We do not immediately declare functions, we actually do them last
 

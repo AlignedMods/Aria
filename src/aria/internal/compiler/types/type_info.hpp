@@ -10,6 +10,8 @@
 
 namespace Aria::Internal {
 
+    struct Decl;
+
     enum class PrimitiveType {
         Invalid = 0,
         Void,
@@ -35,6 +37,11 @@ namespace Aria::Internal {
 
     struct TypeInfo;
 
+    struct StructDeclaration {
+        StringView Identifier;
+        Decl* SourceDecl = nullptr;
+    };
+
     struct FunctionDeclaration {
         TypeInfo* ReturnType = nullptr;
         TinyVector<TypeInfo*> ParamTypes;
@@ -44,44 +51,29 @@ namespace Aria::Internal {
         TypeInfo* Type = nullptr;
     };
 
-    struct StructFieldDeclaration {
-        StringView Identifier;
-        size_t Offset = 0;
-
-        TypeInfo* ResolvedType = nullptr;
-    };
-
-    struct StructMethodDeclaration {
-        StringView Identifier;
-        TypeInfo* ReturnType = nullptr;
-        TinyVector<TypeInfo*> ParamTypes;
-    };
-
-    struct StructDeclaration {
-        StringView Identifier;
-        TinyVector<StructFieldDeclaration> Fields;
-        TinyVector<StructMethodDeclaration> Methods;
-
-        size_t Size = 0;
-    };
-
     struct TypeInfo {
         PrimitiveType Type = PrimitiveType::Invalid;
         std::variant<size_t, TypeInfo*, FunctionDeclaration, ArrayDeclaration, StructDeclaration> Data;
 
         static TypeInfo* Create(CompilationContext* ctx, PrimitiveType type, decltype(TypeInfo::Data) data = {});
 
-        static bool IsEqual(TypeInfo* lhs, TypeInfo* rhs) {
-            if (lhs->Type != rhs->Type) { return false; }
+        bool IsTrivial() const {
+            return IsVoid() || IsBoolean() || IsNumeric();
+        }
 
-            return true;
+        bool IsVoid() const {
+            return Type == PrimitiveType::Void;
+        }
+
+        bool IsBoolean() const {
+            return Type == PrimitiveType::Bool;
         }
 
         bool IsIntegral() const {
-            return Type == PrimitiveType::Char || Type == PrimitiveType::UChar ||
-                Type == PrimitiveType::Short || Type == PrimitiveType::UShort ||
-                Type == PrimitiveType::Int || Type == PrimitiveType::UInt ||
-                Type == PrimitiveType::Long || Type == PrimitiveType::ULong;
+            return Type == PrimitiveType::Char  || Type == PrimitiveType::UChar  ||
+                   Type == PrimitiveType::Short || Type == PrimitiveType::UShort ||
+                   Type == PrimitiveType::Int   || Type == PrimitiveType::UInt   ||
+                   Type == PrimitiveType::Long  || Type == PrimitiveType::ULong;
         }
 
         bool IsFloatingPoint() const {
@@ -92,6 +84,10 @@ namespace Aria::Internal {
             return IsIntegral() || IsFloatingPoint();
         }
 
+        bool IsStructure() const {
+            return Type == PrimitiveType::Structure;
+        }
+
         bool IsSigned() const {
             ARIA_ASSERT(IsIntegral(), "IsSigned() cannot operate on a non-integral type");
             return Type == PrimitiveType::Char || Type == PrimitiveType::Short || Type == PrimitiveType::Int || Type == PrimitiveType::Long;
@@ -100,53 +96,6 @@ namespace Aria::Internal {
         bool IsUnsigned() const {
             ARIA_ASSERT(IsIntegral(), "IsUnsigned() cannot operate on a non-integral type");
             return Type == PrimitiveType::UChar || Type == PrimitiveType::UShort || Type == PrimitiveType::UInt || Type == PrimitiveType::ULong;
-        }
-
-        size_t GetSize() const {
-            switch (Type) {
-                case PrimitiveType::Void: return 0;
-
-                case PrimitiveType::Bool: return 1;
-
-                case PrimitiveType::Char:
-                case PrimitiveType::UChar: return 1;
-                case PrimitiveType::Short:
-                case PrimitiveType::UShort: return 2;
-                case PrimitiveType::Int:
-                case PrimitiveType::UInt: return 4;
-                case PrimitiveType::Long:
-                case PrimitiveType::ULong: return 8;
-
-                case PrimitiveType::Float: return 4;
-                case PrimitiveType::Double: return 8;
-
-                case PrimitiveType::Function: {
-                    FunctionDeclaration decl = std::get<FunctionDeclaration>(Data);
-                    return decl.ReturnType->GetSize();
-                }
-
-                case PrimitiveType::StringLiteral: {
-                    size_t size = std::get<size_t>(Data);
-                    return size;
-                }
-
-                case PrimitiveType::String: {
-                    return sizeof(void*);
-                }
-
-                case PrimitiveType::Array: {
-                    return sizeof(void*);
-                }
-
-                case PrimitiveType::Structure: {
-                    StructDeclaration decl = std::get<StructDeclaration>(Data);
-                    return decl.Size;
-                }
-
-                default: ARIA_UNREACHABLE();
-            }
-
-            return 0;
         }
     };
 

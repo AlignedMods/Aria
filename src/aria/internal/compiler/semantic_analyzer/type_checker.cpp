@@ -59,24 +59,20 @@ namespace Aria::Internal {
         return nullptr;
     }
 
-    TypeInfo* TypeChecker::HandleMemberExpr(Expr* expr, bool searchMethods) {
+    TypeInfo* TypeChecker::HandleMemberExpr(Expr* expr) {
         MemberExpr* mem = GetNode<MemberExpr>(expr);
 
         TypeInfo* parentType = HandleExpr(mem->GetParent());
         TypeInfo* memberType = nullptr;
         StructDeclaration& sd = std::get<StructDeclaration>(parentType->Data);
 
-        if (searchMethods) {
-            for (const auto& method : sd.Methods) {
-                if (method.Identifier == mem->GetMember()) {
-                    memberType = TypeInfo::Create(m_Context, PrimitiveType::Function, FunctionDeclaration(method.ReturnType, method.ParamTypes));
-                }
-            }
-        } else {
-            for (const auto& field : sd.Fields) {
-                if (field.Identifier == mem->GetMember()) {
-                    memberType = field.ResolvedType;
-                }
+        StructDecl* s = GetNode<StructDecl>(sd.SourceDecl);
+
+        for (Decl* field : s->GetFields()) {
+            if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
+                memberType = fd->GetResolvedType();
+            } else if (MethodDecl* md = GetNode<MethodDecl>(field)) {
+                memberType = md->GetResolvedType();
             }
         }
 
@@ -120,7 +116,7 @@ namespace Aria::Internal {
 
     TypeInfo* TypeChecker::HandleMethodCallExpr(Expr* expr) {
         MethodCallExpr* call = GetNode<MethodCallExpr>(expr);
-        TypeInfo* calleeType = HandleMemberExpr(call->GetCallee(), true);
+        TypeInfo* calleeType = HandleMemberExpr(call->GetCallee());
 
         FunctionDeclaration& fnDecl = std::get<FunctionDeclaration>(calleeType->Data);
 
@@ -452,21 +448,12 @@ namespace Aria::Internal {
 
         StructDeclaration d;
         d.Identifier = s->GetRawIdentifier();
+        d.SourceDecl = s;
 
         for (Decl* field : s->GetFields()) {
             if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
-                StructFieldDeclaration sfd;
-                sfd.Identifier = fd->GetRawIdentifier();
-                sfd.Offset = d.Size;
-                sfd.ResolvedType = GetTypeInfoFromString(fd->GetParsedType());
-
-                d.Size += sfd.ResolvedType->GetSize();
-                
-                fd->SetResolvedType(sfd.ResolvedType);
-                d.Fields.Append(m_Context, sfd);
+                fd->SetResolvedType(GetTypeInfoFromString(fd->GetParsedType()));
             } else if (MethodDecl* md = GetNode<MethodDecl>(field)) {
-                StructMethodDeclaration smd;
-
                 TypeInfo* returnType = GetTypeInfoFromString(md->GetParsedType());
                 TinyVector<TypeInfo*> paramTypes;
                 m_ActiveReturnType = returnType;
@@ -479,12 +466,7 @@ namespace Aria::Internal {
                     paramTypes.Append(m_Context, pType);
                 }
 
-                smd.Identifier = md->GetRawIdentifier();
-                smd.ReturnType = returnType;
-                smd.ParamTypes = paramTypes;
-
                 md->SetResolvedType(TypeInfo::Create(m_Context, PrimitiveType::Function, FunctionDeclaration(returnType, paramTypes)));
-                d.Methods.Append(m_Context, smd);
             }
         }
 
@@ -661,7 +643,7 @@ namespace Aria::Internal {
         cost.ExplicitCastPossible = true;
         cost.ImplicitCastPossible = true;
 
-        if (TypeInfo::IsEqual(src, dst)) {
+        if (TypeIsEqual(src, dst)) {
             if (srcType == ExprValueType::LValue) {
                 cost.CastNeeded = true;
                 cost.CaType = CastType::LValueToRValue;
@@ -675,10 +657,10 @@ namespace Aria::Internal {
 
         if (src->IsIntegral()) {
             if (dst->IsIntegral()) { // Int to int
-                if (src->GetSize() > dst->GetSize()) {
+                if (TypeGetSize(src) > TypeGetSize(dst)) {
                     cost.CoType = ConversionType::Narrowing;
                     cost.CaType = CastType::Integral;
-                } else if (src->GetSize() < dst->GetSize()) {
+                } else if (TypeGetSize(src) < TypeGetSize(dst)) {
                     cost.CoType = ConversionType::Promotion;
                     cost.CaType = CastType::Integral;
                 } else {
@@ -700,10 +682,10 @@ namespace Aria::Internal {
 
         if (src->IsFloatingPoint()) {
             if (dst->IsFloatingPoint()) { // Float to float
-                if (src->GetSize() > dst->GetSize()) {
+                if (TypeGetSize(src) > TypeGetSize(dst)) {
                     cost.CoType = ConversionType::Narrowing;
                     cost.CaType = CastType::Floating;
-                } else if (src->GetSize() < dst->GetSize()) {
+                } else if (TypeGetSize(src) < TypeGetSize(dst)) {
                     cost.CoType = ConversionType::Promotion;
                     cost.CaType = CastType::Floating;
                 } else {
@@ -724,6 +706,43 @@ namespace Aria::Internal {
 
     Expr* TypeChecker::InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastType castType) {
         return m_Context->Allocate<ImplicitCastExpr>(m_Context, srcExpr, castType, dstType);
+    }
+
+    bool TypeChecker::TypeIsEqual(TypeInfo* lhs, TypeInfo* rhs) {
+        if (lhs->IsTrivial() && rhs->IsTrivial()) {
+            return lhs->Type == rhs->Type;
+        }
+
+        if (lhs->IsStructure() && rhs->IsStructure()) {
+            StructDeclaration& sLhs = std::get<StructDeclaration>(lhs->Data);
+            StructDeclaration& sRhs = std::get<StructDeclaration>(rhs->Data);
+
+            return sLhs.Identifier == sRhs.Identifier;
+        }
+
+        return false;
+    }
+
+    size_t TypeChecker::TypeGetSize(TypeInfo* t) {
+        switch (t->Type) {
+            case PrimitiveType::Void:   return 0;
+
+            case PrimitiveType::Bool:   return 1;
+
+            case PrimitiveType::Char:   return 1;
+            case PrimitiveType::UChar:  return 1;
+            case PrimitiveType::Short:  return 2;
+            case PrimitiveType::UShort: return 2;
+            case PrimitiveType::Int:    return 4;
+            case PrimitiveType::UInt:   return 4;
+            case PrimitiveType::Long:   return 8;
+            case PrimitiveType::ULong:  return 8;
+
+            case PrimitiveType::Float:  return 4;
+            case PrimitiveType::Double: return 8;
+
+            default: ARIA_ASSERT(false, "TypeChecker::TypeGetSize() only supports trivial (non structure) types");
+        }
     }
 
 } // namespace Aria::Internal

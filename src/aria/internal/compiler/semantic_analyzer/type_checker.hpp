@@ -51,7 +51,7 @@ namespace Aria::Internal {
         TypeInfo* HandleFloatingConstantExpr(Expr* expr);
         TypeInfo* HandleStringConstantExpr(Expr* expr);
         TypeInfo* HandleDeclRefExpr(Expr* expr);
-        TypeInfo* HandleMemberExpr(Expr* expr, bool searchMethods = false);
+        TypeInfo* HandleMemberExpr(Expr* expr);
         TypeInfo* HandleCallExpr(Expr* expr);
         TypeInfo* HandleMethodCallExpr(Expr* expr);
         TypeInfo* HandleParenExpr(Expr* expr);
@@ -83,6 +83,9 @@ namespace Aria::Internal {
         // type1 is the destination type and type2 is the source type
         ConversionCost GetConversionCost(TypeInfo* dst, TypeInfo* src, ExprValueType srcType);
         Expr* InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastType castType); // Returns the new ImplicitCastExpr
+
+        bool TypeIsEqual(TypeInfo* lhs, TypeInfo* rhs);
+        size_t TypeGetSize(TypeInfo* t); // NOTE: works only on trivial types
 
     private:
         Stmt* m_RootASTNode = nullptr;

@@ -127,14 +127,25 @@ namespace Aria::Internal {
         EmitExpr(mem->GetParent(), ExprValueType::LValue);
         StructDeclaration& sd = std::get<StructDeclaration>(mem->GetParentType()->Data);
 
-        for (const auto& field : sd.Fields) {
-            if (field.Identifier == mem->GetMember()) {
-                if (type == ExprValueType::LValue) {
-                    m_OpCodes.emplace_back(OpCodeType::LoadPtrOffset, OpCodeOffset(field.Offset, field.ResolvedType->GetSize(), field.ResolvedType));
-                } else if (type == ExprValueType::RValue) {
-                    m_OpCodes.emplace_back(OpCodeType::LoadOffset, OpCodeOffset(field.Offset, field.ResolvedType->GetSize(), field.ResolvedType));
+        StructDecl* s = GetNode<StructDecl>(sd.SourceDecl);
+
+        for (Decl* field : s->GetFields()) {
+            if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
+                if (fd->GetRawIdentifier() == mem->GetMember()) {
+                    RuntimeStructDeclaration& sdecl = m_Structs.at(s->GetIdentifier());
+
+                    if (type == ExprValueType::LValue) {
+                        m_OpCodes.emplace_back(OpCodeType::LoadPtrOffset, OpCodeOffset(sdecl.FieldOffsets.at(fd->GetIdentifier()), sdecl.Size, fd->GetResolvedType()));
+                    } else if (type == ExprValueType::RValue) {
+                        m_OpCodes.emplace_back(OpCodeType::LoadOffset, OpCodeOffset(sdecl.FieldOffsets.at(fd->GetIdentifier()), sdecl.Size, fd->GetResolvedType()));
+                    }
                 }
-            }
+            } else if (MethodDecl* md = GetNode<MethodDecl>(field)) {
+                if (md->GetRawIdentifier() == mem->GetMember()) {
+                    m_OpCodes.emplace_back(OpCodeType::LoadFunc, md->GetIdentifier());
+                    ARIA_ASSERT(false, "todo");
+                }
+            }  
         }
     }
 
@@ -151,7 +162,7 @@ namespace Aria::Internal {
         size_t retCount = 0;
         TypeInfo* retType = call->GetResolvedType();
         if (retType->Type != PrimitiveType::Void) {
-            m_OpCodes.emplace_back(OpCodeType::Alloca, OpCodeAlloca(retType->GetSize(), retType));
+            m_OpCodes.emplace_back(OpCodeType::Alloca, OpCodeAlloca(TypeGetSize(retType), retType));
             IncrementStackSlotCount();
             retCount = 1;
         }
@@ -474,7 +485,7 @@ namespace Aria::Internal {
         if (varDecl->GetDefaultValue()) {
             EmitExpr(varDecl->GetDefaultValue(), varDecl->GetDefaultValue()->GetValueType());
         } else {
-            m_OpCodes.emplace_back(OpCodeType::Alloca, OpCodeAlloca(varDecl->GetResolvedType()->GetSize(), varDecl->GetResolvedType()));
+            m_OpCodes.emplace_back(OpCodeType::Alloca, OpCodeAlloca(TypeGetSize(varDecl->GetResolvedType()), varDecl->GetResolvedType()));
             IncrementStackSlotCount();
         }
 
@@ -509,6 +520,19 @@ namespace Aria::Internal {
 
     void Emitter::EmitStructDecl(Decl* decl) {
         StructDecl* s = GetNode<StructDecl>(decl);
+
+        RuntimeStructDeclaration sd;
+
+        for (Decl* field : s->GetFields()) {
+            if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
+                sd.FieldOffsets[fd->GetIdentifier()] = sd.Size;
+                sd.Size += TypeGetSize(fd->GetResolvedType());
+            } else if (MethodDecl* md = GetNode<MethodDecl>(field)) {
+                ARIA_ASSERT(false, "todo!");
+            }
+        }
+
+        m_Structs[s->GetIdentifier()] = sd;
     }
 
     void Emitter::EmitDecl(Decl* decl) {
@@ -708,11 +732,39 @@ namespace Aria::Internal {
 
                     CompilerReflectionDeclaration d;
                     d.ResolvedType = fnDecl->GetResolvedType();
+                    d.ResolvedTypeSize = TypeGetSize(fnDecl->GetResolvedType());
                     d.Type = ReflectionType::Function;
 
                     m_ReflectionData.Declarations[name] = d;
                 }
             }
+        }
+    }
+
+    size_t Emitter::TypeGetSize(TypeInfo* t) {
+        switch (t->Type) {
+            case PrimitiveType::Void:   return 0;
+
+            case PrimitiveType::Bool:   return 1;
+
+            case PrimitiveType::Char:   return 1;
+            case PrimitiveType::UChar:  return 1;
+            case PrimitiveType::Short:  return 2;
+            case PrimitiveType::UShort: return 2;
+            case PrimitiveType::Int:    return 4;
+            case PrimitiveType::UInt:   return 4;
+            case PrimitiveType::Long:   return 8;
+            case PrimitiveType::ULong:  return 8;
+
+            case PrimitiveType::Float:  return 4;
+            case PrimitiveType::Double: return 8;
+
+            case PrimitiveType::Structure: {
+                StructDeclaration& sdecl = std::get<StructDeclaration>(t->Data);
+                return m_Structs.at(fmt::format("{}", sdecl.Identifier)).Size;
+            }
+
+            default: ARIA_UNREACHABLE();
         }
     }
 
