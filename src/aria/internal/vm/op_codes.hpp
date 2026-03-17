@@ -53,6 +53,8 @@ namespace Aria::Internal {
         LoadF64,
         LoadStr,
 
+        Deref,
+
         DeclareGlobal,
         DeclareLocal,
         DeclareArg,
@@ -66,6 +68,7 @@ namespace Aria::Internal {
         LoadPtrGlobal,
         LoadPtrLocal,
         LoadPtrOffset,
+        LoadPtrArg,
         LoadPtrRet,
 
         Function,

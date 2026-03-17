@@ -2,10 +2,11 @@
 
 namespace Aria::Internal {
 
-    TypeInfo* TypeInfo::Create(CompilationContext* ctx, PrimitiveType type, decltype(TypeInfo::Data) data) {
+    TypeInfo* TypeInfo::Create(CompilationContext* ctx, PrimitiveType type, bool isReference, decltype(TypeInfo::Data) data) {
         TypeInfo* t = ctx->Allocate<TypeInfo>();
         t->Type = type;
         t->Data = data;
+        t->Reference = isReference;
     
         return t;
     }

@@ -78,6 +78,8 @@ namespace Aria::Internal {
 
         void HandleStmt(Stmt* stmt);
 
+        Expr* HandleInitializer(Expr* initializer, TypeInfo* type);
+
         TypeInfo* GetTypeInfoFromString(StringView str);
 
         // type1 is the destination type and type2 is the source type

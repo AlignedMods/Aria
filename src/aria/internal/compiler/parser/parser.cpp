@@ -95,6 +95,11 @@ namespace Aria::Internal {
             strType.Append(m_Context, "[]");
         }
 
+        if (Match(TokenType::Ampersand)) {
+            Consume();
+            strType.Append(m_Context, "&");
+        }
+
         return strType;
     }
 
@@ -274,7 +279,7 @@ namespace Aria::Internal {
                 if (ec != std::errc()) {
                     ErrorTooLarge(value.Data);
                 }
-                final = m_Context->Allocate<IntegerConstantExpr>(m_Context, num, TypeInfo::Create(m_Context, PrimitiveType::Int, true));
+                final = m_Context->Allocate<IntegerConstantExpr>(m_Context, num, TypeInfo::Create(m_Context, PrimitiveType::Int, false));
                 break;
             }
     
@@ -287,7 +292,7 @@ namespace Aria::Internal {
                 if (ec != std::errc()) {
                     ErrorTooLarge(value.Data);
                 }
-                final = m_Context->Allocate<FloatingConstantExpr>(m_Context, num, TypeInfo::Create(m_Context, PrimitiveType::Float));
+                final = m_Context->Allocate<FloatingConstantExpr>(m_Context, num, TypeInfo::Create(m_Context, PrimitiveType::Float, false));
                 break;
             }
     

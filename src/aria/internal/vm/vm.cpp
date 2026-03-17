@@ -497,6 +497,17 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case OpCodeType::Deref: {
+                    size_t size = std::get<size_t>(op.Data);
+
+                    void* ptr = GetPointer(-1, m_LocalStack);
+                    Pop(1, m_LocalStack);
+                    Alloca(size, nullptr, m_LocalStack);
+                    VMSlice slice = GetVMSlice(-1, m_LocalStack);
+                    memcpy(slice.Memory, ptr, size);
+                    break;
+                }
+
                 case OpCodeType::DeclareGlobal: {
                     const std::string& g = std::get<std::string>(op.Data);
 
@@ -590,6 +601,14 @@ namespace Aria::Internal {
                     Pop(1, m_LocalStack);
                     Alloca(sizeof(void*), off.ResolvedType, m_LocalStack);
                     StorePointer(-1, base + off.Offset, m_LocalStack);
+                    break;
+                }
+
+                case OpCodeType::LoadPtrArg: {
+                    i32 index = static_cast<i32>(std::get<size_t>(op.Data));
+                    VMSlice slice = GetVMSlice(index + 1, m_FunctionStack);
+                    Alloca(sizeof(void*), slice.ResolvedType, m_LocalStack);
+                    StorePointer(-1, slice.Memory, m_LocalStack);
                     break;
                 }
 

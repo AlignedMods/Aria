@@ -140,6 +140,12 @@ namespace Aria::Internal {
 
             CASE_LOAD(LoadStr, StringView, "str")
 
+            case OpCodeType::Deref: {
+                size_t size = std::get<size_t>(op.Data);
+                m_Output += fmt::format("{}deref     {}\n", m_Indentation, size);
+                break;
+            }
+
             case OpCodeType::DeclareGlobal: {
                 const std::string& global = std::get<std::string>(op.Data);
                 m_Output += fmt::format("{}decl.g    {}\n", m_Indentation, global);

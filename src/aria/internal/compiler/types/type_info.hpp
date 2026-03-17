@@ -54,8 +54,9 @@ namespace Aria::Internal {
     struct TypeInfo {
         PrimitiveType Type = PrimitiveType::Invalid;
         std::variant<size_t, TypeInfo*, FunctionDeclaration, ArrayDeclaration, StructDeclaration> Data;
+        bool Reference = false;
 
-        static TypeInfo* Create(CompilationContext* ctx, PrimitiveType type, decltype(TypeInfo::Data) data = {});
+        static TypeInfo* Create(CompilationContext* ctx, PrimitiveType type, bool isReference, decltype(TypeInfo::Data) data = {});
 
         bool IsTrivial() const {
             return IsVoid() || IsBoolean() || IsNumeric();
@@ -96,6 +97,10 @@ namespace Aria::Internal {
         bool IsUnsigned() const {
             ARIA_ASSERT(IsIntegral(), "IsUnsigned() cannot operate on a non-integral type");
             return Type == PrimitiveType::UChar || Type == PrimitiveType::UShort || Type == PrimitiveType::UInt || Type == PrimitiveType::ULong;
+        }
+
+        bool IsReference() const {
+            return Reference;
         }
     };
 
@@ -152,6 +157,10 @@ namespace Aria::Internal {
                 str = fmt::format("struct {}", decl.Identifier);
                 break;
             }
+        }
+
+        if (type->IsReference()) {
+            str += "&";
         }
 
         return str;

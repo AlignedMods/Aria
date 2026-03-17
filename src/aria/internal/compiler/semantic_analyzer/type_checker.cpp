@@ -258,7 +258,7 @@ namespace Aria::Internal {
                     binop->GetBinaryOperator() == BinaryOperatorType::IsEq ||
                     binop->GetBinaryOperator() == BinaryOperatorType::IsNotEq) 
                 {
-                    TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool);
+                    TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
                     binop->SetResolvedType(boolType);
                     return boolType;
                 }
@@ -302,7 +302,7 @@ namespace Aria::Internal {
 
             case BinaryOperatorType::BitAnd:
             case BinaryOperatorType::BitOr: {
-                TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool);
+                TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
 
                 ConversionCost costLHS = GetConversionCost(boolType, RHSType, LHS->GetValueType());
                 ConversionCost costRHS = GetConversionCost(boolType, LHSType, RHS->GetValueType());
@@ -377,18 +377,7 @@ namespace Aria::Internal {
         TypeInfo* resolvedType = GetTypeInfoFromString(varDecl->GetParsedType());
         varDecl->SetResolvedType(resolvedType);
 
-        if (varDecl->GetDefaultValue()) {
-            TypeInfo* valType = HandleExpr(varDecl->GetDefaultValue());
-
-            ConversionCost cost = GetConversionCost(resolvedType, valType, varDecl->GetDefaultValue()->GetValueType());
-            if (cost.CastNeeded) {
-                if (cost.ImplicitCastPossible) {
-                    varDecl->SetDefaultValue(InsertImplicitCast(resolvedType, valType, varDecl->GetDefaultValue(), cost.CaType));
-                } else {
-                    ARIA_ASSERT(false, "todo: TypeChecker::HandleVarDecl() error");
-                }
-            }
-        }
+        varDecl->SetDefaultValue(HandleInitializer(varDecl->GetDefaultValue(), resolvedType));
 
         DeclRefType type = DeclRefType::LocalVar;
         if (m_Declarations.size() == 1) {
@@ -429,7 +418,7 @@ namespace Aria::Internal {
         fd.ParamTypes = paramTypes;
         fd.ReturnType = returnType;
         
-        TypeInfo* resolvedType = TypeInfo::Create(m_Context, PrimitiveType::Function, fd);
+        TypeInfo* resolvedType = TypeInfo::Create(m_Context, PrimitiveType::Function, false, fd);
         fnDecl->SetResolvedType(resolvedType);
 
         std::string ident = fnDecl->GetIdentifier();
@@ -466,11 +455,11 @@ namespace Aria::Internal {
                     paramTypes.Append(m_Context, pType);
                 }
 
-                md->SetResolvedType(TypeInfo::Create(m_Context, PrimitiveType::Function, FunctionDeclaration(returnType, paramTypes)));
+                md->SetResolvedType(TypeInfo::Create(m_Context, PrimitiveType::Function, false, FunctionDeclaration(returnType, paramTypes)));
             }
         }
 
-        m_DeclaredTypes[s->GetIdentifier()] = TypeInfo::Create(m_Context, PrimitiveType::Structure, d);
+        m_DeclaredTypes[s->GetIdentifier()] = TypeInfo::Create(m_Context, PrimitiveType::Structure, false, d);
     }
 
     void TypeChecker::HandleDecl(Decl* decl) {
@@ -501,7 +490,7 @@ namespace Aria::Internal {
         WhileStmt* wh = GetNode<WhileStmt>(stmt);
 
         TypeInfo* type = HandleExpr(wh->GetCondition());
-        TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool);
+        TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
 
         ConversionCost cost = GetConversionCost(boolType, type, wh->GetCondition()->GetValueType());
         if (cost.CastNeeded) {
@@ -519,7 +508,7 @@ namespace Aria::Internal {
         DoWhileStmt* wh = GetNode<DoWhileStmt>(stmt);
 
         TypeInfo* type = HandleExpr(wh->GetCondition());
-        TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool);
+        TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
 
         ConversionCost cost = GetConversionCost(boolType, type, wh->GetCondition()->GetValueType());
         if (cost.CastNeeded) {
@@ -593,41 +582,75 @@ namespace Aria::Internal {
         ARIA_UNREACHABLE();
     }
 
-    TypeInfo* TypeChecker::GetTypeInfoFromString(StringView str) {
-        size_t bracket = str.Find('[');
+    Expr* TypeChecker::HandleInitializer(Expr* initializer, TypeInfo* type) {
 
-        std::string isolatedType;
-        bool array = false;
+        // If we are initializing a reference, the initializer must be of the same type and an lvalue
+        if (type->IsReference()) {
+            ARIA_ASSERT(initializer != nullptr, "Initial value of a reference must be an lvalue");
+            TypeInfo* valType = HandleExpr(initializer);
 
-        if (bracket != StringView::npos) {
-            isolatedType = fmt::format("{}", str.SubStr(0, bracket));
-            array = true;
-        } else {
-            isolatedType = fmt::format("{}", str);
+            if (!TypeIsEqual(type, valType) || initializer->GetValueType() != ExprValueType::LValue) {
+                ARIA_ASSERT(false, "todo: add error msg");
+            }
+
+            return initializer;
+        } else if (initializer) {
+            TypeInfo* valType = HandleExpr(initializer);
+
+            ConversionCost cost = GetConversionCost(type, valType, initializer->GetValueType());
+            if (cost.CastNeeded) {
+                if (cost.ImplicitCastPossible) {
+                    return InsertImplicitCast(type, valType, initializer, cost.CaType);
+                } else {
+                    ARIA_ASSERT(false, "todo: TypeChecker::HandleVarDecl() error");
+                }
+            }
         }
 
+       return initializer;
+    }
+
+    TypeInfo* TypeChecker::GetTypeInfoFromString(StringView str) {
+        size_t bracket = str.Find('[');
+        size_t amp = str.Find('&');
+
+        std::string isolatedType = fmt::format("{}", str);
+        bool array = false;
+        bool reference = false;
+
+        if (amp != StringView::npos) {
+            isolatedType = isolatedType.substr(0, amp);
+            reference = true;
+        }
+
+        if (bracket != StringView::npos) {
+            isolatedType = isolatedType.substr(0, bracket);
+            array = true;
+        }
+        
         TypeInfo* type = nullptr;
 
-        if (isolatedType == "void") { type = TypeInfo::Create(m_Context, PrimitiveType::Void); }
-        if (isolatedType == "bool") { type = TypeInfo::Create(m_Context, PrimitiveType::Bool, true); }
-        if (isolatedType == "char") { type = TypeInfo::Create(m_Context, PrimitiveType::Char, true); }
-        if (isolatedType == "uchar") { type = TypeInfo::Create(m_Context, PrimitiveType::Char, false); }
-        if (isolatedType == "short") { type = TypeInfo::Create(m_Context, PrimitiveType::Short, true); }
-        if (isolatedType == "ushort") { type = TypeInfo::Create(m_Context, PrimitiveType::Short, false); }
-        if (isolatedType == "int") { type = TypeInfo::Create(m_Context, PrimitiveType::Int, true); }
-        if (isolatedType == "uint") { type = TypeInfo::Create(m_Context, PrimitiveType::Int, false); }
-        if (isolatedType == "long") { type = TypeInfo::Create(m_Context, PrimitiveType::Long, true); }
-        if (isolatedType == "ulong") { type = TypeInfo::Create(m_Context, PrimitiveType::Long, false); }
-        if (isolatedType == "float") { type = TypeInfo::Create(m_Context, PrimitiveType::Float); }
-        if (isolatedType == "double") { type = TypeInfo::Create(m_Context, PrimitiveType::Double); }
-        if (isolatedType == "string") { type = TypeInfo::Create(m_Context, PrimitiveType::String); }
+        if (isolatedType == "void")   { type = TypeInfo::Create(m_Context, PrimitiveType::Void, reference);   }
+        if (isolatedType == "bool")   { type = TypeInfo::Create(m_Context, PrimitiveType::Bool, reference);   }
+        if (isolatedType == "char")   { type = TypeInfo::Create(m_Context, PrimitiveType::Char, reference);   }
+        if (isolatedType == "uchar")  { type = TypeInfo::Create(m_Context, PrimitiveType::UChar, reference);  }
+        if (isolatedType == "short")  { type = TypeInfo::Create(m_Context, PrimitiveType::Short, reference);  }
+        if (isolatedType == "ushort") { type = TypeInfo::Create(m_Context, PrimitiveType::UShort, reference); }
+        if (isolatedType == "int")    { type = TypeInfo::Create(m_Context, PrimitiveType::Int, reference);    }
+        if (isolatedType == "uint")   { type = TypeInfo::Create(m_Context, PrimitiveType::UInt, reference);   }
+        if (isolatedType == "long")   { type = TypeInfo::Create(m_Context, PrimitiveType::Long, reference);   }
+        if (isolatedType == "ulong")  { type = TypeInfo::Create(m_Context, PrimitiveType::ULong, reference);  }
+        if (isolatedType == "float")  { type = TypeInfo::Create(m_Context, PrimitiveType::Float, reference);  }
+        if (isolatedType == "double") { type = TypeInfo::Create(m_Context, PrimitiveType::Double, reference); }
+        if (isolatedType == "string") { type = TypeInfo::Create(m_Context, PrimitiveType::String, reference); }
 
         #undef TYPE
 
         // Handle user defined type
         if (!type) {
             if (m_DeclaredTypes.contains(isolatedType)) {
-                type = m_DeclaredTypes.at(isolatedType);
+                TypeInfo* sType = m_DeclaredTypes.at(isolatedType);
+                type = TypeInfo::Create(m_Context, sType->Type, reference, sType->Data);
             } else {
                 // ErrorUndeclaredIdentifier(StringView(isolatedType.c_str(), isolatedType.size()), 0, 0);
                 ARIA_ASSERT(false, "todo");

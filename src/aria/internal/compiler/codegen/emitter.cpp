@@ -35,14 +35,12 @@ namespace Aria::Internal {
         BooleanConstantExpr* bc = GetNode<BooleanConstantExpr>(expr);
 
         m_OpCodes.emplace_back(OpCodeType::LoadI8, OpCodeLoad(static_cast<i8>(bc->GetValue()), bc->GetResolvedType()));
-        IncrementStackSlotCount();
     }
 
     void Emitter::EmitCharacterConstantExpr(Expr* expr, ExprValueType type) {
         CharacterConstantExpr* cc = GetNode<CharacterConstantExpr>(expr);
 
         m_OpCodes.emplace_back(OpCodeType::LoadI8, OpCodeLoad(cc->GetValue(), cc->GetResolvedType()));
-        IncrementStackSlotCount();
     }
 
     void Emitter::EmitIntegerConstantExpr(Expr* expr,ExprValueType type) {
@@ -61,7 +59,6 @@ namespace Aria::Internal {
         };
 
         std::visit(visitor, ic->GetValue());
-        IncrementStackSlotCount();
     }
 
     void Emitter::EmitFloatingConstantExpr(Expr* expr, ExprValueType type) {
@@ -74,19 +71,18 @@ namespace Aria::Internal {
         };
 
         std::visit(visitor, fc->GetValue());
-        IncrementStackSlotCount();
     }
 
     void Emitter::EmitStringConstantExpr(Expr* expr, ExprValueType type) {
         StringConstantExpr* sc = GetNode<StringConstantExpr>(expr);
 
         m_OpCodes.emplace_back(OpCodeType::LoadStr, OpCodeLoad(sc->GetValue(), sc->GetResolvedType()));
-        IncrementStackSlotCount();
     }
 
     void Emitter::EmitDeclRefExpr(Expr* expr, ExprValueType type) {
         DeclRefExpr* declRef = GetNode<DeclRefExpr>(expr);
 
+        // This may look a bit messy but all it is doing is emitting the correct op code based off of what we need
         if (declRef->GetType() == DeclRefType::LocalVar) {
             for (size_t i = m_ActiveStackFrame.Scopes.size(); i > 0; i--) {
                 Scope& s = m_ActiveStackFrame.Scopes[i - 1];
@@ -94,24 +90,53 @@ namespace Aria::Internal {
                     Declaration& decl = s.DeclaredSymbols[s.DeclaredSymbolMap.at(declRef->GetIdentifier())];
                     
                     if (type == ExprValueType::LValue) {
-                        m_OpCodes.emplace_back(OpCodeType::LoadPtrLocal, std::get<size_t>(decl.Data));
+                        if (expr->GetResolvedType()->IsReference()) {
+                            m_OpCodes.emplace_back(OpCodeType::LoadLocal, std::get<size_t>(decl.Data));
+                        } else {
+                            m_OpCodes.emplace_back(OpCodeType::LoadPtrLocal, std::get<size_t>(decl.Data));
+                        }
                     } else if (type == ExprValueType::RValue) {
                         m_OpCodes.emplace_back(OpCodeType::LoadLocal, std::get<size_t>(decl.Data));
-                    }
 
-                    IncrementStackSlotCount();
+                        if (expr->GetResolvedType()->IsReference()) {
+                            expr->GetResolvedType()->Reference = false;
+                            m_OpCodes.emplace_back(OpCodeType::Deref, TypeGetSize(expr->GetResolvedType()));
+                            expr->GetResolvedType()->Reference = true;
+                        }
+                    }
                 }
             }
         } else if (declRef->GetType() == DeclRefType::ParamVar) {
-            ARIA_ASSERT(type != ExprValueType::LValue, "Cannot get a ParamVar as an lvalue!");
+            if (type == ExprValueType::LValue) {
+                if (expr->GetResolvedType()->IsReference()) {
+                    m_OpCodes.emplace_back(OpCodeType::LoadArg, m_ActiveStackFrame.Parameters.at(declRef->GetIdentifier()));
+                } else {
+                    m_OpCodes.emplace_back(OpCodeType::LoadPtrArg, m_ActiveStackFrame.Parameters.at(declRef->GetIdentifier()));
+                }
+            } else if (type == ExprValueType::RValue) {
+                m_OpCodes.emplace_back(OpCodeType::LoadArg, m_ActiveStackFrame.Parameters.at(declRef->GetIdentifier()));
 
-            m_OpCodes.emplace_back(OpCodeType::LoadArg, m_ActiveStackFrame.Parameters.at(declRef->GetIdentifier()));
-            IncrementStackSlotCount();
+                if (expr->GetResolvedType()->IsReference()) {
+                    expr->GetResolvedType()->Reference = false;
+                    m_OpCodes.emplace_back(OpCodeType::Deref, TypeGetSize(expr->GetResolvedType()));
+                    expr->GetResolvedType()->Reference = true;
+                }
+            }
         } else if (declRef->GetType() == DeclRefType::GlobalVar) {
             if (type == ExprValueType::LValue) {
-                m_OpCodes.emplace_back(OpCodeType::LoadPtrGlobal, declRef->GetIdentifier());
+                if (expr->GetResolvedType()->IsReference()) {
+                    m_OpCodes.emplace_back(OpCodeType::LoadGlobal, declRef->GetIdentifier());
+                } else {
+                    m_OpCodes.emplace_back(OpCodeType::LoadPtrGlobal, declRef->GetIdentifier());
+                }
             } else if (type == ExprValueType::RValue) {
                 m_OpCodes.emplace_back(OpCodeType::LoadGlobal, declRef->GetIdentifier());
+
+                if (expr->GetResolvedType()->IsReference()) {
+                    expr->GetResolvedType()->Reference = false;
+                    m_OpCodes.emplace_back(OpCodeType::Deref, TypeGetSize(expr->GetResolvedType()));
+                    expr->GetResolvedType()->Reference = true;
+                }
             }
 
             IncrementStackSlotCount();
@@ -742,6 +767,10 @@ namespace Aria::Internal {
     }
 
     size_t Emitter::TypeGetSize(TypeInfo* t) {
+        if (t->IsReference()) {
+            return sizeof(void*); // NOTE: This may not always be safe, if we ever want to target different architectures this will need to be changed
+        }
+
         switch (t->Type) {
             case PrimitiveType::Void:   return 0;
 
