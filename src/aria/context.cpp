@@ -52,6 +52,14 @@ namespace Aria {
 
         src->CompilationContext.Compile();
 
+        // Handle compiler errors
+        auto& errors = src->CompilationContext.GetCompilerErrors();
+        for (auto& error : errors) {
+            fmt::print(fg(fmt::color::gray), "{}:{}:{}, ", module, error.Line, error.Column);
+            fmt::print(fg(fmt::color::pale_violet_red), "error: ");
+            fmt::print("{}\n", error.Error);
+        }
+
         src->VM.AddExtern("bl__array__init__", Aria::Internal::bl__array__init__);
         src->VM.AddExtern("bl__array__destruct__", Aria::Internal::bl__array__destruct__);
         src->VM.AddExtern("bl__array__copy__", Aria::Internal::bl__array__copy__);
@@ -80,7 +88,9 @@ namespace Aria {
     }
 
     void Context::Run() {
-        m_ActiveModule->VM.RunByteCode(m_ActiveModule->CompilationContext.GetOpCodes().data(), m_ActiveModule->CompilationContext.GetOpCodes().size());
+        if (m_ActiveModule->CompilationContext.GetCompilerErrors().empty()) {
+            m_ActiveModule->VM.RunByteCode(m_ActiveModule->CompilationContext.GetOpCodes().data(), m_ActiveModule->CompilationContext.GetOpCodes().size());
+        }
     }
 
     std::string Context::DumpAST() {

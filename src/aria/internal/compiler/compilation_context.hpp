@@ -71,6 +71,7 @@ namespace Aria::Internal {
             e.StartColumn = range.Start.Column;
             e.EndLine = range.End.Line;
             e.EndColumn = range.End.Column;
+            e.Error = error;
             m_CompilerErrors.push_back(e);
         }
     

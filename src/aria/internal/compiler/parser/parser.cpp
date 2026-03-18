@@ -20,7 +20,9 @@ namespace Aria::Internal {
         TinyVector<Stmt*> stmts;
         while (Peek()) {
             Stmt* stmt = ParseToken();
-            stmts.Append(m_Context, stmt);
+            if (stmt != nullptr) {
+                stmts.Append(m_Context, stmt);
+            }
         }
 
         TranslationUnitDecl* root = m_Context->Allocate<TranslationUnitDecl>(m_Context, stmts);
@@ -43,14 +45,14 @@ namespace Aria::Internal {
         return m_Tokens.at(m_Index++);
     }
 
-    Token* Parser::TryConsume(TokenType type, const StringView error) {
+    Token* Parser::TryConsume(TokenType type, const std::string& expect) {
         if (Match(type)) {
             Token& t = Consume();
             return &t;
         }
 
-        ErrorExpected(error);
-
+        Token* prev = Peek(-1);
+        ErrorExpected(expect, prev->Range.End, prev->Range);
         return nullptr;
     }
 
@@ -406,6 +408,8 @@ namespace Aria::Internal {
     Expr* Parser::ParseExpression(size_t minbp) {
         Expr* lhsExpr = ParseValue();
 
+        if (!lhsExpr) { return nullptr; }
+
         // There are two conditions to this loop
         // A valid operator (the first half of the check) and a valid precedence (the second half)
         while ((Peek() && ParseOperator() != BinaryOperatorType::Invalid) && 
@@ -414,6 +418,8 @@ namespace Aria::Internal {
             Token o = Consume();
 
             Expr* rhsExpr = ParseExpression(GetBinaryPrecedence(op) + 1);
+            if (!rhsExpr) { return nullptr; }
+
             lhsExpr = m_Context->Allocate<BinaryOperatorExpr>(m_Context, lhsExpr, rhsExpr, op);
         }
 
@@ -426,7 +432,9 @@ namespace Aria::Internal {
 
         while (!Match(TokenType::RightCurly)) {
             Stmt* stmt = ParseToken();
-            stmts.Append(m_Context, stmt);
+            if (stmt != nullptr) {
+                stmts.Append(m_Context, stmt);
+            }
         }
 
         TryConsume(TokenType::RightCurly, "'}'");
@@ -447,11 +455,11 @@ namespace Aria::Internal {
 
         if (Peek(1)) {
             if (Peek(1)->Type == TokenType::LeftParen) {
-                return ParseFunctionDecl(type, Peek(-1)->Loc, external);
+                return ParseFunctionDecl(type, Peek(-1)->Range, external);
             }
         }
 
-        return ParseVariableDecl(type, Peek(-1)->Loc);
+        return ParseVariableDecl(type, Peek(-1)->Range);
     }
 
     Stmt* Parser::ParseVariableDecl(StringBuilder type, SourceRange start) {
@@ -466,6 +474,7 @@ namespace Aria::Internal {
 
             return m_Context->Allocate<VarDecl>(m_Context, ident->Data, StringView(type.Data(), type.Size()), value);
         } else {
+            StabilizeParser();
             return nullptr;
         }
     }
@@ -490,7 +499,7 @@ namespace Aria::Internal {
 
                 return m_Context->Allocate<FunctionDecl>(m_Context, ident->Data, StringView(returnType.Data(), returnType.Size()), params, external, GetNode<CompoundStmt>(body));
             } else {
-                ErrorExpected("'('");
+                ErrorExpected("'('", Peek()->Range.End, Peek()->Range);
             }
 
             return nullptr;
@@ -669,12 +678,20 @@ namespace Aria::Internal {
         return s;
     }
 
-    void Parser::ErrorExpected(const StringView msg) {
-        // if (Peek(-1)) {
-        //     m_Context->ReportCompilerError(Peek(-1)->Line, Peek(-1)->Column, fmt::format("Expected {} after token \"{}\"", msg, TokenTypeToString(Peek(-1)->Type)));
-        // } else {
-        //     m_Context->ReportCompilerError(Peek()->Line, Peek()->Column, fmt::format("Expected {} after token \"{}\"", msg, TokenTypeToString(Peek()->Type)));
-        // }
+    void Parser::StabilizeParser() {
+        while (Peek()) {
+            TokenType type = Peek()->Type;
+
+            if (type == TokenType::Semi || type ==  TokenType::RightCurly) {
+                return;
+            }
+
+            Consume();
+        }
+    }
+
+    void Parser::ErrorExpected(const std::string& expect, SourceLocation loc, SourceRange range) {
+        m_Context->ReportCompilerError(loc, range, fmt::format("Expected {} but got \"{}\"", expect, TokenTypeToString(Peek()->Type)));
     }
 
     void Parser::ErrorTooLarge(const StringView value) {

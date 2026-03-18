@@ -10,7 +10,8 @@ namespace Aria::Internal {
         Lex();
         Parse();
         Analyze();
-        Emit();
+
+        if (m_CompilerErrors.empty()) { Emit(); }
     }
 
     void CompilationContext::Lex() { Lexer l(this); }

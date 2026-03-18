@@ -362,7 +362,7 @@ namespace Aria::Internal {
         Token token;
         token.Type = type;
         token.Data = data;
-        token.Loc = loc;
+        token.Range = loc;
         m_Tokens.push_back(token);
     }
 

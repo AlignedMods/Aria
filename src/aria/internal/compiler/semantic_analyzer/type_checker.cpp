@@ -51,12 +51,13 @@ namespace Aria::Internal {
             }
         }
 
-        ARIA_ASSERT(false, "todo: add error for TypeChecker::HandleVarRefExpr()");
+        // ARIA_ASSERT(false, "todo: add error for TypeChecker::HandleVarRefExpr()");
         // m_Context->ReportCompilerError(expr->Loc.Line, expr->Loc.Column, 
         //                                expr->Range.Start.Line, expr->Range.Start.Column,
         //                                expr->Range.End.Line, expr->Range.End.Column,
         //                                fmt::format("Undeclared identifier \"{}\"", ref->Identifier));
-        return nullptr;
+        ref->SetResolvedType(TypeInfo::Create(m_Context, PrimitiveType::Void, false));
+        return ref->GetResolvedType();
     }
 
     TypeInfo* TypeChecker::HandleMemberExpr(Expr* expr) {
@@ -242,7 +243,8 @@ namespace Aria::Internal {
                             binop->SetRHS(InsertImplicitCast(RHSType, LHSType, RHS, costLHS.CaType));
                             LHSType = RHSType;
                         } else {
-                            ARIA_ASSERT(false, "todo: add error for TypeChecker::HandleBinaryOperatorExpr()");
+                            fmt::print("mismatched types\n");
+                            // ARIA_ASSERT(false, "todo: add error for TypeChecker::HandleBinaryOperatorExpr()");
                             // m_Context->ReportCompilerError(expr->Loc.Line, expr->Loc.Column, 
                             //                                expr->Range.Start.Line, expr->Range.Start.Column,
                             //                                expr->Range.End.Line, expr->Range.End.Column,
@@ -590,7 +592,8 @@ namespace Aria::Internal {
             TypeInfo* valType = HandleExpr(initializer);
 
             if (!TypeIsEqual(type, valType) || initializer->GetValueType() != ExprValueType::LValue) {
-                ARIA_ASSERT(false, "todo: add error msg");
+                // ARIA_ASSERT(false, "todo: add error msg");
+                fmt::print("types are not compatible\n");
             }
 
             return initializer;

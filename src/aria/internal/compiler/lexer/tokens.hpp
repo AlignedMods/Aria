@@ -186,7 +186,7 @@ namespace Aria::Internal {
     struct Token {
         TokenType Type = TokenType::Semi;
         StringView Data;
-        SourceRange Loc;
+        SourceRange Range;
     };
 
     using Tokens = std::vector<Token>;

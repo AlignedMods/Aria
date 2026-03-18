@@ -20,7 +20,7 @@ namespace Aria::Internal {
 
         Token* Peek(size_t count = 0);
         Token& Consume();
-        Token* TryConsume(TokenType type, StringView error);
+        Token* TryConsume(TokenType type, const std::string& expect);
 
         // Checks if the current token matches with the requested type
         // This function cannot fail
@@ -61,7 +61,10 @@ namespace Aria::Internal {
 
         Stmt* ParseToken();
 
-        void ErrorExpected(const StringView msg);
+        // Consumes tokens until it finds the first semi colon, closing curly or EOF
+        void StabilizeParser();
+
+        void ErrorExpected(const std::string& expect, SourceLocation loc, SourceRange range);
         void ErrorTooLarge(const StringView value);
 
     private:
