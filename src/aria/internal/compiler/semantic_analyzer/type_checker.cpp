@@ -51,11 +51,7 @@ namespace Aria::Internal {
             }
         }
 
-        // ARIA_ASSERT(false, "todo: add error for TypeChecker::HandleVarRefExpr()");
-        // m_Context->ReportCompilerError(expr->Loc.Line, expr->Loc.Column, 
-        //                                expr->Range.Start.Line, expr->Range.Start.Column,
-        //                                expr->Range.End.Line, expr->Range.End.Column,
-        //                                fmt::format("Undeclared identifier \"{}\"", ref->Identifier));
+        m_Context->ReportCompilerError(ref->Loc, ref->Range, fmt::format("Undeclared identifier \"{}\"", ref->GetRawIdentifier()));
         ref->SetResolvedType(TypeInfo::Create(m_Context, PrimitiveType::Void, false));
         return ref->GetResolvedType();
     }
@@ -243,7 +239,7 @@ namespace Aria::Internal {
                             binop->SetRHS(InsertImplicitCast(RHSType, LHSType, RHS, costLHS.CaType));
                             LHSType = RHSType;
                         } else {
-                            fmt::print("mismatched types\n");
+                            m_Context->ReportCompilerError(binop->Loc, binop->Range, fmt::format("mismatched types '{}' and '{}'", TypeInfoToString(LHSType), TypeInfoToString(RHSType)));
                             // ARIA_ASSERT(false, "todo: add error for TypeChecker::HandleBinaryOperatorExpr()");
                             // m_Context->ReportCompilerError(expr->Loc.Line, expr->Loc.Column, 
                             //                                expr->Range.Start.Line, expr->Range.Start.Column,
@@ -585,15 +581,13 @@ namespace Aria::Internal {
     }
 
     Expr* TypeChecker::HandleInitializer(Expr* initializer, TypeInfo* type) {
-
         // If we are initializing a reference, the initializer must be of the same type and an lvalue
         if (type->IsReference()) {
             ARIA_ASSERT(initializer != nullptr, "Initial value of a reference must be an lvalue");
             TypeInfo* valType = HandleExpr(initializer);
 
             if (!TypeIsEqual(type, valType) || initializer->GetValueType() != ExprValueType::LValue) {
-                // ARIA_ASSERT(false, "todo: add error msg");
-                fmt::print("types are not compatible\n");
+                m_Context->ReportCompilerError(initializer->Loc, initializer->Range, "Initial value of reference must be an lvalue");
             }
 
             return initializer;
@@ -731,7 +725,7 @@ namespace Aria::Internal {
     }
 
     Expr* TypeChecker::InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastType castType) {
-        return m_Context->Allocate<ImplicitCastExpr>(m_Context, srcExpr, castType, dstType);
+        return m_Context->Allocate<ImplicitCastExpr>(m_Context, srcExpr->Loc, srcExpr->Range, srcExpr, castType, dstType);
     }
 
     bool TypeChecker::TypeIsEqual(TypeInfo* lhs, TypeInfo* rhs) {

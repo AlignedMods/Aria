@@ -122,10 +122,6 @@ namespace Aria::Internal {
             params.Append(m_Context, param);
         }
 
-        if (!Match(TokenType::RightParen)) {
-            ARIA_ASSERT(false, "todo: add error");
-        }
-
         return params;
     }
 
@@ -251,29 +247,29 @@ namespace Aria::Internal {
 
         switch (value.Type) {
             case TokenType::False: {
-                Consume();
+                Token& t = Consume();
     
-                final = m_Context->Allocate<BooleanConstantExpr>(m_Context, false);
+                final = m_Context->Allocate<BooleanConstantExpr>(m_Context, t.Range.Start, t.Range, false);
                 break;
             }
     
             case TokenType::True: {
-                Consume();
+                Token& t = Consume();
     
-                final = m_Context->Allocate<BooleanConstantExpr>(m_Context, true);
+                final = m_Context->Allocate<BooleanConstantExpr>(m_Context, t.Range.Start, t.Range, true);
                 break;
             }
     
             case TokenType::CharLit: {
-                Consume();
+                Token& t = Consume();
     
                 int8_t ch = static_cast<int8_t>(value.Data.Data()[0]);
-                final = m_Context->Allocate<CharacterConstantExpr>(m_Context, ch);
+                final = m_Context->Allocate<CharacterConstantExpr>(m_Context, t.Range.Start, t.Range, ch);
                 break;
             }
     
             case TokenType::IntLit: {
-                Consume();
+                Token& t = Consume();
     
                 int32_t num = 0;
                 auto [ptr, ec] = std::from_chars(value.Data.Data(), value.Data.Data() + value.Data.Size(), num);
@@ -281,12 +277,12 @@ namespace Aria::Internal {
                 if (ec != std::errc()) {
                     ErrorTooLarge(value.Data);
                 }
-                final = m_Context->Allocate<IntegerConstantExpr>(m_Context, num, TypeInfo::Create(m_Context, PrimitiveType::Int, false));
+                final = m_Context->Allocate<IntegerConstantExpr>(m_Context, t.Range.Start, t.Range, num, TypeInfo::Create(m_Context, PrimitiveType::Int, false));
                 break;
             }
     
             case TokenType::FloatLit: {
-                Consume();
+                Token& t = Consume();
     
                 float num = 0.0f;
                 auto [ptr, ec] = std::from_chars(value.Data.Data(), value.Data.Data() + value.Data.Size(), num);
@@ -294,23 +290,23 @@ namespace Aria::Internal {
                 if (ec != std::errc()) {
                     ErrorTooLarge(value.Data);
                 }
-                final = m_Context->Allocate<FloatingConstantExpr>(m_Context, num, TypeInfo::Create(m_Context, PrimitiveType::Float, false));
+                final = m_Context->Allocate<FloatingConstantExpr>(m_Context, t.Range.Start, t.Range, num, TypeInfo::Create(m_Context, PrimitiveType::Float, false));
                 break;
             }
     
             case TokenType::StrLit: {
-                Consume();
+                Token& t = Consume();
     
                 StringView str = value.Data;
-                final = m_Context->Allocate<StringConstantExpr>(m_Context, str);
+                final = m_Context->Allocate<StringConstantExpr>(m_Context, t.Range.Start, t.Range, str);
                 break;
             }
     
             case TokenType::Minus: {
-                Token m = Consume();
+                Token& m = Consume();
     
                 Expr* expr = ParseValue();
-                final = m_Context->Allocate<UnaryOperatorExpr>(m_Context, expr, UnaryOperatorType::Negate);
+                final = m_Context->Allocate<UnaryOperatorExpr>(m_Context, m.Range.Start, SourceRange(m.Range.Start, expr->Range.End), expr, UnaryOperatorType::Negate);
                 break;
             }
     
@@ -323,12 +319,13 @@ namespace Aria::Internal {
                     TryConsume(TokenType::RightParen, "')'");
                     Expr* expr = ParseValue();
 
-                    final = m_Context->Allocate<CastExpr>(m_Context, expr, StringView(type.Data(), type.Size()));
+                    final = m_Context->Allocate<CastExpr>(m_Context, p.Range.Start, SourceRange(p.Range.Start, expr->Range.End), expr, StringView(type.Data(), type.Size()));
                 } else {
                     Expr* expr = ParseExpression();
-                    TryConsume(TokenType::RightParen, "')'");
-                    
-                    final = m_Context->Allocate<ParenExpr>(m_Context, expr);
+                    Token* rp = TryConsume(TokenType::RightParen, "')'");
+
+                    if (!rp) { return nullptr; }
+                    final = m_Context->Allocate<ParenExpr>(m_Context, p.Range.Start, SourceRange(p.Range.Start, rp->Range.End), expr);
                 }
                 
                 break;
@@ -337,18 +334,18 @@ namespace Aria::Internal {
             case TokenType::Self: {
                 Token s = Consume();
 
-                final = m_Context->Allocate<SelfExpr>(m_Context);
+                final = m_Context->Allocate<SelfExpr>(m_Context, s.Range.Start, s.Range);
                 break;
             }
     
             case TokenType::Identifier: {
                 Token i = Consume();
 
-                final = m_Context->Allocate<DeclRefExpr>(m_Context, i.Data);
+                final = m_Context->Allocate<DeclRefExpr>(m_Context, i.Range.Start, i.Range, i.Data);
 
                 // Check if this is a function call
                 if (Match(TokenType::LeftParen)) {
-                    Consume();
+                    Token& lp = Consume();
     
                     TinyVector<Expr*> args;
 
@@ -362,9 +359,10 @@ namespace Aria::Internal {
                         args.Append(m_Context, val);
                     }
     
-                    TryConsume(TokenType::RightParen, "')'");
+                    Token* rp = TryConsume(TokenType::RightParen, "')'");
+                    if (!rp) { return nullptr; }
     
-                    final = m_Context->Allocate<CallExpr>(m_Context, GetNode<DeclRefExpr>(final), args);
+                    final = m_Context->Allocate<CallExpr>(m_Context, lp.Range.Start, SourceRange(i.Range.Start, rp->Range.End), GetNode<DeclRefExpr>(final), args);
                 }
 
                 break;
@@ -379,10 +377,10 @@ namespace Aria::Internal {
                 Token* member = TryConsume(TokenType::Identifier, "identifier");
                 if (!member) { return nullptr; }
 
-                final = m_Context->Allocate<MemberExpr>(m_Context, member->Data, final);
+                final = m_Context->Allocate<MemberExpr>(m_Context, op.Range.Start, SourceRange(final->Range.Start, member->Range.End), member->Data, final);
 
                 if (Match(TokenType::LeftParen)) {
-                    Consume();
+                    Token& lp = Consume();
     
                     TinyVector<Expr*> args;
                     while (!Match(TokenType::RightParen)) {
@@ -395,9 +393,10 @@ namespace Aria::Internal {
                         args.Append(m_Context, val);
                     }
     
-                    TryConsume(TokenType::RightParen, "')'");
+                    Token* rp = TryConsume(TokenType::RightParen, "')'");
+                    if (!rp) { return nullptr; }
 
-                    final = m_Context->Allocate<MethodCallExpr>(m_Context, GetNode<MemberExpr>(final), args);
+                    final = m_Context->Allocate<MethodCallExpr>(m_Context, lp.Range.Start, SourceRange(final->Range.Start, rp->Range.End), GetNode<MemberExpr>(final), args);
                 }
             }
         }
@@ -406,6 +405,7 @@ namespace Aria::Internal {
     }
 
     Expr* Parser::ParseExpression(size_t minbp) {
+        SourceLocation lhsLoc = Peek()->Range.Start;
         Expr* lhsExpr = ParseValue();
 
         if (!lhsExpr) { return nullptr; }
@@ -420,7 +420,8 @@ namespace Aria::Internal {
             Expr* rhsExpr = ParseExpression(GetBinaryPrecedence(op) + 1);
             if (!rhsExpr) { return nullptr; }
 
-            lhsExpr = m_Context->Allocate<BinaryOperatorExpr>(m_Context, lhsExpr, rhsExpr, op);
+            lhsExpr = m_Context->Allocate<BinaryOperatorExpr>(m_Context, o.Range.Start, SourceRange(lhsLoc, Peek(-1)->Range.End), lhsExpr, rhsExpr, op);
+            lhsLoc = Peek()->Range.Start;
         }
 
         return lhsExpr;

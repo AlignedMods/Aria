@@ -162,21 +162,24 @@ namespace Aria::Internal {
 #pragma endregion
     
     struct Expr : public Stmt {
-        Expr(CompilationContext* ctx)
-            : Stmt(ctx) {}
+        Expr(CompilationContext* ctx, SourceLocation loc, SourceRange range)
+            : Stmt(ctx), Loc(loc), Range(range) {}
 
         virtual TypeInfo* GetResolvedType() = 0;
         virtual const TypeInfo* GetResolvedType() const = 0;
 
         virtual ExprValueType GetValueType() const = 0;
+
+        SourceLocation Loc;
+        SourceRange Range;
     };
 
     using IntegerStorage = std::variant<i8, u8, i16, u16, i32, u32, i64, u64>;
     using FloatingStorage = std::variant<f32, f64>;
 
     struct BooleanConstantExpr final : public Expr {
-        BooleanConstantExpr(CompilationContext* ctx, bool value)
-            : Expr(ctx), m_Value(value) {}
+        BooleanConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, bool value)
+            : Expr(ctx, loc, range), m_Value(value) {}
 
         inline bool GetValue() const { return m_Value; }
 
@@ -190,8 +193,8 @@ namespace Aria::Internal {
     };
     
     struct CharacterConstantExpr final : public Expr {
-        CharacterConstantExpr(CompilationContext* ctx, i8 value)
-            : Expr(ctx), m_Value(value) {}
+        CharacterConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, i8 value)
+            : Expr(ctx, loc, range), m_Value(value) {}
 
         inline i8 GetValue() const { return m_Value; }
 
@@ -205,8 +208,8 @@ namespace Aria::Internal {
     };
     
     struct IntegerConstantExpr final : public Expr {
-        IntegerConstantExpr(CompilationContext* ctx, IntegerStorage value, TypeInfo* resolvedType)
-            : Expr(ctx), m_Value(value), m_ResolvedType(resolvedType) {}
+        IntegerConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, IntegerStorage value, TypeInfo* resolvedType)
+            : Expr(ctx, loc, range), m_Value(value), m_ResolvedType(resolvedType) {}
 
         inline IntegerStorage GetValue() const { return m_Value; }
 
@@ -221,8 +224,8 @@ namespace Aria::Internal {
     };
     
     struct FloatingConstantExpr final : public Expr {
-        FloatingConstantExpr(CompilationContext* ctx, FloatingStorage value, TypeInfo* resolvedType)
-            : Expr(ctx), m_Value(value), m_ResolvedType(resolvedType) {}
+        FloatingConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, FloatingStorage value, TypeInfo* resolvedType)
+            : Expr(ctx, loc, range), m_Value(value), m_ResolvedType(resolvedType) {}
 
         inline FloatingStorage GetValue() const { return m_Value; }
 
@@ -237,8 +240,8 @@ namespace Aria::Internal {
     };
 
     struct StringConstantExpr final : public Expr {
-        StringConstantExpr(CompilationContext* ctx, StringView value)
-            : Expr(ctx), m_Value(value) {}
+        StringConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, StringView value)
+            : Expr(ctx, loc, range), m_Value(value) {}
 
         inline StringView GetValue() const { return m_Value; }
 
@@ -252,8 +255,8 @@ namespace Aria::Internal {
     };
 
     struct DeclRefExpr final : public Expr {
-        DeclRefExpr(CompilationContext* ctx, StringView identifier)
-            : Expr(ctx), m_Identifier(identifier) {}
+        DeclRefExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, StringView identifier)
+            : Expr(ctx, loc, range), m_Identifier(identifier) {}
 
         inline std::string GetIdentifier() const { return fmt::format("{}", m_Identifier); }
         inline StringView GetRawIdentifier() const { return m_Identifier; }
@@ -275,8 +278,8 @@ namespace Aria::Internal {
     };
 
     struct MemberExpr final : public Expr {
-        MemberExpr(CompilationContext* ctx, StringView member, Expr* parent)
-            : Expr(ctx), m_Member(member), m_Parent(parent) {}
+        MemberExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, StringView member, Expr* parent)
+            : Expr(ctx, loc, range), m_Member(member), m_Parent(parent) {}
 
         inline StringView GetMember() const { return m_Member; }
 
@@ -302,8 +305,8 @@ namespace Aria::Internal {
     };
 
     struct SelfExpr final : public Expr {
-        SelfExpr(CompilationContext* ctx)
-            : Expr(ctx) {}
+        SelfExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range)
+            : Expr(ctx, loc, range) {}
 
         inline virtual TypeInfo* GetResolvedType() override { return m_ResolvedType; }
         inline virtual const TypeInfo* GetResolvedType() const override { return m_ResolvedType; }
@@ -316,8 +319,8 @@ namespace Aria::Internal {
     };
 
     struct CallExpr final : public Expr {
-        CallExpr(CompilationContext* ctx, DeclRefExpr* callee, TinyVector<Expr*> args)
-            : Expr(ctx), m_Callee(callee), m_Arguments(args) {}
+        CallExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, DeclRefExpr* callee, TinyVector<Expr*> args)
+            : Expr(ctx, loc, range), m_Callee(callee), m_Arguments(args) {}
 
         inline DeclRefExpr* GetCallee() { return m_Callee; }
         inline const DeclRefExpr* GetCallee() const { return m_Callee; }
@@ -339,8 +342,8 @@ namespace Aria::Internal {
     };
 
     struct MethodCallExpr final : public Expr {
-        MethodCallExpr(CompilationContext* ctx, MemberExpr* callee, TinyVector<Expr*> args)
-            : Expr(ctx), m_Callee(callee), m_Arguments(args) {}
+        MethodCallExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, MemberExpr* callee, TinyVector<Expr*> args)
+            : Expr(ctx, loc, range), m_Callee(callee), m_Arguments(args) {}
     
         inline MemberExpr* GetCallee() { return m_Callee; }
         inline const MemberExpr* GetCallee() const { return m_Callee; }
@@ -367,8 +370,8 @@ namespace Aria::Internal {
     // These kinds of expressions are usually from the actual source code
     // eg. 1 + (2 - 3)
     struct ParenExpr final : public Expr {
-        ParenExpr(CompilationContext* ctx, Expr* expr)
-            : Expr(ctx), m_Expression(expr) {}
+        ParenExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr)
+            : Expr(ctx, loc, range), m_Expression(expr) {}
 
         inline Expr* GetChildExpr() { return m_Expression; }
         inline const Expr* GetChildExpr() const { return m_Expression; }
@@ -387,8 +390,8 @@ namespace Aria::Internal {
     // This node should never represent an implicit cast, for that use ImplicitCastExpr
     // eg. int a = (int)5.5;
     struct CastExpr final : public Expr {
-        CastExpr(CompilationContext* ctx, Expr* expr, StringView parsedType)
-            : Expr(ctx), m_Expression(expr), m_ParsedDestinationType(parsedType) {}
+        CastExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr, StringView parsedType)
+            : Expr(ctx, loc, range), m_Expression(expr), m_ParsedDestinationType(parsedType) {}
 
         inline Expr* GetChildExpr() { return m_Expression; }
         inline const Expr* GetChildExpr() const { return m_Expression; }
@@ -416,8 +419,8 @@ namespace Aria::Internal {
     // Represents an implicit cast automatically inserted by the type checker/semantic analyzer
     // eg. float a = 5; -> here "5" is implicitly converted to a float
     struct ImplicitCastExpr final : public Expr {
-        ImplicitCastExpr(CompilationContext* ctx, Expr* expr, CastType castType, TypeInfo* destType)
-            : Expr(ctx), m_Expression(expr), m_ResolvedCastType(castType), m_ResolvedType(destType) {}
+        ImplicitCastExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr, CastType castType, TypeInfo* destType)
+            : Expr(ctx, loc, range), m_Expression(expr), m_ResolvedCastType(castType), m_ResolvedType(destType) {}
 
         inline Expr* GetChildExpr() { return m_Expression; }
         inline const Expr* GetChildExpr() const { return m_Expression; }
@@ -438,8 +441,8 @@ namespace Aria::Internal {
     };
     
     struct UnaryOperatorExpr final : public Expr {
-        UnaryOperatorExpr(CompilationContext* ctx, Expr* expr, UnaryOperatorType op)
-            : Expr(ctx), m_Expression(expr), m_Operator(op) {}
+        UnaryOperatorExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr, UnaryOperatorType op)
+            : Expr(ctx, loc, range), m_Expression(expr), m_Operator(op) {}
 
         inline Expr* GetChildExpr() { return m_Expression; }
         inline const Expr* GetChildExpr() const { return m_Expression; }
@@ -461,8 +464,8 @@ namespace Aria::Internal {
     };
     
     struct BinaryOperatorExpr final : public Expr {
-        BinaryOperatorExpr(CompilationContext* ctx, Expr* lhs, Expr* rhs, BinaryOperatorType op)
-            : Expr(ctx), m_LHS(lhs), m_RHS(rhs), m_Operator(op) {}
+        BinaryOperatorExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* lhs, Expr* rhs, BinaryOperatorType op)
+            : Expr(ctx, loc, range), m_LHS(lhs), m_RHS(rhs), m_Operator(op) {}
 
         inline Expr* GetLHS() { return m_LHS; }
         inline const Expr* GetLHS() const { return m_LHS; }

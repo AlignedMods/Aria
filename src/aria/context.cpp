@@ -55,7 +55,7 @@ namespace Aria {
         // Handle compiler errors
         auto& errors = src->CompilationContext.GetCompilerErrors();
         for (auto& error : errors) {
-            fmt::print(fg(fmt::color::gray), "{}:{}:{}, ", module, error.Line, error.Column);
+            fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", module, error.Line, error.Column);
             fmt::print(fg(fmt::color::pale_violet_red), "error: ");
             fmt::print("{}\n", error.Error);
         }

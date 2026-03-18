@@ -196,6 +196,7 @@ namespace Aria::Internal {
 
                                 if (nc == '\n' || nc == EOF) {
                                     m_CurrentLine++;
+                                    m_CurrentLineStart = m_Index - 1;
                                     break;
                                 }
                             }
