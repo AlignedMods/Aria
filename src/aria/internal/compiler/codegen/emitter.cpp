@@ -193,6 +193,15 @@ namespace Aria::Internal {
         }
 
         m_OpCodes.emplace_back(OpCodeType::Call, OpCodeCall(call->GetArguments().Size));
+
+        // The only special case is when returning a reference and getting it as an rvalue
+        if (type == ExprValueType::RValue) {
+            if (retType->IsReference()) {
+                retType->Reference = false;
+                m_OpCodes.emplace_back(OpCodeType::Deref, TypeGetSize(retType));
+                retType->Reference = true;
+            }
+        }
     }
 
     void Emitter::EmitParenExpr(Expr* expr, ExprValueType type) {
@@ -787,6 +796,11 @@ namespace Aria::Internal {
 
             case PrimitiveType::Float:  return 4;
             case PrimitiveType::Double: return 8;
+
+            case PrimitiveType::Function: {
+                FunctionDeclaration& fdecl = std::get<FunctionDeclaration>(t->Data);
+                return TypeGetSize(fdecl.ReturnType);
+            }
 
             case PrimitiveType::Structure: {
                 StructDeclaration& sdecl = std::get<StructDeclaration>(t->Data);

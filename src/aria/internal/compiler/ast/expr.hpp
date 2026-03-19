@@ -332,13 +332,15 @@ namespace Aria::Internal {
         inline virtual const TypeInfo* GetResolvedType() const override { return m_ResolvedType; }
         inline void SetResolvedType(TypeInfo* type) { m_ResolvedType = type; }
 
-        inline virtual ExprValueType GetValueType() const override { return ExprValueType::RValue; }
+        inline virtual ExprValueType GetValueType() const override { return m_ResolvedValueType; }
+        inline void SetValueType(ExprValueType type) { m_ResolvedValueType = type; }
 
     private:
         DeclRefExpr* m_Callee;
         TinyVector<Expr*> m_Arguments;
 
         TypeInfo* m_ResolvedType = nullptr;
+        ExprValueType m_ResolvedValueType = ExprValueType::RValue;
     };
 
     struct MethodCallExpr final : public Expr {

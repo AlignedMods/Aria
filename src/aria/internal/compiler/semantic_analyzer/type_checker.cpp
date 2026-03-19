@@ -108,6 +108,7 @@ namespace Aria::Internal {
         }
 
         call->SetResolvedType(fnDecl.ReturnType);
+        call->SetValueType((fnDecl.ReturnType->IsReference()) ? ExprValueType::LValue : ExprValueType::RValue);
         return fnDecl.ReturnType;
     }
 
@@ -535,17 +536,7 @@ namespace Aria::Internal {
             ARIA_ASSERT(false, "todo: error msg");
         }
 
-        Expr* value = ret->GetValue();
-        TypeInfo* valType = HandleExpr(value);
-
-        ConversionCost cost = GetConversionCost(m_ActiveReturnType, valType, value->GetValueType());
-        if (cost.CastNeeded) {
-            if (cost.ImplicitCastPossible) {
-                ret->SetValue(InsertImplicitCast(m_ActiveReturnType, valType, value, cost.CaType));
-            } else {
-                ARIA_ASSERT(false, "todo: error");
-            }
-        }
+        ret->SetValue(HandleInitializer(ret->GetValue(), m_ActiveReturnType));
     }
 
     void TypeChecker::HandleStmt(Stmt* stmt) {
