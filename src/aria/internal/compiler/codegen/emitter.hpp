@@ -88,7 +88,7 @@ namespace Aria::Internal {
         void PushScope();
         void PopScope();
 
-        size_t TypeGetSize(TypeInfo* t);
+        VMType TypeInfoToVMType(TypeInfo* t);
 
     private:
         std::vector<OpCode> m_OpCodes;

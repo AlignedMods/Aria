@@ -25,289 +25,228 @@ namespace Aria::Internal {
     }
 
     void Disassembler::DisassembleOpCode(const OpCode& op) {
-        #define CASE_LOAD(_enum, builtInType, str) case OpCodeType::_enum: { \
-            OpCodeLoad l = std::get<OpCodeLoad>(op.Data); \
-            m_Output += fmt::format("{}ld.{}    {}\n", m_Indentation, str, std::get<builtInType>(l.Data)); \
+        #define CASE_BINEXPR(_enum, str) case OpCodeKind::_enum: { \
+            VMType type = std::get<VMType>(op.Data); \
+            m_Output += fmt::format("    {}      {}\n", str, VMTypeToString(type)); \
             break; \
         }
 
-        #define CASE_UNARYEXPR(_enum, opStr, str) case OpCodeType::_enum: { \
-            m_Output += fmt::format("{}{}.{}\n", m_Indentation, opStr, str); \
-            break; \
-        }
+        switch (op.Kind) {
+            case OpCodeKind::Nop: m_Output += "    nop\n"; break;
 
-        #define CASE_UNARYEXPR_GROUP(unaryop, str) \
-            CASE_UNARYEXPR(unaryop##I8,  str, "i8") \
-            CASE_UNARYEXPR(unaryop##I16, str, "i16") \
-            CASE_UNARYEXPR(unaryop##I32, str, "i32") \
-            CASE_UNARYEXPR(unaryop##I64, str, "i64") \
-            CASE_UNARYEXPR(unaryop##U8,  str, "u8") \
-            CASE_UNARYEXPR(unaryop##U16, str, "u16") \
-            CASE_UNARYEXPR(unaryop##U32, str, "u32") \
-            CASE_UNARYEXPR(unaryop##U64, str, "u64") \
-            CASE_UNARYEXPR(unaryop##F32, str, "f32") \
-            CASE_UNARYEXPR(unaryop##F64, str, "f64")
-
-        #define CASE_BINEXPR(_enum, opStr, str) case OpCodeType::_enum: { \
-            m_Output += fmt::format("{}{}.{}\n", m_Indentation, opStr, str); \
-            break; \
-        }
-
-        #define CASE_BINEXPR_INTEGRAL_GROUP(mathop, str) \
-            CASE_BINEXPR(mathop##I8,  str, "i8") \
-            CASE_BINEXPR(mathop##I16, str, "i16") \
-            CASE_BINEXPR(mathop##I32, str, "i32") \
-            CASE_BINEXPR(mathop##I64, str, "i64") \
-            CASE_BINEXPR(mathop##U8,  str, "u8") \
-            CASE_BINEXPR(mathop##U16, str, "u16") \
-            CASE_BINEXPR(mathop##U32, str, "u32") \
-            CASE_BINEXPR(mathop##U64, str, "u64")
-
-        #define CASE_BINEXPR_GROUP(mathop, str) \
-            CASE_BINEXPR(mathop##I8,  str, "i8") \
-            CASE_BINEXPR(mathop##I16, str, "i16") \
-            CASE_BINEXPR(mathop##I32, str, "i32") \
-            CASE_BINEXPR(mathop##I64, str, "i64") \
-            CASE_BINEXPR(mathop##U8,  str, "u8") \
-            CASE_BINEXPR(mathop##U16, str, "u16") \
-            CASE_BINEXPR(mathop##U32, str, "u32") \
-            CASE_BINEXPR(mathop##U64, str, "u64") \
-            CASE_BINEXPR(mathop##F32, str, "f32") \
-            CASE_BINEXPR(mathop##F64, str, "f64")
-
-        #define CASE_CAST(_enum, opStr, str) case OpCodeType::_enum: { \
-            m_Output += fmt::format("{}cast.{}.{}\n", m_Indentation, opStr, str); \
-            break; \
-        }
-
-        #define CASE_CAST_GROUP(_cast, str) \
-            CASE_CAST(Cast##_cast##ToI8,  str, "i8") \
-            CASE_CAST(Cast##_cast##ToI16, str, "i16") \
-            CASE_CAST(Cast##_cast##ToI32, str, "i32") \
-            CASE_CAST(Cast##_cast##ToI64, str, "i64") \
-            CASE_CAST(Cast##_cast##ToU8,  str, "u8") \
-            CASE_CAST(Cast##_cast##ToU16, str, "u16") \
-            CASE_CAST(Cast##_cast##ToU32, str, "u32") \
-            CASE_CAST(Cast##_cast##ToU64, str, "u64") \
-            CASE_CAST(Cast##_cast##ToF32, str, "f32") \
-            CASE_CAST(Cast##_cast##ToF64, str, "f64")
-
-        switch (op.Type) {
-            case OpCodeType::Nop: m_Output += "nop\n"; break;
-
-            case OpCodeType::Alloca: {
-                OpCodeAlloca a = std::get<OpCodeAlloca>(op.Data);
-
-                m_Output += m_Indentation;
-                m_Output += "alloca    ";
-                m_Output += std::to_string(a.Size);
-
-                m_Output += '\n';
+            case OpCodeKind::Alloca: {
+                VMType type = std::get<VMType>(op.Data);
+                m_Output += fmt::format("    alloca {}\n", VMTypeToString(type));
                 break;
             }
 
-            case OpCodeType::PushSF: {
-                m_Output += fmt::format("{}pushsf\n", m_Indentation);
+            case OpCodeKind::PushSF: {
+                m_Output += fmt::format("    pushsf\n");
                 break;
             }
-            case OpCodeType::PopSF: {
-                m_Output += fmt::format("{}popsf\n", m_Indentation);
-                break;
-            }
-
-            case OpCodeType::Store: {
-                m_Output += fmt::format("{}store\n", m_Indentation);
+            case OpCodeKind::PopSF: {
+                m_Output += fmt::format("    popsf\n");
                 break;
             }
 
-            case OpCodeType::Dup: {
-                m_Output += fmt::format("{}dup\n", m_Indentation);
+            case OpCodeKind::Store: {
+                m_Output += fmt::format("    store\n");
                 break;
             }
 
-            CASE_LOAD(LoadI8,  i8,  "i8 ")
-            CASE_LOAD(LoadI16, i16, "i16")
-            CASE_LOAD(LoadI32, i32, "i32")
-            CASE_LOAD(LoadI64, i64, "i64")
-
-            CASE_LOAD(LoadU8,  u8,  "u8 ")
-            CASE_LOAD(LoadU16, u16, "u16")
-            CASE_LOAD(LoadU32, u32, "u32")
-            CASE_LOAD(LoadU64, u64, "u64")
-
-            CASE_LOAD(LoadF32, f32, "f32");
-            CASE_LOAD(LoadF64, f64, "f64");
-
-            CASE_LOAD(LoadStr, StringView, "str")
-
-            case OpCodeType::Deref: {
-                size_t size = std::get<size_t>(op.Data);
-                m_Output += fmt::format("{}deref     {}\n", m_Indentation, size);
+            case OpCodeKind::Dup: {
+                m_Output += fmt::format("    dup\n");
                 break;
             }
 
-            case OpCodeType::DeclareGlobal: {
+            case OpCodeKind::Ldc: {
+                const OpCodeLdc& ldc = std::get<OpCodeLdc>(op.Data);
+
+                switch (ldc.Type.Kind) {
+                    case VMTypeKind::I1:  m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<bool>(ldc.Data)); break;
+                    case VMTypeKind::I8:  m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<i8>(ldc.Data));  break;
+                    case VMTypeKind::U8:  m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<u8>(ldc.Data));  break;
+                    case VMTypeKind::I16: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<i16>(ldc.Data)); break;
+                    case VMTypeKind::U16: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<u16>(ldc.Data)); break;
+                    case VMTypeKind::I32: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<i32>(ldc.Data)); break;
+                    case VMTypeKind::U32: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<u32>(ldc.Data)); break;
+                    case VMTypeKind::I64: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<i64>(ldc.Data)); break;
+                    case VMTypeKind::U64: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<u64>(ldc.Data)); break;
+                    case VMTypeKind::F32: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<f32>(ldc.Data)); break;
+                    case VMTypeKind::F64: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<f64>(ldc.Data)); break;
+                    default: ARIA_ASSERT(false, "Invalid \"ldc\" type");
+                }
+
+                break;
+            }
+
+            case OpCodeKind::Deref: {
+                VMType type = std::get<VMType>(op.Data);
+                m_Output += fmt::format("    deref     {}\n", VMTypeToString(type));
+                break;
+            }
+
+            case OpCodeKind::DeclareGlobal: {
                 const std::string& global = std::get<std::string>(op.Data);
-                m_Output += fmt::format("{}decl.g    {}\n", m_Indentation, global);
+                m_Output += fmt::format("    decl.g    {}\n", global);
                 break;
             }
 
-            case OpCodeType::DeclareLocal: {
+            case OpCodeKind::DeclareLocal: {
                 size_t index = std::get<size_t>(op.Data);
-                m_Output += fmt::format("{}decl.l    {}\n", m_Indentation, index);
+                m_Output += fmt::format("    decl.l    {}\n", index);
                 break;
             }
 
-            case OpCodeType::DeclareArg: {
+            case OpCodeKind::DeclareArg: {
                 size_t index = std::get<size_t>(op.Data);
-                m_Output += fmt::format("{}decl.arg  {}\n", m_Indentation, index);
+                m_Output += fmt::format("    decl.arg  {}\n", index);
                 break;
             }
 
-            case OpCodeType::LoadGlobal: {
+            case OpCodeKind::LdGlobal: {
                 const std::string& global = std::get<std::string>(op.Data);
-                m_Output += fmt::format("{}ld.g      {}\n", m_Indentation, global);
+                m_Output += fmt::format("    ld.g      {}\n", global);
                 break;
             }
 
-            case OpCodeType::LoadLocal: {
+            case OpCodeKind::LdLocal: {
                 size_t index = std::get<size_t>(op.Data);
-                m_Output += fmt::format("{}ld.l      {}\n", m_Indentation, index);
+                m_Output += fmt::format("    ld.l      {}\n", index);
                 break;
             }
 
-            case OpCodeType::LoadOffset: {
-                OpCodeOffset off = std::get<OpCodeOffset>(op.Data);
-                m_Output += fmt::format("{}ld.off    {} {}\n", m_Indentation, off.Offset, off.Size);
+            case OpCodeKind::LdOffset: {
+                // OpCodeOffset off = std::get<OpCodeOffset>(op.Data);
+                // m_Output += fmt::format("{}ld.off    {} {}\n", m_Indentation, off.Offset, off.Size);
                 break;
             }
 
-            case OpCodeType::LoadArg: {
+            case OpCodeKind::LdArg: {
                 size_t index = std::get<size_t>(op.Data);
-                m_Output += fmt::format("{}ld.arg    {}\n", m_Indentation, index);
+                m_Output += fmt::format("    ld.arg    {}\n", index);
                 break;
             }
 
-            case OpCodeType::LoadFunc: {
+            case OpCodeKind::LdFunc: {
                 const std::string& func = std::get<std::string>(op.Data);
-                m_Output += fmt::format("{}ld.fn     {}\n", m_Indentation, func);
+                m_Output += fmt::format("    ld.fn     {}\n", func);
                 break;
             }
 
-            case OpCodeType::LoadPtrGlobal: {
+            case OpCodeKind::LdPtrGlobal: {
                 const std::string& global = std::get<std::string>(op.Data);
-                m_Output += fmt::format("{}ldptr.g   {}\n", m_Indentation, global);
+                m_Output += fmt::format("    ldptr.g   {}\n", m_Indentation, global);
                 break;
             }
 
-            case OpCodeType::LoadPtrLocal: {
+            case OpCodeKind::LdPtrLocal: {
                 size_t index = std::get<size_t>(op.Data);
-                m_Output += fmt::format("{}ldptr.l   {}\n", m_Indentation, index);
+                m_Output += fmt::format("    ldptr.l   {}\n", m_Indentation, index);
                 break;
             }
 
-            case OpCodeType::LoadPtrOffset: {
-                OpCodeOffset off = std::get<OpCodeOffset>(op.Data);
-                m_Output += fmt::format("{}ldptr.off {} {}\n", m_Indentation, off.Offset, off.Size);
+            case OpCodeKind::LdPtrOffset: {
+                // OpCodeOffset off = std::get<OpCodeOffset>(op.Data);
+                // m_Output += fmt::format("{}ldptr.off {} {}\n", m_Indentation, off.Offset, off.Size);
                 break;
             }
 
-            case OpCodeType::LoadPtrRet: {
-                m_Output += fmt::format("{}ldptr.ret\n", m_Indentation);
+            case OpCodeKind::LdPtrRet: {
+                m_Output += fmt::format("    ldptr.ret\n", m_Indentation);
                 break;
             }
 
-            case OpCodeType::Function: {
+            case OpCodeKind::Function: {
                 const std::string& name = std::get<std::string>(op.Data);
                 m_Output += fmt::format(".function {}:\n", name);
-                m_Indentation.clear();
-                m_Indentation.append(4, ' ');
                 break;
             }
 
-            case OpCodeType::Label: {
+            case OpCodeKind::Label: {
                 const std::string& name = std::get<std::string>(op.Data);
 
                 m_Output += fmt::format("{}:\n", name);
-                m_Indentation.clear();
-                m_Indentation.append(4, ' ');
                 break;
             }
 
-            case OpCodeType::Jmp: {
+            case OpCodeKind::Jmp: {
                 const std::string& name = std::get<std::string>(op.Data);
 
-                m_Output += fmt::format("{}jmp       {}\n", m_Indentation, name);
+                m_Output += fmt::format("    jmp       {}\n", name);
                 break;
             }
 
-            case OpCodeType::Jt: {
+            case OpCodeKind::Jt: {
                 const std::string& label = std::get<std::string>(op.Data);
 
-                m_Output += fmt::format("{}jt        {}\n", m_Indentation, label);
+                m_Output += fmt::format("    jt        {}\n", label);
                 break;
             }
 
-            case OpCodeType::Jf: {
+            case OpCodeKind::Jf: {
                 const std::string& label = std::get<std::string>(op.Data);
 
-                m_Output += fmt::format("{}jf        {}\n", m_Indentation, label);
+                m_Output += fmt::format("    jf        {}\n", label);
                 break;
             }
 
-            case OpCodeType::Call: {
+            case OpCodeKind::Call: {
                 const OpCodeCall& call = std::get<OpCodeCall>(op.Data);
 
-                m_Output += fmt::format("{}call      {}\n", m_Indentation, call.ArgCount);
+                m_Output += fmt::format("    call      {} {}\n", VMTypeToString(call.ReturnType), call.ArgCount);
                 break;
             }
 
-            case OpCodeType::Ret: m_Output += m_Indentation; m_Output += "ret\n"; break;
+            case OpCodeKind::Ret: m_Output += "    ret\n"; break;
 
-            CASE_UNARYEXPR_GROUP(Neg, "neg      ")
+            CASE_BINEXPR(Add,  "add ");
+            CASE_BINEXPR(Sub,  "sub ");
+            CASE_BINEXPR(Mul,  "mul ");
+            CASE_BINEXPR(Div,  "div ");
+            CASE_BINEXPR(Mod,  "mod ");
+                               
+            CASE_BINEXPR(And,  "and ");
+            CASE_BINEXPR(Or,   "or  ");
+            CASE_BINEXPR(Xor,  "xor ");
 
-            CASE_BINEXPR_GROUP(Add, "add")
-            CASE_BINEXPR_GROUP(Sub, "sub")
-            CASE_BINEXPR_GROUP(Mul, "mul")
-            CASE_BINEXPR_GROUP(Div, "div")
-            CASE_BINEXPR_GROUP(Mod, "mod")
+            CASE_BINEXPR(Cmp,  "cmp ");
+            CASE_BINEXPR(Ncmp, "ncmp");
+            CASE_BINEXPR(Lt,   "lt  ");
+            CASE_BINEXPR(Lte,  "lte ");
+            CASE_BINEXPR(Gt,   "gt  ");
+            CASE_BINEXPR(Gte,  "gte ");
 
-            CASE_BINEXPR_INTEGRAL_GROUP(And, "and")
-            CASE_BINEXPR_INTEGRAL_GROUP(Or,  "or")
-            CASE_BINEXPR_INTEGRAL_GROUP(Xor, "xor")
-
-            CASE_BINEXPR_GROUP(Cmp,  "cmp")
-            CASE_BINEXPR_GROUP(Ncmp, "ncmp")
-            CASE_BINEXPR_GROUP(Lt,   "lt")
-            CASE_BINEXPR_GROUP(Lte,  "lte")
-            CASE_BINEXPR_GROUP(Gt,   "gt")
-            CASE_BINEXPR_GROUP(Gte,  "gte")
-
-            CASE_CAST_GROUP(I8,  "i8");
-            CASE_CAST_GROUP(I16, "i16");
-            CASE_CAST_GROUP(I32, "i32");
-            CASE_CAST_GROUP(I64, "i64");
-            CASE_CAST_GROUP(U8,  "u8");
-            CASE_CAST_GROUP(U16, "u16");
-            CASE_CAST_GROUP(U32, "u32");
-            CASE_CAST_GROUP(U64, "u64");
-            CASE_CAST_GROUP(F32, "f32");
-            CASE_CAST_GROUP(F64, "f64");
-
-            case OpCodeType::Comment: {
+            case OpCodeKind::Comment: {
                 const std::string& c = std::get<std::string>(op.Data);
 
-                m_Output += fmt::format("{}// {}", m_Indentation, c);
+                m_Output += fmt::format("    // {}", c);
                 break;
             }
         }
+    }
 
-        #undef CASE_UNARYEXPR
-        #undef CASE_UNARYEXPR_GROUP
-        #undef CASE_BINEXPR
-        #undef CASE_BINEXPR_GROUP
-        #undef CASE_CAST
-        #undef CASE_CAST_GROUP
+    std::string Disassembler::VMTypeToString(const VMType& type) {
+        switch (type.Kind) {
+            case VMTypeKind::Void:  return "void";
+
+            case VMTypeKind::I1:    return "i1";
+            case VMTypeKind::I8:    return "i8";
+            case VMTypeKind::U8:    return "u8";
+            case VMTypeKind::I16:   return "i16";
+            case VMTypeKind::U16:   return "i16";
+            case VMTypeKind::I32:   return "i32";
+            case VMTypeKind::U32:   return "i32";
+            case VMTypeKind::I64:   return "i64";
+            case VMTypeKind::U64:   return "i64";
+
+            case VMTypeKind::F32:   return "f32";
+            case VMTypeKind::F64:   return "f64";
+
+            case VMTypeKind::Ptr:   return "ptr";
+
+            default: ARIA_UNREACHABLE();
+        }
     }
 
 } // namespace Aria::Internal

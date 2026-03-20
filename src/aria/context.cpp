@@ -6,6 +6,7 @@
 #include "aria/internal/stdlib/array.hpp"
 #include "aria/internal/stdlib/string.hpp"
 #include "aria/internal/vm/vm.hpp"
+#include "aria/internal/vm/op_codes.hpp"
 
 #include <fstream>
 #include <sstream>
@@ -104,42 +105,42 @@ namespace Aria {
     }
 
     void Context::PushBool(bool b) {
-        m_ActiveModule->VM.Alloca(sizeof(b), Internal::TypeInfo::Create(&m_ActiveModule->CompilationContext, Internal::PrimitiveType::Bool, false), m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I1 }, m_ActiveModule->VM.m_LocalStack);
         m_ActiveModule->VM.StoreBool(-1 , b, m_ActiveModule->VM.m_LocalStack);
     }
 
     void Context::PushChar(int8_t c) {
-        m_ActiveModule->VM.Alloca(sizeof(c), Internal::TypeInfo::Create(&m_ActiveModule->CompilationContext, Internal::PrimitiveType::Char, false), m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I8 }, m_ActiveModule->VM.m_LocalStack);
         m_ActiveModule->VM.StoreChar(-1, c, m_ActiveModule->VM.m_LocalStack);
     }
 
     void Context::PushShort(int16_t s) {
-        m_ActiveModule->VM.Alloca(sizeof(s), Internal::TypeInfo::Create(&m_ActiveModule->CompilationContext, Internal::PrimitiveType::Short, false), m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I16 }, m_ActiveModule->VM.m_LocalStack);
         m_ActiveModule->VM.StoreShort(-1, s, m_ActiveModule->VM.m_LocalStack);
     }
 
     void Context::PushInt(int32_t i) {
-        m_ActiveModule->VM.Alloca(sizeof(i), Internal::TypeInfo::Create(&m_ActiveModule->CompilationContext, Internal::PrimitiveType::Int, false), m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I32 }, m_ActiveModule->VM.m_LocalStack);
         m_ActiveModule->VM.StoreInt(-1, i, m_ActiveModule->VM.m_LocalStack);
     }
 
     void Context::PushLong(int64_t l) {
-        m_ActiveModule->VM.Alloca(sizeof(l), Internal::TypeInfo::Create(&m_ActiveModule->CompilationContext, Internal::PrimitiveType::Long, false), m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I64 }, m_ActiveModule->VM.m_LocalStack);
         m_ActiveModule->VM.StoreLong(-1, l, m_ActiveModule->VM.m_LocalStack);
     }
 
     void Context::PushFloat(float f) {
-        m_ActiveModule->VM.Alloca(sizeof(f), Internal::TypeInfo::Create(&m_ActiveModule->CompilationContext, Internal::PrimitiveType::Float, false), m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::F32 }, m_ActiveModule->VM.m_LocalStack);
         m_ActiveModule->VM.StoreFloat(-1, f, m_ActiveModule->VM.m_LocalStack);
     }
 
     void Context::PushDouble(double d) {
-        m_ActiveModule->VM.Alloca(sizeof(d), Internal::TypeInfo::Create(&m_ActiveModule->CompilationContext, Internal::PrimitiveType::Double, false), m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::F64 }, m_ActiveModule->VM.m_LocalStack);
         m_ActiveModule->VM.StoreDouble(-1, d, m_ActiveModule->VM.m_LocalStack);
     }
 
     void Context::PushPointer(void* p) {
-        m_ActiveModule->VM.Alloca(sizeof(p), Internal::TypeInfo::Create(&m_ActiveModule->CompilationContext, Internal::PrimitiveType::Bool, false), m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::Ptr }, m_ActiveModule->VM.m_LocalStack);
         m_ActiveModule->VM.StorePointer(-1, p, m_ActiveModule->VM.m_LocalStack);
     }
 
@@ -252,7 +253,7 @@ namespace Aria {
         ARIA_ASSERT(reflection.Declarations.contains(str), "Module does not contain function");
 
         // Push the function signature (NOTE: not actually used for anything, the VM just expects it to be there)
-        m_ActiveModule->VM.Alloca(1, nullptr, m_ActiveModule->VM.m_FunctionStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::Ptr }, m_ActiveModule->VM.m_FunctionStack);
 
         // Move arguments onto the function stack
         for (size_t i = 0; i < argCount; i++) {
@@ -261,7 +262,8 @@ namespace Aria {
         m_ActiveModule->VM.Pop(argCount, m_ActiveModule->VM.m_LocalStack);
 
         // Allocate the return slot
-        m_ActiveModule->VM.Alloca(reflection.Declarations.at(str).ResolvedTypeSize, reflection.Declarations.at(str).ResolvedType, m_ActiveModule->VM.m_LocalStack);
+        // m_ActiveModule->VM.Alloca(reflection.Declarations.at(str).ResolvedTypeSize, reflection.Declarations.at(str).ResolvedType, m_ActiveModule->VM.m_LocalStack);
+        ARIA_ASSERT(false, "todo!");
 
         m_ActiveModule->VM.Call(str, argCount);
     }

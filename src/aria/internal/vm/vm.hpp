@@ -17,8 +17,7 @@ namespace Aria::Internal {
     struct VMSlice {
         void* Memory = nullptr;
         size_t Size = 0;
-
-        TypeInfo* ResolvedType = nullptr; // The VM won't directly use this however it is needed for the context to understand the types at runtime
+        VMType Type;
     };
 
     // Used exlusively to represent a stack slot,
@@ -27,6 +26,7 @@ namespace Aria::Internal {
     struct StackSlot {
         size_t Index = 0;
         size_t Size = 0;
+        VMType Type;
     };
 
     // A function that is not external, AKA implemented in the language itself
@@ -56,7 +56,7 @@ namespace Aria::Internal {
         explicit VM(Context* ctx);
 
         // Allocates memory on a stack (local, function, global, ..)
-        void Alloca(size_t size, TypeInfo* type, Stack& stack);
+        void Alloca(VMType type, Stack& stack);
         void Pop   (size_t count, Stack& stack);
         void Copy  (i32 dstSlot, i32 srcSlot, Stack& dst, Stack& src);
         void Dup   (i32 slot, Stack& dst, Stack& src);
@@ -96,6 +96,7 @@ namespace Aria::Internal {
         void Run();
 
         VMSlice GetVMSlice(i32 slot, Stack& stack);
+        size_t GetVMTypeSize(const VMType& type);
 
         void StopExecution();
 

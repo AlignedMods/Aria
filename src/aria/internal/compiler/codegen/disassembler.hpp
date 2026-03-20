@@ -16,6 +16,8 @@ namespace Aria::Internal {
         void DisassembleImpl();
         void DisassembleOpCode(const OpCode& op);
 
+        std::string VMTypeToString(const VMType& type);
+
     private:
         const std::vector<OpCode>* m_OpCodes;
         bool m_Verbose = false;

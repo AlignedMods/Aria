@@ -48,8 +48,9 @@ namespace Aria::Internal {
         m_Context = ctx;
     }
 
-    void VM::Alloca(size_t size, TypeInfo* type, Stack& stack) {
-        size_t alignedSize = ((size + 8 - 1) / 8) * 8; // We need to handle 8 byte alignment since some CPU's will require it
+    void VM::Alloca(VMType type, Stack& stack) {
+        size_t rawSize = GetVMTypeSize(type);
+        size_t alignedSize = ((rawSize + 8 - 1) / 8) * 8; // We need to handle 8 byte alignment
         
         ARIA_ASSERT(alignedSize % 8 == 0, "Memory not aligned to 8 bytes correctly!");
         ARIA_ASSERT(stack.StackPointer + alignedSize < stack.Stack.max_size(), "Local stack overflow, allocating an insane amount of memory!");
@@ -61,7 +62,7 @@ namespace Aria::Internal {
             stack.StackSlots.resize(stack.StackSlots.size() * 2);
         }
         
-        stack.StackSlots[stack.StackSlotPointer++] = { stack.StackPointer - alignedSize, size };
+        stack.StackSlots[stack.StackSlotPointer++] = { stack.StackPointer - alignedSize, rawSize, type };
     }
 
     void VM::Pop(size_t count, Stack& stack) {
@@ -74,7 +75,7 @@ namespace Aria::Internal {
         VMSlice dstSlice = GetVMSlice(dstSlot, dst);
         VMSlice srcSlice = GetVMSlice(srcSlot, src);
 
-        ARIA_ASSERT(dstSlice.Size == srcSlice.Size, "Invalid VM::Copy() call, sizes of both slots must be the same!");
+        ARIA_ASSERT(dstSlice.Type == srcSlice.Type, "Invalid VM::Copy() call, types of both sides must be the same!");
 
         memcpy(dstSlice.Memory, srcSlice.Memory, srcSlice.Size);
     }
@@ -82,7 +83,7 @@ namespace Aria::Internal {
     void VM::Dup(i32 slot, Stack& dst, Stack& src) {
         VMSlice srcSlot = GetVMSlice(slot, src);
 
-        Alloca(srcSlot.Size, srcSlot.ResolvedType, dst);
+        Alloca(srcSlot.Type, dst);
         VMSlice dstSlot = GetVMSlice(-1, dst);
         
         memcpy(dstSlot.Memory, srcSlot.Memory, srcSlot.Size);
@@ -323,137 +324,127 @@ namespace Aria::Internal {
     }
 
     void VM::Run() {
-        #define CASE_LOAD(_enum, builtInType) case OpCodeType::_enum: { \
-            OpCodeLoad l = std::get<OpCodeLoad>(op.Data); \
-            Alloca(sizeof(builtInType), l.ResolvedType, m_LocalStack); \
-            memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<builtInType>(l.Data), sizeof(builtInType)); \
-            break; \
-        }
-
-        #define CASE_UNARYEXPR(_enum, builtinType, builtinOp) case OpCodeType::_enum: { \
-            VMSlice s = GetVMSlice(-1, m_LocalStack); \
-            builtinType value{}; \
-            memcpy(&value, s.Memory, sizeof(builtinType)); \
-            builtinType result = builtinOp(value); \
+        #define CASE_UNARYEXPR_TYPE(builtinOp, vmTypeKind, realType) case VMTypeKind::vmTypeKind: { \
+            realType value{}; memcpy(&value, GetVMSlice(-1, m_LocalStack).Memory, sizeof(realType)); \
+            realType result = builtinOp(value); \
             Pop(1, m_LocalStack); \
-            Alloca(sizeof(builtinType), s.ResolvedType, m_LocalStack); \
+            Alloca(type, m_LocalStack); \
             VMSlice newSlot = GetVMSlice(-1, m_LocalStack); \
-            memcpy(newSlot.Memory, &result, sizeof(builtinType)); \
+            memcpy(newSlot.Memory, &result, newSlot.Size); \
             break; \
         }
 
-        #define CASE_UNARYEXPR_GROUP(unaryop, op) \
-            CASE_UNARYEXPR(unaryop##I8,  int8_t,   op) \
-            CASE_UNARYEXPR(unaryop##I16, int16_t,  op) \
-            CASE_UNARYEXPR(unaryop##I32, int32_t,  op) \
-            CASE_UNARYEXPR(unaryop##I64, int64_t,  op) \
-            CASE_UNARYEXPR(unaryop##U8,  uint8_t,  op) \
-            CASE_UNARYEXPR(unaryop##U16, uint16_t, op) \
-            CASE_UNARYEXPR(unaryop##U32, uint32_t, op) \
-            CASE_UNARYEXPR(unaryop##U64, uint64_t, op) \
-            CASE_UNARYEXPR(unaryop##F32, float,    op) \
-            CASE_UNARYEXPR(unaryop##F64, double,   op)
+        #define CASE_UNARYEXPR(_enum, builtinOp) case OpCodeKind::_enum: { \
+            const VMType& type = std::get<VMType>(op.Data); \
+            switch (type.Kind) { \
+                CASE_UNARYEXPR_TYPE(builtinOp, I1,  bool) \
+                CASE_UNARYEXPR_TYPE(builtinOp, I8,  i8)   \
+                CASE_UNARYEXPR_TYPE(builtinOp, U8,  u8)   \
+                CASE_UNARYEXPR_TYPE(builtinOp, I16, i16)  \
+                CASE_UNARYEXPR_TYPE(builtinOp, U16, u16)  \
+                CASE_UNARYEXPR_TYPE(builtinOp, I32, i32)  \
+                CASE_UNARYEXPR_TYPE(builtinOp, U32, u32)  \
+                CASE_UNARYEXPR_TYPE(builtinOp, I64, i64)  \
+                CASE_UNARYEXPR_TYPE(builtinOp, U64, u64)  \
+                CASE_UNARYEXPR_TYPE(builtinOp, F32, f32)  \
+                CASE_UNARYEXPR_TYPE(builtinOp, F64, f64)  \
+            } \
+            \
+            break; \
+        }
 
-        #define CASE_BINEXPR(_enum, builtinType, builtinOp) case OpCodeType::_enum: { \
-            OpCodeMath m = std::get<OpCodeMath>(op.Data); \
-            builtinType lhs{}; \
-            builtinType rhs{}; \
-            memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(builtinType)); \
-            memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(builtinType)); \
-            builtinType result = builtinOp(lhs, rhs); \
+        #define CASE_BINEXPR_TYPE(builtinOp, vmTypeKind, realType) case VMTypeKind::vmTypeKind: { \
+            realType lhs{}; \
+            realType rhs{}; \
+            memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(realType)); \
+            memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(realType)); \
+            realType result = builtinOp(lhs, rhs); \
             Pop(2, m_LocalStack); \
-            Alloca(sizeof(builtinType), m.ResolvedType, m_LocalStack); \
+            Alloca(type, m_LocalStack); \
             VMSlice s = GetVMSlice(-1, m_LocalStack); \
-            memcpy(s.Memory, &result, sizeof(builtinType)); \
+            memcpy(s.Memory, &result, sizeof(realType)); \
             break; \
         }
 
-        #define CASE_BINEXPR_BOOL(_enum, builtinType, builtinOp) case OpCodeType::_enum: { \
-            OpCodeMath m = std::get<OpCodeMath>(op.Data); \
-            builtinType lhs{}; \
-            builtinType rhs{}; \
-            memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(builtinType)); \
-            memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(builtinType)); \
+        #define CASE_BINEXPR_TYPE_BOOL(builtinOp, vmTypeKind, realType) case VMTypeKind::vmTypeKind: { \
+            realType lhs{}; \
+            realType rhs{}; \
+            memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(realType)); \
+            memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(realType)); \
             bool result = builtinOp(lhs, rhs); \
             Pop(2, m_LocalStack); \
-            Alloca(1, m.ResolvedType, m_LocalStack); \
-            StoreBool(-1, result, m_LocalStack); \
-            break; \
-        }
-
-        #define CASE_BINEXPR_GROUP(mathop, op) \
-            CASE_BINEXPR(mathop##I8,  int8_t,   op) \
-            CASE_BINEXPR(mathop##I16, int16_t,  op) \
-            CASE_BINEXPR(mathop##I32, int32_t,  op) \
-            CASE_BINEXPR(mathop##I64, int64_t,  op) \
-            CASE_BINEXPR(mathop##U8,  uint8_t,  op) \
-            CASE_BINEXPR(mathop##U16, uint16_t, op) \
-            CASE_BINEXPR(mathop##U32, uint32_t, op) \
-            CASE_BINEXPR(mathop##U64, uint64_t, op) \
-            CASE_BINEXPR(mathop##F32, float,    op) \
-            CASE_BINEXPR(mathop##F64, double,   op)
-
-        #define CASE_BINEXPR_INTEGRAL_GROUP(mathop, op) \
-            CASE_BINEXPR(mathop##I8,  int8_t,   op) \
-            CASE_BINEXPR(mathop##I16, int16_t,  op) \
-            CASE_BINEXPR(mathop##I32, int32_t,  op) \
-            CASE_BINEXPR(mathop##I64, int64_t,  op) \
-            CASE_BINEXPR(mathop##U8,  uint8_t,  op) \
-            CASE_BINEXPR(mathop##U16, uint16_t, op) \
-            CASE_BINEXPR(mathop##U32, uint32_t, op) \
-            CASE_BINEXPR(mathop##U64, uint64_t, op)
-
-        #define CASE_BINEXPR_BOOL_GROUP(mathop, op) \
-            CASE_BINEXPR_BOOL(mathop##I8,  int8_t,   op) \
-            CASE_BINEXPR_BOOL(mathop##I16, int16_t,  op) \
-            CASE_BINEXPR_BOOL(mathop##I32, int32_t,  op) \
-            CASE_BINEXPR_BOOL(mathop##I64, int64_t,  op) \
-            CASE_BINEXPR_BOOL(mathop##U8,  uint8_t,  op) \
-            CASE_BINEXPR_BOOL(mathop##U16, uint16_t, op) \
-            CASE_BINEXPR_BOOL(mathop##U32, uint32_t, op) \
-            CASE_BINEXPR_BOOL(mathop##U64, uint64_t, op) \
-            CASE_BINEXPR_BOOL(mathop##F32, float,    op) \
-            CASE_BINEXPR_BOOL(mathop##F64, double,   op)
-
-        #define CASE_CAST(_enum, sourceType, destType) case OpCodeType::_enum: { \
-            OpCodeCast cast = std::get<OpCodeCast>(op.Data); \
+            Alloca({ VMTypeKind::I1 }, m_LocalStack); \
             VMSlice s = GetVMSlice(-1, m_LocalStack); \
-            sourceType t{}; \
-            memcpy(&t, s.Memory, sizeof(sourceType)); \
-            destType d = static_cast<destType>(t); \
-            Pop(1, m_LocalStack); \
-            Alloca(sizeof(destType), cast.ResolvedType, m_LocalStack); \
-            VMSlice __a = GetVMSlice(-1, m_LocalStack); \
-            memcpy(__a.Memory, &d, sizeof(destType)); \
+            memcpy(s.Memory, &result, sizeof(bool)); \
             break; \
         }
 
-        #define CASE_CAST_GROUP(_cast, _builtinType) \
-            CASE_CAST(Cast##_cast##ToI8,  _builtinType, int8_t) \
-            CASE_CAST(Cast##_cast##ToI16, _builtinType, int16_t) \
-            CASE_CAST(Cast##_cast##ToI32, _builtinType, int32_t) \
-            CASE_CAST(Cast##_cast##ToI64, _builtinType, int64_t) \
-            CASE_CAST(Cast##_cast##ToU8,  _builtinType, uint8_t) \
-            CASE_CAST(Cast##_cast##ToU16, _builtinType, uint16_t) \
-            CASE_CAST(Cast##_cast##ToU32, _builtinType, uint32_t) \
-            CASE_CAST(Cast##_cast##ToU64, _builtinType, uint64_t) \
-            CASE_CAST(Cast##_cast##ToF32, _builtinType, float) \
-            CASE_CAST(Cast##_cast##ToF64, _builtinType, double)
+        #define CASE_BINEXPR(_enum, builtinOp) case OpCodeKind::_enum: { \
+            VMType type = std::get<VMType>(op.Data); \
+            switch (type.Kind) { \
+                CASE_BINEXPR_TYPE(builtinOp, I1,  bool) \
+                CASE_BINEXPR_TYPE(builtinOp, I8,  i8)   \
+                CASE_BINEXPR_TYPE(builtinOp, U8,  u8)   \
+                CASE_BINEXPR_TYPE(builtinOp, I16, i16)  \
+                CASE_BINEXPR_TYPE(builtinOp, U16, u16)  \
+                CASE_BINEXPR_TYPE(builtinOp, I32, i32)  \
+                CASE_BINEXPR_TYPE(builtinOp, U32, u32)  \
+                CASE_BINEXPR_TYPE(builtinOp, I64, i64)  \
+                CASE_BINEXPR_TYPE(builtinOp, U64, u64)  \
+                CASE_BINEXPR_TYPE(builtinOp, F32, f32)  \
+                CASE_BINEXPR_TYPE(builtinOp, F64, f64)  \
+            } \
+            break; \
+        }
+
+        #define CASE_BINEXPR_INTEGRAL(_enum, builtinOp) case OpCodeKind::_enum: { \
+            VMType type = std::get<VMType>(op.Data); \
+            switch (type.Kind) { \
+                CASE_BINEXPR_TYPE(builtinOp, I1,  bool) \
+                CASE_BINEXPR_TYPE(builtinOp, I8,  i8)   \
+                CASE_BINEXPR_TYPE(builtinOp, U8,  u8)   \
+                CASE_BINEXPR_TYPE(builtinOp, I16, i16)  \
+                CASE_BINEXPR_TYPE(builtinOp, U16, u16)  \
+                CASE_BINEXPR_TYPE(builtinOp, I32, i32)  \
+                CASE_BINEXPR_TYPE(builtinOp, U32, u32)  \
+                CASE_BINEXPR_TYPE(builtinOp, I64, i64)  \
+                CASE_BINEXPR_TYPE(builtinOp, U64, u64)  \
+            } \
+            break; \
+        }
+
+        #define CASE_BINEXPR_BOOL(_enum, builtinOp) case OpCodeKind::_enum: { \
+            VMType type = std::get<VMType>(op.Data); \
+            switch (type.Kind) { \
+                CASE_BINEXPR_TYPE_BOOL(builtinOp, I1,  bool) \
+                CASE_BINEXPR_TYPE_BOOL(builtinOp, I8,  i8)   \
+                CASE_BINEXPR_TYPE_BOOL(builtinOp, U8,  u8)   \
+                CASE_BINEXPR_TYPE_BOOL(builtinOp, I16, i16)  \
+                CASE_BINEXPR_TYPE_BOOL(builtinOp, U16, u16)  \
+                CASE_BINEXPR_TYPE_BOOL(builtinOp, I32, i32)  \
+                CASE_BINEXPR_TYPE_BOOL(builtinOp, U32, u32)  \
+                CASE_BINEXPR_TYPE_BOOL(builtinOp, I64, i64)  \
+                CASE_BINEXPR_TYPE_BOOL(builtinOp, U64, u64)  \
+                CASE_BINEXPR_TYPE_BOOL(builtinOp, F32, f32)  \
+                CASE_BINEXPR_TYPE_BOOL(builtinOp, F64, f64)  \
+            } \
+            break; \
+        }
 
         for (; m_ProgramCounter < m_ProgramSize; m_ProgramCounter++) {
             const OpCode& op = m_Program[m_ProgramCounter];
 
-            switch (op.Type) {
-                case OpCodeType::Nop: { continue; }
+            switch (op.Kind) {
+                case OpCodeKind::Nop: { continue; }
 
-                case OpCodeType::Alloca: {
-                    OpCodeAlloca alloca = std::get<OpCodeAlloca>(op.Data);
+                case OpCodeKind::Alloca: {
+                    VMType type = std::get<VMType>(op.Data);
 
-                    Alloca(alloca.Size, alloca.ResolvedType, m_LocalStack);
+                    Alloca(type, m_LocalStack);
                     break;
                 }
 
-                case OpCodeType::Store: {
+                case OpCodeKind::Store: {
                     void* dst = GetPointer(-2, m_LocalStack);
                     VMSlice src = GetVMSlice(-1, m_LocalStack);
 
@@ -462,58 +453,60 @@ namespace Aria::Internal {
                     break;
                 }
 
-                case OpCodeType::Dup: {
+                case OpCodeKind::Dup: {
                     Dup(-1, m_LocalStack, m_LocalStack);
                     break;
                 }
 
-                case OpCodeType::PushSF: {
+                case OpCodeKind::PushSF: {
                     PushStackFrame();
                     break;
                 }
 
-                case OpCodeType::PopSF: {
+                case OpCodeKind::PopSF: {
                     PopStackFrame();
                     break;
                 }
 
-                CASE_LOAD(LoadI8,  i8)
-                CASE_LOAD(LoadI16, i16)
-                CASE_LOAD(LoadI32, i32)
-                CASE_LOAD(LoadI64, i64)
+                case OpCodeKind::Ldc: {
+                    const OpCodeLdc& ldc = std::get<OpCodeLdc>(op.Data);
+                    Alloca(ldc.Type, m_LocalStack);
+                    
+                    switch (ldc.Type.Kind) {
+                        case VMTypeKind::I1:  memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<bool>(ldc.Data), GetVMTypeSize(ldc.Type)); break;
+                        case VMTypeKind::I8:  memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<i8>(ldc.Data),   GetVMTypeSize(ldc.Type)); break;
+                        case VMTypeKind::U8:  memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<u8>(ldc.Data),   GetVMTypeSize(ldc.Type)); break;
+                        case VMTypeKind::I16: memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<i16>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
+                        case VMTypeKind::U16: memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<u16>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
+                        case VMTypeKind::I32: memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<i32>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
+                        case VMTypeKind::U32: memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<u32>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
+                        case VMTypeKind::I64: memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<i64>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
+                        case VMTypeKind::U64: memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<u64>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
+                        case VMTypeKind::F32: memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<f32>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
+                        case VMTypeKind::F64: memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<f64>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
+                        default: ARIA_ASSERT(false, "Invalid \"ldc\" type");
+                    }
 
-                CASE_LOAD(LoadU8,  u8)
-                CASE_LOAD(LoadU16, u16)
-                CASE_LOAD(LoadU32, u32)
-                CASE_LOAD(LoadU64, u64)
-                                      
-                CASE_LOAD(LoadF32, f32)
-                CASE_LOAD(LoadF64, f64)
-                case OpCodeType::LoadStr: {
-                    OpCodeLoad l = std::get<OpCodeLoad>(op.Data);
-                    StringView str = std::get<StringView>(l.Data);
-                    Alloca(str.Size(), l.ResolvedType, m_LocalStack);
-                    memcpy(GetVMSlice(-1, m_LocalStack).Memory, str.Data(), str.Size());
                     break;
                 }
 
-                case OpCodeType::Deref: {
-                    size_t size = std::get<size_t>(op.Data);
+                case OpCodeKind::Deref: {
+                    VMType type = std::get<VMType>(op.Data);
 
                     void* ptr = GetPointer(-1, m_LocalStack);
                     Pop(1, m_LocalStack);
-                    Alloca(size, nullptr, m_LocalStack);
+                    Alloca(type, m_LocalStack);
                     VMSlice slice = GetVMSlice(-1, m_LocalStack);
-                    memcpy(slice.Memory, ptr, size);
+                    memcpy(slice.Memory, ptr, slice.Size);
                     break;
                 }
 
-                case OpCodeType::DeclareGlobal: {
+                case OpCodeKind::DeclareGlobal: {
                     const std::string& g = std::get<std::string>(op.Data);
 
                     VMSlice src = GetVMSlice(-1, m_LocalStack);
 
-                    Alloca(src.Size, src.ResolvedType, m_GlobalStack);
+                    Alloca(src.Type, m_GlobalStack);
                     VMSlice dst = GetVMSlice(-1, m_GlobalStack);
 
                     memcpy(dst.Memory, src.Memory, src.Size);
@@ -523,18 +516,18 @@ namespace Aria::Internal {
                     break;
                 };
 
-                case OpCodeType::DeclareLocal: {
+                case OpCodeKind::DeclareLocal: {
                     size_t index = std::get<size_t>(op.Data);
                     m_StackFrames.back().LocalMap[index] = { static_cast<i32>(m_LocalStack.StackSlotPointer - m_LocalStack.StackSlotBasePointer) - 1 };
                     break;
                 };
 
-                case OpCodeType::DeclareArg: {
+                case OpCodeKind::DeclareArg: {
                     size_t index = std::get<size_t>(op.Data);
 
                     VMSlice src = GetVMSlice(-1, m_LocalStack);
 
-                    Alloca(src.Size, src.ResolvedType, m_FunctionStack);
+                    Alloca(src.Type, m_FunctionStack);
                     VMSlice dst = GetVMSlice(-1, m_FunctionStack);
 
                     memcpy(dst.Memory, src.Memory, src.Size);
@@ -542,87 +535,88 @@ namespace Aria::Internal {
                     break;
                 };
 
-                case OpCodeType::LoadGlobal: {
+                case OpCodeKind::LdGlobal: {
                     const std::string& g = std::get<std::string>(op.Data);
                     Dup(m_GlobalMap.at(g), m_LocalStack, m_GlobalStack);
                     break;
                 }
 
-                case OpCodeType::LoadLocal: {
+                case OpCodeKind::LdLocal: {
                     size_t index = std::get<size_t>(op.Data);
                     Dup(m_StackFrames.back().LocalMap.at(index), m_LocalStack, m_LocalStack);
                     break;
                 }
 
-                case OpCodeType::LoadOffset: {
-                    OpCodeOffset off = std::get<OpCodeOffset>(op.Data);
-                    u8* base = reinterpret_cast<u8*>(GetPointer(-1, m_LocalStack));
-                    Pop(1, m_LocalStack);
-
-                    Alloca(off.Size, off.ResolvedType, m_LocalStack);
-                    memcpy(GetVMSlice(-1, m_LocalStack).Memory, base + off.Offset, off.Size);
+                case OpCodeKind::LdOffset: {
+                    ARIA_ASSERT(false, "todo!");
+                    // OpCodeOffset off = std::get<OpCodeOffset>(op.Data);
+                    // u8* base = reinterpret_cast<u8*>(GetPointer(-1, m_LocalStack));
+                    // Pop(1, m_LocalStack);
+                    // 
+                    // Alloca(off.Size, off.ResolvedType, m_LocalStack);
+                    // memcpy(GetVMSlice(-1, m_LocalStack).Memory, base + off.Offset, off.Size);
                     break;
                 }
 
-                case OpCodeType::LoadArg: {
+                case OpCodeKind::LdArg: {
                     i32 index = static_cast<i32>(std::get<size_t>(op.Data));
-
                     Dup(index + 1, m_LocalStack, m_FunctionStack);
                     break;
                 }
 
-                case OpCodeType::LoadFunc: {
+                case OpCodeKind::LdFunc: {
                     const std::string& fn = std::get<std::string>(op.Data);
                     
-                    Alloca(sizeof(void*), nullptr, m_FunctionStack);
+                    Alloca({ VMTypeKind::Ptr }, m_FunctionStack);
                     StorePointer(-1, const_cast<char*>(fn.c_str()), m_FunctionStack);
                     break;
                 }
 
-                case OpCodeType::LoadPtrGlobal: {
+                case OpCodeKind::LdPtrGlobal: {
                     const std::string& g = std::get<std::string>(op.Data);
                     VMSlice slice = GetVMSlice(m_GlobalMap.at(g), m_GlobalStack);
-                    Alloca(sizeof(void*), slice.ResolvedType, m_LocalStack);
+                    Alloca({ VMTypeKind::Ptr }, m_LocalStack);
                     StorePointer(-1, slice.Memory, m_LocalStack);
                     break;
                 }
 
-                case OpCodeType::LoadPtrLocal: {
+                case OpCodeKind::LdPtrLocal: {
                     size_t index = std::get<size_t>(op.Data);
                     VMSlice slice = GetVMSlice(m_StackFrames.back().LocalMap.at(index), m_LocalStack);
-                    Alloca(sizeof(void*), slice.ResolvedType, m_LocalStack);
+                    Alloca({ VMTypeKind::Ptr }, m_LocalStack);
                     StorePointer(-1, slice.Memory, m_LocalStack);
                     break;
                 }
 
-                case OpCodeType::LoadPtrOffset: {
-                    OpCodeOffset off = std::get<OpCodeOffset>(op.Data);
-                    u8* base = reinterpret_cast<u8*>(GetPointer(-1, m_LocalStack));
-                    Pop(1, m_LocalStack);
-                    Alloca(sizeof(void*), off.ResolvedType, m_LocalStack);
-                    StorePointer(-1, base + off.Offset, m_LocalStack);
+                case OpCodeKind::LdPtrOffset: {
+                    ARIA_ASSERT(false, "todo!");
+                    // OpCodeOffset off = std::get<OpCodeOffset>(op.Data);
+                    // u8* base = reinterpret_cast<u8*>(GetPointer(-1, m_LocalStack));
+                    // Pop(1, m_LocalStack);
+                    // Alloca(sizeof(void*), off.ResolvedType, m_LocalStack);
+                    // StorePointer(-1, base + off.Offset, m_LocalStack);
                     break;
                 }
 
-                case OpCodeType::LoadPtrArg: {
+                case OpCodeKind::LdPtrArg: {
                     i32 index = static_cast<i32>(std::get<size_t>(op.Data));
                     VMSlice slice = GetVMSlice(index + 1, m_FunctionStack);
-                    Alloca(sizeof(void*), slice.ResolvedType, m_LocalStack);
+                    Alloca({ VMTypeKind::Ptr }, m_LocalStack);
                     StorePointer(-1, slice.Memory, m_LocalStack);
                     break;
                 }
 
-                case OpCodeType::LoadPtrRet: {
+                case OpCodeKind::LdPtrRet: {
                     VMSlice slice = GetVMSlice(-(static_cast<i32>(m_LocalStack.StackSlotPointer - m_LocalStack.StackSlotBasePointer) + 1), m_LocalStack);
-                    Alloca(sizeof(void*), nullptr, m_LocalStack);
+                    Alloca({ VMTypeKind::Ptr }, m_LocalStack);
                     StorePointer(-1, slice.Memory, m_LocalStack);
                     break;
                 }
 
-                case OpCodeType::Function: ARIA_ASSERT(false, "VM should never reach a function op code!"); break;
-                case OpCodeType::Label: break; // We just keep going
+                case OpCodeKind::Function: ARIA_ASSERT(false, "VM should never reach a function op code!"); break;
+                case OpCodeKind::Label: break; // We just keep going
 
-                case OpCodeType::Jmp: {
+                case OpCodeKind::Jmp: {
                     const std::string& label = std::get<std::string>(op.Data);
 
                     ARIA_ASSERT(m_ActiveFunction->Labels.contains(label), "Trying to jump to an unknown label!");
@@ -631,7 +625,7 @@ namespace Aria::Internal {
                     break;
                 }
 
-                case OpCodeType::Jt: {
+                case OpCodeKind::Jt: {
                     const std::string& label = std::get<std::string>(op.Data);
 
                     if (GetBool(-1, m_LocalStack) == true) {
@@ -642,7 +636,7 @@ namespace Aria::Internal {
                     break;
                 }
 
-                case OpCodeType::Jf: {
+                case OpCodeKind::Jf: {
                     const std::string& label = std::get<std::string>(op.Data);
 
                     if (GetBool(-1, m_LocalStack) == false) {
@@ -653,7 +647,7 @@ namespace Aria::Internal {
                     break;
                 }
 
-                case OpCodeType::Call: {
+                case OpCodeKind::Call: {
                     const OpCodeCall& call = std::get<OpCodeCall>(op.Data);
                     
                     std::string sig = reinterpret_cast<char*>(GetPointer(-(static_cast<i32>(call.ArgCount) + 1), m_FunctionStack));
@@ -690,7 +684,7 @@ namespace Aria::Internal {
                     break;
                 }
 
-                case OpCodeType::Ret: {
+                case OpCodeKind::Ret: {
                     m_FunctionStack.StackSlotPointer = m_FunctionStack.StackSlotBasePointer;
                     m_FunctionStack.StackPointer = m_FunctionStack.StackBasePointer;
 
@@ -709,66 +703,28 @@ namespace Aria::Internal {
                     break;
                 }
 
-                CASE_UNARYEXPR_GROUP(Neg, -);
+                CASE_UNARYEXPR(Neg, -);
 
-                CASE_BINEXPR_GROUP(Add, Add)
-                CASE_BINEXPR_GROUP(Sub, Sub)
-                CASE_BINEXPR_GROUP(Mul, Mul)
-                CASE_BINEXPR_GROUP(Div, Div)
-                CASE_BINEXPR_GROUP(Mod, Mod)
+                CASE_BINEXPR(Add, Add)
+                CASE_BINEXPR(Sub, Sub)
+                CASE_BINEXPR(Mul, Mul)
+                CASE_BINEXPR(Div, Div)
+                CASE_BINEXPR(Mod, Mod)
 
-                CASE_BINEXPR_INTEGRAL_GROUP(And, And)
-                CASE_BINEXPR_INTEGRAL_GROUP(Or, Or)
-                CASE_BINEXPR_INTEGRAL_GROUP(Xor, Xor)
+                CASE_BINEXPR_INTEGRAL(And, And)
+                CASE_BINEXPR_INTEGRAL(Or, Or)
+                CASE_BINEXPR_INTEGRAL(Xor, Xor)
 
-                CASE_BINEXPR_BOOL_GROUP(Cmp, Cmp)
-                CASE_BINEXPR_BOOL_GROUP(Ncmp, Ncmp)
-                case OpCodeType::LtI8: {
-                    OpCodeMath m = std::get<OpCodeMath>(op.Data); int8_t lhs{}; int8_t rhs{}; memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(int8_t)); memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(int8_t)); bool result = Lt(lhs, rhs); Pop(2, m_LocalStack); Alloca(1, m.ResolvedType, m_LocalStack); StoreBool(-1, result, m_LocalStack); break;
-                } case OpCodeType::LtI16: {
-                    OpCodeMath m = std::get<OpCodeMath>(op.Data); int16_t lhs{}; int16_t rhs{}; memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(int16_t)); memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(int16_t)); bool result = Lt(lhs, rhs); Pop(2, m_LocalStack); Alloca(1, m.ResolvedType, m_LocalStack); StoreBool(-1, result, m_LocalStack); break;
-                } case OpCodeType::LtI32: {
-                    OpCodeMath m = std::get<OpCodeMath>(op.Data); 
-                    int32_t lhs{}; 
-                    int32_t rhs{}; 
-                    memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(int32_t)); 
-                    memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(int32_t)); 
-                    bool result = Lt(lhs, rhs); 
-                    Pop(2, m_LocalStack); 
-                    Alloca(1, m.ResolvedType, m_LocalStack); 
-                    StoreBool(-1, result, m_LocalStack); 
-                    break;
-                } case OpCodeType::LtI64: {
-                    OpCodeMath m = std::get<OpCodeMath>(op.Data); int64_t lhs{}; int64_t rhs{}; memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(int64_t)); memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(int64_t)); bool result = Lt(lhs, rhs); Pop(2, m_LocalStack); Alloca(1, m.ResolvedType, m_LocalStack); StoreBool(-1, result, m_LocalStack); break;
-                } case OpCodeType::LtU8: {
-                    OpCodeMath m = std::get<OpCodeMath>(op.Data); uint8_t lhs{}; uint8_t rhs{}; memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(uint8_t)); memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(uint8_t)); bool result = Lt(lhs, rhs); Pop(2, m_LocalStack); Alloca(1, m.ResolvedType, m_LocalStack); StoreBool(-1, result, m_LocalStack); break;
-                } case OpCodeType::LtU16: {
-                    OpCodeMath m = std::get<OpCodeMath>(op.Data); uint16_t lhs{}; uint16_t rhs{}; memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(uint16_t)); memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(uint16_t)); bool result = Lt(lhs, rhs); Pop(2, m_LocalStack); Alloca(1, m.ResolvedType, m_LocalStack); StoreBool(-1, result, m_LocalStack); break;
-                } case OpCodeType::LtU32: {
-                    OpCodeMath m = std::get<OpCodeMath>(op.Data); uint32_t lhs{}; uint32_t rhs{}; memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(uint32_t)); memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(uint32_t)); bool result = Lt(lhs, rhs); Pop(2, m_LocalStack); Alloca(1, m.ResolvedType, m_LocalStack); StoreBool(-1, result, m_LocalStack); break;
-                } case OpCodeType::LtU64: {
-                    OpCodeMath m = std::get<OpCodeMath>(op.Data); uint64_t lhs{}; uint64_t rhs{}; memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(uint64_t)); memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(uint64_t)); bool result = Lt(lhs, rhs); Pop(2, m_LocalStack); Alloca(1, m.ResolvedType, m_LocalStack); StoreBool(-1, result, m_LocalStack); break;
-                } case OpCodeType::LtF32: {
-                    OpCodeMath m = std::get<OpCodeMath>(op.Data); float lhs{}; float rhs{}; memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(float)); memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(float)); bool result = Lt(lhs, rhs); Pop(2, m_LocalStack); Alloca(1, m.ResolvedType, m_LocalStack); StoreBool(-1, result, m_LocalStack); break;
-                } case OpCodeType::LtF64: {
-                    OpCodeMath m = std::get<OpCodeMath>(op.Data); double lhs{}; double rhs{}; memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(double)); memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(double)); bool result = Lt(lhs, rhs); Pop(2, m_LocalStack); Alloca(1, m.ResolvedType, m_LocalStack); StoreBool(-1, result, m_LocalStack); break;
-                }
-                CASE_BINEXPR_BOOL_GROUP(Lte, Lte)
-                CASE_BINEXPR_BOOL_GROUP(Gt, Gt)
-                CASE_BINEXPR_BOOL_GROUP(Gte, Gte)
+                CASE_BINEXPR_BOOL(Cmp, Cmp)
+                CASE_BINEXPR_BOOL(Ncmp, Ncmp)
+                CASE_BINEXPR_BOOL(Lt, Lt)
+                CASE_BINEXPR_BOOL(Lte, Lte)
+                CASE_BINEXPR_BOOL(Gt, Gt)
+                CASE_BINEXPR_BOOL(Gte, Gte)
 
-                CASE_CAST_GROUP(I8,  int8_t)
-                CASE_CAST_GROUP(I16, int16_t)
-                CASE_CAST_GROUP(I32, int32_t)
-                CASE_CAST_GROUP(I64, int64_t)
-                CASE_CAST_GROUP(U8,  uint8_t)
-                CASE_CAST_GROUP(U16, uint16_t)
-                CASE_CAST_GROUP(U32, uint32_t)
-                CASE_CAST_GROUP(U64, uint64_t)
-                CASE_CAST_GROUP(F32, float)
-                CASE_CAST_GROUP(F64, double)
+                case OpCodeKind::Cast: ARIA_ASSERT(false, "todo!"); break;
 
-                case OpCodeType::Comment: continue;
+                case OpCodeKind::Comment: continue;
             }
         }
 
@@ -789,7 +745,34 @@ namespace Aria::Internal {
             slot = stack.StackSlots[stack.StackSlotBasePointer + index];
         }
 
-        return VMSlice(&stack.Stack[slot.Index], slot.Size);
+        return VMSlice(&stack.Stack[slot.Index], slot.Size, slot.Type);
+    }
+
+    size_t VM::GetVMTypeSize(const VMType& type) {
+        switch (type.Kind) {
+            case VMTypeKind::Void: return 0;
+
+            case VMTypeKind::I1:   return 1;
+                                   
+            case VMTypeKind::I8:   return 1;
+            case VMTypeKind::U8:   return 1;
+                                   
+            case VMTypeKind::I16:  return 2;
+            case VMTypeKind::U16:  return 2;
+
+            case VMTypeKind::I32:  return 4;
+            case VMTypeKind::U32:  return 4;
+
+            case VMTypeKind::I64:  return 8;
+            case VMTypeKind::U64:  return 8;
+
+            case VMTypeKind::F32:  return 4;
+            case VMTypeKind::F64:  return 8;
+
+            case VMTypeKind::Ptr:  return sizeof(void*);
+
+            default: ARIA_UNREACHABLE();
+        }
     }
 
     void VM::StopExecution() {
@@ -800,7 +783,7 @@ namespace Aria::Internal {
         for (; m_ProgramCounter < m_ProgramSize; m_ProgramCounter++) {
             const OpCode& op = m_Program[m_ProgramCounter];
 
-            if (op.Type == OpCodeType::Function) {
+            if (op.Kind == OpCodeKind::Function) {
                 size_t startPc = m_ProgramCounter;
                 m_ProgramCounter++;
 
@@ -810,10 +793,10 @@ namespace Aria::Internal {
                 for (; m_ProgramCounter < m_ProgramSize; m_ProgramCounter++) {
                     const OpCode& op = m_Program[m_ProgramCounter];
 
-                    if (op.Type == OpCodeType::Label) {
+                    if (op.Kind == OpCodeKind::Label) {
                         std::string label = std::get<std::string>(op.Data);
                         func.Labels[label] = m_ProgramCounter;
-                    } else if (op.Type == OpCodeType::Function) {
+                    } else if (op.Kind == OpCodeKind::Function) {
                         break;
                     }
                 }
