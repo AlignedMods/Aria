@@ -96,13 +96,38 @@ namespace Aria::Internal {
                          SourceRange(m_CurrentLine, GetColumn(m_Index - buf.Size()), m_CurrentLine, GetColumn(m_Index)),
                          buf);
             } else if (std::isdigit(*Peek())) {
-                size_t startIndex = m_Index;
-                size_t endIndex = 0;
-
                 bool encounteredPeriod = false;
+                
+                bool isHex = false;
+                bool isBinary = false;
+                bool isOctal = false; 
 
+                if (Peek(1)) {
+                    if (*Peek() == '0' && std::tolower(*Peek(1)) == 'x') {
+                        Consume();
+                        Consume();
+
+                        isHex = true;
+                    } else if (*Peek() == '0' && std::tolower(*Peek(1)) == 'b') {
+                        Consume();
+                        Consume();
+
+                        isBinary = true;
+                    } else if (*Peek() == '0' && std::tolower(*Peek(1)) == 'o') {
+                        Consume();
+                        Consume();
+
+                        isOctal = true;
+                    }
+                }
+
+                size_t startIndex = m_Index;
+
+                // Parse the actual integer
                 while (Peek()) {
-                    if (std::isdigit(*Peek())) {
+                    if (std::isdigit(*Peek()) || std::tolower(*Peek()) == 'a' || std::tolower(*Peek()) == 'b'
+                                              || std::tolower(*Peek()) == 'c' || std::tolower(*Peek()) == 'd'
+                                              || std::tolower(*Peek()) == 'e' || std::tolower(*Peek()) == 'f') {
                         Consume();
                     } else if (*Peek() == '.' && !encounteredPeriod) {
                         Consume();
@@ -120,12 +145,18 @@ namespace Aria::Internal {
 
                     // TODO: Handle errors
                     AddToken(TokenType::NumLit,
-                        SourceRange(m_CurrentLine, GetColumn(m_Index - buf.Size()), m_CurrentLine, GetColumn(m_Index)),
+                        SourceRange(m_CurrentLine, GetColumn(startIndex), m_CurrentLine, GetColumn(m_Index)),
                         buf, 0, number);
                     continue;
                 } else {
                     i64 integer = 0.0;
-                    auto [ptr, ec] = std::from_chars(buf.Data(), buf.Data() + buf.Size(), integer); 
+
+                    size_t base = 10;
+                    if (isHex) { base = 16; }
+                    else if (isBinary) { base = 2; }
+                    else if (isOctal) { base = 8; }
+
+                    auto [ptr, ec] = std::from_chars(buf.Data(), buf.Data() + buf.Size(), integer, base); 
 
                     AddToken(TokenType::IntLit,
                         SourceRange(m_CurrentLine, GetColumn(m_Index - buf.Size()), m_CurrentLine, GetColumn(m_Index)),
@@ -339,9 +370,9 @@ namespace Aria::Internal {
         m_Context->SetTokens(m_Tokens);
     }
 
-    const char* Lexer::Peek() {
-        if (m_Index < m_Source.Size()) {
-            return m_Source.Data() + m_Index;
+    const char* Lexer::Peek(size_t count) {
+        if (m_Index + count < m_Source.Size()) {
+            return m_Source.Data() + m_Index + count;
         } else {
             return nullptr;
         }

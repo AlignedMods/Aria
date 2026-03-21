@@ -12,7 +12,7 @@ namespace Aria::Internal {
     private:
         void LexImpl();
 
-        const char* Peek();
+        const char* Peek(size_t count = 0);
         char Consume();
 
         void AddToken(TokenType type, const SourceRange& loc, const StringView string = {}, u64 integer = 0, f64 number = 0.0);
