@@ -100,7 +100,8 @@ namespace Aria::Internal {
                 
                 bool isHex = false;
                 bool isBinary = false;
-                bool isOctal = false; 
+                bool isOctal = false;
+                bool isDecimal = true;
 
                 if (Peek(1)) {
                     if (*Peek() == '0' && std::tolower(*Peek(1)) == 'x') {
@@ -121,19 +122,75 @@ namespace Aria::Internal {
                     }
                 }
 
+                isDecimal = !(isHex || isOctal || isBinary);
+
                 size_t startIndex = m_Index;
+                size_t numberStartIndex = m_Index;
+
+                bool errored = false;
 
                 // Parse the actual integer
                 while (Peek()) {
-                    if (std::isdigit(*Peek()) || std::tolower(*Peek()) == 'a' || std::tolower(*Peek()) == 'b'
-                                              || std::tolower(*Peek()) == 'c' || std::tolower(*Peek()) == 'd'
-                                              || std::tolower(*Peek()) == 'e' || std::tolower(*Peek()) == 'f') {
-                        Consume();
-                    } else if (*Peek() == '.' && !encounteredPeriod) {
-                        Consume();
-                        encounteredPeriod = true;
-                    } else {
-                        break;
+                    if (isDecimal) {
+                        if (std::isdigit(*Peek())) {
+                            Consume();
+                        } else if (*Peek() == '.' && !encounteredPeriod) {
+                            Consume();
+                            encounteredPeriod = true;
+                        } else if (std::tolower(*Peek()) == 'a' || std::tolower(*Peek()) == 'b'
+                                || std::tolower(*Peek()) == 'c' || std::tolower(*Peek()) == 'd'
+                                || std::tolower(*Peek()) == 'e' || std::tolower(*Peek()) == 'f') {
+                            SourceLocation loc = SourceLocation(m_CurrentLine, GetColumn(m_Index));
+                            m_Context->ReportCompilerError(loc, SourceRange(loc, loc), fmt::format("invalid hexadecimal digit '{}' in decimal literal", *Peek()));
+                            Consume();
+                            errored = true;
+                        } else {
+                            break;
+                        }
+                    } else if (isHex) {
+                        if (std::isdigit(*Peek()) || std::tolower(*Peek()) == 'a' || std::tolower(*Peek()) == 'b'
+                                                  || std::tolower(*Peek()) == 'c' || std::tolower(*Peek()) == 'd'
+                                                  || std::tolower(*Peek()) == 'e' || std::tolower(*Peek()) == 'f') {
+                            Consume();
+                        } else {
+                            break;
+                        }
+                    } else if (isOctal) {
+                        if (*Peek() >= '0' && *Peek() <= '8') {
+                            Consume();
+                        } else if (*Peek() == '9') {
+                            SourceLocation loc = SourceLocation(m_CurrentLine, GetColumn(m_Index));
+                            m_Context->ReportCompilerError(loc, SourceRange(loc, loc), "invalid digit '9' in octal literal");
+                            Consume();
+                            errored = true;
+                        } else if (std::tolower(*Peek()) == 'a' || std::tolower(*Peek()) == 'b'
+                                || std::tolower(*Peek()) == 'c' || std::tolower(*Peek()) == 'd'
+                                || std::tolower(*Peek()) == 'e' || std::tolower(*Peek()) == 'f') {
+                            SourceLocation loc = SourceLocation(m_CurrentLine, GetColumn(m_Index));
+                            m_Context->ReportCompilerError(loc, SourceRange(loc, loc), fmt::format("invalid hexadecimal digit '{}' in octal literal", *Peek()));
+                            Consume();
+                            errored = true;
+                        } else {
+                            break;
+                        }
+                    } else if (isBinary) {
+                        if (*Peek() == '0' || *Peek() == '1') {
+                            Consume();
+                        } else if (std::isdigit(*Peek())) {
+                            SourceLocation loc = SourceLocation(m_CurrentLine, GetColumn(m_Index));
+                            m_Context->ReportCompilerError(loc, SourceRange(loc, loc), fmt::format("invalid digit '{}' in binary literal", *Peek()));
+                            Consume();
+                            errored = true;
+                        } else if (std::tolower(*Peek()) == 'a' || std::tolower(*Peek()) == 'b'
+                                || std::tolower(*Peek()) == 'c' || std::tolower(*Peek()) == 'd'
+                                || std::tolower(*Peek()) == 'e' || std::tolower(*Peek()) == 'f') {
+                            SourceLocation loc = SourceLocation(m_CurrentLine, GetColumn(m_Index));
+                            m_Context->ReportCompilerError(loc, SourceRange(loc, loc), fmt::format("invalid hexadecimal digit '{}' in binary literal", *Peek()));
+                            Consume();
+                            errored = true;
+                        } else {
+                            break;
+                        }
                     }
                 }
 
@@ -141,7 +198,9 @@ namespace Aria::Internal {
 
                 if (encounteredPeriod) {
                     f64 number = 0.0;
-                    auto [ptr, ec] = std::from_chars(buf.Data(), buf.Data() + buf.Size(), number); 
+                    if (!errored) {
+                        auto [ptr, ec] = std::from_chars(buf.Data(), buf.Data() + buf.Size(), number); 
+                    }
 
                     // TODO: Handle errors
                     AddToken(TokenType::NumLit,
@@ -149,14 +208,16 @@ namespace Aria::Internal {
                         buf, 0, number);
                     continue;
                 } else {
-                    i64 integer = 0.0;
+                    i64 integer = 0;
 
-                    size_t base = 10;
-                    if (isHex) { base = 16; }
-                    else if (isBinary) { base = 2; }
-                    else if (isOctal) { base = 8; }
+                    if (!errored) {
+                        size_t base = 10;
+                        if (isHex) { base = 16; }
+                        else if (isBinary) { base = 2; }
+                        else if (isOctal) { base = 8; }
 
-                    auto [ptr, ec] = std::from_chars(buf.Data(), buf.Data() + buf.Size(), integer, base); 
+                        auto [ptr, ec] = std::from_chars(buf.Data(), buf.Data() + buf.Size(), integer, base); 
+                    }
 
                     AddToken(TokenType::IntLit,
                         SourceRange(m_CurrentLine, GetColumn(m_Index - buf.Size()), m_CurrentLine, GetColumn(m_Index)),
