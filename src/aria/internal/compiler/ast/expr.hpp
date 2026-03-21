@@ -174,9 +174,6 @@ namespace Aria::Internal {
         SourceRange Range;
     };
 
-    using IntegerStorage = std::variant<i8, u8, i16, u16, i32, u32, i64, u64>;
-    using FloatingStorage = std::variant<f32, f64>;
-
     struct BooleanConstantExpr final : public Expr {
         BooleanConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, bool value)
             : Expr(ctx, loc, range), m_Value(value) {}
@@ -208,10 +205,10 @@ namespace Aria::Internal {
     };
     
     struct IntegerConstantExpr final : public Expr {
-        IntegerConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, IntegerStorage value, TypeInfo* resolvedType)
-            : Expr(ctx, loc, range), m_Value(value), m_ResolvedType(resolvedType) {}
+        IntegerConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, u64 value)
+            : Expr(ctx, loc, range), m_Value(value), m_ResolvedType(TypeInfo::Create(ctx, PrimitiveType::Long, false)) {}
 
-        inline IntegerStorage GetValue() const { return m_Value; }
+        inline u64 GetValue() const { return m_Value; }
 
         inline virtual TypeInfo* GetResolvedType() override { return m_ResolvedType; }
         inline virtual const TypeInfo* GetResolvedType() const override { return m_ResolvedType; }
@@ -219,15 +216,15 @@ namespace Aria::Internal {
         inline virtual ExprValueType GetValueType() const override { return ExprValueType::RValue; }
 
     private:
-        IntegerStorage m_Value;
+        u64 m_Value = 0;
         TypeInfo* m_ResolvedType = nullptr;
     };
     
     struct FloatingConstantExpr final : public Expr {
-        FloatingConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, FloatingStorage value, TypeInfo* resolvedType)
-            : Expr(ctx, loc, range), m_Value(value), m_ResolvedType(resolvedType) {}
+        FloatingConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, f64 value)
+            : Expr(ctx, loc, range), m_Value(value), m_ResolvedType(TypeInfo::Create(ctx, PrimitiveType::Double, false)) {}
 
-        inline FloatingStorage GetValue() const { return m_Value; }
+        inline f64 GetValue() const { return m_Value; }
 
         inline virtual TypeInfo* GetResolvedType() override { return m_ResolvedType; }
         inline virtual const TypeInfo* GetResolvedType() const override { return m_ResolvedType; }
@@ -235,7 +232,7 @@ namespace Aria::Internal {
         inline virtual ExprValueType GetValueType() const override { return ExprValueType::RValue; }
 
     private:
-        FloatingStorage m_Value;
+        f64 m_Value = 0.0;
         TypeInfo* m_ResolvedType = nullptr;
     };
 

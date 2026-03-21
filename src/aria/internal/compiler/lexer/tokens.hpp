@@ -2,6 +2,7 @@
 
 #include "aria/internal/compiler/core/source_location.hpp"
 #include "aria/internal/compiler/core/string_view.hpp"
+#include "aria/internal/types.hpp"
 
 #include <vector>
 
@@ -59,7 +60,7 @@ namespace Aria::Internal {
 
         CharLit,
         IntLit,
-        FloatLit,
+        NumLit,
         StrLit,
 
         Void,
@@ -150,10 +151,10 @@ namespace Aria::Internal {
             case TokenType::True: return "true";
             case TokenType::False: return "false";
 
-            case TokenType::CharLit: return "char-lit";
-            case TokenType::IntLit: return "int-lit";
-            case TokenType::FloatLit: return "float-lit";
-            case TokenType::StrLit: return "str-lit";
+            case TokenType::CharLit: return "character literal";
+            case TokenType::IntLit: return "integer literal";
+            case TokenType::NumLit: return "number literal";
+            case TokenType::StrLit: return "string literal";
 
             case TokenType::Void: return "void";
 
@@ -185,8 +186,11 @@ namespace Aria::Internal {
 
     struct Token {
         TokenType Type = TokenType::Semi;
-        StringView Data;
         SourceRange Range;
+
+        StringView String;
+        u64 Integer = 0;
+        f64 Number = 0.0;
     };
 
     using Tokens = std::vector<Token>;

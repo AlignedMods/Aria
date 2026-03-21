@@ -46,31 +46,13 @@ namespace Aria::Internal {
     void Emitter::EmitIntegerConstantExpr(Expr* expr,ExprValueType type) {
         IntegerConstantExpr* ic = GetNode<IntegerConstantExpr>(expr);
 
-        const auto visitor = Overloads
-        {
-            [this, ic](i8 i)  { m_OpCodes.emplace_back(OpCodeKind::Ldc, OpCodeLdc(i, TypeInfoToVMType(ic->GetResolvedType()))); },
-            [this, ic](i16 i) { m_OpCodes.emplace_back(OpCodeKind::Ldc, OpCodeLdc(i, TypeInfoToVMType(ic->GetResolvedType()))); },
-            [this, ic](i32 i) { m_OpCodes.emplace_back(OpCodeKind::Ldc, OpCodeLdc(i, TypeInfoToVMType(ic->GetResolvedType()))); },
-            [this, ic](i64 i) { m_OpCodes.emplace_back(OpCodeKind::Ldc, OpCodeLdc(i, TypeInfoToVMType(ic->GetResolvedType()))); },
-            [this, ic](u8 i)  { m_OpCodes.emplace_back(OpCodeKind::Ldc, OpCodeLdc(i, TypeInfoToVMType(ic->GetResolvedType()))); },
-            [this, ic](u16 i) { m_OpCodes.emplace_back(OpCodeKind::Ldc, OpCodeLdc(i, TypeInfoToVMType(ic->GetResolvedType()))); },
-            [this, ic](u32 i) { m_OpCodes.emplace_back(OpCodeKind::Ldc, OpCodeLdc(i, TypeInfoToVMType(ic->GetResolvedType()))); },
-            [this, ic](u64 i) { m_OpCodes.emplace_back(OpCodeKind::Ldc, OpCodeLdc(i, TypeInfoToVMType(ic->GetResolvedType()))); },
-        };
-
-        std::visit(visitor, ic->GetValue());
+        m_OpCodes.emplace_back(OpCodeKind::Ldc, OpCodeLdc(static_cast<i64>(ic->GetValue()), TypeInfoToVMType(ic->GetResolvedType())));
     }
 
     void Emitter::EmitFloatingConstantExpr(Expr* expr, ExprValueType type) {
         FloatingConstantExpr* fc = GetNode<FloatingConstantExpr>(expr);
 
-        const auto visitor = Overloads
-        {
-            [this, fc](f32 f) { m_OpCodes.emplace_back(OpCodeKind::Ldc, OpCodeLdc(f, TypeInfoToVMType(fc->GetResolvedType()))); },
-            [this, fc](f64 f) { m_OpCodes.emplace_back(OpCodeKind::Ldc, OpCodeLdc(f, TypeInfoToVMType(fc->GetResolvedType()))); },
-        };
-
-        std::visit(visitor, fc->GetValue());
+        m_OpCodes.emplace_back(OpCodeKind::Ldc, OpCodeLdc(fc->GetValue(), TypeInfoToVMType(fc->GetResolvedType())));
     }
 
     void Emitter::EmitStringConstantExpr(Expr* expr, ExprValueType type) {

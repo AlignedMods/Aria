@@ -217,6 +217,12 @@ namespace Aria::Internal {
             CASE_BINEXPR(Gt,   "gt  ");
             CASE_BINEXPR(Gte,  "gte ");
 
+            case OpCodeKind::Cast: {
+                VMType type = std::get<VMType>(op.Data);
+                m_Output += fmt::format("    cast      {}\n", VMTypeToString(type));
+                break;
+            }
+
             case OpCodeKind::Comment: {
                 const std::string& c = std::get<std::string>(op.Data);
 

@@ -1,5 +1,8 @@
 #include "aria/internal/compiler/lexer/lexer.hpp"
 
+#include <charconv>
+#include <limits>
+
 #define ARIA_TOKEN_DATA(str, type) \
     if (buf == str) { \
         AddToken(TokenType::type, \
@@ -97,9 +100,6 @@ namespace Aria::Internal {
                 size_t endIndex = 0;
 
                 bool encounteredPeriod = false;
-                bool isUnsigned = false;
-                bool isLong = false;
-                bool isFloat = false;
 
                 while (Peek()) {
                     if (std::isdigit(*Peek())) {
@@ -114,28 +114,22 @@ namespace Aria::Internal {
 
                 StringView buf(m_Source.Data() + startIndex, m_Index - startIndex);
 
-                // Handle suffixes (u, l, f)
-                while (Peek()) {
-                    if (*Peek() == 'u') {
-                        ARIA_ASSERT(false, "TODO");
-                    } else if (*Peek() == 'l') {
-                        ARIA_ASSERT(false, "TODO");
-                    } else if (*Peek() == 'f') {
-                        ARIA_ASSERT(false, "TODO");
-                    } else {
-                        break;
-                    }
-                }
-
                 if (encounteredPeriod) {
-                    AddToken(TokenType::FloatLit,
+                    f64 number = 0.0;
+                    auto [ptr, ec] = std::from_chars(buf.Data(), buf.Data() + buf.Size(), number); 
+
+                    // TODO: Handle errors
+                    AddToken(TokenType::NumLit,
                         SourceRange(m_CurrentLine, GetColumn(m_Index - buf.Size()), m_CurrentLine, GetColumn(m_Index)),
-                        buf);
+                        buf, 0, number);
                     continue;
                 } else {
+                    i64 integer = 0.0;
+                    auto [ptr, ec] = std::from_chars(buf.Data(), buf.Data() + buf.Size(), integer); 
+
                     AddToken(TokenType::IntLit,
                         SourceRange(m_CurrentLine, GetColumn(m_Index - buf.Size()), m_CurrentLine, GetColumn(m_Index)),
-                        buf);
+                        buf, integer);
                     continue;
                 }
 
@@ -359,11 +353,15 @@ namespace Aria::Internal {
         return m_Source.At(m_Index - 1);
     }
 
-    void Lexer::AddToken(TokenType type, const SourceRange& loc, const StringView data) {
+    void Lexer::AddToken(TokenType type, const SourceRange& loc, const StringView string, u64 integer, f64 number) {
         Token token;
         token.Type = type;
-        token.Data = data;
         token.Range = loc;
+
+        token.String = string;
+        token.Integer = integer;
+        token.Number = number;
+
         m_Tokens.push_back(token);
     }
 

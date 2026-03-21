@@ -1,5 +1,6 @@
 #include "aria/internal/vm/vm.hpp"
 #include "aria/context.hpp"
+#include "assert.h"
 
 namespace Aria::Internal {
 
@@ -337,7 +338,6 @@ namespace Aria::Internal {
         #define CASE_UNARYEXPR(_enum, builtinOp) case OpCodeKind::_enum: { \
             const VMType& type = std::get<VMType>(op.Data); \
             switch (type.Kind) { \
-                CASE_UNARYEXPR_TYPE(builtinOp, I1,  bool) \
                 CASE_UNARYEXPR_TYPE(builtinOp, I8,  i8)   \
                 CASE_UNARYEXPR_TYPE(builtinOp, U8,  u8)   \
                 CASE_UNARYEXPR_TYPE(builtinOp, I16, i16)  \
@@ -382,7 +382,6 @@ namespace Aria::Internal {
         #define CASE_BINEXPR(_enum, builtinOp) case OpCodeKind::_enum: { \
             VMType type = std::get<VMType>(op.Data); \
             switch (type.Kind) { \
-                CASE_BINEXPR_TYPE(builtinOp, I1,  bool) \
                 CASE_BINEXPR_TYPE(builtinOp, I8,  i8)   \
                 CASE_BINEXPR_TYPE(builtinOp, U8,  u8)   \
                 CASE_BINEXPR_TYPE(builtinOp, I16, i16)  \
@@ -722,7 +721,100 @@ namespace Aria::Internal {
                 CASE_BINEXPR_BOOL(Gt, Gt)
                 CASE_BINEXPR_BOOL(Gte, Gte)
 
-                case OpCodeKind::Cast: ARIA_ASSERT(false, "todo!"); break;
+                case OpCodeKind::Cast: {
+                    VMType dstType = std::get<VMType>(op.Data);
+
+                    VMSlice slice = GetVMSlice(-1, m_LocalStack);
+                    VMType srcType = slice.Type;
+
+                    #define CASE_CAST(srcVMType, dstVMType, srcRealType, dstRealType) case VMTypeKind::srcVMType: { \
+                        srcRealType val{}; \
+                        memcpy(&val, slice.Memory, slice.Size); \
+                        dstRealType result = static_cast<dstRealType>(val); \
+                        Pop(1, m_LocalStack); \
+                        Alloca({ dstVMType }, m_LocalStack); \
+                        memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); \
+                        break; \
+                    }
+
+                    #define CASE_CAST_GROUP(dstVMType, dstRealType) case VMTypeKind::dstVMType: { \
+                        switch (srcType.Kind) { \
+                            CASE_CAST(I1,  VMTypeKind::dstVMType, bool, dstRealType) \
+                            \
+                            CASE_CAST(I8,  VMTypeKind::dstVMType, i8, dstRealType) \
+                            CASE_CAST(U8,  VMTypeKind::dstVMType, u8, dstRealType) \
+                            CASE_CAST(I16, VMTypeKind::dstVMType, i16, dstRealType) \
+                            CASE_CAST(U16, VMTypeKind::dstVMType, u16, dstRealType) \
+                            CASE_CAST(I32, VMTypeKind::dstVMType, i32, dstRealType) \
+                            CASE_CAST(U32, VMTypeKind::dstVMType, u32, dstRealType) \
+                            CASE_CAST(I64, VMTypeKind::dstVMType, i64, dstRealType) \
+                            CASE_CAST(U64, VMTypeKind::dstVMType, u64, dstRealType) \
+                            \
+                            CASE_CAST(F32, VMTypeKind::dstVMType, f32, dstRealType) \
+                            CASE_CAST(F64, VMTypeKind::dstVMType, f64, dstRealType) \
+                            \
+                            default: ARIA_UNREACHABLE(); \
+                        } \
+                        \
+                        break; \
+                    }
+
+                    switch (dstType.Kind) {
+                        CASE_CAST_GROUP(I1, bool)
+
+                        CASE_CAST_GROUP(I8, i8)
+                        CASE_CAST_GROUP(U8, u8)
+                        CASE_CAST_GROUP(I16, i16)
+                        CASE_CAST_GROUP(U16, u16)
+                        CASE_CAST_GROUP(I32, i32)
+                        CASE_CAST_GROUP(U32, u32)
+                        CASE_CAST_GROUP(I64, i64)
+                        CASE_CAST_GROUP(U64, u64)
+
+                    case VMTypeKind::F32: {
+                            switch (srcType.Kind) {
+                            case VMTypeKind::I1: {
+                                bool val{}; memcpy(&val, slice.Memory, slice.Size); f32 result = static_cast<f32>(val); Pop(1, m_LocalStack); Alloca({ VMTypeKind::F32 }, m_LocalStack); memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); break;
+                            } case VMTypeKind::I8: {
+                                i8 val{}; memcpy(&val, slice.Memory, slice.Size); f32 result = static_cast<f32>(val); Pop(1, m_LocalStack); Alloca({ VMTypeKind::F32 }, m_LocalStack); memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); break;
+                            } case VMTypeKind::U8: {
+                                u8 val{}; memcpy(&val, slice.Memory, slice.Size); f32 result = static_cast<f32>(val); Pop(1, m_LocalStack); Alloca({ VMTypeKind::F32 }, m_LocalStack); memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); break;
+                            } case VMTypeKind::I16: {
+                                i16 val{}; memcpy(&val, slice.Memory, slice.Size); f32 result = static_cast<f32>(val); Pop(1, m_LocalStack); Alloca({ VMTypeKind::F32 }, m_LocalStack); memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); break;
+                            } case VMTypeKind::U16: {
+                                u16 val{}; memcpy(&val, slice.Memory, slice.Size); f32 result = static_cast<f32>(val); Pop(1, m_LocalStack); Alloca({ VMTypeKind::F32 }, m_LocalStack); memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); break;
+                            } case VMTypeKind::I32: {
+                                i32 val{}; 
+                                memcpy(&val, slice.Memory, slice.Size); 
+                                f32 result = static_cast<f32>(val); 
+                                Pop(1, m_LocalStack); 
+                                Alloca({ VMTypeKind::F32 }, m_LocalStack); 
+                                memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result));
+                                break;
+                            } case VMTypeKind::U32: {
+                                u32 val{}; memcpy(&val, slice.Memory, slice.Size); f32 result = static_cast<f32>(val); Pop(1, m_LocalStack); Alloca({ VMTypeKind::F32 }, m_LocalStack); memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); break;
+                            } case VMTypeKind::I64: {
+                                i64 val{}; memcpy(&val, slice.Memory, slice.Size); f32 result = static_cast<f32>(val); Pop(1, m_LocalStack); Alloca({ VMTypeKind::F32 }, m_LocalStack); memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); break;
+                            } case VMTypeKind::U64: {
+                                u64 val{}; memcpy(&val, slice.Memory, slice.Size); f32 result = static_cast<f32>(val); Pop(1, m_LocalStack); Alloca({ VMTypeKind::F32 }, m_LocalStack); memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); break;
+                            } case VMTypeKind::F32: {
+                                f32 val{}; memcpy(&val, slice.Memory, slice.Size); f32 result = static_cast<f32>(val); Pop(1, m_LocalStack); Alloca({ VMTypeKind::F32 }, m_LocalStack); memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); break;
+                            } case VMTypeKind::F64: {
+                                f64 val{}; memcpy(&val, slice.Memory, slice.Size); f32 result = static_cast<f32>(val); Pop(1, m_LocalStack); Alloca({ VMTypeKind::F32 }, m_LocalStack); memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); break;
+                            } default: do {
+                                if (!(false)) {
+                                    fmt::print((__acrt_iob_func(2)), "{}:{}, Assertion failed with message:\n{}\n", "C:\\Users\\aligna\\Prog\\Aria\\src\\aria\\internal\\vm\\vm.cpp", 774, "Unreachable!"); __debugbreak(); abort();
+                                }
+                            } while (0);
+                            } break;
+                        }
+                        CASE_CAST_GROUP(F64, f64)
+
+                        default: ARIA_UNREACHABLE();
+                    }
+
+                    break;
+                }
 
                 case OpCodeKind::Comment: continue;
             }

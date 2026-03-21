@@ -87,7 +87,7 @@ namespace Aria::Internal {
             case TokenType::Float:      strType.Append(m_Context, "float"); break;
             case TokenType::Double:     strType.Append(m_Context, "double"); break;
             case TokenType::String:     strType.Append(m_Context, "string"); break;
-            case TokenType::Identifier: strType.Append(m_Context, type.Data); break;
+            case TokenType::Identifier: strType.Append(m_Context, type.String); break;
             default:                    strType.Append(m_Context, ""); break;
         }
 
@@ -113,7 +113,7 @@ namespace Aria::Internal {
 
             Token& ident = Consume();
             
-            ParamDecl* param = m_Context->Allocate<ParamDecl>(m_Context, ident.Data, StringView(type.Data(), type.Size()));
+            ParamDecl* param = m_Context->Allocate<ParamDecl>(m_Context, ident.String, StringView(type.Data(), type.Size()));
             
             if (Match(TokenType::Comma)) {
                 Consume();
@@ -154,7 +154,7 @@ namespace Aria::Internal {
         if (IsPrimitiveType()) { return true; }
 
         if (Peek()->Type == TokenType::Identifier) {
-            if (m_DeclaredTypes.contains(fmt::format("{}", Peek()->Data))) {
+            if (m_DeclaredTypes.contains(fmt::format("{}", Peek()->String))) {
                 return true;
             }
 
@@ -263,42 +263,29 @@ namespace Aria::Internal {
             case TokenType::CharLit: {
                 Token& t = Consume();
     
-                int8_t ch = static_cast<int8_t>(value.Data.Data()[0]);
+                int8_t ch = static_cast<int8_t>(value.String.Data()[0]);
                 final = m_Context->Allocate<CharacterConstantExpr>(m_Context, t.Range.Start, t.Range, ch);
                 break;
             }
     
             case TokenType::IntLit: {
                 Token& t = Consume();
-    
-                int32_t num = 0;
-                auto [ptr, ec] = std::from_chars(value.Data.Data(), value.Data.Data() + value.Data.Size(), num);
-    
-                if (ec != std::errc()) {
-                    ErrorTooLarge(value.Data);
-                }
-                final = m_Context->Allocate<IntegerConstantExpr>(m_Context, t.Range.Start, t.Range, num, TypeInfo::Create(m_Context, PrimitiveType::Int, false));
+
+                final = m_Context->Allocate<IntegerConstantExpr>(m_Context, t.Range.Start, t.Range, t.Integer);
                 break;
             }
     
-            case TokenType::FloatLit: {
+            case TokenType::NumLit: {
                 Token& t = Consume();
     
-                float num = 0.0f;
-                auto [ptr, ec] = std::from_chars(value.Data.Data(), value.Data.Data() + value.Data.Size(), num);
-    
-                if (ec != std::errc()) {
-                    ErrorTooLarge(value.Data);
-                }
-                final = m_Context->Allocate<FloatingConstantExpr>(m_Context, t.Range.Start, t.Range, num, TypeInfo::Create(m_Context, PrimitiveType::Float, false));
+                final = m_Context->Allocate<FloatingConstantExpr>(m_Context, t.Range.Start, t.Range, t.Number);
                 break;
             }
     
             case TokenType::StrLit: {
                 Token& t = Consume();
     
-                StringView str = value.Data;
-                final = m_Context->Allocate<StringConstantExpr>(m_Context, t.Range.Start, t.Range, str);
+                final = m_Context->Allocate<StringConstantExpr>(m_Context, t.Range.Start, t.Range, t.String);
                 break;
             }
     
@@ -341,7 +328,7 @@ namespace Aria::Internal {
             case TokenType::Identifier: {
                 Token i = Consume();
 
-                final = m_Context->Allocate<DeclRefExpr>(m_Context, i.Range.Start, i.Range, i.Data);
+                final = m_Context->Allocate<DeclRefExpr>(m_Context, i.Range.Start, i.Range, i.String);
 
                 // Check if this is a function call
                 if (Match(TokenType::LeftParen)) {
@@ -377,7 +364,7 @@ namespace Aria::Internal {
                 Token* member = TryConsume(TokenType::Identifier, "identifier");
                 if (!member) { return nullptr; }
 
-                final = m_Context->Allocate<MemberExpr>(m_Context, op.Range.Start, SourceRange(final->Range.Start, member->Range.End), member->Data, final);
+                final = m_Context->Allocate<MemberExpr>(m_Context, op.Range.Start, SourceRange(final->Range.Start, member->Range.End), member->String, final);
 
                 if (Match(TokenType::LeftParen)) {
                     Token& lp = Consume();
@@ -473,7 +460,7 @@ namespace Aria::Internal {
                 value = ParseExpression();
             }
 
-            return m_Context->Allocate<VarDecl>(m_Context, ident->Data, StringView(type.Data(), type.Size()), value);
+            return m_Context->Allocate<VarDecl>(m_Context, ident->String, StringView(type.Data(), type.Size()), value);
         } else {
             StabilizeParser();
             return nullptr;
@@ -498,7 +485,7 @@ namespace Aria::Internal {
                     m_NeedsSemi = false;
                 }
 
-                return m_Context->Allocate<FunctionDecl>(m_Context, ident->Data, StringView(returnType.Data(), returnType.Size()), params, external, GetNode<CompoundStmt>(body));
+                return m_Context->Allocate<FunctionDecl>(m_Context, ident->String, StringView(returnType.Data(), returnType.Size()), params, external, GetNode<CompoundStmt>(body));
             } else {
                 ErrorExpected("'('", Peek()->Range.End, Peek()->Range);
             }
@@ -521,7 +508,7 @@ namespace Aria::Internal {
         Token* ident = TryConsume(TokenType::Identifier, "indentifier");
 
         if (!ident) { return nullptr; }
-        m_DeclaredTypes[fmt::format("{}", ident->Data)] = true;
+        m_DeclaredTypes[fmt::format("{}", ident->String)] = true;
 
         TinyVector<Decl*> fields;
 
@@ -542,11 +529,11 @@ namespace Aria::Internal {
 
                     Stmt* body = ParseCompound();
 
-                    fields.Append(m_Context, m_Context->Allocate<MethodDecl>(m_Context, fieldName->Data, StringView(type.Data(), type.Size()), params));
+                    fields.Append(m_Context, m_Context->Allocate<MethodDecl>(m_Context, fieldName->String, StringView(type.Data(), type.Size()), params));
                 } else {
                     TryConsume(TokenType::Semi, "';'");
 
-                    fields.Append(m_Context, m_Context->Allocate<FieldDecl>(m_Context, fieldName->Data, StringView(type.Data(), type.Size())));
+                    fields.Append(m_Context, m_Context->Allocate<FieldDecl>(m_Context, fieldName->String, StringView(type.Data(), type.Size())));
                 }
             }
         }
@@ -554,7 +541,7 @@ namespace Aria::Internal {
         TryConsume(TokenType::RightCurly, "'}'");
 
         m_NeedsSemi = false;
-        return m_Context->Allocate<StructDecl>(m_Context, ident->Data, fields);
+        return m_Context->Allocate<StructDecl>(m_Context, ident->String, fields);
     }
 
     Stmt* Parser::ParseWhile() {

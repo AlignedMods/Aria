@@ -88,7 +88,7 @@ namespace Aria::Internal {
         // Data for this compilation unit
         std::string m_SourceCode;
         Tokens m_Tokens;
-        Stmt* m_RootASTNode;
+        Stmt* m_RootASTNode = nullptr;
         std::vector<OpCode> m_OpCodes;
 
         CompilerReflectionData m_ReflectionData;
