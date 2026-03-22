@@ -45,8 +45,14 @@ namespace Aria::Internal {
 
     void Emitter::EmitIntegerConstantExpr(Expr* expr,ExprValueType type) {
         IntegerConstantExpr* ic = GetNode<IntegerConstantExpr>(expr);
-
-        m_OpCodes.emplace_back(OpCodeKind::Ldc, OpCodeLdc(static_cast<i64>(ic->GetValue()), TypeInfoToVMType(ic->GetResolvedType())));
+        
+        if (ic->GetResolvedType()->Type == PrimitiveType::Long) {
+            m_OpCodes.emplace_back(OpCodeKind::Ldc, OpCodeLdc(static_cast<i64>(ic->GetValue()), TypeInfoToVMType(ic->GetResolvedType())));
+        } else if (ic->GetResolvedType()->Type == PrimitiveType::ULong) {
+            m_OpCodes.emplace_back(OpCodeKind::Ldc, OpCodeLdc(ic->GetValue(), TypeInfoToVMType(ic->GetResolvedType())));
+        } else {
+            ARIA_UNREACHABLE();
+        }
     }
 
     void Emitter::EmitFloatingConstantExpr(Expr* expr, ExprValueType type) {
@@ -177,7 +183,7 @@ namespace Aria::Internal {
             retCount = 1;
         }
 
-        m_OpCodes.emplace_back(OpCodeKind::Call, OpCodeCall(call->GetArguments().Size));
+        m_OpCodes.emplace_back(OpCodeKind::Call, OpCodeCall(call->GetArguments().Size, TypeInfoToVMType(retType)));
 
         // The only special case is when returning a reference and getting it as an rvalue
         if (type == ExprValueType::RValue) {
@@ -200,7 +206,7 @@ namespace Aria::Internal {
         if (cast->GetCastType() == CastType::LValueToRValue) {
             return EmitExpr(cast->GetChildExpr(), ExprValueType::RValue);
         } else {
-            EmitExpr(cast->GetChildExpr(), cast->GetChildExpr()->GetValueType());
+            EmitExpr(cast->GetChildExpr(), cast->GetValueType());
             m_OpCodes.emplace_back(OpCodeKind::Cast, TypeInfoToVMType(cast->GetResolvedType()));
             return;
         }
@@ -214,7 +220,7 @@ namespace Aria::Internal {
         if (cast->GetCastType() == CastType::LValueToRValue) {
             return EmitExpr(cast->GetChildExpr(), ExprValueType::RValue);
         } else {
-            EmitExpr(cast->GetChildExpr(), cast->GetChildExpr()->GetValueType());
+            EmitExpr(cast->GetChildExpr(), cast->GetValueType());
             m_OpCodes.emplace_back(OpCodeKind::Cast, TypeInfoToVMType(cast->GetResolvedType()));
             return;
         }
@@ -226,7 +232,7 @@ namespace Aria::Internal {
         UnaryOperatorExpr* unop = GetNode<UnaryOperatorExpr>(expr);
 
         switch (unop->GetUnaryOperator()) {
-            case UnaryOperatorType::Negate: EmitExpr(unop->GetChildExpr(), unop->GetChildExpr()->GetValueType()); m_OpCodes.emplace_back(OpCodeKind::Neg); break;
+            case UnaryOperatorType::Negate: EmitExpr(unop->GetChildExpr(), unop->GetChildExpr()->GetValueType()); m_OpCodes.emplace_back(OpCodeKind::Neg, TypeInfoToVMType(unop->GetResolvedType())); break;
             default: ARIA_UNREACHABLE();
         }
     }

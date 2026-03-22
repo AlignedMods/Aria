@@ -94,17 +94,7 @@ namespace Aria::Internal {
         }
 
         for (size_t i = 0; i < fnDecl.ParamTypes.Size; i++) {
-            TypeInfo* paramType = fnDecl.ParamTypes.Items[i];
-            TypeInfo* argType = HandleExpr(call->GetArguments().Items[i]);
-
-            ConversionCost cost = GetConversionCost(paramType, argType, call->GetArguments().Items[i]->GetValueType());
-            if (cost.CastNeeded) {
-                if (cost.ImplicitCastPossible) {
-                    call->SetArgument(i, InsertImplicitCast(paramType, argType, call->GetArguments().Items[i], cost.CaType));
-                } else {
-                    ARIA_ASSERT(false, "todo: error msg");
-                }
-            }
+            HandleInitializer(call->GetArguments().Items[i], fnDecl.ParamTypes.Items[i]);
         }
 
         call->SetResolvedType(fnDecl.ReturnType);
@@ -213,39 +203,34 @@ namespace Aria::Internal {
             case BinaryOperatorType::IsEq: 
             case BinaryOperatorType::IsNotEq: {
                 // See which conversion would be better
-                ConversionCost costLHS = GetConversionCost(LHSType, RHSType, LHS->GetValueType());
-                ConversionCost costRHS = GetConversionCost(RHSType, LHSType, RHS->GetValueType());
+                ConversionCost costLHS = GetConversionCost(LHSType, RHSType, RHS->GetValueType()); // Cast to LHS
+                ConversionCost costRHS = GetConversionCost(RHSType, LHSType, LHS->GetValueType()); // Cast to RHS
 
                 if (costLHS.CastNeeded || costRHS.CastNeeded) {
                     bool lhsCastNeeded = costLHS.CastNeeded;
                     bool rhsCastNeeded = costRHS.CastNeeded;
 
                     if (costLHS.CoType == ConversionType::LValueToRValue) {
-                        binop->SetLHS(InsertImplicitCast(LHSType, RHSType, LHS, costLHS.CaType));
+                        binop->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, costLHS.CaType));
                         RHSType = LHSType;
                         lhsCastNeeded = false;
                     }
                     
                     if (costRHS.CoType == ConversionType::LValueToRValue) {
-                        binop->SetRHS(InsertImplicitCast(RHSType, LHSType, RHS, costRHS.CaType));
+                        binop->SetLHS(InsertImplicitCast(RHSType, LHSType, LHS, costRHS.CaType));
                         LHSType = RHSType;
                         rhsCastNeeded = false;
                     }
 
                     if (lhsCastNeeded || rhsCastNeeded) {
                         if (costLHS.CoType == ConversionType::Promotion) {
-                            binop->SetLHS(InsertImplicitCast(LHSType, RHSType, LHS, costLHS.CaType));
+                            binop->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, costLHS.CaType));
                             RHSType = LHSType;
                         } else if (costRHS.CoType == ConversionType::Promotion) {
-                            binop->SetRHS(InsertImplicitCast(RHSType, LHSType, RHS, costLHS.CaType));
+                            binop->SetLHS(InsertImplicitCast(RHSType, LHSType, LHS, costRHS.CaType));
                             LHSType = RHSType;
                         } else {
                             m_Context->ReportCompilerError(binop->Loc, binop->Range, fmt::format("mismatched types '{}' and '{}'", TypeInfoToString(LHSType), TypeInfoToString(RHSType)));
-                            // ARIA_ASSERT(false, "todo: add error for TypeChecker::HandleBinaryOperatorExpr()");
-                            // m_Context->ReportCompilerError(expr->Loc.Line, expr->Loc.Column, 
-                            //                                expr->Range.Start.Line, expr->Range.Start.Column,
-                            //                                expr->Range.End.Line, expr->Range.End.Column,
-                            //                                fmt::format("Mismatched types '{}' and '{}', no viable implicit cast", TypeInfoToString(LHSType), TypeInfoToString(RHSType)));
                         }
                     }
                 }
@@ -574,11 +559,11 @@ namespace Aria::Internal {
     Expr* TypeChecker::HandleInitializer(Expr* initializer, TypeInfo* type) {
         // If we are initializing a reference, the initializer must be of the same type and an lvalue
         if (type->IsReference()) {
-            ARIA_ASSERT(initializer != nullptr, "Initial value of a reference must be an lvalue");
+            ARIA_ASSERT(initializer != nullptr, "initial value of a reference must be an lvalue");
             TypeInfo* valType = HandleExpr(initializer);
 
             if (!TypeIsEqual(type, valType) || initializer->GetValueType() != ExprValueType::LValue) {
-                m_Context->ReportCompilerError(initializer->Loc, initializer->Range, "Initial value of reference must be an lvalue");
+                m_Context->ReportCompilerError(initializer->Loc, initializer->Range, "initial value of reference must be an lvalue");
             }
 
             return initializer;
@@ -590,7 +575,7 @@ namespace Aria::Internal {
                 if (cost.ImplicitCastPossible) {
                     return InsertImplicitCast(type, valType, initializer, cost.CaType);
                 } else {
-                    ARIA_ASSERT(false, "todo: TypeChecker::HandleVarDecl() error");
+                    m_Context->ReportCompilerError(initializer->Loc, initializer->Range, fmt::format("cannot implicitly convert from '{}' to '{}'", TypeInfoToString(valType), TypeInfoToString(type)));
                 }
             }
         }

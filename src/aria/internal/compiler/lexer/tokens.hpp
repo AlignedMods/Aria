@@ -60,6 +60,7 @@ namespace Aria::Internal {
 
         CharLit,
         IntLit,
+        UintLit,
         NumLit,
         StrLit,
 

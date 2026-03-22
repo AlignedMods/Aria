@@ -26,7 +26,7 @@ namespace Aria::Internal {
 
     void Disassembler::DisassembleOpCode(const OpCode& op) {
         #define CASE_BINEXPR(_enum, str) case OpCodeKind::_enum: { \
-            VMType type = std::get<VMType>(op.Data); \
+            const VMType& type = std::get<VMType>(op.Data); \
             m_Output += fmt::format("    {}      {}\n", str, VMTypeToString(type)); \
             break; \
         }
@@ -35,7 +35,7 @@ namespace Aria::Internal {
             case OpCodeKind::Nop: m_Output += "    nop\n"; break;
 
             case OpCodeKind::Alloca: {
-                VMType type = std::get<VMType>(op.Data);
+                const VMType& type = std::get<VMType>(op.Data);
                 m_Output += fmt::format("    alloca {}\n", VMTypeToString(type));
                 break;
             }
@@ -81,7 +81,7 @@ namespace Aria::Internal {
             }
 
             case OpCodeKind::Deref: {
-                VMType type = std::get<VMType>(op.Data);
+                const VMType& type = std::get<VMType>(op.Data);
                 m_Output += fmt::format("    deref     {}\n", VMTypeToString(type));
                 break;
             }
@@ -136,13 +136,13 @@ namespace Aria::Internal {
 
             case OpCodeKind::LdPtrGlobal: {
                 const std::string& global = std::get<std::string>(op.Data);
-                m_Output += fmt::format("    ldptr.g   {}\n", m_Indentation, global);
+                m_Output += fmt::format("    ldptr.g   {}\n", global);
                 break;
             }
 
             case OpCodeKind::LdPtrLocal: {
                 size_t index = std::get<size_t>(op.Data);
-                m_Output += fmt::format("    ldptr.l   {}\n", m_Indentation, index);
+                m_Output += fmt::format("    ldptr.l   {}\n", index);
                 break;
             }
 
@@ -153,7 +153,7 @@ namespace Aria::Internal {
             }
 
             case OpCodeKind::LdPtrRet: {
-                m_Output += fmt::format("    ldptr.ret\n", m_Indentation);
+                m_Output += "    ldptr.ret\n";
                 break;
             }
 
@@ -200,6 +200,12 @@ namespace Aria::Internal {
 
             case OpCodeKind::Ret: m_Output += "    ret\n"; break;
 
+            case OpCodeKind::Neg: {
+                const VMType& type = std::get<VMType>(op.Data);
+                m_Output += fmt::format("    neg       {}\n", VMTypeToString(type));
+                break;
+            }
+
             CASE_BINEXPR(Add,  "add ");
             CASE_BINEXPR(Sub,  "sub ");
             CASE_BINEXPR(Mul,  "mul ");
@@ -218,7 +224,7 @@ namespace Aria::Internal {
             CASE_BINEXPR(Gte,  "gte ");
 
             case OpCodeKind::Cast: {
-                VMType type = std::get<VMType>(op.Data);
+                const VMType& type = std::get<VMType>(op.Data);
                 m_Output += fmt::format("    cast      {}\n", VMTypeToString(type));
                 break;
             }
@@ -240,11 +246,11 @@ namespace Aria::Internal {
             case VMTypeKind::I8:    return "i8";
             case VMTypeKind::U8:    return "u8";
             case VMTypeKind::I16:   return "i16";
-            case VMTypeKind::U16:   return "i16";
+            case VMTypeKind::U16:   return "u16";
             case VMTypeKind::I32:   return "i32";
-            case VMTypeKind::U32:   return "i32";
+            case VMTypeKind::U32:   return "u32";
             case VMTypeKind::I64:   return "i64";
-            case VMTypeKind::U64:   return "i64";
+            case VMTypeKind::U64:   return "u64";
 
             case VMTypeKind::F32:   return "f32";
             case VMTypeKind::F64:   return "f64";

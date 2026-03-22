@@ -102,6 +102,7 @@ namespace Aria::Internal {
                 bool isBinary = false;
                 bool isOctal = false;
                 bool isDecimal = true;
+                bool isUnsigned = false;
 
                 if (Peek(1)) {
                     if (*Peek() == '0' && std::tolower(*Peek(1)) == 'x') {
@@ -195,20 +196,39 @@ namespace Aria::Internal {
                 }
 
                 StringView buf(m_Source.Data() + startIndex, m_Index - startIndex);
+                
+                // Check for unsigned
+                if (Peek() && std::tolower(*Peek()) == 'u') {
+                    if (encounteredPeriod) {
+                        SourceLocation loc = SourceLocation(m_CurrentLine, GetColumn(m_Index));
+                        m_Context->ReportCompilerError(loc, SourceRange(loc, loc), fmt::format("cannot use 'u' suffix in a floating-point literal"));
+                        Consume();
+                        errored = true;
+                    } else {
+                        Consume();
+                        isUnsigned = true;
+                    }
+                }
 
                 if (encounteredPeriod) {
                     f64 number = 0.0;
                     if (!errored) {
                         auto [ptr, ec] = std::from_chars(buf.Data(), buf.Data() + buf.Size(), number); 
+
+                        if (ec == std::errc::result_out_of_range) {
+                            SourceLocation loc(m_CurrentLine, GetColumn(m_Index - buf.Size()));
+                            m_Context->ReportCompilerError(loc, SourceRange(loc, SourceLocation(m_CurrentLine, GetColumn(m_Index))), 
+                                                           "magnitude of floating-point literal is too large, maximum is 1.7976931348623157E+308");
+                            number = 0.0;
+                        }
                     }
 
-                    // TODO: Handle errors
                     AddToken(TokenType::NumLit,
                         SourceRange(m_CurrentLine, GetColumn(startIndex), m_CurrentLine, GetColumn(m_Index)),
                         buf, 0, number);
                     continue;
                 } else {
-                    i64 integer = 0;
+                    u64 integer = 0;
 
                     if (!errored) {
                         size_t base = 10;
@@ -217,11 +237,24 @@ namespace Aria::Internal {
                         else if (isOctal) { base = 8; }
 
                         auto [ptr, ec] = std::from_chars(buf.Data(), buf.Data() + buf.Size(), integer, base); 
+
+                        if (ec == std::errc::result_out_of_range) {
+                            SourceLocation loc(m_CurrentLine, GetColumn(m_Index - buf.Size()));
+                            m_Context->ReportCompilerError(loc, SourceRange(loc, SourceLocation(m_CurrentLine, GetColumn(m_Index))), 
+                                                           "integer literal is too large to fit into any integer type");
+                            integer = 0;
+                        }
                     }
 
-                    AddToken(TokenType::IntLit,
-                        SourceRange(m_CurrentLine, GetColumn(m_Index - buf.Size()), m_CurrentLine, GetColumn(m_Index)),
-                        buf, integer);
+                    if (isUnsigned) {
+                        AddToken(TokenType::UintLit,
+                            SourceRange(m_CurrentLine, GetColumn(m_Index - buf.Size()), m_CurrentLine, GetColumn(m_Index)),
+                            buf, integer);
+                    } else {
+                        AddToken(TokenType::IntLit,
+                            SourceRange(m_CurrentLine, GetColumn(m_Index - buf.Size()), m_CurrentLine, GetColumn(m_Index)),
+                            buf, integer);
+                    }
                     continue;
                 }
 

@@ -6,7 +6,7 @@ void PrintHelp(const char* appName) {
 }
 
 void PrintInt(Aria::Context* ctx) {
-    fmt::print("{}\n", ctx->GetInt(0));
+    fmt::print("{}\n", (uint32_t)ctx->GetInt(0));
 }
 
 int main(int argc, char** argv) {

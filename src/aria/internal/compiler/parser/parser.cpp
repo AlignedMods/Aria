@@ -271,7 +271,14 @@ namespace Aria::Internal {
             case TokenType::IntLit: {
                 Token& t = Consume();
 
-                final = m_Context->Allocate<IntegerConstantExpr>(m_Context, t.Range.Start, t.Range, t.Integer);
+                final = m_Context->Allocate<IntegerConstantExpr>(m_Context, t.Range.Start, t.Range, t.Integer, TypeInfo::Create(m_Context, PrimitiveType::Long, false));
+                break;
+            }
+
+            case TokenType::UintLit: {
+                Token& t = Consume();
+
+                final = m_Context->Allocate<IntegerConstantExpr>(m_Context, t.Range.Start, t.Range, t.Integer, TypeInfo::Create(m_Context, PrimitiveType::ULong, false));
                 break;
             }
     

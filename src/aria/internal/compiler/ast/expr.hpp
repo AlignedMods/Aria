@@ -205,8 +205,8 @@ namespace Aria::Internal {
     };
     
     struct IntegerConstantExpr final : public Expr {
-        IntegerConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, u64 value)
-            : Expr(ctx, loc, range), m_Value(value), m_ResolvedType(TypeInfo::Create(ctx, PrimitiveType::Long, false)) {}
+        IntegerConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, u64 value, TypeInfo* resolvedType)
+            : Expr(ctx, loc, range), m_Value(value), m_ResolvedType(resolvedType) {}
 
         inline u64 GetValue() const { return m_Value; }
 
