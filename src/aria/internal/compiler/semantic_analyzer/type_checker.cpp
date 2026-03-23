@@ -16,30 +16,56 @@ namespace Aria::Internal {
         HandleStmt(m_RootASTNode);
     }
 
-    TypeInfo* TypeChecker::HandleBooleanConstantExpr(Expr* expr) {
-        return expr->GetResolvedType();
+    Expr* TypeChecker::HandleBooleanConstantExpr(Expr* expr) {
+        expr->SetValueType(ExprValueType::RValue);
+        return expr;
     }
 
-    TypeInfo* TypeChecker::HandleCharacterConstantExpr(Expr* expr) {
-        return expr->GetResolvedType();
+    Expr* TypeChecker::HandleCharacterConstantExpr(Expr* expr) {
+        expr->SetValueType(ExprValueType::RValue);
+        return expr;
     }
 
-    TypeInfo* TypeChecker::HandleIntegerConstantExpr(Expr* expr) {
-        return expr->GetResolvedType();
+    Expr* TypeChecker::HandleIntegerConstantExpr(Expr* expr) {
+        expr->SetValueType(ExprValueType::RValue);
+        return expr;
     }
 
-    TypeInfo* TypeChecker::HandleFloatingConstantExpr(Expr* expr) {
-        return expr->GetResolvedType();
+    Expr* TypeChecker::HandleFloatingConstantExpr(Expr* expr) {
+        expr->SetValueType(ExprValueType::RValue);
+        return expr;
     }
 
-    TypeInfo* TypeChecker::HandleStringConstantExpr(Expr* expr) {
-        return expr->GetResolvedType();
+    Expr* TypeChecker::HandleStringConstantExpr(Expr* expr) {
+        expr->SetValueType(ExprValueType::RValue);
+        ARIA_ASSERT(false, "todo!");
     }
 
-    TypeInfo* TypeChecker::HandleDeclRefExpr(Expr* expr) {
+    Expr* TypeChecker::HandleDeclRefExpr(Expr* expr) {
         DeclRefExpr* ref = GetNode<DeclRefExpr>(expr);
 
         std::string ident = ref->GetIdentifier();
+
+        if (m_ActiveStruct) {
+            StructDecl* s = GetNode<StructDecl>(std::get<StructDeclaration>(m_ActiveStruct->Data).SourceDecl);
+            ARIA_ASSERT(s != nullptr, "how");
+
+            for (Decl* d : s->GetFields()) {
+                if (FieldDecl* fd = GetNode<FieldDecl>(d)) {
+                    if (fd->GetRawIdentifier() == ref->GetRawIdentifier()) {
+                        SelfExpr* self = m_Context->Allocate<SelfExpr>(m_Context, ref->Loc, ref->Range);
+                        self->SetResolvedType(m_ActiveStruct);
+                        self->SetValueType(ExprValueType::LValue);
+
+                        MemberExpr* mem = m_Context->Allocate<MemberExpr>(m_Context, ref->Loc, ref->Range, ref->GetRawIdentifier(), self);
+                        mem->SetResolvedType(fd->GetResolvedType());
+                        mem->SetParentType(self->GetResolvedType());
+                        mem->SetValueType(ExprValueType::LValue);
+                        return mem;
+                    }
+                }
+            }
+        }
         
         for (size_t i = m_Declarations.size(); i > 0; i--) {
             auto& it = m_Declarations.at(i - 1);
@@ -47,19 +73,22 @@ namespace Aria::Internal {
             if (it.contains(ident)) {
                 ref->SetResolvedType(it.at(ident).ResolvedType);
                 ref->SetType(it.at(ident).DeclType);
-                return ref->GetResolvedType();
+                ref->SetValueType(ExprValueType::LValue);
+                return ref;
             }
         }
 
         m_Context->ReportCompilerError(ref->Loc, ref->Range, fmt::format("Undeclared identifier \"{}\"", ref->GetRawIdentifier()));
         ref->SetResolvedType(TypeInfo::Create(m_Context, PrimitiveType::Void, false));
-        return ref->GetResolvedType();
+        ref->SetValueType(ExprValueType::LValue);
+        return ref;
     }
 
-    TypeInfo* TypeChecker::HandleMemberExpr(Expr* expr) {
+    Expr* TypeChecker::HandleMemberExpr(Expr* expr) {
         MemberExpr* mem = GetNode<MemberExpr>(expr);
 
-        TypeInfo* parentType = HandleExpr(mem->GetParent());
+        mem->SetParent(HandleExpr(mem->GetParent()));
+        TypeInfo* parentType = mem->GetParent()->GetResolvedType();
         TypeInfo* memberType = nullptr;
         StructDeclaration& sd = std::get<StructDeclaration>(parentType->Data);
 
@@ -71,8 +100,9 @@ namespace Aria::Internal {
                     memberType = fd->GetResolvedType();
                 }
             } else if (MethodDecl* md = GetNode<MethodDecl>(field)) {
-                ARIA_ASSERT(false, "todo!");
-                // memberType = md->GetResolvedType();
+                if (md->GetRawIdentifier() == mem->GetMember()) {
+                    memberType = md->GetResolvedType();
+                }
             }
         }
 
@@ -82,14 +112,14 @@ namespace Aria::Internal {
 
         mem->SetParentType(parentType);
         mem->SetResolvedType(memberType);
-
-        return memberType;
+        mem->SetValueType(ExprValueType::LValue);
+        return mem;
     }
 
-    TypeInfo* TypeChecker::HandleCallExpr(Expr* expr) {
+    Expr* TypeChecker::HandleCallExpr(Expr* expr) {
         CallExpr* call = GetNode<CallExpr>(expr);
 
-        TypeInfo* calleeType = HandleExpr(call->GetCallee());
+        TypeInfo* calleeType = HandleExpr(call->GetCallee())->GetResolvedType();
         FunctionDeclaration& fnDecl = std::get<FunctionDeclaration>(calleeType->Data);
 
         if (fnDecl.ParamTypes.Size != call->GetArguments().Size) {
@@ -102,12 +132,12 @@ namespace Aria::Internal {
 
         call->SetResolvedType(fnDecl.ReturnType);
         call->SetValueType((fnDecl.ReturnType->IsReference()) ? ExprValueType::LValue : ExprValueType::RValue);
-        return fnDecl.ReturnType;
+        return call;
     }
 
-    TypeInfo* TypeChecker::HandleMethodCallExpr(Expr* expr) {
+    Expr* TypeChecker::HandleMethodCallExpr(Expr* expr) {
         MethodCallExpr* call = GetNode<MethodCallExpr>(expr);
-        TypeInfo* calleeType = HandleMemberExpr(call->GetCallee());
+        TypeInfo* calleeType = HandleExpr(call->GetCallee())->GetResolvedType();
 
         FunctionDeclaration& fnDecl = std::get<FunctionDeclaration>(calleeType->Data);
 
@@ -117,7 +147,7 @@ namespace Aria::Internal {
 
         for (size_t i = 0; i < fnDecl.ParamTypes.Size; i++) {
             TypeInfo* paramType = fnDecl.ParamTypes.Items[i];
-            TypeInfo* argType = HandleExpr(call->GetArguments().Items[i]);
+            TypeInfo* argType = HandleExpr(call->GetArguments().Items[i])->GetResolvedType();
 
             ConversionCost cost = GetConversionCost(paramType, argType, call->GetArguments().Items[i]->GetValueType());
             if (cost.CastNeeded) {
@@ -130,19 +160,19 @@ namespace Aria::Internal {
         }
 
         call->SetResolvedType(fnDecl.ReturnType);
-        return fnDecl.ReturnType;
+        return call;
     }
 
-    TypeInfo* TypeChecker::HandleParenExpr(Expr* expr) {
+    Expr* TypeChecker::HandleParenExpr(Expr* expr) {
         ParenExpr* paren = GetNode<ParenExpr>(expr);
         HandleExpr(paren->GetChildExpr());
-        return paren->GetResolvedType();
+        return paren;
     }
 
-    TypeInfo* TypeChecker::HandleCastExpr(Expr* expr) {
+    Expr* TypeChecker::HandleCastExpr(Expr* expr) {
         CastExpr* cast = GetNode<CastExpr>(expr);
 
-        TypeInfo* srcType = HandleExpr(cast->GetChildExpr());
+        TypeInfo* srcType = HandleExpr(cast->GetChildExpr())->GetResolvedType();
         TypeInfo* dstType = GetTypeInfoFromString(cast->GetParsedType());
 
         ConversionCost cost = GetConversionCost(dstType, srcType, cast->GetChildExpr()->GetValueType());
@@ -156,13 +186,13 @@ namespace Aria::Internal {
             }
         }
 
-        return dstType;
+        return cast;
     }
 
-    TypeInfo* TypeChecker::HandleUnaryOperatorExpr(Expr* expr) {
+    Expr* TypeChecker::HandleUnaryOperatorExpr(Expr* expr) {
         UnaryOperatorExpr* unop = GetNode<UnaryOperatorExpr>(expr);
 
-        TypeInfo* type = HandleExpr(unop->GetChildExpr());
+        TypeInfo* type = HandleExpr(unop->GetChildExpr())->GetResolvedType();
 
         ConversionCost cost = GetConversionCost(type, type, unop->GetChildExpr()->GetValueType());
         if (cost.CastNeeded) {
@@ -177,21 +207,24 @@ namespace Aria::Internal {
             case UnaryOperatorType::Negate: {
                 ARIA_ASSERT(type->IsNumeric(), "todo: add error message");
                 unop->SetResolvedType(type);
-                return type;
+                return unop;
             }
         }
 
         ARIA_UNREACHABLE();
     }
 
-    TypeInfo* TypeChecker::HandleBinaryOperatorExpr(Expr* expr) {
+    Expr* TypeChecker::HandleBinaryOperatorExpr(Expr* expr) {
         BinaryOperatorExpr* binop = GetNode<BinaryOperatorExpr>(expr);
+
+        binop->SetLHS(HandleExpr(binop->GetLHS()));
+        binop->SetRHS(HandleExpr(binop->GetRHS()));
 
         Expr* LHS = binop->GetLHS();
         Expr* RHS = binop->GetRHS();
 
-        TypeInfo* LHSType = HandleExpr(binop->GetLHS());
-        TypeInfo* RHSType = HandleExpr(binop->GetRHS());
+        TypeInfo* LHSType = LHS->GetResolvedType();
+        TypeInfo* RHSType = RHS->GetResolvedType();
 
         switch (binop->GetBinaryOperator()) {
             case BinaryOperatorType::Add:
@@ -247,11 +280,11 @@ namespace Aria::Internal {
                 {
                     TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
                     binop->SetResolvedType(boolType);
-                    return boolType;
+                    return binop;
                 }
 
                 binop->SetResolvedType(LHSType);
-                return LHSType;
+                return binop;
             }
 
             case BinaryOperatorType::AddInPlace:
@@ -284,7 +317,7 @@ namespace Aria::Internal {
                 }
 
                 binop->SetResolvedType(LHSType);
-                return LHSType;
+                return binop;
             }
 
             case BinaryOperatorType::BitAnd:
@@ -311,14 +344,14 @@ namespace Aria::Internal {
                 }
 
                 binop->SetResolvedType(boolType);
-                return boolType;
+                return binop;
             }
         }
 
         ARIA_UNREACHABLE();
     }
 
-    TypeInfo* TypeChecker::HandleExpr(Expr* expr) {
+    Expr* TypeChecker::HandleExpr(Expr* expr) {
         if (GetNode<BooleanConstantExpr>(expr)) {
             return HandleBooleanConstantExpr(expr);
         } else if (GetNode<CharacterConstantExpr>(expr)) {
@@ -426,27 +459,55 @@ namespace Aria::Internal {
         d.Identifier = s->GetRawIdentifier();
         d.SourceDecl = s;
 
+        std::vector<MethodDecl*> methods;
+
+        TypeInfo* structType = TypeInfo::Create(m_Context, PrimitiveType::Structure, false, d);
+
         for (Decl* field : s->GetFields()) {
             if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
                 fd->SetResolvedType(GetTypeInfoFromString(fd->GetParsedType()));
             } else if (MethodDecl* md = GetNode<MethodDecl>(field)) {
-                TypeInfo* returnType = GetTypeInfoFromString(md->GetParsedType());
-                TinyVector<TypeInfo*> paramTypes;
-                m_ActiveReturnType = returnType;
-
-                m_Declarations.emplace_back();
-
-                for (ParamDecl* p : md->GetParameters()) {
-                    HandleParamDecl(p);
-                    TypeInfo* pType = p->GetResolvedType();
-                    paramTypes.Append(m_Context, pType);
-                }
-
-                md->SetResolvedType(TypeInfo::Create(m_Context, PrimitiveType::Function, false, FunctionDeclaration(returnType, paramTypes)));
+                methods.push_back(md);
             }
         }
 
-        m_DeclaredTypes[s->GetIdentifier()] = TypeInfo::Create(m_Context, PrimitiveType::Structure, false, d);
+        m_DeclaredTypes[s->GetIdentifier()] = structType;
+
+        for (MethodDecl* md : methods) {
+            TypeInfo* returnType = GetTypeInfoFromString(md->GetParsedType());
+            TinyVector<TypeInfo*> paramTypes;
+            m_ActiveReturnType = returnType;
+            m_ActiveStruct = structType;
+            m_ActiveStruct->Reference = true;
+
+            m_Declarations.emplace_back();
+
+            for (ParamDecl* p : md->GetParameters()) {
+                HandleParamDecl(p);
+                TypeInfo* pType = p->GetResolvedType();
+                paramTypes.Append(m_Context, pType);
+            }
+
+            // We make the function visible to itself by declaring it before the body
+            FunctionDeclaration fd;
+            fd.ParamTypes = paramTypes;
+            fd.ReturnType = returnType;
+            
+            TypeInfo* resolvedType = TypeInfo::Create(m_Context, PrimitiveType::Function, false, fd);
+            md->SetResolvedType(resolvedType);
+
+            std::string ident = md->GetIdentifier();
+            m_Declarations.front()[ident] = { md->GetResolvedType(), decl, DeclRefType::Function };
+
+            if (md->GetBody()) {
+                HandleCompoundStmt(md->GetBody());
+            }
+
+            m_Declarations.pop_back();
+            m_ActiveStruct->Reference = false;
+            m_ActiveStruct = nullptr;
+            m_ActiveReturnType = nullptr;
+        }
     }
 
     void TypeChecker::HandleDecl(Decl* decl) {
@@ -476,7 +537,7 @@ namespace Aria::Internal {
     void TypeChecker::HandleWhileStmt(Stmt* stmt) {
         WhileStmt* wh = GetNode<WhileStmt>(stmt);
 
-        TypeInfo* type = HandleExpr(wh->GetCondition());
+        TypeInfo* type = HandleExpr(wh->GetCondition())->GetResolvedType();
         TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
 
         ConversionCost cost = GetConversionCost(boolType, type, wh->GetCondition()->GetValueType());
@@ -494,7 +555,7 @@ namespace Aria::Internal {
     void TypeChecker::HandleDoWhileStmt(Stmt* stmt) {
         DoWhileStmt* wh = GetNode<DoWhileStmt>(stmt);
 
-        TypeInfo* type = HandleExpr(wh->GetCondition());
+        TypeInfo* type = HandleExpr(wh->GetCondition())->GetResolvedType();
         TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
 
         ConversionCost cost = GetConversionCost(boolType, type, wh->GetCondition()->GetValueType());
@@ -563,7 +624,7 @@ namespace Aria::Internal {
         // If we are initializing a reference, the initializer must be of the same type and an lvalue
         if (type->IsReference()) {
             ARIA_ASSERT(initializer != nullptr, "initial value of a reference must be an lvalue");
-            TypeInfo* valType = HandleExpr(initializer);
+            TypeInfo* valType = HandleExpr(initializer)->GetResolvedType();
 
             if (!TypeIsEqual(type, valType) || initializer->GetValueType() != ExprValueType::LValue) {
                 m_Context->ReportCompilerError(initializer->Loc, initializer->Range, "initial value of reference must be an lvalue");
@@ -571,7 +632,7 @@ namespace Aria::Internal {
 
             return initializer;
         } else if (initializer) {
-            TypeInfo* valType = HandleExpr(initializer);
+            TypeInfo* valType = HandleExpr(initializer)->GetResolvedType();
 
             ConversionCost cost = GetConversionCost(type, valType, initializer->GetValueType());
             if (cost.CastNeeded) {
@@ -705,7 +766,10 @@ namespace Aria::Internal {
     }
 
     Expr* TypeChecker::InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastType castType) {
-        return m_Context->Allocate<ImplicitCastExpr>(m_Context, srcExpr->Loc, srcExpr->Range, srcExpr, castType, dstType);
+        ImplicitCastExpr* newExpr = m_Context->Allocate<ImplicitCastExpr>(m_Context, srcExpr->Loc, srcExpr->Range, srcExpr, castType);
+        newExpr->SetResolvedType(dstType);
+        newExpr->SetValueType(ExprValueType::RValue);
+        return newExpr;
     }
 
     bool TypeChecker::TypeIsEqual(TypeInfo* lhs, TypeInfo* rhs) {

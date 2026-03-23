@@ -92,7 +92,6 @@ namespace Aria::Internal {
             : Stmt(ctx), m_Condition(condition), m_Body(body), m_ElseBody(elseBody) {}
 
         inline Expr* GetCondition() { return m_Condition; }
-        inline const Expr* GetCondition() const { return m_Condition; }
 
         inline Stmt* GetBody() { return m_Body; }
         inline const Stmt* GetBody() const { return m_Body; }

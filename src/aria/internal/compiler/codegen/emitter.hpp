@@ -47,7 +47,9 @@ namespace Aria::Internal {
         void EmitStringConstantExpr(Expr* expr,    ExprValueType type);
         void EmitDeclRefExpr(Expr* expr,           ExprValueType type);
         void EmitMemberExpr(Expr* expr,            ExprValueType type);
+        void EmitSelfExpr(Expr* expr,              ExprValueType type);
         void EmitCallExpr(Expr* expr,              ExprValueType type);
+        void EmitMethodCallExpr(Expr* expr,        ExprValueType type);
         void EmitParenExpr(Expr* expr,             ExprValueType type);
         void EmitImplicitCastExpr(Expr* expr,      ExprValueType type);
         void EmitCastExpr(Expr* expr,              ExprValueType type);

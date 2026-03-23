@@ -133,8 +133,8 @@ namespace Aria::Internal {
     };
 
     struct MethodDecl final : public Decl {
-        MethodDecl(CompilationContext* ctx, StringView identifier, StringView parsedType, TinyVector<ParamDecl*> parameters)
-            : Decl(ctx), m_Identifier(identifier), m_Parameters(parameters), m_ParsedType(parsedType) {}
+        MethodDecl(CompilationContext* ctx, StringView identifier, StringView parsedType, TinyVector<ParamDecl*> parameters, CompoundStmt* body)
+            : Decl(ctx), m_Identifier(identifier), m_Parameters(parameters), m_ParsedType(parsedType), m_Body(body) {}
 
         inline std::string GetIdentifier() const { return fmt::format("{}", m_Identifier); }
         inline StringView GetRawIdentifier() const { return m_Identifier; }
@@ -142,6 +142,9 @@ namespace Aria::Internal {
         inline StringView GetParsedType() const { return m_ParsedType; }
 
         inline TinyVector<ParamDecl*> GetParameters() const { return m_Parameters; }
+
+        inline CompoundStmt* GetBody() { return m_Body; }
+        inline const CompoundStmt* GetBody() const { return m_Body; }
 
         inline TypeInfo* GetResolvedType() { return m_ResolvedType; }
         inline const TypeInfo* GetResolvedType() const { return m_ResolvedType; }
@@ -151,6 +154,7 @@ namespace Aria::Internal {
         StringView m_Identifier;
         StringView m_ParsedType;
         TinyVector<ParamDecl*> m_Parameters;
+        CompoundStmt* m_Body = nullptr;
 
         TypeInfo* m_ResolvedType = nullptr;
     };

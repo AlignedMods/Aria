@@ -160,45 +160,42 @@ namespace Aria::Internal {
     }
 
 #pragma endregion
-    
+
     struct Expr : public Stmt {
         Expr(CompilationContext* ctx, SourceLocation loc, SourceRange range)
             : Stmt(ctx), Loc(loc), Range(range) {}
 
-        virtual TypeInfo* GetResolvedType() = 0;
-        virtual const TypeInfo* GetResolvedType() const = 0;
+        Expr(CompilationContext* ctx, SourceLocation loc, SourceRange range, TypeInfo* type)
+            : Stmt(ctx), Loc(loc), Range(range), m_Type(type) {}
 
-        virtual ExprValueType GetValueType() const = 0;
+        inline TypeInfo* GetResolvedType() { return m_Type; }
+        inline void SetResolvedType(TypeInfo* type) { m_Type = type; }
+
+        inline ExprValueType GetValueType() const { return m_ValueType; }
+        inline void SetValueType(ExprValueType valType) { m_ValueType = valType; }
 
         SourceLocation Loc;
         SourceRange Range;
+
+    protected:
+        TypeInfo* m_Type = nullptr;
+        ExprValueType m_ValueType{};
     };
 
     struct BooleanConstantExpr final : public Expr {
         BooleanConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, bool value)
-            : Expr(ctx, loc, range), m_Value(value) {}
+            : Expr(ctx, loc, range, TypeInfo::Create(ctx, PrimitiveType::Bool, false)), m_Value(value) {}
 
         inline bool GetValue() const { return m_Value; }
-
-        inline virtual TypeInfo* GetResolvedType() override { return TypeInfo::Create(m_Context, PrimitiveType::Bool, true); }
-        inline virtual const TypeInfo* GetResolvedType() const override { return TypeInfo::Create(m_Context, PrimitiveType::Bool, true); }
-
-        inline virtual ExprValueType GetValueType() const override { return ExprValueType::RValue; }
-
     private:
         bool m_Value = false;
     };
     
     struct CharacterConstantExpr final : public Expr {
         CharacterConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, i8 value)
-            : Expr(ctx, loc, range), m_Value(value) {}
+            : Expr(ctx, loc, range, TypeInfo::Create(ctx, PrimitiveType::Char, false)), m_Value(value) {}
 
         inline i8 GetValue() const { return m_Value; }
-
-        inline virtual TypeInfo* GetResolvedType() override { return TypeInfo::Create(m_Context, PrimitiveType::Char, true); }
-        inline virtual const TypeInfo* GetResolvedType() const override { return TypeInfo::Create(m_Context, PrimitiveType::Char, true); }
-
-        inline virtual ExprValueType GetValueType() const override { return ExprValueType::RValue; }
 
     private:
         i8 m_Value = 0;
@@ -206,34 +203,22 @@ namespace Aria::Internal {
     
     struct IntegerConstantExpr final : public Expr {
         IntegerConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, u64 value, TypeInfo* resolvedType)
-            : Expr(ctx, loc, range), m_Value(value), m_ResolvedType(resolvedType) {}
+            : Expr(ctx, loc, range, resolvedType), m_Value(value) {}
 
         inline u64 GetValue() const { return m_Value; }
 
-        inline virtual TypeInfo* GetResolvedType() override { return m_ResolvedType; }
-        inline virtual const TypeInfo* GetResolvedType() const override { return m_ResolvedType; }
-
-        inline virtual ExprValueType GetValueType() const override { return ExprValueType::RValue; }
-
     private:
         u64 m_Value = 0;
-        TypeInfo* m_ResolvedType = nullptr;
     };
     
     struct FloatingConstantExpr final : public Expr {
         FloatingConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, f64 value)
-            : Expr(ctx, loc, range), m_Value(value), m_ResolvedType(TypeInfo::Create(ctx, PrimitiveType::Double, false)) {}
+            : Expr(ctx, loc, range, TypeInfo::Create(ctx, PrimitiveType::Double, false)), m_Value(value) {}
 
         inline f64 GetValue() const { return m_Value; }
 
-        inline virtual TypeInfo* GetResolvedType() override { return m_ResolvedType; }
-        inline virtual const TypeInfo* GetResolvedType() const override { return m_ResolvedType; }
-
-        inline virtual ExprValueType GetValueType() const override { return ExprValueType::RValue; }
-
     private:
         f64 m_Value = 0.0;
-        TypeInfo* m_ResolvedType = nullptr;
     };
 
     struct StringConstantExpr final : public Expr {
@@ -241,11 +226,6 @@ namespace Aria::Internal {
             : Expr(ctx, loc, range), m_Value(value) {}
 
         inline StringView GetValue() const { return m_Value; }
-
-        inline virtual TypeInfo* GetResolvedType() override { return TypeInfo::Create(m_Context, PrimitiveType::StringLiteral, m_Value.Size()); }
-        inline virtual const TypeInfo* GetResolvedType() const override { return TypeInfo::Create(m_Context, PrimitiveType::StringLiteral, m_Value.Size()); }
-
-        inline virtual ExprValueType GetValueType() const override { return ExprValueType::RValue; }
 
     private:
         StringView m_Value;
@@ -261,17 +241,9 @@ namespace Aria::Internal {
         inline DeclRefType GetType() const { return m_Type; }
         inline void SetType(DeclRefType type) { m_Type = type; }
 
-        inline virtual TypeInfo* GetResolvedType() override { return m_ResolvedType; }
-        inline virtual const TypeInfo* GetResolvedType() const override { return m_ResolvedType; }
-        inline void SetResolvedType(TypeInfo* type) { m_ResolvedType = type; }
-
-        inline virtual ExprValueType GetValueType() const override { return ExprValueType::LValue; }
-
     private:
         StringView m_Identifier;
-
         DeclRefType m_Type = DeclRefType::LocalVar;
-        TypeInfo* m_ResolvedType = nullptr;
     };
 
     struct MemberExpr final : public Expr {
@@ -281,63 +253,36 @@ namespace Aria::Internal {
         inline StringView GetMember() const { return m_Member; }
 
         inline Expr* GetParent() { return m_Parent; }
-        inline const Expr* GetParent() const { return m_Parent; }
+        inline void SetParent(Expr* parent) { m_Parent = parent; }
 
         inline TypeInfo* GetParentType() { return m_ParentType; }
         inline const TypeInfo* GetParentType() const { return m_ParentType; }
         inline void SetParentType(TypeInfo* type) { m_ParentType = type; }
-
-        inline virtual TypeInfo* GetResolvedType() override { return m_ResolvedType; }
-        inline virtual const TypeInfo* GetResolvedType() const override { return m_ResolvedType; }
-        inline void SetResolvedType(TypeInfo* type) { m_ResolvedType = type; }
-
-        inline virtual ExprValueType GetValueType() const override { return ExprValueType::LValue; }
 
     private:
         StringView m_Member;
         Expr* m_Parent = nullptr;
 
         TypeInfo* m_ParentType = nullptr;
-        TypeInfo* m_ResolvedType = nullptr;
     };
 
     struct SelfExpr final : public Expr {
         SelfExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range)
             : Expr(ctx, loc, range) {}
-
-        inline virtual TypeInfo* GetResolvedType() override { return m_ResolvedType; }
-        inline virtual const TypeInfo* GetResolvedType() const override { return m_ResolvedType; }
-        inline void SetResolvedType(TypeInfo* type) { m_ResolvedType = type; }
-
-        inline virtual ExprValueType GetValueType() const override { return ExprValueType::LValue; }
-
-    private:
-        TypeInfo* m_ResolvedType = nullptr;
     };
 
     struct CallExpr final : public Expr {
         CallExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, DeclRefExpr* callee, TinyVector<Expr*> args)
             : Expr(ctx, loc, range), m_Callee(callee), m_Arguments(args) {}
 
-        inline DeclRefExpr* GetCallee() { return m_Callee; }
-        inline const DeclRefExpr* GetCallee() const { return m_Callee; }
+        inline Expr* GetCallee() { return m_Callee; }
 
         inline TinyVector<Expr*> GetArguments() const { return m_Arguments; }
         inline void SetArgument(size_t index, Expr* expr) { m_Arguments.Items[index] = expr; }
 
-        inline virtual TypeInfo* GetResolvedType() override { return m_ResolvedType; }
-        inline virtual const TypeInfo* GetResolvedType() const override { return m_ResolvedType; }
-        inline void SetResolvedType(TypeInfo* type) { m_ResolvedType = type; }
-
-        inline virtual ExprValueType GetValueType() const override { return m_ResolvedValueType; }
-        inline void SetValueType(ExprValueType type) { m_ResolvedValueType = type; }
-
     private:
-        DeclRefExpr* m_Callee;
+        Expr* m_Callee;
         TinyVector<Expr*> m_Arguments;
-
-        TypeInfo* m_ResolvedType = nullptr;
-        ExprValueType m_ResolvedValueType = ExprValueType::RValue;
     };
 
     struct MethodCallExpr final : public Expr {
@@ -345,23 +290,13 @@ namespace Aria::Internal {
             : Expr(ctx, loc, range), m_Callee(callee), m_Arguments(args) {}
     
         inline MemberExpr* GetCallee() { return m_Callee; }
-        inline const MemberExpr* GetCallee() const { return m_Callee; }
     
         inline TinyVector<Expr*> GetArguments() const { return m_Arguments; }
         inline void SetArgument(size_t index, Expr* expr) { m_Arguments.Items[index] = expr; }
     
-    
-        inline virtual TypeInfo* GetResolvedType() override { return m_ResolvedType; }
-        inline virtual const TypeInfo* GetResolvedType() const override { return m_ResolvedType; }
-        inline void SetResolvedType(TypeInfo* type) { m_ResolvedType = type; }
-    
-        inline virtual ExprValueType GetValueType() const override { return ExprValueType::RValue; }
-    
     private:
         MemberExpr* m_Callee;
         TinyVector<Expr*> m_Arguments;
-    
-        TypeInfo* m_ResolvedType = nullptr;
     };
     
     // ParenExpr
@@ -373,12 +308,6 @@ namespace Aria::Internal {
             : Expr(ctx, loc, range), m_Expression(expr) {}
 
         inline Expr* GetChildExpr() { return m_Expression; }
-        inline const Expr* GetChildExpr() const { return m_Expression; }
-
-        inline virtual TypeInfo* GetResolvedType() override { return m_Expression->GetResolvedType(); }
-        inline virtual const TypeInfo* GetResolvedType() const override { return m_Expression->GetResolvedType(); }
-
-        inline virtual ExprValueType GetValueType() const override { return m_Expression->GetValueType(); }
 
     private:
         Expr* m_Expression = nullptr;
@@ -393,50 +322,35 @@ namespace Aria::Internal {
             : Expr(ctx, loc, range), m_Expression(expr), m_ParsedDestinationType(parsedType) {}
 
         inline Expr* GetChildExpr() { return m_Expression; }
-        inline const Expr* GetChildExpr() const { return m_Expression; }
 
         inline StringView GetParsedType() const { return m_ParsedDestinationType; }
 
         inline CastType GetCastType() const { return m_ResolvedCastType; }
         inline void SetCastType(CastType type) { m_ResolvedCastType = type; }
 
-        inline virtual TypeInfo* GetResolvedType() override { return m_ResolvedType; }
-        inline virtual const TypeInfo* GetResolvedType() const override { return m_ResolvedType; }
-        inline void SetResolvedType(TypeInfo* type) { m_ResolvedType = type; }
-
-        inline virtual ExprValueType GetValueType() const override { return ExprValueType::RValue; }
-
     private:
         Expr* m_Expression = nullptr;
         StringView m_ParsedDestinationType;
 
         CastType m_ResolvedCastType = CastType::Integral;
-        TypeInfo* m_ResolvedType = nullptr;
     };
 
     // ImplicitCastExpr
     // Represents an implicit cast automatically inserted by the type checker/semantic analyzer
     // eg. float a = 5; -> here "5" is implicitly converted to a float
     struct ImplicitCastExpr final : public Expr {
-        ImplicitCastExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr, CastType castType, TypeInfo* destType)
-            : Expr(ctx, loc, range), m_Expression(expr), m_ResolvedCastType(castType), m_ResolvedType(destType) {}
+        ImplicitCastExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr, CastType castType)
+            : Expr(ctx, loc, range), m_Expression(expr), m_ResolvedCastType(castType) {}
 
         inline Expr* GetChildExpr() { return m_Expression; }
-        inline const Expr* GetChildExpr() const { return m_Expression; }
 
         inline CastType GetCastType() const { return m_ResolvedCastType; }
         inline void SetCastType(CastType type) { m_ResolvedCastType = type; }
-
-        inline virtual TypeInfo* GetResolvedType() override { return m_ResolvedType; }
-        inline virtual const TypeInfo* GetResolvedType() const override { return m_ResolvedType; }
-
-        inline virtual ExprValueType GetValueType() const override { return ExprValueType::RValue; }
 
     private:
         Expr* m_Expression = nullptr;
 
         CastType m_ResolvedCastType = CastType::Integral;
-        TypeInfo* m_ResolvedType = nullptr;
     };
     
     struct UnaryOperatorExpr final : public Expr {
@@ -444,22 +358,13 @@ namespace Aria::Internal {
             : Expr(ctx, loc, range), m_Expression(expr), m_Operator(op) {}
 
         inline Expr* GetChildExpr() { return m_Expression; }
-        inline const Expr* GetChildExpr() const { return m_Expression; }
         inline void SetChildExpr(Expr* expr) { m_Expression = expr; }
 
         inline UnaryOperatorType GetUnaryOperator() const { return m_Operator; }
 
-        inline virtual TypeInfo* GetResolvedType() override { return m_ResolvedType; }
-        inline virtual const TypeInfo* GetResolvedType() const override { return m_ResolvedType; }
-        inline void SetResolvedType(TypeInfo* type) { m_ResolvedType = type; }
-
-        inline virtual ExprValueType GetValueType() const override { return ExprValueType::RValue; }
-
     private:
         Expr* m_Expression = nullptr;
         UnaryOperatorType m_Operator = UnaryOperatorType::Invalid;
-    
-        TypeInfo* m_ResolvedType = nullptr;
     };
     
     struct BinaryOperatorExpr final : public Expr {
@@ -467,27 +372,17 @@ namespace Aria::Internal {
             : Expr(ctx, loc, range), m_LHS(lhs), m_RHS(rhs), m_Operator(op) {}
 
         inline Expr* GetLHS() { return m_LHS; }
-        inline const Expr* GetLHS() const { return m_LHS; }
         inline void SetLHS(Expr* expr) { m_LHS = expr; }
 
         inline Expr* GetRHS() { return m_RHS; }
-        inline const Expr* GetRHS() const { return m_RHS; }
         inline void SetRHS(Expr* expr) { m_RHS = expr; }
 
         inline BinaryOperatorType GetBinaryOperator() const { return m_Operator; }
-
-        inline virtual TypeInfo* GetResolvedType() override { return m_ResolvedType; }
-        inline virtual const TypeInfo* GetResolvedType() const override { return m_ResolvedType; }
-        inline void SetResolvedType(TypeInfo* type) { m_ResolvedType = type; }
-
-        inline virtual ExprValueType GetValueType() const override { return ExprValueType::RValue; }
 
     private:
         Expr* m_LHS = nullptr;
         Expr* m_RHS = nullptr;
         BinaryOperatorType m_Operator = BinaryOperatorType::Invalid;
-    
-        TypeInfo* m_ResolvedType = nullptr;
     };
 
 } // namespace Aria::Internal

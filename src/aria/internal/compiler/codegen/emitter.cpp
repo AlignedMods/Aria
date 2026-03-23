@@ -137,16 +137,16 @@ namespace Aria::Internal {
 
     void Emitter::EmitMemberExpr(Expr* expr, ExprValueType type) {
         MemberExpr* mem = GetNode<MemberExpr>(expr);
-        
-        EmitExpr(mem->GetParent(), ExprValueType::LValue);
+
         StructDeclaration& sd = std::get<StructDeclaration>(mem->GetParentType()->Data);
-        
         StructDecl* s = GetNode<StructDecl>(sd.SourceDecl);
         
         for (Decl* field : s->GetFields()) {
             if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
                 if (fd->GetRawIdentifier() == mem->GetMember()) {
                     RuntimeStructDeclaration& sdecl = m_Structs.at(s->GetIdentifier());
+
+                    EmitExpr(mem->GetParent(), ExprValueType::LValue);
         
                     if (type == ExprValueType::LValue) {
                         m_OpCodes.emplace_back(OpCodeKind::LdPtrMember, OpCodeMember(sdecl.FieldIndices.at(fd->GetIdentifier()), {VMTypeKind::Ptr}, TypeInfoToVMType(mem->GetParentType())));
@@ -156,11 +156,19 @@ namespace Aria::Internal {
                 }
             } else if (MethodDecl* md = GetNode<MethodDecl>(field)) {
                 if (md->GetRawIdentifier() == mem->GetMember()) {
-                    // m_OpCodes.emplace_back(OpCodeKind::LoadFunc, md->GetIdentifier());
-                    ARIA_ASSERT(false, "todo");
+                    m_OpCodes.emplace_back(OpCodeKind::LdFunc, fmt::format("{}::{}()", sd.Identifier, md->GetIdentifier()));
                 }
             }  
         }
+    }
+
+    void Emitter::EmitSelfExpr(Expr* expr, ExprValueType type) {
+        SelfExpr* self = GetNode<SelfExpr>(expr);
+
+        ARIA_ASSERT(type == ExprValueType::LValue, "rvalue of 'self' is not yet supported");
+
+        // Because self is a reference (aka pointer), we want to the load the actual value of it
+        m_OpCodes.emplace_back(OpCodeKind::LdArg, static_cast<size_t>(0));
     }
 
     void Emitter::EmitCallExpr(Expr* expr, ExprValueType type) {
@@ -182,6 +190,42 @@ namespace Aria::Internal {
         }
 
         m_OpCodes.emplace_back(OpCodeKind::Call, OpCodeCall(call->GetArguments().Size, TypeInfoToVMType(retType)));
+
+        // The only special case is when returning a reference and getting it as an rvalue
+        if (type == ExprValueType::RValue) {
+            if (retType->IsReference()) {
+                retType->Reference = false;
+                m_OpCodes.emplace_back(OpCodeKind::Deref, TypeInfoToVMType(retType));
+                retType->Reference = true;
+            }
+        }
+    }
+
+    void Emitter::EmitMethodCallExpr(Expr* expr, ExprValueType type) {
+        MethodCallExpr* call = GetNode<MethodCallExpr>(expr);
+
+        EmitExpr(call->GetCallee(), call->GetCallee()->GetValueType());
+
+        // Push self
+        EmitExpr(call->GetCallee()->GetParent(), ExprValueType::LValue);
+        m_OpCodes.emplace_back(OpCodeKind::DeclareArg, static_cast<size_t>(0));
+
+        for (size_t i = 0; i < call->GetArguments().Size; i++) {
+            EmitExpr(call->GetArguments().Items[i], call->GetArguments().Items[i]->GetValueType());
+            m_OpCodes.emplace_back(OpCodeKind::DeclareArg, i + 1);
+        }
+
+        size_t retCount = 0;
+        TypeInfo* retType = call->GetResolvedType();
+        if (retType->Type != PrimitiveType::Void) {
+            m_OpCodes.emplace_back(OpCodeKind::Alloca, TypeInfoToVMType(retType));
+            IncrementStackSlotCount();
+            retCount = 1;
+        }
+
+        // We do size + 1 because self is an implicit parameter that isn't in the argument vector,
+        // However the VM certainly does need the actual amount of arguments
+        m_OpCodes.emplace_back(OpCodeKind::Call, OpCodeCall(call->GetArguments().Size + 1, TypeInfoToVMType(retType)));
 
         // The only special case is when returning a reference and getting it as an rvalue
         if (type == ExprValueType::RValue) {
@@ -313,8 +357,12 @@ namespace Aria::Internal {
             return EmitDeclRefExpr(expr, type);
         } else if (GetNode<MemberExpr>(expr)) {
             return EmitMemberExpr(expr, type);
+        } else if (GetNode<SelfExpr>(expr)) {
+            return EmitSelfExpr(expr, type);
         } else if (GetNode<CallExpr>(expr)) {
             return EmitCallExpr(expr, type);
+        } else if (GetNode<MethodCallExpr>(expr)) {
+            return EmitMethodCallExpr(expr, type);
         } else if (GetNode<ParenExpr>(expr)) {
             return EmitParenExpr(expr, type);
         } else if (GetNode<CastExpr>(expr)) {
@@ -385,7 +433,7 @@ namespace Aria::Internal {
             if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
                 sd.FieldIndices[fd->GetIdentifier()] = sd.FieldIndices.size();
             } else if (MethodDecl* md = GetNode<MethodDecl>(field)) {
-                ARIA_ASSERT(false, "todo!");
+                m_DeclarationsToDeclare[fmt::format("{}::{}()", s->GetIdentifier(), md->GetIdentifier())] = md;
             }
         }
 
@@ -594,6 +642,34 @@ namespace Aria::Internal {
 
                     m_ReflectionData.Declarations[name] = d;
                 }
+            } else if (MethodDecl* mDecl = GetNode<MethodDecl>(decl)) {
+                m_OpCodes.emplace_back(OpCodeKind::Function, name);
+                m_OpCodes.emplace_back(OpCodeKind::Label, "_entry$");
+
+                m_OpCodes.emplace_back(OpCodeKind::PushSF);
+                PushStackFrame(name);
+                m_ActiveStackFrame.ParameterCount++; // Used for "self"
+                
+                size_t returnSlot = (mDecl->GetResolvedType()->Type == PrimitiveType::Void) ? 0 : 1;
+                
+                for (ParamDecl* p : mDecl->GetParameters()) {
+                    EmitParamDecl(p);
+                }
+                
+                EmitCompoundStmt(mDecl->GetBody());
+
+                if (m_OpCodes.back().Kind != OpCodeKind::Ret) {
+                    m_OpCodes.emplace_back(OpCodeKind::PopSF);
+                    m_OpCodes.emplace_back(OpCodeKind::Ret);
+                }
+
+                PopStackFrame();
+
+                CompilerReflectionDeclaration d;
+                d.ResolvedType = mDecl->GetResolvedType();
+                d.Type = ReflectionType::Function;
+
+                m_ReflectionData.Declarations[name] = d;
             } else if (StructDecl* stDecl = GetNode<StructDecl>(decl)) {
                 std::vector<VMType> fields;
                 fields.reserve(stDecl->GetFields().Size);

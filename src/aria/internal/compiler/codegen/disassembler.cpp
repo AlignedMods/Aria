@@ -165,6 +165,12 @@ namespace Aria::Internal {
                 break;
             }
 
+            case OpCodeKind::LdPtrArg: {
+                size_t index = std::get<size_t>(op.Data);
+                m_Output += fmt::format("    ldptr.arg {}\n", index);
+                break;
+            }
+
             case OpCodeKind::LdPtrRet: {
                 m_Output += "    ldptr.ret\n";
                 break;

@@ -535,8 +535,7 @@ namespace Aria::Internal {
                     TryConsume(TokenType::RightParen, "')'");
 
                     Stmt* body = ParseCompound();
-
-                    fields.Append(m_Context, m_Context->Allocate<MethodDecl>(m_Context, fieldName->String, StringView(type.Data(), type.Size()), params));
+                    fields.Append(m_Context, m_Context->Allocate<MethodDecl>(m_Context, fieldName->String, StringView(type.Data(), type.Size()), params, GetNode<CompoundStmt>(body)));
                 } else {
                     TryConsume(TokenType::Semi, "';'");
 

@@ -45,21 +45,21 @@ namespace Aria::Internal {
     private:
         void CheckImpl();
 
-        TypeInfo* HandleBooleanConstantExpr(Expr* expr);
-        TypeInfo* HandleCharacterConstantExpr(Expr* expr);
-        TypeInfo* HandleIntegerConstantExpr(Expr* expr);
-        TypeInfo* HandleFloatingConstantExpr(Expr* expr);
-        TypeInfo* HandleStringConstantExpr(Expr* expr);
-        TypeInfo* HandleDeclRefExpr(Expr* expr);
-        TypeInfo* HandleMemberExpr(Expr* expr);
-        TypeInfo* HandleCallExpr(Expr* expr);
-        TypeInfo* HandleMethodCallExpr(Expr* expr);
-        TypeInfo* HandleParenExpr(Expr* expr);
-        TypeInfo* HandleCastExpr(Expr* expr);
-        TypeInfo* HandleUnaryOperatorExpr(Expr* expr);
-        TypeInfo* HandleBinaryOperatorExpr(Expr* expr);
+        Expr* HandleBooleanConstantExpr(Expr* expr);
+        Expr* HandleCharacterConstantExpr(Expr* expr);
+        Expr* HandleIntegerConstantExpr(Expr* expr);
+        Expr* HandleFloatingConstantExpr(Expr* expr);
+        Expr* HandleStringConstantExpr(Expr* expr);
+        Expr* HandleDeclRefExpr(Expr* expr);
+        Expr* HandleMemberExpr(Expr* expr);
+        Expr* HandleCallExpr(Expr* expr);
+        Expr* HandleMethodCallExpr(Expr* expr);
+        Expr* HandleParenExpr(Expr* expr);
+        Expr* HandleCastExpr(Expr* expr);
+        Expr* HandleUnaryOperatorExpr(Expr* expr);
+        Expr* HandleBinaryOperatorExpr(Expr* expr);
 
-        TypeInfo* HandleExpr(Expr* expr);
+        Expr* HandleExpr(Expr* expr);
 
         void HandleTranslationUnitDecl(Decl* decl);
         void HandleVarDecl(Decl* decl);
@@ -94,6 +94,7 @@ namespace Aria::Internal {
 
         std::vector<std::unordered_map<std::string, Declaration>> m_Declarations;
         TypeInfo* m_ActiveReturnType = nullptr;
+        TypeInfo* m_ActiveStruct = nullptr;
 
         std::unordered_map<std::string, TypeInfo*> m_DeclaredTypes;
 

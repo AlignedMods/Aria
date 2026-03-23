@@ -41,12 +41,22 @@ namespace Aria::Internal {
             m_Output += fmt::format("MemberExpr '{}' '{}' {}\n", mem->GetMember(), TypeInfoToString(mem->GetResolvedType()), ExprValueTypeToString(mem->GetValueType()));
             DumpExpr(mem->GetParent(), indentation + 4);
             return;
+        } else if (SelfExpr* self = GetNode<SelfExpr>(expr)) {
+            m_Output += fmt::format("SelfExpr '{}' {}\n", TypeInfoToString(self->GetResolvedType()), ExprValueTypeToString(expr->GetValueType()));
+            return;
         } else if (CallExpr* call = GetNode<CallExpr>(expr)) {
             m_Output += fmt::format("CallExpr '{}' {}\n", TypeInfoToString(call->GetResolvedType()), ExprValueTypeToString(call->GetValueType()));
             for (Expr* e : call->GetArguments()) {
                 DumpExpr(e, indentation + 4);
             }
             DumpExpr(call->GetCallee(), indentation + 4);
+            return;
+        } else if (MethodCallExpr* mcall = GetNode<MethodCallExpr>(expr)) {
+            m_Output += fmt::format("MethodCallExpr '{}' {}\n", TypeInfoToString(mcall->GetResolvedType()), ExprValueTypeToString(mcall->GetValueType()));
+            for (Expr* e : mcall->GetArguments()) {
+                DumpExpr(e, indentation + 4);
+            }
+            DumpExpr(mcall->GetCallee(), indentation + 4);
             return;
         } else if (ParenExpr* paren = GetNode<ParenExpr>(expr)) {
             m_Output += fmt::format("ParenExpr '{}' {}\n", TypeInfoToString(paren->GetResolvedType()), ExprValueTypeToString(paren->GetValueType()));
@@ -120,10 +130,9 @@ namespace Aria::Internal {
             for (Decl* p : methodDecl->GetParameters()) {
                 DumpDecl(p, indentation + 4);
             }
-
-            // if (methodDecl->GetBody()) {
-            //     DumpStmt(methodDecl->GetBody(), indentation + 4);
-            // }
+            if (methodDecl->GetBody()) {
+                DumpStmt(methodDecl->GetBody(), indentation + 4);
+            }
             return;
         }
         
