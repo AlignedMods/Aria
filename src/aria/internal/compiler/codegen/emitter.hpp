@@ -16,8 +16,7 @@ namespace Aria::Internal {
         };
 
         struct RuntimeStructDeclaration {
-            size_t Size = 0;
-            std::unordered_map<std::string, size_t> FieldOffsets;
+            std::unordered_map<std::string, size_t> FieldIndices;
         };
 
         struct Scope {
@@ -74,7 +73,7 @@ namespace Aria::Internal {
 
         void EmitStmt(Stmt* stmt);
 
-        void EmitFunctions(); // Emits all the defined functions
+        void EmitDeclarations(); // Emits all the user defined functions/structs/...
 
         bool IsStartStackFrame();
         bool IsGlobalScope();
@@ -101,7 +100,7 @@ namespace Aria::Internal {
 
         std::unordered_map<std::string, RuntimeStructDeclaration> m_Structs;
 
-        std::unordered_map<std::string, Decl*> m_FunctionsToDeclare; // We do not immediately declare functions, we actually do them last
+        std::unordered_map<std::string, Decl*> m_DeclarationsToDeclare; // We do not immediately declare functions/structs/..., we actually do them last
 
         // Counters
         size_t m_AndCounter = 0;

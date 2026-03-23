@@ -34,6 +34,11 @@ namespace Aria::Internal {
         std::unordered_map<std::string, size_t> Labels;
     };
 
+    struct VMStruct {
+        std::vector<size_t> FieldOffsets;
+        size_t Size = 0;
+    };
+
     // A structure which has a linear block of memory (the stack)
     // And stack slots which can be used to access the raw stack memory
     struct Stack {
@@ -112,6 +117,8 @@ namespace Aria::Internal {
         // loop.end:
         //     ...
         void RunPrepass();
+
+        size_t AlignToEight(size_t size);
         
     private:
         Stack m_LocalStack; // Used for things like expressions and local variables
@@ -140,6 +147,7 @@ namespace Aria::Internal {
         size_t m_ProgramCounter = 0;
 
         std::unordered_map<std::string, VMFunction> m_Functions;
+        std::unordered_map<std::string, VMStruct> m_Structs;
         std::unordered_map<std::string, ExternFn> m_ExternalFunctions;
 
         size_t m_ReturnAddress = SIZE_MAX;

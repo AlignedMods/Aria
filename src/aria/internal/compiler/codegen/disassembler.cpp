@@ -36,7 +36,7 @@ namespace Aria::Internal {
 
             case OpCodeKind::Alloca: {
                 const VMType& type = std::get<VMType>(op.Data);
-                m_Output += fmt::format("    alloca {}\n", VMTypeToString(type));
+                m_Output += fmt::format("    alloca    {}\n", VMTypeToString(type));
                 break;
             }
 
@@ -86,6 +86,19 @@ namespace Aria::Internal {
                 break;
             }
 
+            case OpCodeKind::Struct: {
+                const OpCodeStruct& s = std::get<OpCodeStruct>(op.Data);
+                m_Output += fmt::format("struct %{} [ ", s.Identifier);
+
+                for (size_t i = 0; i < s.Fields.size(); i++) {
+                    m_Output += VMTypeToString(s.Fields[i]);
+                    if (i != s.Fields.size() - 1) { m_Output += ", "; }
+                }
+
+                m_Output += " ]\n";
+                break;
+            }
+
             case OpCodeKind::DeclareGlobal: {
                 const std::string& global = std::get<std::string>(op.Data);
                 m_Output += fmt::format("    decl.g    {}\n", global);
@@ -116,9 +129,9 @@ namespace Aria::Internal {
                 break;
             }
 
-            case OpCodeKind::LdOffset: {
-                // OpCodeOffset off = std::get<OpCodeOffset>(op.Data);
-                // m_Output += fmt::format("{}ld.off    {} {}\n", m_Indentation, off.Offset, off.Size);
+            case OpCodeKind::LdMember: {
+                OpCodeMember mem = std::get<OpCodeMember>(op.Data);
+                m_Output += fmt::format("    ld.mem    {} {} {}\n", mem.Index, VMTypeToString(mem.MemberType), VMTypeToString(mem.StructType));
                 break;
             }
 
@@ -146,9 +159,9 @@ namespace Aria::Internal {
                 break;
             }
 
-            case OpCodeKind::LdPtrOffset: {
-                // OpCodeOffset off = std::get<OpCodeOffset>(op.Data);
-                // m_Output += fmt::format("{}ldptr.off {} {}\n", m_Indentation, off.Offset, off.Size);
+            case OpCodeKind::LdPtrMember: {
+                OpCodeMember mem = std::get<OpCodeMember>(op.Data);
+                m_Output += fmt::format("    ldptr.mem {} {} {}\n", mem.Index, VMTypeToString(mem.MemberType), VMTypeToString(mem.StructType));
                 break;
             }
 
@@ -240,22 +253,24 @@ namespace Aria::Internal {
 
     std::string Disassembler::VMTypeToString(const VMType& type) {
         switch (type.Kind) {
-            case VMTypeKind::Void:  return "void";
+            case VMTypeKind::Void:   return "void";
+                                     
+            case VMTypeKind::I1:     return "i1";
+            case VMTypeKind::I8:     return "i8";
+            case VMTypeKind::U8:     return "u8";
+            case VMTypeKind::I16:    return "i16";
+            case VMTypeKind::U16:    return "u16";
+            case VMTypeKind::I32:    return "i32";
+            case VMTypeKind::U32:    return "u32";
+            case VMTypeKind::I64:    return "i64";
+            case VMTypeKind::U64:    return "u64";
+                                     
+            case VMTypeKind::F32:    return "f32";
+            case VMTypeKind::F64:    return "f64";
+                                     
+            case VMTypeKind::Ptr:    return "ptr";
 
-            case VMTypeKind::I1:    return "i1";
-            case VMTypeKind::I8:    return "i8";
-            case VMTypeKind::U8:    return "u8";
-            case VMTypeKind::I16:   return "i16";
-            case VMTypeKind::U16:   return "u16";
-            case VMTypeKind::I32:   return "i32";
-            case VMTypeKind::U32:   return "u32";
-            case VMTypeKind::I64:   return "i64";
-            case VMTypeKind::U64:   return "u64";
-
-            case VMTypeKind::F32:   return "f32";
-            case VMTypeKind::F64:   return "f64";
-
-            case VMTypeKind::Ptr:   return "ptr";
+            case VMTypeKind::Struct: return fmt::format("%{}", type.Data);
 
             default: ARIA_UNREACHABLE();
         }

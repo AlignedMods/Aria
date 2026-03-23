@@ -542,6 +542,10 @@ namespace Aria::Internal {
 
                     fields.Append(m_Context, m_Context->Allocate<FieldDecl>(m_Context, fieldName->String, StringView(type.Data(), type.Size())));
                 }
+            } else {
+                m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "expected a type name");
+                StabilizeParser();
+                TryConsume(TokenType::Semi, "';'");
             }
         }
         

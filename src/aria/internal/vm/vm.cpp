@@ -51,7 +51,7 @@ namespace Aria::Internal {
 
     void VM::Alloca(VMType type, Stack& stack) {
         size_t rawSize = GetVMTypeSize(type);
-        size_t alignedSize = ((rawSize + 8 - 1) / 8) * 8; // We need to handle 8 byte alignment
+        size_t alignedSize = AlignToEight(rawSize);
         
         ARIA_ASSERT(alignedSize % 8 == 0, "Memory not aligned to 8 bytes correctly!");
         ARIA_ASSERT(stack.StackPointer + alignedSize < stack.Stack.max_size(), "Local stack overflow, allocating an insane amount of memory!");
@@ -500,6 +500,8 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case OpCodeKind::Struct: continue;
+
                 case OpCodeKind::DeclareGlobal: {
                     const std::string& g = std::get<std::string>(op.Data);
 
@@ -546,14 +548,15 @@ namespace Aria::Internal {
                     break;
                 }
 
-                case OpCodeKind::LdOffset: {
-                    ARIA_ASSERT(false, "todo!");
-                    // OpCodeOffset off = std::get<OpCodeOffset>(op.Data);
-                    // u8* base = reinterpret_cast<u8*>(GetPointer(-1, m_LocalStack));
-                    // Pop(1, m_LocalStack);
-                    // 
-                    // Alloca(off.Size, off.ResolvedType, m_LocalStack);
-                    // memcpy(GetVMSlice(-1, m_LocalStack).Memory, base + off.Offset, off.Size);
+                case OpCodeKind::LdMember: {
+                    OpCodeMember mem = std::get<OpCodeMember>(op.Data);
+                    u8* base = reinterpret_cast<u8*>(GetPointer(-1, m_LocalStack));
+                    Pop(1, m_LocalStack);
+                    
+                    VMStruct s = m_Structs.at(fmt::format("{}", mem.StructType.Data));
+
+                    Alloca(mem.MemberType, m_LocalStack);
+                    memcpy(GetVMSlice(-1, m_LocalStack).Memory, base + s.FieldOffsets[mem.Index], GetVMTypeSize(mem.MemberType));
                     break;
                 }
 
@@ -587,13 +590,15 @@ namespace Aria::Internal {
                     break;
                 }
 
-                case OpCodeKind::LdPtrOffset: {
-                    ARIA_ASSERT(false, "todo!");
-                    // OpCodeOffset off = std::get<OpCodeOffset>(op.Data);
-                    // u8* base = reinterpret_cast<u8*>(GetPointer(-1, m_LocalStack));
-                    // Pop(1, m_LocalStack);
-                    // Alloca(sizeof(void*), off.ResolvedType, m_LocalStack);
-                    // StorePointer(-1, base + off.Offset, m_LocalStack);
+                case OpCodeKind::LdPtrMember: {
+                    OpCodeMember mem = std::get<OpCodeMember>(op.Data);
+                    u8* base = reinterpret_cast<u8*>(GetPointer(-1, m_LocalStack));
+                    Pop(1, m_LocalStack);
+
+                    VMStruct s = m_Structs.at(fmt::format("{}", mem.StructType.Data));
+
+                    Alloca(mem.MemberType, m_LocalStack);
+                    StorePointer(-1, base + s.FieldOffsets[mem.Index], m_LocalStack);
                     break;
                 }
 
@@ -842,26 +847,28 @@ namespace Aria::Internal {
 
     size_t VM::GetVMTypeSize(const VMType& type) {
         switch (type.Kind) {
-            case VMTypeKind::Void: return 0;
+            case VMTypeKind::Void:   return 0;
+                                     
+            case VMTypeKind::I1:     return 1;
+                                     
+            case VMTypeKind::I8:     return 1;
+            case VMTypeKind::U8:     return 1;
+                                     
+            case VMTypeKind::I16:    return 2;
+            case VMTypeKind::U16:    return 2;
+                                     
+            case VMTypeKind::I32:    return 4;
+            case VMTypeKind::U32:    return 4;
+                                     
+            case VMTypeKind::I64:    return 8;
+            case VMTypeKind::U64:    return 8;
+                                     
+            case VMTypeKind::F32:    return 4;
+            case VMTypeKind::F64:    return 8;
+                                     
+            case VMTypeKind::Ptr:    return sizeof(void*);
 
-            case VMTypeKind::I1:   return 1;
-                                   
-            case VMTypeKind::I8:   return 1;
-            case VMTypeKind::U8:   return 1;
-                                   
-            case VMTypeKind::I16:  return 2;
-            case VMTypeKind::U16:  return 2;
-
-            case VMTypeKind::I32:  return 4;
-            case VMTypeKind::U32:  return 4;
-
-            case VMTypeKind::I64:  return 8;
-            case VMTypeKind::U64:  return 8;
-
-            case VMTypeKind::F32:  return 4;
-            case VMTypeKind::F64:  return 8;
-
-            case VMTypeKind::Ptr:  return sizeof(void*);
+            case VMTypeKind::Struct: return m_Structs.at(std::string(type.Data)).Size;
 
             default: ARIA_UNREACHABLE();
         }
@@ -895,10 +902,28 @@ namespace Aria::Internal {
 
                 m_ProgramCounter = startPc;
                 m_Functions[ident] = func;
+            } else if (op.Kind == OpCodeKind::Struct) {
+                const OpCodeStruct& s = std::get<OpCodeStruct>(op.Data);
+
+                VMStruct stru;
+                size_t offset = 0;
+                
+                for (const VMType& field : s.Fields) {
+                    size_t size = AlignToEight(GetVMTypeSize(field));
+                    stru.FieldOffsets.push_back(offset);
+                    stru.Size += size;
+                    offset += size;
+                }
+
+                m_Structs[std::string(s.Identifier)] = stru;
             }
         }
 
         m_ProgramCounter = 0; // Reset the program counter so the normal execution happens from the start
+    }
+
+    size_t VM::AlignToEight(size_t size) {
+        return ((size + 8 - 1) / 8) * 8;
     }
 
 } // namespace Aria::Internal

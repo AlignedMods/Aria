@@ -25,7 +25,7 @@ namespace Aria::Internal {
         PopStackFrame();
         m_OpCodes.emplace_back(OpCodeKind::Ret);
 
-        EmitFunctions();
+        EmitDeclarations();
 
         m_Context->SetOpCodes(m_OpCodes);
         m_Context->SetReflectionData(m_ReflectionData);
@@ -136,33 +136,31 @@ namespace Aria::Internal {
     }
 
     void Emitter::EmitMemberExpr(Expr* expr, ExprValueType type) {
-        ARIA_ASSERT(false, "todo!");
-
-        // MemberExpr* mem = GetNode<MemberExpr>(expr);
-        // 
-        // EmitExpr(mem->GetParent(), ExprValueType::LValue);
-        // StructDeclaration& sd = std::get<StructDeclaration>(mem->GetParentType()->Data);
-        // 
-        // StructDecl* s = GetNode<StructDecl>(sd.SourceDecl);
-        // 
-        // for (Decl* field : s->GetFields()) {
-        //     if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
-        //         if (fd->GetRawIdentifier() == mem->GetMember()) {
-        //             RuntimeStructDeclaration& sdecl = m_Structs.at(s->GetIdentifier());
-        // 
-        //             if (type == ExprValueType::LValue) {
-        //                 m_OpCodes.emplace_back(OpCodeKind::LoadPtrOffset, OpCodeOffset(sdecl.FieldOffsets.at(fd->GetIdentifier()), sdecl.Size, fd->GetResolvedType()));
-        //             } else if (type == ExprValueType::RValue) {
-        //                 m_OpCodes.emplace_back(OpCodeKind::LoadOffset, OpCodeOffset(sdecl.FieldOffsets.at(fd->GetIdentifier()), sdecl.Size, fd->GetResolvedType()));
-        //             }
-        //         }
-        //     } else if (MethodDecl* md = GetNode<MethodDecl>(field)) {
-        //         if (md->GetRawIdentifier() == mem->GetMember()) {
-        //             m_OpCodes.emplace_back(OpCodeKind::LoadFunc, md->GetIdentifier());
-        //             ARIA_ASSERT(false, "todo");
-        //         }
-        //     }  
-        // }
+        MemberExpr* mem = GetNode<MemberExpr>(expr);
+        
+        EmitExpr(mem->GetParent(), ExprValueType::LValue);
+        StructDeclaration& sd = std::get<StructDeclaration>(mem->GetParentType()->Data);
+        
+        StructDecl* s = GetNode<StructDecl>(sd.SourceDecl);
+        
+        for (Decl* field : s->GetFields()) {
+            if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
+                if (fd->GetRawIdentifier() == mem->GetMember()) {
+                    RuntimeStructDeclaration& sdecl = m_Structs.at(s->GetIdentifier());
+        
+                    if (type == ExprValueType::LValue) {
+                        m_OpCodes.emplace_back(OpCodeKind::LdPtrMember, OpCodeMember(sdecl.FieldIndices.at(fd->GetIdentifier()), {VMTypeKind::Ptr}, TypeInfoToVMType(mem->GetParentType())));
+                    } else if (type == ExprValueType::RValue) {
+                        m_OpCodes.emplace_back(OpCodeKind::LdMember, OpCodeMember(sdecl.FieldIndices.at(fd->GetIdentifier()), TypeInfoToVMType(fd->GetResolvedType()), TypeInfoToVMType(mem->GetParentType())));
+                    }
+                }
+            } else if (MethodDecl* md = GetNode<MethodDecl>(field)) {
+                if (md->GetRawIdentifier() == mem->GetMember()) {
+                    // m_OpCodes.emplace_back(OpCodeKind::LoadFunc, md->GetIdentifier());
+                    ARIA_ASSERT(false, "todo");
+                }
+            }  
+        }
     }
 
     void Emitter::EmitCallExpr(Expr* expr, ExprValueType type) {
@@ -375,25 +373,24 @@ namespace Aria::Internal {
 
         if (fnDecl->IsExtern()) { return; }
 
-        m_FunctionsToDeclare[fmt::format("{}()", fnDecl->GetRawIdentifier())] = decl;
+        m_DeclarationsToDeclare[fmt::format("{}()", fnDecl->GetRawIdentifier())] = decl;
     }
 
     void Emitter::EmitStructDecl(Decl* decl) {
-        ARIA_ASSERT(false, "todo!");
-        // StructDecl* s = GetNode<StructDecl>(decl);
-        // 
-        // RuntimeStructDeclaration sd;
-        // 
-        // for (Decl* field : s->GetFields()) {
-        //     if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
-        //         sd.FieldOffsets[fd->GetIdentifier()] = sd.Size;
-        //         sd.Size += TypeGetSize(fd->GetResolvedType());
-        //     } else if (MethodDecl* md = GetNode<MethodDecl>(field)) {
-        //         ARIA_ASSERT(false, "todo!");
-        //     }
-        // }
-        // 
-        // m_Structs[s->GetIdentifier()] = sd;
+        StructDecl* s = GetNode<StructDecl>(decl);
+        
+        RuntimeStructDeclaration sd;
+
+        for (Decl* field : s->GetFields()) {
+            if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
+                sd.FieldIndices[fd->GetIdentifier()] = sd.FieldIndices.size();
+            } else if (MethodDecl* md = GetNode<MethodDecl>(field)) {
+                ARIA_ASSERT(false, "todo!");
+            }
+        }
+
+        m_Structs[s->GetIdentifier()] = sd;
+        m_DeclarationsToDeclare[s->GetIdentifier()] = decl;
     }
 
     void Emitter::EmitDecl(Decl* decl) {
@@ -566,8 +563,8 @@ namespace Aria::Internal {
         m_ActiveStackFrame.Scopes.pop_back();
     }
 
-    void Emitter::EmitFunctions() {
-        for (const auto&[name, decl] : m_FunctionsToDeclare) {
+    void Emitter::EmitDeclarations() {
+        for (const auto&[name, decl] : m_DeclarationsToDeclare) {
             if (FunctionDecl* fnDecl = GetNode<FunctionDecl>(decl)) {
                 if (fnDecl->GetBody()) {
                     m_OpCodes.emplace_back(OpCodeKind::Function, name);
@@ -597,6 +594,17 @@ namespace Aria::Internal {
 
                     m_ReflectionData.Declarations[name] = d;
                 }
+            } else if (StructDecl* stDecl = GetNode<StructDecl>(decl)) {
+                std::vector<VMType> fields;
+                fields.reserve(stDecl->GetFields().Size);
+
+                for (Decl* field : stDecl->GetFields()) {
+                    if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
+                        fields.push_back(TypeInfoToVMType(fd->GetResolvedType()));
+                    }
+                }
+
+                m_OpCodes.emplace_back(OpCodeKind::Struct, OpCodeStruct(fields, std::string_view(stDecl->GetRawIdentifier().Data(), stDecl->GetRawIdentifier().Size())));
             }
         }
     }
@@ -618,6 +626,11 @@ namespace Aria::Internal {
 
             case PrimitiveType::Float:  return { VMTypeKind::F32 };
             case PrimitiveType::Double: return { VMTypeKind::F64 };
+
+            case PrimitiveType::Structure: {
+                StringView ident = std::get<StructDeclaration>(t->Data).Identifier;
+                return { VMTypeKind::Struct, std::string_view(ident.Data(), ident.Size()) }; 
+            }
 
             default: ARIA_ASSERT(false, "todo!");
         }

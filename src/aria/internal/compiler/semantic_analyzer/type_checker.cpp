@@ -67,9 +67,12 @@ namespace Aria::Internal {
 
         for (Decl* field : s->GetFields()) {
             if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
-                memberType = fd->GetResolvedType();
+                if (fd->GetRawIdentifier() == mem->GetMember()) {
+                    memberType = fd->GetResolvedType();
+                }
             } else if (MethodDecl* md = GetNode<MethodDecl>(field)) {
-                memberType = md->GetResolvedType();
+                ARIA_ASSERT(false, "todo!");
+                // memberType = md->GetResolvedType();
             }
         }
 
@@ -94,7 +97,7 @@ namespace Aria::Internal {
         }
 
         for (size_t i = 0; i < fnDecl.ParamTypes.Size; i++) {
-            HandleInitializer(call->GetArguments().Items[i], fnDecl.ParamTypes.Items[i]);
+            call->GetArguments().Items[i] = HandleInitializer(call->GetArguments().Items[i], fnDecl.ParamTypes.Items[i]);
         }
 
         call->SetResolvedType(fnDecl.ReturnType);
@@ -665,6 +668,7 @@ namespace Aria::Internal {
                         cost.CastNeeded = false;
                     } else {
                         cost.CoType = ConversionType::SignChange;
+                        cost.CaType = CastType::Integral;
                         cost.CastNeeded = true;
                     }
                 }
