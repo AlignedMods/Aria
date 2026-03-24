@@ -34,6 +34,11 @@ namespace Aria::Internal {
             size_t ParameterCount = 0;
         };
 
+        struct FutureDeclaration {
+            std::string Name;
+            Decl* Declaration = nullptr;
+        };
+
     public:
         Emitter(CompilationContext* ctx);
 
@@ -102,7 +107,7 @@ namespace Aria::Internal {
 
         std::unordered_map<std::string, RuntimeStructDeclaration> m_Structs;
 
-        std::unordered_map<std::string, Decl*> m_DeclarationsToDeclare; // We do not immediately declare functions/structs/..., we actually do them last
+        std::vector<FutureDeclaration> m_DeclarationsToDeclare; // We do not immediately declare functions/structs/..., we actually do them last
 
         // Counters
         size_t m_AndCounter = 0;

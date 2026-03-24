@@ -67,9 +67,10 @@ namespace Aria {
         void StoreDouble (size_t index, double d);
         void StorePointer(size_t index, void* p);
 
-        void PushGlobal(const std::string& str);
-        void PushArg(size_t index);
-        void PushField(int32_t index, const std::string& name);
+        void GetGlobal(const std::string& str);
+        void GetGlobalPtr(const std::string& str);
+        void GetArg(size_t index);
+        void GetField(int32_t index, const std::string& name);
 
         bool      GetBool     (int32_t index);
         int8_t    GetChar     (int32_t index);

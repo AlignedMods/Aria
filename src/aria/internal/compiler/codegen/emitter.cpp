@@ -421,7 +421,7 @@ namespace Aria::Internal {
 
         if (fnDecl->IsExtern()) { return; }
 
-        m_DeclarationsToDeclare[fmt::format("{}()", fnDecl->GetRawIdentifier())] = decl;
+        m_DeclarationsToDeclare.emplace_back(fmt::format("{}()", fnDecl->GetRawIdentifier()), decl);
     }
 
     void Emitter::EmitStructDecl(Decl* decl) {
@@ -433,12 +433,12 @@ namespace Aria::Internal {
             if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
                 sd.FieldIndices[fd->GetIdentifier()] = sd.FieldIndices.size();
             } else if (MethodDecl* md = GetNode<MethodDecl>(field)) {
-                m_DeclarationsToDeclare[fmt::format("{}::{}()", s->GetIdentifier(), md->GetIdentifier())] = md;
+                m_DeclarationsToDeclare.emplace_back(fmt::format("{}::{}()", s->GetIdentifier(), md->GetIdentifier()), md);
             }
         }
 
         m_Structs[s->GetIdentifier()] = sd;
-        m_DeclarationsToDeclare[s->GetIdentifier()] = decl;
+        m_DeclarationsToDeclare.emplace_back(s->GetIdentifier(), decl);
     }
 
     void Emitter::EmitDecl(Decl* decl) {
@@ -637,8 +637,8 @@ namespace Aria::Internal {
                     PopStackFrame();
 
                     CompilerReflectionDeclaration d;
-                    d.ResolvedType = fnDecl->GetResolvedType();
-                    d.Type = ReflectionType::Function;
+                    d.Type = TypeInfoToVMType(std::get<FunctionDeclaration>(fnDecl->GetResolvedType()->Data).ReturnType);
+                    d.Kind = ReflectionKind::Function;
 
                     m_ReflectionData.Declarations[name] = d;
                 }
@@ -666,8 +666,8 @@ namespace Aria::Internal {
                 PopStackFrame();
 
                 CompilerReflectionDeclaration d;
-                d.ResolvedType = mDecl->GetResolvedType();
-                d.Type = ReflectionType::Function;
+                d.Type = TypeInfoToVMType(std::get<FunctionDeclaration>(mDecl->GetResolvedType()->Data).ReturnType);
+                d.Kind = ReflectionKind::Function;
 
                 m_ReflectionData.Declarations[name] = d;
             } else if (StructDecl* stDecl = GetNode<StructDecl>(decl)) {

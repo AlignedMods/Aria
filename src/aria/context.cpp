@@ -176,15 +176,20 @@ namespace Aria {
         m_ActiveModule->VM.StorePointer(index, p, m_ActiveModule->VM.m_LocalStack);
     }
 
-    void Context::PushGlobal(const std::string& str) {
+    void Context::GetGlobal(const std::string& str) {
         m_ActiveModule->VM.Dup(m_ActiveModule->VM.m_GlobalMap[str], m_ActiveModule->VM.m_LocalStack, m_ActiveModule->VM.m_GlobalStack);
     }
 
-    void Context::PushArg(size_t index) {
+    void Context::GetGlobalPtr(const std::string& str) {
+        Internal::VMSlice slice = m_ActiveModule->VM.GetVMSlice(m_ActiveModule->VM.m_GlobalMap[str], m_ActiveModule->VM.m_GlobalStack);
+        PushPointer(slice.Memory);
+    }
+
+    void Context::GetArg(size_t index) {
         m_ActiveModule->VM.Dup(index + 1, m_ActiveModule->VM.m_LocalStack, m_ActiveModule->VM.m_FunctionStack);
     }
 
-    void Context::PushField(int32_t index, const std::string& name) {
+    void Context::GetField(int32_t index, const std::string& name) {
         // CompiledSource* src = GetCompiledSource(module);
         //
         // Internal::StackSlot slot = src->VM.GetStackSlot(index);
@@ -262,9 +267,7 @@ namespace Aria {
         m_ActiveModule->VM.Pop(argCount, m_ActiveModule->VM.m_LocalStack);
 
         // Allocate the return slot
-        // m_ActiveModule->VM.Alloca(reflection.Declarations.at(str).ResolvedTypeSize, reflection.Declarations.at(str).ResolvedType, m_ActiveModule->VM.m_LocalStack);
-        ARIA_ASSERT(false, "todo!");
-
+        m_ActiveModule->VM.Alloca(reflection.Declarations.at(str).Type, m_ActiveModule->VM.m_LocalStack);
         m_ActiveModule->VM.Call(str, argCount);
     }
 

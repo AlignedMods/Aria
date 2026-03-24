@@ -26,6 +26,7 @@ namespace Aria::Internal {
     TypeInfo* SemanticAnalyzer::HandleMethodCallExpr(Expr* expr) { return expr->GetResolvedType(); }
     TypeInfo* SemanticAnalyzer::HandleParenExpr(Expr* expr) { return expr->GetResolvedType(); }
     TypeInfo* SemanticAnalyzer::HandleCastExpr(Expr* expr) { return expr->GetResolvedType(); }
+    TypeInfo* SemanticAnalyzer::HandleImplicitCastExpr(Expr* expr) { return expr->GetResolvedType(); }
     TypeInfo* SemanticAnalyzer::HandleUnaryOperatorExpr(Expr* expr) { return expr->GetResolvedType(); }
     TypeInfo* SemanticAnalyzer::HandleBinaryOperatorExpr(Expr* expr) { return expr->GetResolvedType(); }
 
@@ -52,6 +53,8 @@ namespace Aria::Internal {
             return HandleParenExpr(expr);
         } else if (GetNode<CastExpr>(expr)) {
             return HandleCastExpr(expr);
+        } else if (GetNode<ImplicitCastExpr>(expr)) {
+            return HandleImplicitCastExpr(expr);
         } else if (GetNode<UnaryOperatorExpr>(expr)) {
             return HandleUnaryOperatorExpr(expr);
         } else if (GetNode<BinaryOperatorExpr>(expr)) {

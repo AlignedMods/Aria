@@ -165,14 +165,17 @@ namespace Aria::Internal {
 
     Expr* TypeChecker::HandleParenExpr(Expr* expr) {
         ParenExpr* paren = GetNode<ParenExpr>(expr);
-        HandleExpr(paren->GetChildExpr());
+        paren->SetChildExpr(HandleExpr(paren->GetChildExpr()));
+        paren->SetResolvedType(paren->GetChildExpr()->GetResolvedType());
+        paren->SetValueType(paren->GetChildExpr()->GetValueType());
         return paren;
     }
 
     Expr* TypeChecker::HandleCastExpr(Expr* expr) {
         CastExpr* cast = GetNode<CastExpr>(expr);
-
-        TypeInfo* srcType = HandleExpr(cast->GetChildExpr())->GetResolvedType();
+        cast->SetValueType(ExprValueType::RValue);
+        cast->SetChildExpr(HandleExpr(cast->GetChildExpr()));
+        TypeInfo* srcType = cast->GetChildExpr()->GetResolvedType();
         TypeInfo* dstType = GetTypeInfoFromString(cast->GetParsedType());
 
         ConversionCost cost = GetConversionCost(dstType, srcType, cast->GetChildExpr()->GetValueType());
@@ -192,7 +195,8 @@ namespace Aria::Internal {
     Expr* TypeChecker::HandleUnaryOperatorExpr(Expr* expr) {
         UnaryOperatorExpr* unop = GetNode<UnaryOperatorExpr>(expr);
 
-        TypeInfo* type = HandleExpr(unop->GetChildExpr())->GetResolvedType();
+        unop->SetChildExpr(HandleExpr(unop->GetChildExpr()));
+        TypeInfo* type = unop->GetChildExpr()->GetResolvedType();
 
         ConversionCost cost = GetConversionCost(type, type, unop->GetChildExpr()->GetValueType());
         if (cost.CastNeeded) {

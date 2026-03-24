@@ -50,6 +50,7 @@ namespace Aria::Internal {
         TypeInfo* HandleMethodCallExpr(Expr* expr);
         TypeInfo* HandleParenExpr(Expr* expr);
         TypeInfo* HandleCastExpr(Expr* expr);
+        TypeInfo* HandleImplicitCastExpr(Expr* expr);
         TypeInfo* HandleUnaryOperatorExpr(Expr* expr);
         TypeInfo* HandleBinaryOperatorExpr(Expr* expr);
 

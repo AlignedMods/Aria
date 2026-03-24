@@ -598,6 +598,7 @@ namespace Aria::Internal {
         Expr* condition = ParseExpression();
         Stmt* body = ParseStatement();
 
+        m_NeedsSemi = false;
         return m_Context->Allocate<IfStmt>(m_Context, condition, body, nullptr);
     }
 

@@ -8,8 +8,8 @@ struct Player {
     Vector2 Velocity;
 
     void Update() {
-        Position.x += Velocity.x;
-        Position.y += Velocity.y;
+        Position.x = Position.x + Velocity.x;
+        Position.y = Position.y + Velocity.y;
     }
 
     void ChangeVelocity(Vector2 newVelocity) {

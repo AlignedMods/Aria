@@ -308,6 +308,7 @@ namespace Aria::Internal {
             : Expr(ctx, loc, range), m_Expression(expr) {}
 
         inline Expr* GetChildExpr() { return m_Expression; }
+        inline void SetChildExpr(Expr* newExpr) { m_Expression = newExpr; }
 
     private:
         Expr* m_Expression = nullptr;
@@ -322,6 +323,7 @@ namespace Aria::Internal {
             : Expr(ctx, loc, range), m_Expression(expr), m_ParsedDestinationType(parsedType) {}
 
         inline Expr* GetChildExpr() { return m_Expression; }
+        inline void SetChildExpr(Expr* newExpr) { m_Expression = newExpr; }
 
         inline StringView GetParsedType() const { return m_ParsedDestinationType; }
 

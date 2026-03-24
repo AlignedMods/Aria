@@ -1,21 +1,20 @@
 #pragma once
 
+#include "aria/internal/vm/op_codes.hpp"
+
 #include <unordered_map>
 #include <string>
 
 namespace Aria::Internal {
 
-    struct TypeInfo;
-
-    enum class ReflectionType {
+    enum class ReflectionKind {
         Variable,
         Function
     };
 
     struct CompilerReflectionDeclaration {
-        TypeInfo* ResolvedType = nullptr;
-        size_t ResolvedTypeSize = 0;
-        ReflectionType Type = ReflectionType::Variable;
+        VMType Type;
+        ReflectionKind Kind = ReflectionKind::Variable;
     };
 
     struct CompilerReflectionData {
