@@ -169,23 +169,23 @@ namespace Aria::Internal {
 
         switch (op.Type) {
             case TokenType::Plus: return BinaryOperatorType::Add;
-            case TokenType::PlusEq: return BinaryOperatorType::AddInPlace;
+            case TokenType::PlusEq: return BinaryOperatorType::CompoundAdd;
             case TokenType::Minus: return BinaryOperatorType::Sub;
-            case TokenType::MinusEq: return BinaryOperatorType::SubInPlace;
+            case TokenType::MinusEq: return BinaryOperatorType::CompoundSub;
             case TokenType::Star: return BinaryOperatorType::Mul;
-            case TokenType::StarEq: return BinaryOperatorType::MulInPlace;
+            case TokenType::StarEq: return BinaryOperatorType::CompoundMul;
             case TokenType::Slash: return BinaryOperatorType::Div;
-            case TokenType::SlashEq: return BinaryOperatorType::DivInPlace;
+            case TokenType::SlashEq: return BinaryOperatorType::CompoundDiv;
             case TokenType::Percent: return BinaryOperatorType::Mod;
-            case TokenType::PercentEq: return BinaryOperatorType::ModInPlace;
+            case TokenType::PercentEq: return BinaryOperatorType::CompoundMod;
             case TokenType::Ampersand: return BinaryOperatorType::And;
-            case TokenType::AmpersandEq: return BinaryOperatorType::AndInPlace;
+            case TokenType::AmpersandEq: return BinaryOperatorType::CompoundAnd;
             case TokenType::DoubleAmpersand: return BinaryOperatorType::BitAnd;
             case TokenType::Pipe: return BinaryOperatorType::Or;
-            case TokenType::PipeEq: return BinaryOperatorType::OrInPlace;
+            case TokenType::PipeEq: return BinaryOperatorType::CompoundOr;
             case TokenType::DoublePipe: return BinaryOperatorType::BitOr;
             case TokenType::UpArrow: return BinaryOperatorType::Xor;
-            case TokenType::UpArrowEq: return BinaryOperatorType::XorInPlace;
+            case TokenType::UpArrowEq: return BinaryOperatorType::CompoundXor;
             case TokenType::Less: return BinaryOperatorType::Less;
             case TokenType::LessOrEq: return BinaryOperatorType::LessOrEq;
             case TokenType::Greater: return BinaryOperatorType::Greater;
@@ -200,14 +200,14 @@ namespace Aria::Internal {
     size_t Parser::GetBinaryPrecedence(BinaryOperatorType type) {
         switch (type) {
             case BinaryOperatorType::Eq:
-            case BinaryOperatorType::AddInPlace:
-            case BinaryOperatorType::SubInPlace:
-            case BinaryOperatorType::MulInPlace:
-            case BinaryOperatorType::ModInPlace:
-            case BinaryOperatorType::DivInPlace:
-            case BinaryOperatorType::AndInPlace:
-            case BinaryOperatorType::OrInPlace:
-            case BinaryOperatorType::XorInPlace:
+            case BinaryOperatorType::CompoundAdd:
+            case BinaryOperatorType::CompoundSub:
+            case BinaryOperatorType::CompoundMul:
+            case BinaryOperatorType::CompoundMod:
+            case BinaryOperatorType::CompoundDiv:
+            case BinaryOperatorType::CompoundAnd:
+            case BinaryOperatorType::CompoundOr:
+            case BinaryOperatorType::CompoundXor:
                 return 10;
 
             case BinaryOperatorType::Less:
@@ -237,6 +237,23 @@ namespace Aria::Internal {
 
         ARIA_ASSERT(false, "Unreachable");
         return -1;
+    }
+
+    size_t Parser::GetNextPrecedence(BinaryOperatorType binop) {
+        switch (binop) {
+            case BinaryOperatorType::Eq:
+            case BinaryOperatorType::CompoundAdd:
+            case BinaryOperatorType::CompoundSub:
+            case BinaryOperatorType::CompoundMul:
+            case BinaryOperatorType::CompoundDiv:
+            case BinaryOperatorType::CompoundMod:
+            case BinaryOperatorType::CompoundAnd:
+            case BinaryOperatorType::CompoundOr:
+            case BinaryOperatorType::CompoundXor:
+                return GetBinaryPrecedence(binop); // Right associative
+
+            default: return GetBinaryPrecedence(binop) + 1; // Left associative
+        }
     }
 
     Expr* Parser::ParseValue() {
@@ -411,10 +428,22 @@ namespace Aria::Internal {
             BinaryOperatorType op = ParseOperator();
             Token o = Consume();
 
-            Expr* rhsExpr = ParseExpression(GetBinaryPrecedence(op) + 1);
+            Expr* rhsExpr = ParseExpression(GetNextPrecedence(op));
             if (!rhsExpr) { return nullptr; }
 
-            lhsExpr = m_Context->Allocate<BinaryOperatorExpr>(m_Context, o.Range.Start, SourceRange(lhsLoc, Peek(-1)->Range.End), lhsExpr, rhsExpr, op);
+            if (op == BinaryOperatorType::CompoundAdd ||
+                op == BinaryOperatorType::CompoundSub ||
+                op == BinaryOperatorType::CompoundMul ||
+                op == BinaryOperatorType::CompoundDiv ||
+                op == BinaryOperatorType::CompoundMod ||
+                op == BinaryOperatorType::CompoundAnd ||
+                op == BinaryOperatorType::CompoundOr  ||
+                op == BinaryOperatorType::CompoundXor) {
+                lhsExpr = m_Context->Allocate<CompoundAssignExpr>(m_Context, o.Range.Start, SourceRange(lhsLoc, Peek(-1)->Range.End), lhsExpr, rhsExpr, op);
+            } else {
+                lhsExpr = m_Context->Allocate<BinaryOperatorExpr>(m_Context, o.Range.Start, SourceRange(lhsLoc, Peek(-1)->Range.End), lhsExpr, rhsExpr, op);
+            }
+
             lhsLoc = Peek()->Range.Start;
         }
 

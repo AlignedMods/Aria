@@ -17,3 +17,9 @@ bool k = j || (true && h); // Should be true
 // This next section validates that && and || don't execute code that is not neccesary
 bool aa = false && ShouldNeverBeCalled();
 bool bb = true || ShouldNeverBeCalled();
+
+// This next section handles compound assignment
+int cc = 1;
+cc += 3;
+int dd = 0x05;
+dd *= 0x05 + 0x05;

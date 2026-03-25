@@ -79,6 +79,11 @@ namespace Aria::Internal {
             DumpExpr(binOp->GetLHS(), indentation + 4);
             DumpExpr(binOp->GetRHS(), indentation + 4);
             return;
+        } else if (CompoundAssignExpr* compAss = GetNode<CompoundAssignExpr>(expr)) {
+            m_Output += fmt::format("CompoundAssignExpr '{}' '{}' {}\n", BinaryOperatorTypeToString(compAss->GetBinaryOperator()), TypeInfoToString(compAss->GetResolvedType()), ExprValueTypeToString(compAss->GetValueType()));
+            DumpExpr(compAss->GetLHS(), indentation + 4);
+            DumpExpr(compAss->GetRHS(), indentation + 4);
+            return;
         }
 
         ARIA_UNREACHABLE();

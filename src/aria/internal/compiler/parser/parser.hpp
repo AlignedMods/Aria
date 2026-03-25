@@ -33,6 +33,7 @@ namespace Aria::Internal {
 
         BinaryOperatorType ParseOperator();
         size_t GetBinaryPrecedence(BinaryOperatorType type);
+        size_t GetNextPrecedence(BinaryOperatorType binop);
         Expr* ParseValue();
         Expr* ParseExpression(size_t minbp = 0);
 

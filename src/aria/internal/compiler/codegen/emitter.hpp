@@ -60,6 +60,7 @@ namespace Aria::Internal {
         void EmitCastExpr(Expr* expr,              ExprValueType type);
         void EmitUnaryOperatorExpr(Expr* expr,     ExprValueType type);
         void EmitBinaryOperatorExpr(Expr* expr,    ExprValueType type);
+        void EmitCompoundAssignExpr(Expr* expr,    ExprValueType type);
 
         void EmitExpr(Expr* expr, ExprValueType type);
 

@@ -337,9 +337,42 @@ namespace Aria::Internal {
                 EmitExpr(binop->GetRHS(), binop->GetRHS()->GetValueType());
 
                 m_OpCodes.emplace_back(OpCodeKind::Store);
+                EmitExpr(binop->GetLHS(), type);
                 break;
             }
         }
+
+        #undef BINOP
+    }
+
+    void Emitter::EmitCompoundAssignExpr(Expr* expr, ExprValueType type) {
+        CompoundAssignExpr* compAss = GetNode<CompoundAssignExpr>(expr);
+
+        #define BINOP(_enum, op) case BinaryOperatorType::Compound##_enum: { \
+                EmitExpr(compAss->GetLHS(), ExprValueType::RValue); \
+                EmitExpr(compAss->GetRHS(), compAss->GetRHS()->GetValueType()); \
+                m_OpCodes.emplace_back(OpCodeKind::op, TypeInfoToVMType(compAss->GetLHS()->GetResolvedType())); \
+                break; \
+            }
+
+        // Load the destination
+        EmitExpr(compAss->GetLHS(), ExprValueType::LValue);
+
+        switch (compAss->GetBinaryOperator()) {
+            BINOP(Add, Add)
+            BINOP(Sub, Sub)
+            BINOP(Mul, Mul)
+            BINOP(Div, Div)
+            BINOP(Mod, Mod)
+            BINOP(And, And)
+            BINOP(Or, Or)
+            BINOP(Xor, Xor)
+
+            default: ARIA_UNREACHABLE();
+        }
+
+        m_OpCodes.emplace_back(OpCodeKind::Store);
+        EmitExpr(compAss->GetLHS(), type);
     }
 
     void Emitter::EmitExpr(Expr* expr, ExprValueType type) {
@@ -373,6 +406,8 @@ namespace Aria::Internal {
             return EmitUnaryOperatorExpr(expr, type);
         } else if (GetNode<BinaryOperatorExpr>(expr)) {
             return EmitBinaryOperatorExpr(expr, type);
+        } else if (GetNode<CompoundAssignExpr>(expr)) {
+            return EmitCompoundAssignExpr(expr, type);
         }
 
         ARIA_UNREACHABLE();

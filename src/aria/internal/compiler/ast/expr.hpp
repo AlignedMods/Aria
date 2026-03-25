@@ -84,20 +84,20 @@ namespace Aria::Internal {
 
     enum class BinaryOperatorType {
         Invalid,
-        Add, AddInPlace,
-        Sub, SubInPlace,
-        Mul, MulInPlace,
-        Div, DivInPlace,
-        Mod, ModInPlace,
+        Add, CompoundAdd,
+        Sub, CompoundSub,
+        Mul, CompoundMul,
+        Div, CompoundDiv,
+        Mod, CompoundMod,
     
         Less,
         LessOrEq,
         Greater,
         GreaterOrEq,
 
-        And, AndInPlace, BitAnd,
-        Or, OrInPlace, BitOr,
-        Xor, XorInPlace,
+        And, CompoundAnd, BitAnd,
+        Or,  CompoundOr,  BitOr,
+        Xor, CompoundXor,
     
         Eq,
         IsEq,
@@ -108,15 +108,15 @@ namespace Aria::Internal {
         switch (type) {
             case BinaryOperatorType::Invalid: return "invalid";
             case BinaryOperatorType::Add: return "+";
-            case BinaryOperatorType::AddInPlace: return "+=";
+            case BinaryOperatorType::CompoundAdd: return "+=";
             case BinaryOperatorType::Sub: return "-";
-            case BinaryOperatorType::SubInPlace: return "-=";
+            case BinaryOperatorType::CompoundSub: return "-=";
             case BinaryOperatorType::Mul: return "*";
-            case BinaryOperatorType::MulInPlace: return "*=";
+            case BinaryOperatorType::CompoundMul: return "*=";
             case BinaryOperatorType::Div: return "/";
-            case BinaryOperatorType::DivInPlace: return "/=";
+            case BinaryOperatorType::CompoundDiv: return "/=";
             case BinaryOperatorType::Mod: return "%";
-            case BinaryOperatorType::ModInPlace: return "%=";
+            case BinaryOperatorType::CompoundMod: return "%=";
     
             case BinaryOperatorType::Less: return "<";
             case BinaryOperatorType::LessOrEq: return "<=";
@@ -124,13 +124,13 @@ namespace Aria::Internal {
             case BinaryOperatorType::GreaterOrEq: return ">=";
 
             case BinaryOperatorType::And: return "&";
-            case BinaryOperatorType::AndInPlace: return "&=";
+            case BinaryOperatorType::CompoundAnd: return "&=";
             case BinaryOperatorType::BitAnd: return "&&";
             case BinaryOperatorType::Or: return "|";
-            case BinaryOperatorType::OrInPlace: return "|=";
+            case BinaryOperatorType::CompoundOr: return "|=";
             case BinaryOperatorType::BitOr: return "||";
             case BinaryOperatorType::Xor: return "^";
-            case BinaryOperatorType::XorInPlace: return "^=";
+            case BinaryOperatorType::CompoundXor: return "^=";
     
             case BinaryOperatorType::Eq: return "=";
             case BinaryOperatorType::IsEq: return "==";
@@ -371,6 +371,28 @@ namespace Aria::Internal {
     
     struct BinaryOperatorExpr final : public Expr {
         BinaryOperatorExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* lhs, Expr* rhs, BinaryOperatorType op)
+            : Expr(ctx, loc, range), m_LHS(lhs), m_RHS(rhs), m_Operator(op) {}
+
+        inline Expr* GetLHS() { return m_LHS; }
+        inline void SetLHS(Expr* expr) { m_LHS = expr; }
+
+        inline Expr* GetRHS() { return m_RHS; }
+        inline void SetRHS(Expr* expr) { m_RHS = expr; }
+
+        inline BinaryOperatorType GetBinaryOperator() const { return m_Operator; }
+
+    private:
+        Expr* m_LHS = nullptr;
+        Expr* m_RHS = nullptr;
+        BinaryOperatorType m_Operator = BinaryOperatorType::Invalid;
+    };
+
+    // CompoundAssignExpr
+    // Represents a binary operator which does both a normal binary operation (+, -, ..) and an assignment (=)
+    // In code this looks like:
+    // foo += bar;
+    struct CompoundAssignExpr final : public Expr {
+        CompoundAssignExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* lhs, Expr* rhs, BinaryOperatorType op)
             : Expr(ctx, loc, range), m_LHS(lhs), m_RHS(rhs), m_Operator(op) {}
 
         inline Expr* GetLHS() { return m_LHS; }

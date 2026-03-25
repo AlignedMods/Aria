@@ -29,6 +29,7 @@ namespace Aria::Internal {
     TypeInfo* SemanticAnalyzer::HandleImplicitCastExpr(Expr* expr) { return expr->GetResolvedType(); }
     TypeInfo* SemanticAnalyzer::HandleUnaryOperatorExpr(Expr* expr) { return expr->GetResolvedType(); }
     TypeInfo* SemanticAnalyzer::HandleBinaryOperatorExpr(Expr* expr) { return expr->GetResolvedType(); }
+    TypeInfo* SemanticAnalyzer::HandleCompoundAssignExpr(Expr* expr) { return expr->GetResolvedType(); }
 
     TypeInfo* SemanticAnalyzer::HandleExpr(Expr* expr) {
         if (GetNode<BooleanConstantExpr>(expr)) {
@@ -59,6 +60,8 @@ namespace Aria::Internal {
             return HandleUnaryOperatorExpr(expr);
         } else if (GetNode<BinaryOperatorExpr>(expr)) {
             return HandleBinaryOperatorExpr(expr);
+        } else if (GetNode<CompoundAssignExpr>(expr)) {
+            return HandleCompoundAssignExpr(expr);
         }
 
         ARIA_UNREACHABLE();

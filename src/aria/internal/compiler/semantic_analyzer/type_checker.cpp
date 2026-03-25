@@ -284,18 +284,15 @@ namespace Aria::Internal {
                 {
                     TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
                     binop->SetResolvedType(boolType);
+                    binop->SetValueType(ExprValueType::RValue);
                     return binop;
                 }
 
                 binop->SetResolvedType(LHSType);
+                binop->SetValueType(ExprValueType::RValue);
                 return binop;
             }
 
-            case BinaryOperatorType::AddInPlace:
-            case BinaryOperatorType::SubInPlace:
-            case BinaryOperatorType::MulInPlace:
-            case BinaryOperatorType::DivInPlace:
-            case BinaryOperatorType::ModInPlace:
             case BinaryOperatorType::Eq: {
                 if (binop->GetLHS()->GetValueType() != ExprValueType::LValue) {
                     // m_Context->ReportCompilerError(binop->LHS->Loc.Line, binop->LHS->Loc.Column, 
@@ -321,6 +318,7 @@ namespace Aria::Internal {
                 }
 
                 binop->SetResolvedType(LHSType);
+                binop->SetValueType(ExprValueType::LValue);
                 return binop;
             }
 
@@ -348,11 +346,44 @@ namespace Aria::Internal {
                 }
 
                 binop->SetResolvedType(boolType);
+                binop->SetValueType(ExprValueType::RValue);
                 return binop;
             }
         }
 
         ARIA_UNREACHABLE();
+    }
+
+    Expr* TypeChecker::HandleCompoundAssignExpr(Expr* expr) {
+        CompoundAssignExpr* compAss = GetNode<CompoundAssignExpr>(expr);
+        
+        compAss->SetLHS(HandleExpr(compAss->GetLHS()));
+        compAss->SetRHS(HandleExpr(compAss->GetRHS()));
+
+        Expr* LHS = compAss->GetLHS();
+        Expr* RHS = compAss->GetRHS();
+
+        TypeInfo* LHSType = LHS->GetResolvedType();
+        TypeInfo* RHSType = RHS->GetResolvedType();
+
+        if (compAss->GetLHS()->GetValueType() != ExprValueType::LValue) {
+            m_Context->ReportCompilerError(compAss->GetLHS()->Loc, compAss->GetLHS()->Range, "Expression must be a modifiable lvalue");
+        }
+
+        ConversionCost cost = GetConversionCost(LHSType, RHSType, compAss->GetRHS()->GetValueType());
+
+        if (cost.CastNeeded) {
+            if (cost.ImplicitCastPossible) {
+                compAss->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, cost.CaType));
+                RHSType = LHSType;
+            } else {
+                m_Context->ReportCompilerError(compAss->GetRHS()->Loc, compAss->GetRHS()->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(RHSType), TypeInfoToString(LHSType)));
+            }
+        }
+
+        compAss->SetResolvedType(LHSType);
+        compAss->SetValueType(ExprValueType::LValue);
+        return compAss;
     }
 
     Expr* TypeChecker::HandleExpr(Expr* expr) {
@@ -382,6 +413,8 @@ namespace Aria::Internal {
             return HandleUnaryOperatorExpr(expr);
         } else if (GetNode<BinaryOperatorExpr>(expr)) {
             return HandleBinaryOperatorExpr(expr);
+        } else if (GetNode<CompoundAssignExpr>(expr)) {
+            return HandleCompoundAssignExpr(expr);
         }
 
         ARIA_UNREACHABLE();
@@ -477,12 +510,13 @@ namespace Aria::Internal {
 
         m_DeclaredTypes[s->GetIdentifier()] = structType;
 
+        m_ActiveStruct = TypeInfo::Create(m_Context, structType->Type, true, structType->Data);
+
         for (MethodDecl* md : methods) {
             TypeInfo* returnType = GetTypeInfoFromString(md->GetParsedType());
             TinyVector<TypeInfo*> paramTypes;
             m_ActiveReturnType = returnType;
-            m_ActiveStruct = structType;
-            m_ActiveStruct->Reference = true;
+            
 
             m_Declarations.emplace_back();
 
@@ -508,10 +542,10 @@ namespace Aria::Internal {
             }
 
             m_Declarations.pop_back();
-            m_ActiveStruct->Reference = false;
-            m_ActiveStruct = nullptr;
             m_ActiveReturnType = nullptr;
         }
+
+        m_ActiveStruct = nullptr;
     }
 
     void TypeChecker::HandleDecl(Decl* decl) {

@@ -50,6 +50,11 @@ TEST_CASE("Runtime Basic Expressions") {
     REQUIRE(ctx.GetBool(-1) == false);
     ctx.GetGlobal("k");
     REQUIRE(ctx.GetBool(-1) == true);
+
+    ctx.GetGlobal("cc");
+    REQUIRE(ctx.GetInt(-1) == 4);
+    ctx.GetGlobal("dd");
+    REQUIRE(ctx.GetInt(-1) == 50);
 }
 
 TEST_CASE("Runtime Functions") {

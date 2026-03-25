@@ -58,6 +58,7 @@ namespace Aria::Internal {
         Expr* HandleCastExpr(Expr* expr);
         Expr* HandleUnaryOperatorExpr(Expr* expr);
         Expr* HandleBinaryOperatorExpr(Expr* expr);
+        Expr* HandleCompoundAssignExpr(Expr* expr);
 
         Expr* HandleExpr(Expr* expr);
 
