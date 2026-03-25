@@ -242,6 +242,14 @@ namespace Aria::Internal {
             case BinaryOperatorType::GreaterOrEq:
             case BinaryOperatorType::IsEq: 
             case BinaryOperatorType::IsNotEq: {
+                if (!LHSType->IsNumeric()) {
+                    m_Context->ReportCompilerError(LHS->Loc, LHS->Range, fmt::format("expression must be of a numeric type but is of type '{}'", TypeInfoToString(LHSType)));
+                }
+
+                if (!RHSType->IsNumeric()) {
+                    m_Context->ReportCompilerError(RHS->Loc, RHS->Range, fmt::format("expression must be of a numeric type but is of type '{}'", TypeInfoToString(RHSType)));
+                }
+
                 // See which conversion would be better
                 ConversionCost costLHS = GetConversionCost(LHSType, RHSType, RHS->GetValueType()); // Cast to LHS
                 ConversionCost costRHS = GetConversionCost(RHSType, LHSType, LHS->GetValueType()); // Cast to RHS
@@ -295,11 +303,7 @@ namespace Aria::Internal {
 
             case BinaryOperatorType::Eq: {
                 if (binop->GetLHS()->GetValueType() != ExprValueType::LValue) {
-                    // m_Context->ReportCompilerError(binop->LHS->Loc.Line, binop->LHS->Loc.Column, 
-                    //                                binop->LHS->Range.Start.Line, binop->LHS->Range.Start.Column,
-                    //                                binop->LHS->Range.End.Line, binop->LHS->Range.End.Column,
-                    //                                "Expression must be a modifiable lvalue");
-                    ARIA_ASSERT(false, "todo: add error for TypeChecker::HandleBinaryOperatorExpr()");
+                    m_Context->ReportCompilerError(LHS->Loc, LHS->Range, "expression must be a modifiable lvalue");
                 }
 
                 ConversionCost cost = GetConversionCost(LHSType, RHSType, binop->GetRHS()->GetValueType());
@@ -309,11 +313,7 @@ namespace Aria::Internal {
                         binop->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, cost.CaType));
                         RHSType = LHSType;
                     } else {
-                        // m_Context->ReportCompilerError(binop->RHS->Loc.Line, binop->RHS->Loc.Column, 
-                        //                                binop->RHS->Range.Start.Line, binop->RHS->Range.Start.Column,
-                        //                                binop->RHS->Range.End.Line, binop->RHS->Range.End.Column,
-                        //                                fmt::format("Cannot implicitly cast from {} to {}", TypeInfoToString(RHSType), TypeInfoToString(LHSType)));
-                        ARIA_ASSERT(false, "todo: add error for TypeChecker::HandleBinaryOperatorExpr()");
+                        m_Context->ReportCompilerError(binop->Loc, binop->Range, fmt::format("cannot implicitly convert from '{}' to '{}'", TypeInfoToString(RHSType), TypeInfoToString(LHSType)));
                     }
                 }
 
@@ -326,14 +326,14 @@ namespace Aria::Internal {
             case BinaryOperatorType::BitOr: {
                 TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
 
-                ConversionCost costLHS = GetConversionCost(boolType, RHSType, LHS->GetValueType());
-                ConversionCost costRHS = GetConversionCost(boolType, LHSType, RHS->GetValueType());
+                ConversionCost costLHS = GetConversionCost(boolType, LHSType, LHS->GetValueType());
+                ConversionCost costRHS = GetConversionCost(boolType, RHSType, RHS->GetValueType());
 
                 if (costLHS.CastNeeded) {
                     if (costLHS.ImplicitCastPossible) {
                         binop->SetLHS(InsertImplicitCast(boolType, LHSType, LHS, costLHS.CaType));
                     } else {
-                        ARIA_ASSERT(false, "todo: add error for TypeChecker::HandleBinaryOperatorExpr()");
+                        m_Context->ReportCompilerError(LHS->Loc, LHS->Range, fmt::format("cannot implicitly convert from '{}' to 'bool'", TypeInfoToString(LHSType)));
                     }
                 }
 
@@ -341,7 +341,7 @@ namespace Aria::Internal {
                     if (costRHS.ImplicitCastPossible) {
                         binop->SetRHS(InsertImplicitCast(boolType, RHSType, RHS, costRHS.CaType));
                     } else {
-                        ARIA_ASSERT(false, "todo: add error for TypeChecker::HandleBinaryOperatorExpr()");
+                        m_Context->ReportCompilerError(LHS->Loc, LHS->Range, fmt::format("cannot implicitly convert from '{}' to 'bool'", TypeInfoToString(RHSType)));
                     }
                 }
 
