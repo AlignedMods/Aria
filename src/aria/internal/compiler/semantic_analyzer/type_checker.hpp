@@ -10,7 +10,7 @@
 
 namespace Aria::Internal {
     
-    enum class ConversionType {
+    enum class ConversionKind {
         None,
         Promotion,
         Narrowing,
@@ -19,8 +19,8 @@ namespace Aria::Internal {
     };
 
     struct ConversionCost {
-        ConversionType CoType = ConversionType::None;
-        CastType CaType = CastType::Invalid;
+        ConversionKind CoKind = ConversionKind::None;
+        CastKind CaKind = CastKind::Invalid;
 
         bool CastNeeded = false;
         bool SignedMismatch = false;
@@ -36,7 +36,7 @@ namespace Aria::Internal {
         struct Declaration {
             TypeInfo* ResolvedType = nullptr;
             Decl* SourceDeclaration = nullptr;
-            DeclRefType DeclType = DeclRefType::LocalVar;
+            DeclRefKind DeclKind = DeclRefKind::LocalVar;
         };
 
     public:
@@ -84,8 +84,8 @@ namespace Aria::Internal {
         TypeInfo* GetTypeInfoFromString(StringView str);
 
         // type1 is the destination type and type2 is the source type
-        ConversionCost GetConversionCost(TypeInfo* dst, TypeInfo* src, ExprValueType srcType);
-        Expr* InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastType castType); // Returns the new ImplicitCastExpr
+        ConversionCost GetConversionCost(TypeInfo* dst, TypeInfo* src, ExprValueKind srcKind);
+        Expr* InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastKind castKind); // Returns the new ImplicitCastExpr
 
         bool TypeIsEqual(TypeInfo* lhs, TypeInfo* rhs);
         size_t TypeGetSize(TypeInfo* t); // NOTE: works only on trivial types

@@ -11,29 +11,29 @@
 
 namespace Aria::Internal {
 
-#pragma region DeclRefType
+#pragma region DeclRefKind
 
-    enum class DeclRefType {
+    enum class DeclRefKind {
         LocalVar,
         ParamVar,
         GlobalVar,
         Function
     };
 
-    inline const char* DeclRefTypeToString(DeclRefType type) {
-        switch (type) {
-            case DeclRefType::LocalVar:    return "LocalVar";
-            case DeclRefType::ParamVar:    return "ParamVar";
-            case DeclRefType::GlobalVar:   return "GlobalVar";
-            case DeclRefType::Function:    return "Function";
+    inline const char* DeclRefKindToString(DeclRefKind kind) {
+        switch (kind) {
+            case DeclRefKind::LocalVar:  return "LocalVar";
+            case DeclRefKind::ParamVar:  return "ParamVar";
+            case DeclRefKind::GlobalVar: return "GlobalVar";
+            case DeclRefKind::Function:  return "Function";
         }
     }
 
 #pragma endregion
 
-#pragma region CastType
+#pragma region CastKind
 
-    enum class CastType {
+    enum class CastKind {
         Invalid,
         Integral,
         Floating,
@@ -43,46 +43,45 @@ namespace Aria::Internal {
         LValueToRValue
     };
 
-    inline const char* CastTypeToString(CastType type) {
-        switch (type) {
-        case CastType::Invalid: return "Invalid";
-            case CastType::Integral: return "Integral";
-            case CastType::Floating: return "Floating";
-            case CastType::IntegralToFloating: return "IntegralToFloating";
-            case CastType::FloatingToIntegral: return "FloatingToIntegral";
-            case CastType::LValueToRValue: return "LValueToRValue";
+    inline const char* CastKindToString(CastKind kind) {
+        switch (kind) {
+            case CastKind::Invalid: return "Invalid";
+            case CastKind::Integral: return "Integral";
+            case CastKind::Floating: return "Floating";
+            case CastKind::IntegralToFloating: return "IntegralToFloating";
+            case CastKind::FloatingToIntegral: return "FloatingToIntegral";
+            case CastKind::LValueToRValue: return "LValueToRValue";
             default: ARIA_ASSERT(false, "Unreachable");
         }
     }
 
 #pragma endregion
 
-#pragma region UnaryOperatorType
+#pragma region UnaryOperatorKind
 
-    enum class UnaryOperatorType {
+    enum class UnaryOperatorKind {
         Invalid,
     
         Not, // "!"
         Negate // "-8.7f"
     };
     
-    inline const char* UnaryOperatorTypeToString(UnaryOperatorType type) {
-        switch (type) {
-            case UnaryOperatorType::Invalid: return "invalid";
+    inline const char* UnaryOperatorKindToString(UnaryOperatorKind kind) {
+        switch (kind) {
+            case UnaryOperatorKind::Invalid: return "invalid";
             
-            case UnaryOperatorType::Not: return "!";
-            case UnaryOperatorType::Negate: return "-";
+            case UnaryOperatorKind::Not: return "!";
+            case UnaryOperatorKind::Negate: return "-";
+
+            default: ARIA_UNREACHABLE();
         }
-    
-        ARIA_ASSERT(false, "Unreachable!");
-        return "invalid";
     }
 
 #pragma endregion
 
-#pragma region BinaryOperatorType
+#pragma region BinaryOperatorKind
 
-    enum class BinaryOperatorType {
+    enum class BinaryOperatorKind {
         Invalid,
         Add, CompoundAdd,
         Sub, CompoundSub,
@@ -104,59 +103,58 @@ namespace Aria::Internal {
         IsNotEq,
     };
     
-    inline const char* BinaryOperatorTypeToString(BinaryOperatorType type) {
-        switch (type) {
-            case BinaryOperatorType::Invalid: return "invalid";
-            case BinaryOperatorType::Add: return "+";
-            case BinaryOperatorType::CompoundAdd: return "+=";
-            case BinaryOperatorType::Sub: return "-";
-            case BinaryOperatorType::CompoundSub: return "-=";
-            case BinaryOperatorType::Mul: return "*";
-            case BinaryOperatorType::CompoundMul: return "*=";
-            case BinaryOperatorType::Div: return "/";
-            case BinaryOperatorType::CompoundDiv: return "/=";
-            case BinaryOperatorType::Mod: return "%";
-            case BinaryOperatorType::CompoundMod: return "%=";
-    
-            case BinaryOperatorType::Less: return "<";
-            case BinaryOperatorType::LessOrEq: return "<=";
-            case BinaryOperatorType::Greater: return ">";
-            case BinaryOperatorType::GreaterOrEq: return ">=";
+    inline const char* BinaryOperatorKindToString(BinaryOperatorKind kind) {
+        switch (kind) {
+            case BinaryOperatorKind::Invalid: return "invalid";
+            case BinaryOperatorKind::Add: return "+";
+            case BinaryOperatorKind::CompoundAdd: return "+=";
+            case BinaryOperatorKind::Sub: return "-";
+            case BinaryOperatorKind::CompoundSub: return "-=";
+            case BinaryOperatorKind::Mul: return "*";
+            case BinaryOperatorKind::CompoundMul: return "*=";
+            case BinaryOperatorKind::Div: return "/";
+            case BinaryOperatorKind::CompoundDiv: return "/=";
+            case BinaryOperatorKind::Mod: return "%";
+            case BinaryOperatorKind::CompoundMod: return "%=";
 
-            case BinaryOperatorType::And: return "&";
-            case BinaryOperatorType::CompoundAnd: return "&=";
-            case BinaryOperatorType::BitAnd: return "&&";
-            case BinaryOperatorType::Or: return "|";
-            case BinaryOperatorType::CompoundOr: return "|=";
-            case BinaryOperatorType::BitOr: return "||";
-            case BinaryOperatorType::Xor: return "^";
-            case BinaryOperatorType::CompoundXor: return "^=";
-    
-            case BinaryOperatorType::Eq: return "=";
-            case BinaryOperatorType::IsEq: return "==";
-            case BinaryOperatorType::IsNotEq: return "!=";
+            case BinaryOperatorKind::Less: return "<";
+            case BinaryOperatorKind::LessOrEq: return "<=";
+            case BinaryOperatorKind::Greater: return ">";
+            case BinaryOperatorKind::GreaterOrEq: return ">=";
+
+            case BinaryOperatorKind::And: return "&";
+            case BinaryOperatorKind::CompoundAnd: return "&=";
+            case BinaryOperatorKind::BitAnd: return "&&";
+            case BinaryOperatorKind::Or: return "|";
+            case BinaryOperatorKind::CompoundOr: return "|=";
+            case BinaryOperatorKind::BitOr: return "||";
+            case BinaryOperatorKind::Xor: return "^";
+            case BinaryOperatorKind::CompoundXor: return "^=";
+
+            case BinaryOperatorKind::Eq: return "=";
+            case BinaryOperatorKind::IsEq: return "==";
+            case BinaryOperatorKind::IsNotEq: return "!=";
+
+            default: ARIA_UNREACHABLE();
         }
-    
-        ARIA_ASSERT(false, "Unreachable!");
-        return "invalid";
     }
 
 #pragma endregion
 
-#pragma region ExprValueType
+#pragma region ExprValueKind
 
-    enum class ExprValueType {
+    enum class ExprValueKind {
         LValue,
         RValue
     };
 
-    inline const char* ExprValueTypeToString(ExprValueType type) {
+    inline const char* ExprValueKindToString(ExprValueKind type) {
         switch (type) {
-            case ExprValueType::LValue: return "lvalue";
-            case ExprValueType::RValue: return "rvalue";
-        }
+            case ExprValueKind::LValue: return "lvalue";
+            case ExprValueKind::RValue: return "rvalue";
 
-        ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE();
+        }
     }
 
 #pragma endregion
@@ -171,15 +169,15 @@ namespace Aria::Internal {
         inline TypeInfo* GetResolvedType() { return m_Type; }
         inline void SetResolvedType(TypeInfo* type) { m_Type = type; }
 
-        inline ExprValueType GetValueType() const { return m_ValueType; }
-        inline void SetValueType(ExprValueType valType) { m_ValueType = valType; }
+        inline ExprValueKind GetValueKind() const { return m_ValueKind; }
+        inline void SetValueKind(ExprValueKind kind) { m_ValueKind = kind; }
 
         SourceLocation Loc;
         SourceRange Range;
 
     protected:
         TypeInfo* m_Type = nullptr;
-        ExprValueType m_ValueType{};
+        ExprValueKind m_ValueKind{};
     };
 
     struct BooleanConstantExpr final : public Expr {
@@ -187,6 +185,7 @@ namespace Aria::Internal {
             : Expr(ctx, loc, range, TypeInfo::Create(ctx, PrimitiveType::Bool, false)), m_Value(value) {}
 
         inline bool GetValue() const { return m_Value; }
+
     private:
         bool m_Value = false;
     };
@@ -238,12 +237,12 @@ namespace Aria::Internal {
         inline std::string GetIdentifier() const { return fmt::format("{}", m_Identifier); }
         inline StringView GetRawIdentifier() const { return m_Identifier; }
 
-        inline DeclRefType GetType() const { return m_Type; }
-        inline void SetType(DeclRefType type) { m_Type = type; }
+        inline DeclRefKind GetKind() const { return m_Kind; }
+        inline void SetKind(DeclRefKind kind) { m_Kind = kind; }
 
     private:
         StringView m_Identifier;
-        DeclRefType m_Type = DeclRefType::LocalVar;
+        DeclRefKind m_Kind = DeclRefKind::LocalVar;
     };
 
     struct MemberExpr final : public Expr {
@@ -327,50 +326,50 @@ namespace Aria::Internal {
 
         inline StringView GetParsedType() const { return m_ParsedDestinationType; }
 
-        inline CastType GetCastType() const { return m_ResolvedCastType; }
-        inline void SetCastType(CastType type) { m_ResolvedCastType = type; }
+        inline CastKind GetCastKind() const { return m_CastKind; }
+        inline void SetCastType(CastKind kind) { m_CastKind = kind; }
 
     private:
         Expr* m_Expression = nullptr;
         StringView m_ParsedDestinationType;
 
-        CastType m_ResolvedCastType = CastType::Integral;
+        CastKind m_CastKind = CastKind::Integral;
     };
 
     // ImplicitCastExpr
     // Represents an implicit cast automatically inserted by the type checker/semantic analyzer
     // eg. float a = 5; -> here "5" is implicitly converted to a float
     struct ImplicitCastExpr final : public Expr {
-        ImplicitCastExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr, CastType castType)
-            : Expr(ctx, loc, range), m_Expression(expr), m_ResolvedCastType(castType) {}
+        ImplicitCastExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr, CastKind castKind)
+            : Expr(ctx, loc, range), m_Expression(expr), m_CastKind(castKind) {}
 
         inline Expr* GetChildExpr() { return m_Expression; }
 
-        inline CastType GetCastType() const { return m_ResolvedCastType; }
-        inline void SetCastType(CastType type) { m_ResolvedCastType = type; }
+        inline CastKind GetCastKind() const { return m_CastKind; }
+        inline void SetCastType(CastKind kind) { m_CastKind = kind; }
 
     private:
         Expr* m_Expression = nullptr;
 
-        CastType m_ResolvedCastType = CastType::Integral;
+        CastKind m_CastKind = CastKind::Integral;
     };
     
     struct UnaryOperatorExpr final : public Expr {
-        UnaryOperatorExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr, UnaryOperatorType op)
+        UnaryOperatorExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr, UnaryOperatorKind op)
             : Expr(ctx, loc, range), m_Expression(expr), m_Operator(op) {}
 
         inline Expr* GetChildExpr() { return m_Expression; }
         inline void SetChildExpr(Expr* expr) { m_Expression = expr; }
 
-        inline UnaryOperatorType GetUnaryOperator() const { return m_Operator; }
+        inline UnaryOperatorKind GetUnaryOperator() const { return m_Operator; }
 
     private:
         Expr* m_Expression = nullptr;
-        UnaryOperatorType m_Operator = UnaryOperatorType::Invalid;
+        UnaryOperatorKind m_Operator = UnaryOperatorKind::Invalid;
     };
     
     struct BinaryOperatorExpr final : public Expr {
-        BinaryOperatorExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* lhs, Expr* rhs, BinaryOperatorType op)
+        BinaryOperatorExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* lhs, Expr* rhs, BinaryOperatorKind op)
             : Expr(ctx, loc, range), m_LHS(lhs), m_RHS(rhs), m_Operator(op) {}
 
         inline Expr* GetLHS() { return m_LHS; }
@@ -379,12 +378,12 @@ namespace Aria::Internal {
         inline Expr* GetRHS() { return m_RHS; }
         inline void SetRHS(Expr* expr) { m_RHS = expr; }
 
-        inline BinaryOperatorType GetBinaryOperator() const { return m_Operator; }
+        inline BinaryOperatorKind GetBinaryOperator() const { return m_Operator; }
 
     private:
         Expr* m_LHS = nullptr;
         Expr* m_RHS = nullptr;
-        BinaryOperatorType m_Operator = BinaryOperatorType::Invalid;
+        BinaryOperatorKind m_Operator = BinaryOperatorKind::Invalid;
     };
 
     // CompoundAssignExpr
@@ -392,7 +391,7 @@ namespace Aria::Internal {
     // In code this looks like:
     // foo += bar;
     struct CompoundAssignExpr final : public Expr {
-        CompoundAssignExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* lhs, Expr* rhs, BinaryOperatorType op)
+        CompoundAssignExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* lhs, Expr* rhs, BinaryOperatorKind op)
             : Expr(ctx, loc, range), m_LHS(lhs), m_RHS(rhs), m_Operator(op) {}
 
         inline Expr* GetLHS() { return m_LHS; }
@@ -401,12 +400,12 @@ namespace Aria::Internal {
         inline Expr* GetRHS() { return m_RHS; }
         inline void SetRHS(Expr* expr) { m_RHS = expr; }
 
-        inline BinaryOperatorType GetBinaryOperator() const { return m_Operator; }
+        inline BinaryOperatorKind GetBinaryOperator() const { return m_Operator; }
 
     private:
         Expr* m_LHS = nullptr;
         Expr* m_RHS = nullptr;
-        BinaryOperatorType m_Operator = BinaryOperatorType::Invalid;
+        BinaryOperatorKind m_Operator = BinaryOperatorKind::Invalid;
     };
 
 } // namespace Aria::Internal

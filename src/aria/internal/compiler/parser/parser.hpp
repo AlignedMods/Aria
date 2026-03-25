@@ -31,9 +31,9 @@ namespace Aria::Internal {
         bool IsPrimitiveType();
         bool IsVariableType();
 
-        BinaryOperatorType ParseOperator();
-        size_t GetBinaryPrecedence(BinaryOperatorType type);
-        size_t GetNextPrecedence(BinaryOperatorType binop);
+        BinaryOperatorKind ParseOperator();
+        size_t GetBinaryPrecedence(BinaryOperatorKind type);
+        size_t GetNextPrecedence(BinaryOperatorKind binop);
         Expr* ParseValue();
         Expr* ParseExpression(size_t minbp = 0);
 

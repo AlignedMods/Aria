@@ -17,27 +17,27 @@ namespace Aria::Internal {
     }
 
     Expr* TypeChecker::HandleBooleanConstantExpr(Expr* expr) {
-        expr->SetValueType(ExprValueType::RValue);
+        expr->SetValueKind(ExprValueKind::RValue);
         return expr;
     }
 
     Expr* TypeChecker::HandleCharacterConstantExpr(Expr* expr) {
-        expr->SetValueType(ExprValueType::RValue);
+        expr->SetValueKind(ExprValueKind::RValue);
         return expr;
     }
 
     Expr* TypeChecker::HandleIntegerConstantExpr(Expr* expr) {
-        expr->SetValueType(ExprValueType::RValue);
+        expr->SetValueKind(ExprValueKind::RValue);
         return expr;
     }
 
     Expr* TypeChecker::HandleFloatingConstantExpr(Expr* expr) {
-        expr->SetValueType(ExprValueType::RValue);
+        expr->SetValueKind(ExprValueKind::RValue);
         return expr;
     }
 
     Expr* TypeChecker::HandleStringConstantExpr(Expr* expr) {
-        expr->SetValueType(ExprValueType::RValue);
+        expr->SetValueKind(ExprValueKind::RValue);
         ARIA_ASSERT(false, "todo!");
     }
 
@@ -55,12 +55,12 @@ namespace Aria::Internal {
                     if (fd->GetRawIdentifier() == ref->GetRawIdentifier()) {
                         SelfExpr* self = m_Context->Allocate<SelfExpr>(m_Context, ref->Loc, ref->Range);
                         self->SetResolvedType(m_ActiveStruct);
-                        self->SetValueType(ExprValueType::LValue);
+                        self->SetValueKind(ExprValueKind::LValue);
 
                         MemberExpr* mem = m_Context->Allocate<MemberExpr>(m_Context, ref->Loc, ref->Range, ref->GetRawIdentifier(), self);
                         mem->SetResolvedType(fd->GetResolvedType());
                         mem->SetParentType(self->GetResolvedType());
-                        mem->SetValueType(ExprValueType::LValue);
+                        mem->SetValueKind(ExprValueKind::LValue);
                         return mem;
                     }
                 }
@@ -72,15 +72,15 @@ namespace Aria::Internal {
 
             if (it.contains(ident)) {
                 ref->SetResolvedType(it.at(ident).ResolvedType);
-                ref->SetType(it.at(ident).DeclType);
-                ref->SetValueType(ExprValueType::LValue);
+                ref->SetKind(it.at(ident).DeclKind);
+                ref->SetValueKind(ExprValueKind::LValue);
                 return ref;
             }
         }
 
         m_Context->ReportCompilerError(ref->Loc, ref->Range, fmt::format("Undeclared identifier \"{}\"", ref->GetRawIdentifier()));
         ref->SetResolvedType(TypeInfo::Create(m_Context, PrimitiveType::Void, false));
-        ref->SetValueType(ExprValueType::LValue);
+        ref->SetValueKind(ExprValueKind::LValue);
         return ref;
     }
 
@@ -112,7 +112,7 @@ namespace Aria::Internal {
 
         mem->SetParentType(parentType);
         mem->SetResolvedType(memberType);
-        mem->SetValueType(ExprValueType::LValue);
+        mem->SetValueKind(ExprValueKind::LValue);
         return mem;
     }
 
@@ -131,7 +131,7 @@ namespace Aria::Internal {
         }
 
         call->SetResolvedType(fnDecl.ReturnType);
-        call->SetValueType((fnDecl.ReturnType->IsReference()) ? ExprValueType::LValue : ExprValueType::RValue);
+        call->SetValueKind((fnDecl.ReturnType->IsReference()) ? ExprValueKind::LValue : ExprValueKind::RValue);
         return call;
     }
 
@@ -149,10 +149,10 @@ namespace Aria::Internal {
             TypeInfo* paramType = fnDecl.ParamTypes.Items[i];
             TypeInfo* argType = HandleExpr(call->GetArguments().Items[i])->GetResolvedType();
 
-            ConversionCost cost = GetConversionCost(paramType, argType, call->GetArguments().Items[i]->GetValueType());
+            ConversionCost cost = GetConversionCost(paramType, argType, call->GetArguments().Items[i]->GetValueKind());
             if (cost.CastNeeded) {
                 if (cost.ImplicitCastPossible) {
-                    call->SetArgument(i, InsertImplicitCast(paramType, argType, call->GetArguments().Items[i], cost.CaType));
+                    call->SetArgument(i, InsertImplicitCast(paramType, argType, call->GetArguments().Items[i], cost.CaKind));
                 } else {
                     ARIA_ASSERT(false, "todo: error msg");
                 }
@@ -167,23 +167,23 @@ namespace Aria::Internal {
         ParenExpr* paren = GetNode<ParenExpr>(expr);
         paren->SetChildExpr(HandleExpr(paren->GetChildExpr()));
         paren->SetResolvedType(paren->GetChildExpr()->GetResolvedType());
-        paren->SetValueType(paren->GetChildExpr()->GetValueType());
+        paren->SetValueKind(paren->GetChildExpr()->GetValueKind());
         return paren;
     }
 
     Expr* TypeChecker::HandleCastExpr(Expr* expr) {
         CastExpr* cast = GetNode<CastExpr>(expr);
-        cast->SetValueType(ExprValueType::RValue);
+        cast->SetValueKind(ExprValueKind::RValue);
         cast->SetChildExpr(HandleExpr(cast->GetChildExpr()));
         TypeInfo* srcType = cast->GetChildExpr()->GetResolvedType();
         TypeInfo* dstType = GetTypeInfoFromString(cast->GetParsedType());
 
-        ConversionCost cost = GetConversionCost(dstType, srcType, cast->GetChildExpr()->GetValueType());
+        ConversionCost cost = GetConversionCost(dstType, srcType, cast->GetChildExpr()->GetValueKind());
 
         if (cost.CastNeeded) {
             if (cost.ExplicitCastPossible) {
                 cast->SetResolvedType(dstType);
-                cast->SetCastType(cost.CaType);
+                cast->SetCastType(cost.CaKind);
             } else {
                 ARIA_ASSERT(false, "todo: add error message");
             }
@@ -198,17 +198,17 @@ namespace Aria::Internal {
         unop->SetChildExpr(HandleExpr(unop->GetChildExpr()));
         TypeInfo* type = unop->GetChildExpr()->GetResolvedType();
 
-        ConversionCost cost = GetConversionCost(type, type, unop->GetChildExpr()->GetValueType());
+        ConversionCost cost = GetConversionCost(type, type, unop->GetChildExpr()->GetValueKind());
         if (cost.CastNeeded) {
             if (cost.ImplicitCastPossible) {
-                unop->SetChildExpr(InsertImplicitCast(type, type, unop->GetChildExpr(), cost.CaType));
+                unop->SetChildExpr(InsertImplicitCast(type, type, unop->GetChildExpr(), cost.CaKind));
             } else {
                 ARIA_ASSERT(false, "todo: TypeChecker::HandleVarDecl() error");
             }
         }
 
         switch (unop->GetUnaryOperator()) {
-            case UnaryOperatorType::Negate: {
+            case UnaryOperatorKind::Negate: {
                 ARIA_ASSERT(type->IsNumeric(), "todo: add error message");
                 unop->SetResolvedType(type);
                 return unop;
@@ -231,17 +231,17 @@ namespace Aria::Internal {
         TypeInfo* RHSType = RHS->GetResolvedType();
 
         switch (binop->GetBinaryOperator()) {
-            case BinaryOperatorType::Add:
-            case BinaryOperatorType::Sub:
-            case BinaryOperatorType::Mul:
-            case BinaryOperatorType::Div:
-            case BinaryOperatorType::Mod:
-            case BinaryOperatorType::Less:
-            case BinaryOperatorType::LessOrEq:
-            case BinaryOperatorType::Greater:
-            case BinaryOperatorType::GreaterOrEq:
-            case BinaryOperatorType::IsEq: 
-            case BinaryOperatorType::IsNotEq: {
+            case BinaryOperatorKind::Add:
+            case BinaryOperatorKind::Sub:
+            case BinaryOperatorKind::Mul:
+            case BinaryOperatorKind::Div:
+            case BinaryOperatorKind::Mod:
+            case BinaryOperatorKind::Less:
+            case BinaryOperatorKind::LessOrEq:
+            case BinaryOperatorKind::Greater:
+            case BinaryOperatorKind::GreaterOrEq:
+            case BinaryOperatorKind::IsEq: 
+            case BinaryOperatorKind::IsNotEq: {
                 if (!LHSType->IsNumeric()) {
                     m_Context->ReportCompilerError(LHS->Loc, LHS->Range, fmt::format("expression must be of a numeric type but is of type '{}'", TypeInfoToString(LHSType)));
                 }
@@ -251,31 +251,31 @@ namespace Aria::Internal {
                 }
 
                 // See which conversion would be better
-                ConversionCost costLHS = GetConversionCost(LHSType, RHSType, RHS->GetValueType()); // Cast to LHS
-                ConversionCost costRHS = GetConversionCost(RHSType, LHSType, LHS->GetValueType()); // Cast to RHS
+                ConversionCost costLHS = GetConversionCost(LHSType, RHSType, RHS->GetValueKind()); // Cast to LHS
+                ConversionCost costRHS = GetConversionCost(RHSType, LHSType, LHS->GetValueKind()); // Cast to RHS
 
                 if (costLHS.CastNeeded || costRHS.CastNeeded) {
                     bool lhsCastNeeded = costLHS.CastNeeded;
                     bool rhsCastNeeded = costRHS.CastNeeded;
 
-                    if (costLHS.CoType == ConversionType::LValueToRValue) {
-                        binop->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, costLHS.CaType));
+                    if (costLHS.CoKind == ConversionKind::LValueToRValue) {
+                        binop->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, costLHS.CaKind));
                         RHSType = LHSType;
                         lhsCastNeeded = false;
                     }
                     
-                    if (costRHS.CoType == ConversionType::LValueToRValue) {
-                        binop->SetLHS(InsertImplicitCast(RHSType, LHSType, LHS, costRHS.CaType));
+                    if (costRHS.CoKind == ConversionKind::LValueToRValue) {
+                        binop->SetLHS(InsertImplicitCast(RHSType, LHSType, LHS, costRHS.CaKind));
                         LHSType = RHSType;
                         rhsCastNeeded = false;
                     }
 
                     if (lhsCastNeeded || rhsCastNeeded) {
-                        if (costLHS.CoType == ConversionType::Promotion) {
-                            binop->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, costLHS.CaType));
+                        if (costLHS.CoKind == ConversionKind::Promotion) {
+                            binop->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, costLHS.CaKind));
                             RHSType = LHSType;
-                        } else if (costRHS.CoType == ConversionType::Promotion) {
-                            binop->SetLHS(InsertImplicitCast(RHSType, LHSType, LHS, costRHS.CaType));
+                        } else if (costRHS.CoKind == ConversionKind::Promotion) {
+                            binop->SetLHS(InsertImplicitCast(RHSType, LHSType, LHS, costRHS.CaKind));
                             LHSType = RHSType;
                         } else {
                             m_Context->ReportCompilerError(binop->Loc, binop->Range, fmt::format("mismatched types '{}' and '{}'", TypeInfoToString(LHSType), TypeInfoToString(RHSType)));
@@ -283,34 +283,34 @@ namespace Aria::Internal {
                     }
                 }
 
-                if (binop->GetBinaryOperator() == BinaryOperatorType::Less ||
-                    binop->GetBinaryOperator() == BinaryOperatorType::LessOrEq ||
-                    binop->GetBinaryOperator() == BinaryOperatorType::Greater ||
-                    binop->GetBinaryOperator() == BinaryOperatorType::GreaterOrEq ||
-                    binop->GetBinaryOperator() == BinaryOperatorType::IsEq ||
-                    binop->GetBinaryOperator() == BinaryOperatorType::IsNotEq) 
+                if (binop->GetBinaryOperator() == BinaryOperatorKind::Less ||
+                    binop->GetBinaryOperator() == BinaryOperatorKind::LessOrEq ||
+                    binop->GetBinaryOperator() == BinaryOperatorKind::Greater ||
+                    binop->GetBinaryOperator() == BinaryOperatorKind::GreaterOrEq ||
+                    binop->GetBinaryOperator() == BinaryOperatorKind::IsEq ||
+                    binop->GetBinaryOperator() == BinaryOperatorKind::IsNotEq) 
                 {
                     TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
                     binop->SetResolvedType(boolType);
-                    binop->SetValueType(ExprValueType::RValue);
+                    binop->SetValueKind(ExprValueKind::RValue);
                     return binop;
                 }
 
                 binop->SetResolvedType(LHSType);
-                binop->SetValueType(ExprValueType::RValue);
+                binop->SetValueKind(ExprValueKind::RValue);
                 return binop;
             }
 
-            case BinaryOperatorType::Eq: {
-                if (binop->GetLHS()->GetValueType() != ExprValueType::LValue) {
+            case BinaryOperatorKind::Eq: {
+                if (binop->GetLHS()->GetValueKind() != ExprValueKind::LValue) {
                     m_Context->ReportCompilerError(LHS->Loc, LHS->Range, "expression must be a modifiable lvalue");
                 }
 
-                ConversionCost cost = GetConversionCost(LHSType, RHSType, binop->GetRHS()->GetValueType());
+                ConversionCost cost = GetConversionCost(LHSType, RHSType, binop->GetRHS()->GetValueKind());
 
                 if (cost.CastNeeded) {
                     if (cost.ImplicitCastPossible) {
-                        binop->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, cost.CaType));
+                        binop->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, cost.CaKind));
                         RHSType = LHSType;
                     } else {
                         m_Context->ReportCompilerError(binop->Loc, binop->Range, fmt::format("cannot implicitly convert from '{}' to '{}'", TypeInfoToString(RHSType), TypeInfoToString(LHSType)));
@@ -318,20 +318,20 @@ namespace Aria::Internal {
                 }
 
                 binop->SetResolvedType(LHSType);
-                binop->SetValueType(ExprValueType::LValue);
+                binop->SetValueKind(ExprValueKind::LValue);
                 return binop;
             }
 
-            case BinaryOperatorType::BitAnd:
-            case BinaryOperatorType::BitOr: {
+            case BinaryOperatorKind::BitAnd:
+            case BinaryOperatorKind::BitOr: {
                 TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
 
-                ConversionCost costLHS = GetConversionCost(boolType, LHSType, LHS->GetValueType());
-                ConversionCost costRHS = GetConversionCost(boolType, RHSType, RHS->GetValueType());
+                ConversionCost costLHS = GetConversionCost(boolType, LHSType, LHS->GetValueKind());
+                ConversionCost costRHS = GetConversionCost(boolType, RHSType, RHS->GetValueKind());
 
                 if (costLHS.CastNeeded) {
                     if (costLHS.ImplicitCastPossible) {
-                        binop->SetLHS(InsertImplicitCast(boolType, LHSType, LHS, costLHS.CaType));
+                        binop->SetLHS(InsertImplicitCast(boolType, LHSType, LHS, costLHS.CaKind));
                     } else {
                         m_Context->ReportCompilerError(LHS->Loc, LHS->Range, fmt::format("cannot implicitly convert from '{}' to 'bool'", TypeInfoToString(LHSType)));
                     }
@@ -339,14 +339,14 @@ namespace Aria::Internal {
 
                 if (costRHS.CastNeeded) {
                     if (costRHS.ImplicitCastPossible) {
-                        binop->SetRHS(InsertImplicitCast(boolType, RHSType, RHS, costRHS.CaType));
+                        binop->SetRHS(InsertImplicitCast(boolType, RHSType, RHS, costRHS.CaKind));
                     } else {
                         m_Context->ReportCompilerError(LHS->Loc, LHS->Range, fmt::format("cannot implicitly convert from '{}' to 'bool'", TypeInfoToString(RHSType)));
                     }
                 }
 
                 binop->SetResolvedType(boolType);
-                binop->SetValueType(ExprValueType::RValue);
+                binop->SetValueKind(ExprValueKind::RValue);
                 return binop;
             }
         }
@@ -366,15 +366,15 @@ namespace Aria::Internal {
         TypeInfo* LHSType = LHS->GetResolvedType();
         TypeInfo* RHSType = RHS->GetResolvedType();
 
-        if (compAss->GetLHS()->GetValueType() != ExprValueType::LValue) {
+        if (compAss->GetLHS()->GetValueKind() != ExprValueKind::LValue) {
             m_Context->ReportCompilerError(compAss->GetLHS()->Loc, compAss->GetLHS()->Range, "Expression must be a modifiable lvalue");
         }
 
-        ConversionCost cost = GetConversionCost(LHSType, RHSType, compAss->GetRHS()->GetValueType());
+        ConversionCost cost = GetConversionCost(LHSType, RHSType, compAss->GetRHS()->GetValueKind());
 
         if (cost.CastNeeded) {
             if (cost.ImplicitCastPossible) {
-                compAss->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, cost.CaType));
+                compAss->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, cost.CaKind));
                 RHSType = LHSType;
             } else {
                 m_Context->ReportCompilerError(compAss->GetRHS()->Loc, compAss->GetRHS()->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(RHSType), TypeInfoToString(LHSType)));
@@ -382,7 +382,7 @@ namespace Aria::Internal {
         }
 
         compAss->SetResolvedType(LHSType);
-        compAss->SetValueType(ExprValueType::LValue);
+        compAss->SetValueKind(ExprValueKind::LValue);
         return compAss;
     }
 
@@ -436,13 +436,13 @@ namespace Aria::Internal {
 
         varDecl->SetDefaultValue(HandleInitializer(varDecl->GetDefaultValue(), resolvedType));
 
-        DeclRefType type = DeclRefType::LocalVar;
+        DeclRefKind kind = DeclRefKind::LocalVar;
         if (m_Declarations.size() == 1) {
-            type = DeclRefType::GlobalVar;
+            kind = DeclRefKind::GlobalVar;
         }
         
         std::string ident = varDecl->GetIdentifier();
-        m_Declarations.back()[ident] = { varDecl->GetResolvedType(), decl, type };
+        m_Declarations.back()[ident] = { varDecl->GetResolvedType(), decl, kind };
     }
 
     void TypeChecker::HandleParamDecl(Decl* decl) {
@@ -452,7 +452,7 @@ namespace Aria::Internal {
         paramDecl->SetResolvedType(resolvedType);
 
         std::string ident = paramDecl->GetIdentifier();
-        m_Declarations.back()[ident] = { paramDecl->GetResolvedType(), decl, DeclRefType::ParamVar };
+        m_Declarations.back()[ident] = { paramDecl->GetResolvedType(), decl, DeclRefKind::ParamVar };
     }
 
     void TypeChecker::HandleFunctionDecl(Decl* decl) {
@@ -479,7 +479,7 @@ namespace Aria::Internal {
         fnDecl->SetResolvedType(resolvedType);
 
         std::string ident = fnDecl->GetIdentifier();
-        m_Declarations.front()[ident] = { fnDecl->GetResolvedType(), decl, DeclRefType::Function };
+        m_Declarations.front()[ident] = { fnDecl->GetResolvedType(), decl, DeclRefKind::Function };
 
         if (fnDecl->GetBody()) {
             HandleCompoundStmt(fnDecl->GetBody());
@@ -535,7 +535,7 @@ namespace Aria::Internal {
             md->SetResolvedType(resolvedType);
 
             std::string ident = md->GetIdentifier();
-            m_Declarations.front()[ident] = { md->GetResolvedType(), decl, DeclRefType::Function };
+            m_Declarations.front()[ident] = { md->GetResolvedType(), decl, DeclRefKind::Function };
 
             if (md->GetBody()) {
                 HandleCompoundStmt(md->GetBody());
@@ -578,10 +578,10 @@ namespace Aria::Internal {
         TypeInfo* type = HandleExpr(wh->GetCondition())->GetResolvedType();
         TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
 
-        ConversionCost cost = GetConversionCost(boolType, type, wh->GetCondition()->GetValueType());
+        ConversionCost cost = GetConversionCost(boolType, type, wh->GetCondition()->GetValueKind());
         if (cost.CastNeeded) {
             if (cost.ImplicitCastPossible) {
-                wh->SetCondition(InsertImplicitCast(boolType, type, wh->GetCondition(), cost.CaType));
+                wh->SetCondition(InsertImplicitCast(boolType, type, wh->GetCondition(), cost.CaKind));
             } else {
                 ARIA_ASSERT(false, "todo");
             }
@@ -596,10 +596,10 @@ namespace Aria::Internal {
         TypeInfo* type = HandleExpr(wh->GetCondition())->GetResolvedType();
         TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
 
-        ConversionCost cost = GetConversionCost(boolType, type, wh->GetCondition()->GetValueType());
+        ConversionCost cost = GetConversionCost(boolType, type, wh->GetCondition()->GetValueKind());
         if (cost.CastNeeded) {
             if (cost.ImplicitCastPossible) {
-                wh->SetCondition(InsertImplicitCast(boolType, type, wh->GetCondition(), cost.CaType));
+                wh->SetCondition(InsertImplicitCast(boolType, type, wh->GetCondition(), cost.CaKind));
             } else {
                 ARIA_ASSERT(false, "todo");
             }
@@ -664,7 +664,7 @@ namespace Aria::Internal {
             ARIA_ASSERT(initializer != nullptr, "initial value of a reference must be an lvalue");
             TypeInfo* valType = HandleExpr(initializer)->GetResolvedType();
 
-            if (!TypeIsEqual(type, valType) || initializer->GetValueType() != ExprValueType::LValue) {
+            if (!TypeIsEqual(type, valType) || initializer->GetValueKind() != ExprValueKind::LValue) {
                 m_Context->ReportCompilerError(initializer->Loc, initializer->Range, "initial value of reference must be an lvalue");
             }
 
@@ -672,10 +672,10 @@ namespace Aria::Internal {
         } else if (initializer) {
             TypeInfo* valType = HandleExpr(initializer)->GetResolvedType();
 
-            ConversionCost cost = GetConversionCost(type, valType, initializer->GetValueType());
+            ConversionCost cost = GetConversionCost(type, valType, initializer->GetValueKind());
             if (cost.CastNeeded) {
                 if (cost.ImplicitCastPossible) {
-                    return InsertImplicitCast(type, valType, initializer, cost.CaType);
+                    return InsertImplicitCast(type, valType, initializer, cost.CaKind);
                 } else {
                     m_Context->ReportCompilerError(initializer->Loc, initializer->Range, fmt::format("cannot implicitly convert from '{}' to '{}'", TypeInfoToString(valType), TypeInfoToString(type)));
                 }
@@ -735,17 +735,17 @@ namespace Aria::Internal {
         return type;
     }
 
-    ConversionCost TypeChecker::GetConversionCost(TypeInfo* dst, TypeInfo* src, ExprValueType srcType) {
+    ConversionCost TypeChecker::GetConversionCost(TypeInfo* dst, TypeInfo* src, ExprValueKind srcType) {
         ConversionCost cost{};
         cost.CastNeeded = true;
         cost.ExplicitCastPossible = true;
         cost.ImplicitCastPossible = true;
 
         if (TypeIsEqual(src, dst)) {
-            if (srcType == ExprValueType::LValue) {
+            if (srcType == ExprValueKind::LValue) {
                 cost.CastNeeded = true;
-                cost.CaType = CastType::LValueToRValue;
-                cost.CoType = ConversionType::LValueToRValue;
+                cost.CaKind = CastKind::LValueToRValue;
+                cost.CoKind = ConversionKind::LValueToRValue;
             } else {
                 cost.CastNeeded = false;
             }
@@ -756,24 +756,24 @@ namespace Aria::Internal {
         if (src->IsIntegral()) {
             if (dst->IsIntegral()) { // Int to int
                 if (TypeGetSize(src) > TypeGetSize(dst)) {
-                    cost.CoType = ConversionType::Narrowing;
-                    cost.CaType = CastType::Integral;
+                    cost.CoKind = ConversionKind::Narrowing;
+                    cost.CaKind = CastKind::Integral;
                 } else if (TypeGetSize(src) < TypeGetSize(dst)) {
-                    cost.CoType = ConversionType::Promotion;
-                    cost.CaType = CastType::Integral;
+                    cost.CoKind = ConversionKind::Promotion;
+                    cost.CaKind = CastKind::Integral;
                 } else {
                     if (src->IsSigned() == dst->IsSigned()) {
-                        cost.CoType = ConversionType::None;
+                        cost.CoKind = ConversionKind::None;
                         cost.CastNeeded = false;
                     } else {
-                        cost.CoType = ConversionType::SignChange;
-                        cost.CaType = CastType::Integral;
+                        cost.CoKind = ConversionKind::SignChange;
+                        cost.CaKind = CastKind::Integral;
                         cost.CastNeeded = true;
                     }
                 }
             } else if (dst->IsFloatingPoint()) { // Int to float
-                cost.CoType = ConversionType::Promotion;
-                cost.CaType = CastType::IntegralToFloating;
+                cost.CoKind = ConversionKind::Promotion;
+                cost.CaKind = CastKind::IntegralToFloating;
             } else {
                 cost.ExplicitCastPossible = false;
             }
@@ -782,19 +782,19 @@ namespace Aria::Internal {
         if (src->IsFloatingPoint()) {
             if (dst->IsFloatingPoint()) { // Float to float
                 if (TypeGetSize(src) > TypeGetSize(dst)) {
-                    cost.CoType = ConversionType::Narrowing;
-                    cost.CaType = CastType::Floating;
+                    cost.CoKind = ConversionKind::Narrowing;
+                    cost.CaKind = CastKind::Floating;
                 } else if (TypeGetSize(src) < TypeGetSize(dst)) {
-                    cost.CoType = ConversionType::Promotion;
-                    cost.CaType = CastType::Floating;
+                    cost.CoKind = ConversionKind::Promotion;
+                    cost.CaKind = CastKind::Floating;
                 } else {
-                    cost.CoType = ConversionType::None;
+                    cost.CoKind = ConversionKind::None;
                     cost.CastNeeded = false;
                 }
             } else if (dst->IsIntegral()) { // Float to int
                 cost.ImplicitCastPossible = false;
-                cost.CoType = ConversionType::Narrowing;
-                cost.CaType = CastType::FloatingToIntegral;
+                cost.CoKind = ConversionKind::Narrowing;
+                cost.CaKind = CastKind::FloatingToIntegral;
             } else {
                 cost.ExplicitCastPossible = false;
             }
@@ -803,10 +803,10 @@ namespace Aria::Internal {
         return cost;
     }
 
-    Expr* TypeChecker::InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastType castType) {
-        ImplicitCastExpr* newExpr = m_Context->Allocate<ImplicitCastExpr>(m_Context, srcExpr->Loc, srcExpr->Range, srcExpr, castType);
+    Expr* TypeChecker::InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastKind castKind) {
+        ImplicitCastExpr* newExpr = m_Context->Allocate<ImplicitCastExpr>(m_Context, srcExpr->Loc, srcExpr->Range, srcExpr, castKind);
         newExpr->SetResolvedType(dstType);
-        newExpr->SetValueType(ExprValueType::RValue);
+        newExpr->SetValueKind(ExprValueKind::RValue);
         return newExpr;
     }
 

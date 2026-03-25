@@ -3,10 +3,6 @@
 
 namespace Aria::Internal {
 
-    // Some code i got from cppreference (https://en.cppreference.com/w/cpp/utility/variant/visit)
-    template<class... Ts>
-    struct Overloads : Ts... { using Ts::operator()...; };
-
     Emitter::Emitter(CompilationContext* ctx) {
         m_Context = ctx;
         m_RootASTNode = ctx->GetRootASTNode();
@@ -31,19 +27,19 @@ namespace Aria::Internal {
         m_Context->SetReflectionData(m_ReflectionData);
     }
 
-    void Emitter::EmitBooleanConstantExpr(Expr* expr, ExprValueType type) {
+    void Emitter::EmitBooleanConstantExpr(Expr* expr, ExprValueKind valueKind) {
         BooleanConstantExpr* bc = GetNode<BooleanConstantExpr>(expr);
 
         m_OpCodes.emplace_back(OpCodeKind::Ldc, OpCodeLdc(bc->GetValue(), TypeInfoToVMType(bc->GetResolvedType())));
     }
 
-    void Emitter::EmitCharacterConstantExpr(Expr* expr, ExprValueType type) {
+    void Emitter::EmitCharacterConstantExpr(Expr* expr, ExprValueKind valueKind) {
         CharacterConstantExpr* cc = GetNode<CharacterConstantExpr>(expr);
 
         m_OpCodes.emplace_back(OpCodeKind::Ldc, OpCodeLdc(cc->GetValue(), TypeInfoToVMType(cc->GetResolvedType())));
     }
 
-    void Emitter::EmitIntegerConstantExpr(Expr* expr,ExprValueType type) {
+    void Emitter::EmitIntegerConstantExpr(Expr* expr,ExprValueKind valueKind) {
         IntegerConstantExpr* ic = GetNode<IntegerConstantExpr>(expr);
         
         if (ic->GetResolvedType()->Type == PrimitiveType::Long) {
@@ -55,36 +51,36 @@ namespace Aria::Internal {
         }
     }
 
-    void Emitter::EmitFloatingConstantExpr(Expr* expr, ExprValueType type) {
+    void Emitter::EmitFloatingConstantExpr(Expr* expr, ExprValueKind valueKind) {
         FloatingConstantExpr* fc = GetNode<FloatingConstantExpr>(expr);
 
         m_OpCodes.emplace_back(OpCodeKind::Ldc, OpCodeLdc(fc->GetValue(), TypeInfoToVMType(fc->GetResolvedType())));
     }
 
-    void Emitter::EmitStringConstantExpr(Expr* expr, ExprValueType type) {
+    void Emitter::EmitStringConstantExpr(Expr* expr, ExprValueKind valueKind) {
         StringConstantExpr* sc = GetNode<StringConstantExpr>(expr);
 
         ARIA_ASSERT(false, "todo!");
         // m_OpCodes.emplace_back(OpCodeKind::LoadStr, OpCodeLoad(sc->GetValue(), sc->GetResolvedType()));
     }
 
-    void Emitter::EmitDeclRefExpr(Expr* expr, ExprValueType type) {
+    void Emitter::EmitDeclRefExpr(Expr* expr, ExprValueKind valueKind) {
         DeclRefExpr* declRef = GetNode<DeclRefExpr>(expr);
 
         // This may look a bit messy but all it is doing is emitting the correct op code based off of what we need
-        if (declRef->GetType() == DeclRefType::LocalVar) {
+        if (declRef->GetKind() == DeclRefKind::LocalVar) {
             for (size_t i = m_ActiveStackFrame.Scopes.size(); i > 0; i--) {
                 Scope& s = m_ActiveStackFrame.Scopes[i - 1];
                 if (s.DeclaredSymbolMap.contains(declRef->GetIdentifier())) {
                     Declaration& decl = s.DeclaredSymbols[s.DeclaredSymbolMap.at(declRef->GetIdentifier())];
                     
-                    if (type == ExprValueType::LValue) {
+                    if (valueKind == ExprValueKind::LValue) {
                         if (expr->GetResolvedType()->IsReference()) {
                             m_OpCodes.emplace_back(OpCodeKind::LdLocal, std::get<size_t>(decl.Data));
                         } else {
                             m_OpCodes.emplace_back(OpCodeKind::LdPtrLocal, std::get<size_t>(decl.Data));
                         }
-                    } else if (type == ExprValueType::RValue) {
+                    } else if (valueKind == ExprValueKind::RValue) {
                         m_OpCodes.emplace_back(OpCodeKind::LdLocal, std::get<size_t>(decl.Data));
 
                         if (expr->GetResolvedType()->IsReference()) {
@@ -95,14 +91,14 @@ namespace Aria::Internal {
                     }
                 }
             }
-        } else if (declRef->GetType() == DeclRefType::ParamVar) {
-            if (type == ExprValueType::LValue) {
+        } else if (declRef->GetKind() == DeclRefKind::ParamVar) {
+            if (valueKind == ExprValueKind::LValue) {
                 if (expr->GetResolvedType()->IsReference()) {
                     m_OpCodes.emplace_back(OpCodeKind::LdArg, m_ActiveStackFrame.Parameters.at(declRef->GetIdentifier()));
                 } else {
                     m_OpCodes.emplace_back(OpCodeKind::LdPtrArg, m_ActiveStackFrame.Parameters.at(declRef->GetIdentifier()));
                 }
-            } else if (type == ExprValueType::RValue) {
+            } else if (valueKind == ExprValueKind::RValue) {
                 m_OpCodes.emplace_back(OpCodeKind::LdArg, m_ActiveStackFrame.Parameters.at(declRef->GetIdentifier()));
 
                 if (expr->GetResolvedType()->IsReference()) {
@@ -111,14 +107,14 @@ namespace Aria::Internal {
                     expr->GetResolvedType()->Reference = true;
                 }
             }
-        } else if (declRef->GetType() == DeclRefType::GlobalVar) {
-            if (type == ExprValueType::LValue) {
+        } else if (declRef->GetKind() == DeclRefKind::GlobalVar) {
+            if (valueKind == ExprValueKind::LValue) {
                 if (expr->GetResolvedType()->IsReference()) {
                     m_OpCodes.emplace_back(OpCodeKind::LdGlobal, declRef->GetIdentifier());
                 } else {
                     m_OpCodes.emplace_back(OpCodeKind::LdPtrGlobal, declRef->GetIdentifier());
                 }
-            } else if (type == ExprValueType::RValue) {
+            } else if (valueKind == ExprValueKind::RValue) {
                 m_OpCodes.emplace_back(OpCodeKind::LdGlobal, declRef->GetIdentifier());
 
                 if (expr->GetResolvedType()->IsReference()) {
@@ -129,13 +125,13 @@ namespace Aria::Internal {
             }
 
             IncrementStackSlotCount();
-        } else if (declRef->GetType() == DeclRefType::Function) {
+        } else if (declRef->GetKind() == DeclRefKind::Function) {
             m_OpCodes.emplace_back(OpCodeKind::LdFunc, fmt::format("{}()", declRef->GetRawIdentifier()));
             IncrementStackSlotCount();
         }
     }
 
-    void Emitter::EmitMemberExpr(Expr* expr, ExprValueType type) {
+    void Emitter::EmitMemberExpr(Expr* expr, ExprValueKind valueKind) {
         MemberExpr* mem = GetNode<MemberExpr>(expr);
 
         StructDeclaration& sd = std::get<StructDeclaration>(mem->GetParentType()->Data);
@@ -146,11 +142,11 @@ namespace Aria::Internal {
                 if (fd->GetRawIdentifier() == mem->GetMember()) {
                     RuntimeStructDeclaration& sdecl = m_Structs.at(s->GetIdentifier());
 
-                    EmitExpr(mem->GetParent(), ExprValueType::LValue);
+                    EmitExpr(mem->GetParent(), ExprValueKind::LValue);
         
-                    if (type == ExprValueType::LValue) {
+                    if (valueKind == ExprValueKind::LValue) {
                         m_OpCodes.emplace_back(OpCodeKind::LdPtrMember, OpCodeMember(sdecl.FieldIndices.at(fd->GetIdentifier()), {VMTypeKind::Ptr}, TypeInfoToVMType(mem->GetParentType())));
-                    } else if (type == ExprValueType::RValue) {
+                    } else if (valueKind == ExprValueKind::RValue) {
                         m_OpCodes.emplace_back(OpCodeKind::LdMember, OpCodeMember(sdecl.FieldIndices.at(fd->GetIdentifier()), TypeInfoToVMType(fd->GetResolvedType()), TypeInfoToVMType(mem->GetParentType())));
                     }
                 }
@@ -162,22 +158,22 @@ namespace Aria::Internal {
         }
     }
 
-    void Emitter::EmitSelfExpr(Expr* expr, ExprValueType type) {
+    void Emitter::EmitSelfExpr(Expr* expr, ExprValueKind valueKind) {
         SelfExpr* self = GetNode<SelfExpr>(expr);
 
-        ARIA_ASSERT(type == ExprValueType::LValue, "rvalue of 'self' is not yet supported");
+        ARIA_ASSERT(valueKind == ExprValueKind::LValue, "rvalue of 'self' is not yet supported");
 
         // Because self is a reference (aka pointer), we want to the load the actual value of it
         m_OpCodes.emplace_back(OpCodeKind::LdArg, static_cast<size_t>(0));
     }
 
-    void Emitter::EmitCallExpr(Expr* expr, ExprValueType type) {
+    void Emitter::EmitCallExpr(Expr* expr, ExprValueKind valueKind) {
         CallExpr* call = GetNode<CallExpr>(expr);
 
-        EmitExpr(call->GetCallee(), call->GetCallee()->GetValueType());
+        EmitExpr(call->GetCallee(), call->GetCallee()->GetValueKind());
 
         for (size_t i = 0; i < call->GetArguments().Size; i++) {
-            EmitExpr(call->GetArguments().Items[i], call->GetArguments().Items[i]->GetValueType());
+            EmitExpr(call->GetArguments().Items[i], call->GetArguments().Items[i]->GetValueKind());
             m_OpCodes.emplace_back(OpCodeKind::DeclareArg, i);
         }
 
@@ -192,7 +188,7 @@ namespace Aria::Internal {
         m_OpCodes.emplace_back(OpCodeKind::Call, OpCodeCall(call->GetArguments().Size, TypeInfoToVMType(retType)));
 
         // The only special case is when returning a reference and getting it as an rvalue
-        if (type == ExprValueType::RValue) {
+        if (valueKind == ExprValueKind::RValue) {
             if (retType->IsReference()) {
                 retType->Reference = false;
                 m_OpCodes.emplace_back(OpCodeKind::Deref, TypeInfoToVMType(retType));
@@ -201,17 +197,17 @@ namespace Aria::Internal {
         }
     }
 
-    void Emitter::EmitMethodCallExpr(Expr* expr, ExprValueType type) {
+    void Emitter::EmitMethodCallExpr(Expr* expr, ExprValueKind valueKind) {
         MethodCallExpr* call = GetNode<MethodCallExpr>(expr);
 
-        EmitExpr(call->GetCallee(), call->GetCallee()->GetValueType());
+        EmitExpr(call->GetCallee(), call->GetCallee()->GetValueKind());
 
         // Push self
-        EmitExpr(call->GetCallee()->GetParent(), ExprValueType::LValue);
+        EmitExpr(call->GetCallee()->GetParent(), ExprValueKind::LValue);
         m_OpCodes.emplace_back(OpCodeKind::DeclareArg, static_cast<size_t>(0));
 
         for (size_t i = 0; i < call->GetArguments().Size; i++) {
-            EmitExpr(call->GetArguments().Items[i], call->GetArguments().Items[i]->GetValueType());
+            EmitExpr(call->GetArguments().Items[i], call->GetArguments().Items[i]->GetValueKind());
             m_OpCodes.emplace_back(OpCodeKind::DeclareArg, i + 1);
         }
 
@@ -228,7 +224,7 @@ namespace Aria::Internal {
         m_OpCodes.emplace_back(OpCodeKind::Call, OpCodeCall(call->GetArguments().Size + 1, TypeInfoToVMType(retType)));
 
         // The only special case is when returning a reference and getting it as an rvalue
-        if (type == ExprValueType::RValue) {
+        if (valueKind == ExprValueKind::RValue) {
             if (retType->IsReference()) {
                 retType->Reference = false;
                 m_OpCodes.emplace_back(OpCodeKind::Deref, TypeInfoToVMType(retType));
@@ -237,18 +233,18 @@ namespace Aria::Internal {
         }
     }
 
-    void Emitter::EmitParenExpr(Expr* expr, ExprValueType type) {
+    void Emitter::EmitParenExpr(Expr* expr, ExprValueKind valueKind) {
         ParenExpr* paren = GetNode<ParenExpr>(expr);
-        EmitExpr(paren->GetChildExpr(), paren->GetValueType());
+        EmitExpr(paren->GetChildExpr(), paren->GetValueKind());
     }
 
-    void Emitter::EmitImplicitCastExpr(Expr* expr, ExprValueType type) {
+    void Emitter::EmitImplicitCastExpr(Expr* expr, ExprValueKind valueKind) {
         ImplicitCastExpr* cast = GetNode<ImplicitCastExpr>(expr);
         
-        if (cast->GetCastType() == CastType::LValueToRValue) {
-            return EmitExpr(cast->GetChildExpr(), ExprValueType::RValue);
+        if (cast->GetCastKind() == CastKind::LValueToRValue) {
+            return EmitExpr(cast->GetChildExpr(), ExprValueKind::RValue);
         } else {
-            EmitExpr(cast->GetChildExpr(), cast->GetValueType());
+            EmitExpr(cast->GetChildExpr(), cast->GetValueKind());
             m_OpCodes.emplace_back(OpCodeKind::Cast, TypeInfoToVMType(cast->GetResolvedType()));
             return;
         }
@@ -256,13 +252,13 @@ namespace Aria::Internal {
         ARIA_UNREACHABLE();
     }
 
-    void Emitter::EmitCastExpr(Expr* expr, ExprValueType type) {
+    void Emitter::EmitCastExpr(Expr* expr, ExprValueKind valueKind) {
         CastExpr* cast = GetNode<CastExpr>(expr);
 
-        if (cast->GetCastType() == CastType::LValueToRValue) {
-            return EmitExpr(cast->GetChildExpr(), ExprValueType::RValue);
+        if (cast->GetCastKind() == CastKind::LValueToRValue) {
+            return EmitExpr(cast->GetChildExpr(), ExprValueKind::RValue);
         } else {
-            EmitExpr(cast->GetChildExpr(), cast->GetValueType());
+            EmitExpr(cast->GetChildExpr(), cast->GetValueKind());
             m_OpCodes.emplace_back(OpCodeKind::Cast, TypeInfoToVMType(cast->GetResolvedType()));
             return;
         }
@@ -270,21 +266,21 @@ namespace Aria::Internal {
         ARIA_UNREACHABLE();
     }
 
-    void Emitter::EmitUnaryOperatorExpr(Expr* expr, ExprValueType type) {
+    void Emitter::EmitUnaryOperatorExpr(Expr* expr, ExprValueKind valueKind) {
         UnaryOperatorExpr* unop = GetNode<UnaryOperatorExpr>(expr);
 
         switch (unop->GetUnaryOperator()) {
-            case UnaryOperatorType::Negate: EmitExpr(unop->GetChildExpr(), unop->GetChildExpr()->GetValueType()); m_OpCodes.emplace_back(OpCodeKind::Neg, TypeInfoToVMType(unop->GetResolvedType())); break;
+            case UnaryOperatorKind::Negate: EmitExpr(unop->GetChildExpr(), unop->GetChildExpr()->GetValueKind()); m_OpCodes.emplace_back(OpCodeKind::Neg, TypeInfoToVMType(unop->GetResolvedType())); break;
             default: ARIA_UNREACHABLE();
         }
     }
 
-    void Emitter::EmitBinaryOperatorExpr(Expr* expr, ExprValueType type) {
+    void Emitter::EmitBinaryOperatorExpr(Expr* expr, ExprValueKind valueKind) {
         BinaryOperatorExpr* binop = GetNode<BinaryOperatorExpr>(expr);
       
-        #define BINOP(_enum, op) case BinaryOperatorType::_enum: { \
-                EmitExpr(binop->GetLHS(), binop->GetLHS()->GetValueType()); \
-                EmitExpr(binop->GetRHS(), binop->GetRHS()->GetValueType()); \
+        #define BINOP(_enum, op) case BinaryOperatorKind::_enum: { \
+                EmitExpr(binop->GetLHS(), binop->GetLHS()->GetValueKind()); \
+                EmitExpr(binop->GetRHS(), binop->GetRHS()->GetValueKind()); \
                 m_OpCodes.emplace_back(OpCodeKind::op, TypeInfoToVMType(binop->GetLHS()->GetResolvedType())); \
                 break; \
             }
@@ -302,13 +298,13 @@ namespace Aria::Internal {
             BINOP(IsEq,        Cmp)
             BINOP(IsNotEq,     Ncmp)
         
-            case BinaryOperatorType::BitAnd: {
+            case BinaryOperatorKind::BitAnd: {
                 std::string andEnd = fmt::format("and.end_{}", m_AndCounter);
                 m_AndCounter++;
 
-                EmitExpr(binop->GetLHS(), binop->GetLHS()->GetValueType());
+                EmitExpr(binop->GetLHS(), binop->GetLHS()->GetValueKind());
                 m_OpCodes.emplace_back(OpCodeKind::Jf, andEnd);
-                EmitExpr(binop->GetRHS(), binop->GetRHS()->GetValueType());
+                EmitExpr(binop->GetRHS(), binop->GetRHS()->GetValueKind());
                 m_OpCodes.emplace_back(OpCodeKind::And, TypeInfoToVMType(binop->GetResolvedType()));
                 m_OpCodes.emplace_back(OpCodeKind::Jmp, andEnd);
 
@@ -317,13 +313,13 @@ namespace Aria::Internal {
                 break;
             }
 
-            case BinaryOperatorType::BitOr: {
+            case BinaryOperatorKind::BitOr: {
                 std::string orEnd = fmt::format("or.end_{}", m_OrCounter);
                 m_OrCounter++;
 
-                EmitExpr(binop->GetLHS(), binop->GetLHS()->GetValueType());
+                EmitExpr(binop->GetLHS(), binop->GetLHS()->GetValueKind());
                 m_OpCodes.emplace_back(OpCodeKind::Jt, orEnd);
-                EmitExpr(binop->GetRHS(), binop->GetRHS()->GetValueType());
+                EmitExpr(binop->GetRHS(), binop->GetRHS()->GetValueKind());
                 m_OpCodes.emplace_back(OpCodeKind::Or, TypeInfoToVMType(binop->GetResolvedType()));
                 m_OpCodes.emplace_back(OpCodeKind::Jmp, orEnd);
 
@@ -332,12 +328,12 @@ namespace Aria::Internal {
                 break;
             }
 
-            case BinaryOperatorType::Eq: {
-                EmitExpr(binop->GetLHS(), binop->GetLHS()->GetValueType());
-                EmitExpr(binop->GetRHS(), binop->GetRHS()->GetValueType());
+            case BinaryOperatorKind::Eq: {
+                EmitExpr(binop->GetLHS(), binop->GetLHS()->GetValueKind());
+                EmitExpr(binop->GetRHS(), binop->GetRHS()->GetValueKind());
 
                 m_OpCodes.emplace_back(OpCodeKind::Store);
-                EmitExpr(binop->GetLHS(), type);
+                EmitExpr(binop->GetLHS(), valueKind);
                 break;
             }
         }
@@ -345,18 +341,18 @@ namespace Aria::Internal {
         #undef BINOP
     }
 
-    void Emitter::EmitCompoundAssignExpr(Expr* expr, ExprValueType type) {
+    void Emitter::EmitCompoundAssignExpr(Expr* expr, ExprValueKind valueKind) {
         CompoundAssignExpr* compAss = GetNode<CompoundAssignExpr>(expr);
 
-        #define BINOP(_enum, op) case BinaryOperatorType::Compound##_enum: { \
-                EmitExpr(compAss->GetLHS(), ExprValueType::RValue); \
-                EmitExpr(compAss->GetRHS(), compAss->GetRHS()->GetValueType()); \
+        #define BINOP(_enum, op) case BinaryOperatorKind::Compound##_enum: { \
+                EmitExpr(compAss->GetLHS(), ExprValueKind::RValue); \
+                EmitExpr(compAss->GetRHS(), compAss->GetRHS()->GetValueKind()); \
                 m_OpCodes.emplace_back(OpCodeKind::op, TypeInfoToVMType(compAss->GetLHS()->GetResolvedType())); \
                 break; \
             }
 
         // Load the destination
-        EmitExpr(compAss->GetLHS(), ExprValueType::LValue);
+        EmitExpr(compAss->GetLHS(), ExprValueKind::LValue);
 
         switch (compAss->GetBinaryOperator()) {
             BINOP(Add, Add)
@@ -372,42 +368,42 @@ namespace Aria::Internal {
         }
 
         m_OpCodes.emplace_back(OpCodeKind::Store);
-        EmitExpr(compAss->GetLHS(), type);
+        EmitExpr(compAss->GetLHS(), valueKind);
     }
 
-    void Emitter::EmitExpr(Expr* expr, ExprValueType type) {
+    void Emitter::EmitExpr(Expr* expr, ExprValueKind valueKind) {
         if (GetNode<BooleanConstantExpr>(expr)) {
-            return EmitBooleanConstantExpr(expr, type);
+            return EmitBooleanConstantExpr(expr, valueKind);
         } else if (GetNode<CharacterConstantExpr>(expr)) {
-            return EmitCharacterConstantExpr(expr, type);
+            return EmitCharacterConstantExpr(expr, valueKind);
         } else if (GetNode<IntegerConstantExpr>(expr)) {
-            return EmitIntegerConstantExpr(expr, type);
+            return EmitIntegerConstantExpr(expr, valueKind);
         } else if (GetNode<FloatingConstantExpr>(expr)) {
-            return EmitFloatingConstantExpr(expr, type);
+            return EmitFloatingConstantExpr(expr, valueKind);
         } else if (GetNode<StringConstantExpr>(expr)) {
-            return EmitStringConstantExpr(expr, type);
+            return EmitStringConstantExpr(expr, valueKind);
         } else if (GetNode<DeclRefExpr>(expr)) {
-            return EmitDeclRefExpr(expr, type);
+            return EmitDeclRefExpr(expr, valueKind);
         } else if (GetNode<MemberExpr>(expr)) {
-            return EmitMemberExpr(expr, type);
+            return EmitMemberExpr(expr, valueKind);
         } else if (GetNode<SelfExpr>(expr)) {
-            return EmitSelfExpr(expr, type);
+            return EmitSelfExpr(expr, valueKind);
         } else if (GetNode<CallExpr>(expr)) {
-            return EmitCallExpr(expr, type);
+            return EmitCallExpr(expr, valueKind);
         } else if (GetNode<MethodCallExpr>(expr)) {
-            return EmitMethodCallExpr(expr, type);
+            return EmitMethodCallExpr(expr, valueKind);
         } else if (GetNode<ParenExpr>(expr)) {
-            return EmitParenExpr(expr, type);
+            return EmitParenExpr(expr, valueKind);
         } else if (GetNode<CastExpr>(expr)) {
-            return EmitCastExpr(expr, type);
+            return EmitCastExpr(expr, valueKind);
         } else if (GetNode<ImplicitCastExpr>(expr)) {
-            return EmitImplicitCastExpr(expr, type);
+            return EmitImplicitCastExpr(expr, valueKind);
         } else if (GetNode<UnaryOperatorExpr>(expr)) {
-            return EmitUnaryOperatorExpr(expr, type);
+            return EmitUnaryOperatorExpr(expr, valueKind);
         } else if (GetNode<BinaryOperatorExpr>(expr)) {
-            return EmitBinaryOperatorExpr(expr, type);
+            return EmitBinaryOperatorExpr(expr, valueKind);
         } else if (GetNode<CompoundAssignExpr>(expr)) {
-            return EmitCompoundAssignExpr(expr, type);
+            return EmitCompoundAssignExpr(expr, valueKind);
         }
 
         ARIA_UNREACHABLE();
@@ -425,7 +421,7 @@ namespace Aria::Internal {
         VarDecl* varDecl = GetNode<VarDecl>(decl);
 
         if (varDecl->GetDefaultValue()) {
-            EmitExpr(varDecl->GetDefaultValue(), varDecl->GetDefaultValue()->GetValueType());
+            EmitExpr(varDecl->GetDefaultValue(), varDecl->GetDefaultValue()->GetValueKind());
         } else {
             m_OpCodes.emplace_back(OpCodeKind::Alloca, TypeInfoToVMType(varDecl->GetResolvedType()));
         }
@@ -506,7 +502,7 @@ namespace Aria::Internal {
         m_WhileCounter++;
 
         m_OpCodes.emplace_back(OpCodeKind::Label, loopStart);
-        EmitExpr(wh->GetCondition(), wh->GetCondition()->GetValueType());
+        EmitExpr(wh->GetCondition(), wh->GetCondition()->GetValueKind());
         m_OpCodes.emplace_back(OpCodeKind::Jf, loopEnd);
         EmitStmt(wh->GetBody());
 
@@ -525,7 +521,7 @@ namespace Aria::Internal {
         m_OpCodes.emplace_back(OpCodeKind::Label, loopStart);
         EmitStmt(wh->GetBody());
 
-        EmitExpr(wh->GetCondition(), wh->GetCondition()->GetValueType());
+        EmitExpr(wh->GetCondition(), wh->GetCondition()->GetValueKind());
         m_OpCodes.emplace_back(OpCodeKind::Jt, loopStart);
     }
 
@@ -534,7 +530,7 @@ namespace Aria::Internal {
     void Emitter::EmitIfStmt(Stmt* stmt) {
         IfStmt* ifs = GetNode<IfStmt>(stmt);
 
-        EmitExpr(ifs->GetCondition(), ifs->GetCondition()->GetValueType());
+        EmitExpr(ifs->GetCondition(), ifs->GetCondition()->GetValueKind());
         std::string ifBody = fmt::format("if.body_{}", m_IfCounter);
         std::string ifEnd = fmt::format("if.end_{}", m_IfCounter);
 
@@ -552,7 +548,7 @@ namespace Aria::Internal {
         ReturnStmt* ret = GetNode<ReturnStmt>(stmt);
         if (ret->GetValue()) {
             m_OpCodes.emplace_back(OpCodeKind::LdPtrRet);
-            EmitExpr(ret->GetValue(), ret->GetValue()->GetValueType());
+            EmitExpr(ret->GetValue(), ret->GetValue()->GetValueKind());
             m_OpCodes.emplace_back(OpCodeKind::Store);
         }
         
@@ -582,7 +578,7 @@ namespace Aria::Internal {
             EmitReturnStmt(stmt);
             return;
         } else if (Expr* expr = GetNode<Expr>(stmt)) {
-            EmitExpr(expr, expr->GetValueType());
+            EmitExpr(expr, expr->GetValueKind());
             return;
         } else if (Decl* decl = GetNode<Decl>(stmt)) {
             EmitDecl(decl);

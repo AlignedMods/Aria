@@ -26,61 +26,61 @@ namespace Aria::Internal {
         if (expr == nullptr) return;
         
         if (BooleanConstantExpr* bc = GetNode<BooleanConstantExpr>(expr)) {
-            m_Output += fmt::format("BooleanConstantExpr {} '{}' {}\n", bc->GetValue(), TypeInfoToString(bc->GetResolvedType()), ExprValueTypeToString(bc->GetValueType())); return;
+            m_Output += fmt::format("BooleanConstantExpr {} '{}' {}\n", bc->GetValue(), TypeInfoToString(bc->GetResolvedType()), ExprValueKindToString(bc->GetValueKind())); return;
         } else if (CharacterConstantExpr* cc = GetNode<CharacterConstantExpr>(expr)) {
-            m_Output += fmt::format("BooleanConstantExpr '{}' '{}' {}\n", cc->GetValue(), TypeInfoToString(cc->GetResolvedType()), ExprValueTypeToString(cc->GetValueType())); return;
+            m_Output += fmt::format("BooleanConstantExpr '{}' '{}' {}\n", cc->GetValue(), TypeInfoToString(cc->GetResolvedType()), ExprValueKindToString(cc->GetValueKind())); return;
         } else if (IntegerConstantExpr* ic = GetNode<IntegerConstantExpr>(expr)) {
-            m_Output += fmt::format("IntegerConstantExpr {} '{}' {}\n", ic->GetValue(), TypeInfoToString(ic->GetResolvedType()), ExprValueTypeToString(ic->GetValueType())); return;
+            m_Output += fmt::format("IntegerConstantExpr {} '{}' {}\n", ic->GetValue(), TypeInfoToString(ic->GetResolvedType()), ExprValueKindToString(ic->GetValueKind())); return;
         } else if (FloatingConstantExpr* fc = GetNode<FloatingConstantExpr>(expr)) {
-            m_Output += fmt::format("FloatingConstantExpr {} '{}' {}\n", fc->GetValue(), TypeInfoToString(fc->GetResolvedType()), ExprValueTypeToString(fc->GetValueType())); return;
+            m_Output += fmt::format("FloatingConstantExpr {} '{}' {}\n", fc->GetValue(), TypeInfoToString(fc->GetResolvedType()), ExprValueKindToString(fc->GetValueKind())); return;
         } else if (StringConstantExpr* sc = GetNode<StringConstantExpr>(expr)) {
-            m_Output += fmt::format("StringConstantExpr \"{}\" '{}' {}\n", sc->GetValue(), TypeInfoToString(sc->GetResolvedType()), ExprValueTypeToString(sc->GetValueType())); return;
+            m_Output += fmt::format("StringConstantExpr \"{}\" '{}' {}\n", sc->GetValue(), TypeInfoToString(sc->GetResolvedType()), ExprValueKindToString(sc->GetValueKind())); return;
         } else if (DeclRefExpr* declRef = GetNode<DeclRefExpr>(expr)) {
-            m_Output += fmt::format("DeclRefExpr '{}' '{}' {} {}\n", declRef->GetRawIdentifier(), TypeInfoToString(declRef->GetResolvedType()), DeclRefTypeToString(declRef->GetType()), ExprValueTypeToString(declRef->GetValueType())); return;
+            m_Output += fmt::format("DeclRefExpr '{}' '{}' {} {}\n", declRef->GetRawIdentifier(), TypeInfoToString(declRef->GetResolvedType()), DeclRefKindToString(declRef->GetKind()), ExprValueKindToString(declRef->GetValueKind())); return;
         } else if (MemberExpr* mem = GetNode<MemberExpr>(expr)) {
-            m_Output += fmt::format("MemberExpr '{}' '{}' {}\n", mem->GetMember(), TypeInfoToString(mem->GetResolvedType()), ExprValueTypeToString(mem->GetValueType()));
+            m_Output += fmt::format("MemberExpr '{}' '{}' {}\n", mem->GetMember(), TypeInfoToString(mem->GetResolvedType()), ExprValueKindToString(mem->GetValueKind()));
             DumpExpr(mem->GetParent(), indentation + 4);
             return;
         } else if (SelfExpr* self = GetNode<SelfExpr>(expr)) {
-            m_Output += fmt::format("SelfExpr '{}' {}\n", TypeInfoToString(self->GetResolvedType()), ExprValueTypeToString(expr->GetValueType()));
+            m_Output += fmt::format("SelfExpr '{}' {}\n", TypeInfoToString(self->GetResolvedType()), ExprValueKindToString(expr->GetValueKind()));
             return;
         } else if (CallExpr* call = GetNode<CallExpr>(expr)) {
-            m_Output += fmt::format("CallExpr '{}' {}\n", TypeInfoToString(call->GetResolvedType()), ExprValueTypeToString(call->GetValueType()));
+            m_Output += fmt::format("CallExpr '{}' {}\n", TypeInfoToString(call->GetResolvedType()), ExprValueKindToString(call->GetValueKind()));
             for (Expr* e : call->GetArguments()) {
                 DumpExpr(e, indentation + 4);
             }
             DumpExpr(call->GetCallee(), indentation + 4);
             return;
         } else if (MethodCallExpr* mcall = GetNode<MethodCallExpr>(expr)) {
-            m_Output += fmt::format("MethodCallExpr '{}' {}\n", TypeInfoToString(mcall->GetResolvedType()), ExprValueTypeToString(mcall->GetValueType()));
+            m_Output += fmt::format("MethodCallExpr '{}' {}\n", TypeInfoToString(mcall->GetResolvedType()), ExprValueKindToString(mcall->GetValueKind()));
             for (Expr* e : mcall->GetArguments()) {
                 DumpExpr(e, indentation + 4);
             }
             DumpExpr(mcall->GetCallee(), indentation + 4);
             return;
         } else if (ParenExpr* paren = GetNode<ParenExpr>(expr)) {
-            m_Output += fmt::format("ParenExpr '{}' {}\n", TypeInfoToString(paren->GetResolvedType()), ExprValueTypeToString(paren->GetValueType()));
+            m_Output += fmt::format("ParenExpr '{}' {}\n", TypeInfoToString(paren->GetResolvedType()), ExprValueKindToString(paren->GetValueKind()));
             DumpExpr(paren->GetChildExpr(), indentation + 4);
             return;
         } else if (CastExpr* cast = GetNode<CastExpr>(expr)) {
-            m_Output += fmt::format("CastExpr '{}' <{}> {}\n", TypeInfoToString(cast->GetResolvedType()), CastTypeToString(cast->GetCastType()), ExprValueTypeToString(cast->GetValueType()));
+            m_Output += fmt::format("CastExpr '{}' <{}> {}\n", TypeInfoToString(cast->GetResolvedType()), CastKindToString(cast->GetCastKind()), ExprValueKindToString(cast->GetValueKind()));
             DumpExpr(cast->GetChildExpr(), indentation + 4);
             return;
         } else if (ImplicitCastExpr* icast = GetNode<ImplicitCastExpr>(expr)) {
-            m_Output += fmt::format("ImplicitCastExpr '{}' <{}> {}\n", TypeInfoToString(icast->GetResolvedType()), CastTypeToString(icast->GetCastType()), ExprValueTypeToString(icast->GetValueType()));
+            m_Output += fmt::format("ImplicitCastExpr '{}' <{}> {}\n", TypeInfoToString(icast->GetResolvedType()), CastKindToString(icast->GetCastKind()), ExprValueKindToString(icast->GetValueKind()));
             DumpExpr(icast->GetChildExpr(), indentation + 4);
             return;
         } else if (UnaryOperatorExpr* unOp = GetNode<UnaryOperatorExpr>(expr)) {
-            m_Output += fmt::format("UnaryOperatorExpr '{}' '{}' {}\n", UnaryOperatorTypeToString(unOp->GetUnaryOperator()), TypeInfoToString(unOp->GetResolvedType()), ExprValueTypeToString(unOp->GetValueType()));
+            m_Output += fmt::format("UnaryOperatorExpr '{}' '{}' {}\n", UnaryOperatorKindToString(unOp->GetUnaryOperator()), TypeInfoToString(unOp->GetResolvedType()), ExprValueKindToString(unOp->GetValueKind()));
             DumpExpr(unOp->GetChildExpr(), indentation + 4);
             return;
         } else if (BinaryOperatorExpr* binOp = GetNode<BinaryOperatorExpr>(expr)) {
-            m_Output += fmt::format("BinaryOperatorExpr '{}' '{}' {}\n", BinaryOperatorTypeToString(binOp->GetBinaryOperator()), TypeInfoToString(binOp->GetResolvedType()), ExprValueTypeToString(binOp->GetValueType()));
+            m_Output += fmt::format("BinaryOperatorExpr '{}' '{}' {}\n", BinaryOperatorKindToString(binOp->GetBinaryOperator()), TypeInfoToString(binOp->GetResolvedType()), ExprValueKindToString(binOp->GetValueKind()));
             DumpExpr(binOp->GetLHS(), indentation + 4);
             DumpExpr(binOp->GetRHS(), indentation + 4);
             return;
         } else if (CompoundAssignExpr* compAss = GetNode<CompoundAssignExpr>(expr)) {
-            m_Output += fmt::format("CompoundAssignExpr '{}' '{}' {}\n", BinaryOperatorTypeToString(compAss->GetBinaryOperator()), TypeInfoToString(compAss->GetResolvedType()), ExprValueTypeToString(compAss->GetValueType()));
+            m_Output += fmt::format("CompoundAssignExpr '{}' '{}' {}\n", BinaryOperatorKindToString(compAss->GetBinaryOperator()), TypeInfoToString(compAss->GetResolvedType()), ExprValueKindToString(compAss->GetValueKind()));
             DumpExpr(compAss->GetLHS(), indentation + 4);
             DumpExpr(compAss->GetRHS(), indentation + 4);
             return;

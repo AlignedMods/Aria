@@ -45,24 +45,24 @@ namespace Aria::Internal {
     private:
         void EmitImpl();
 
-        void EmitBooleanConstantExpr(Expr* expr,   ExprValueType type);
-        void EmitCharacterConstantExpr(Expr* expr, ExprValueType type);
-        void EmitIntegerConstantExpr(Expr* expr,   ExprValueType type);
-        void EmitFloatingConstantExpr(Expr* expr,  ExprValueType type);
-        void EmitStringConstantExpr(Expr* expr,    ExprValueType type);
-        void EmitDeclRefExpr(Expr* expr,           ExprValueType type);
-        void EmitMemberExpr(Expr* expr,            ExprValueType type);
-        void EmitSelfExpr(Expr* expr,              ExprValueType type);
-        void EmitCallExpr(Expr* expr,              ExprValueType type);
-        void EmitMethodCallExpr(Expr* expr,        ExprValueType type);
-        void EmitParenExpr(Expr* expr,             ExprValueType type);
-        void EmitImplicitCastExpr(Expr* expr,      ExprValueType type);
-        void EmitCastExpr(Expr* expr,              ExprValueType type);
-        void EmitUnaryOperatorExpr(Expr* expr,     ExprValueType type);
-        void EmitBinaryOperatorExpr(Expr* expr,    ExprValueType type);
-        void EmitCompoundAssignExpr(Expr* expr,    ExprValueType type);
+        void EmitBooleanConstantExpr(Expr* expr,   ExprValueKind valueKind);
+        void EmitCharacterConstantExpr(Expr* expr, ExprValueKind valueKind);
+        void EmitIntegerConstantExpr(Expr* expr,   ExprValueKind valueKind);
+        void EmitFloatingConstantExpr(Expr* expr,  ExprValueKind valueKind);
+        void EmitStringConstantExpr(Expr* expr,    ExprValueKind valueKind);
+        void EmitDeclRefExpr(Expr* expr,           ExprValueKind valueKind);
+        void EmitMemberExpr(Expr* expr,            ExprValueKind valueKind);
+        void EmitSelfExpr(Expr* expr,              ExprValueKind valueKind);
+        void EmitCallExpr(Expr* expr,              ExprValueKind valueKind);
+        void EmitMethodCallExpr(Expr* expr,        ExprValueKind valueKind);
+        void EmitParenExpr(Expr* expr,             ExprValueKind valueKind);
+        void EmitImplicitCastExpr(Expr* expr,      ExprValueKind valueKind);
+        void EmitCastExpr(Expr* expr,              ExprValueKind valueKind);
+        void EmitUnaryOperatorExpr(Expr* expr,     ExprValueKind valueKind);
+        void EmitBinaryOperatorExpr(Expr* expr,    ExprValueKind valueKind);
+        void EmitCompoundAssignExpr(Expr* expr,    ExprValueKind valueKind);
 
-        void EmitExpr(Expr* expr, ExprValueType type);
+        void EmitExpr(Expr* expr, ExprValueKind valueKind);
 
         void EmitTranslationUnitDecl(Decl* decl);
         void EmitVarDecl(Decl* decl);

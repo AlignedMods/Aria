@@ -164,74 +164,74 @@ namespace Aria::Internal {
         return false;
     }
 
-    BinaryOperatorType Parser::ParseOperator() {
+    BinaryOperatorKind Parser::ParseOperator() {
         Token op = *Peek();
 
         switch (op.Type) {
-            case TokenType::Plus: return BinaryOperatorType::Add;
-            case TokenType::PlusEq: return BinaryOperatorType::CompoundAdd;
-            case TokenType::Minus: return BinaryOperatorType::Sub;
-            case TokenType::MinusEq: return BinaryOperatorType::CompoundSub;
-            case TokenType::Star: return BinaryOperatorType::Mul;
-            case TokenType::StarEq: return BinaryOperatorType::CompoundMul;
-            case TokenType::Slash: return BinaryOperatorType::Div;
-            case TokenType::SlashEq: return BinaryOperatorType::CompoundDiv;
-            case TokenType::Percent: return BinaryOperatorType::Mod;
-            case TokenType::PercentEq: return BinaryOperatorType::CompoundMod;
-            case TokenType::Ampersand: return BinaryOperatorType::And;
-            case TokenType::AmpersandEq: return BinaryOperatorType::CompoundAnd;
-            case TokenType::DoubleAmpersand: return BinaryOperatorType::BitAnd;
-            case TokenType::Pipe: return BinaryOperatorType::Or;
-            case TokenType::PipeEq: return BinaryOperatorType::CompoundOr;
-            case TokenType::DoublePipe: return BinaryOperatorType::BitOr;
-            case TokenType::UpArrow: return BinaryOperatorType::Xor;
-            case TokenType::UpArrowEq: return BinaryOperatorType::CompoundXor;
-            case TokenType::Less: return BinaryOperatorType::Less;
-            case TokenType::LessOrEq: return BinaryOperatorType::LessOrEq;
-            case TokenType::Greater: return BinaryOperatorType::Greater;
-            case TokenType::GreaterOrEq: return BinaryOperatorType::GreaterOrEq;
-            case TokenType::Eq: return BinaryOperatorType::Eq;
-            case TokenType::IsEq: return BinaryOperatorType::IsEq;
-            case TokenType::IsNotEq: return BinaryOperatorType::IsNotEq;
-            default: return BinaryOperatorType::Invalid;
+            case TokenType::Plus: return BinaryOperatorKind::Add;
+            case TokenType::PlusEq: return BinaryOperatorKind::CompoundAdd;
+            case TokenType::Minus: return BinaryOperatorKind::Sub;
+            case TokenType::MinusEq: return BinaryOperatorKind::CompoundSub;
+            case TokenType::Star: return BinaryOperatorKind::Mul;
+            case TokenType::StarEq: return BinaryOperatorKind::CompoundMul;
+            case TokenType::Slash: return BinaryOperatorKind::Div;
+            case TokenType::SlashEq: return BinaryOperatorKind::CompoundDiv;
+            case TokenType::Percent: return BinaryOperatorKind::Mod;
+            case TokenType::PercentEq: return BinaryOperatorKind::CompoundMod;
+            case TokenType::Ampersand: return BinaryOperatorKind::And;
+            case TokenType::AmpersandEq: return BinaryOperatorKind::CompoundAnd;
+            case TokenType::DoubleAmpersand: return BinaryOperatorKind::BitAnd;
+            case TokenType::Pipe: return BinaryOperatorKind::Or;
+            case TokenType::PipeEq: return BinaryOperatorKind::CompoundOr;
+            case TokenType::DoublePipe: return BinaryOperatorKind::BitOr;
+            case TokenType::UpArrow: return BinaryOperatorKind::Xor;
+            case TokenType::UpArrowEq: return BinaryOperatorKind::CompoundXor;
+            case TokenType::Less: return BinaryOperatorKind::Less;
+            case TokenType::LessOrEq: return BinaryOperatorKind::LessOrEq;
+            case TokenType::Greater: return BinaryOperatorKind::Greater;
+            case TokenType::GreaterOrEq: return BinaryOperatorKind::GreaterOrEq;
+            case TokenType::Eq: return BinaryOperatorKind::Eq;
+            case TokenType::IsEq: return BinaryOperatorKind::IsEq;
+            case TokenType::IsNotEq: return BinaryOperatorKind::IsNotEq;
+            default: return BinaryOperatorKind::Invalid;
         }
     }
 
-    size_t Parser::GetBinaryPrecedence(BinaryOperatorType type) {
+    size_t Parser::GetBinaryPrecedence(BinaryOperatorKind type) {
         switch (type) {
-            case BinaryOperatorType::Eq:
-            case BinaryOperatorType::CompoundAdd:
-            case BinaryOperatorType::CompoundSub:
-            case BinaryOperatorType::CompoundMul:
-            case BinaryOperatorType::CompoundMod:
-            case BinaryOperatorType::CompoundDiv:
-            case BinaryOperatorType::CompoundAnd:
-            case BinaryOperatorType::CompoundOr:
-            case BinaryOperatorType::CompoundXor:
+            case BinaryOperatorKind::Eq:
+            case BinaryOperatorKind::CompoundAdd:
+            case BinaryOperatorKind::CompoundSub:
+            case BinaryOperatorKind::CompoundMul:
+            case BinaryOperatorKind::CompoundMod:
+            case BinaryOperatorKind::CompoundDiv:
+            case BinaryOperatorKind::CompoundAnd:
+            case BinaryOperatorKind::CompoundOr:
+            case BinaryOperatorKind::CompoundXor:
                 return 10;
 
-            case BinaryOperatorType::Less:
-            case BinaryOperatorType::LessOrEq:
-            case BinaryOperatorType::Greater:
-            case BinaryOperatorType::GreaterOrEq:
-            case BinaryOperatorType::IsEq:
-            case BinaryOperatorType::IsNotEq:
-            case BinaryOperatorType::BitAnd:
-            case BinaryOperatorType::BitOr:
+            case BinaryOperatorKind::Less:
+            case BinaryOperatorKind::LessOrEq:
+            case BinaryOperatorKind::Greater:
+            case BinaryOperatorKind::GreaterOrEq:
+            case BinaryOperatorKind::IsEq:
+            case BinaryOperatorKind::IsNotEq:
+            case BinaryOperatorKind::BitAnd:
+            case BinaryOperatorKind::BitOr:
                 return 20;
 
-            case BinaryOperatorType::And:
-            case BinaryOperatorType::Or:
-            case BinaryOperatorType::Xor:
+            case BinaryOperatorKind::And:
+            case BinaryOperatorKind::Or:
+            case BinaryOperatorKind::Xor:
                 return 30;
 
-            case BinaryOperatorType::Add:
-            case BinaryOperatorType::Sub:
+            case BinaryOperatorKind::Add:
+            case BinaryOperatorKind::Sub:
                 return 40;
 
-            case BinaryOperatorType::Mod:
-            case BinaryOperatorType::Mul:
-            case BinaryOperatorType::Div:
+            case BinaryOperatorKind::Mod:
+            case BinaryOperatorKind::Mul:
+            case BinaryOperatorKind::Div:
                 return 50;
         }
 
@@ -239,17 +239,17 @@ namespace Aria::Internal {
         return -1;
     }
 
-    size_t Parser::GetNextPrecedence(BinaryOperatorType binop) {
+    size_t Parser::GetNextPrecedence(BinaryOperatorKind binop) {
         switch (binop) {
-            case BinaryOperatorType::Eq:
-            case BinaryOperatorType::CompoundAdd:
-            case BinaryOperatorType::CompoundSub:
-            case BinaryOperatorType::CompoundMul:
-            case BinaryOperatorType::CompoundDiv:
-            case BinaryOperatorType::CompoundMod:
-            case BinaryOperatorType::CompoundAnd:
-            case BinaryOperatorType::CompoundOr:
-            case BinaryOperatorType::CompoundXor:
+            case BinaryOperatorKind::Eq:
+            case BinaryOperatorKind::CompoundAdd:
+            case BinaryOperatorKind::CompoundSub:
+            case BinaryOperatorKind::CompoundMul:
+            case BinaryOperatorKind::CompoundDiv:
+            case BinaryOperatorKind::CompoundMod:
+            case BinaryOperatorKind::CompoundAnd:
+            case BinaryOperatorKind::CompoundOr:
+            case BinaryOperatorKind::CompoundXor:
                 return GetBinaryPrecedence(binop); // Right associative
 
             default: return GetBinaryPrecedence(binop) + 1; // Left associative
@@ -317,7 +317,7 @@ namespace Aria::Internal {
                 Token& m = Consume();
     
                 Expr* expr = ParseValue();
-                final = m_Context->Allocate<UnaryOperatorExpr>(m_Context, m.Range.Start, SourceRange(m.Range.Start, expr->Range.End), expr, UnaryOperatorType::Negate);
+                final = m_Context->Allocate<UnaryOperatorExpr>(m_Context, m.Range.Start, SourceRange(m.Range.Start, expr->Range.End), expr, UnaryOperatorKind::Negate);
                 break;
             }
     
@@ -423,22 +423,22 @@ namespace Aria::Internal {
 
         // There are two conditions to this loop
         // A valid operator (the first half of the check) and a valid precedence (the second half)
-        while ((Peek() && ParseOperator() != BinaryOperatorType::Invalid) && 
+        while ((Peek() && ParseOperator() != BinaryOperatorKind::Invalid) && 
                (GetBinaryPrecedence(ParseOperator()) >= minbp)) {
-            BinaryOperatorType op = ParseOperator();
+            BinaryOperatorKind op = ParseOperator();
             Token o = Consume();
 
             Expr* rhsExpr = ParseExpression(GetNextPrecedence(op));
             if (!rhsExpr) { return nullptr; }
 
-            if (op == BinaryOperatorType::CompoundAdd ||
-                op == BinaryOperatorType::CompoundSub ||
-                op == BinaryOperatorType::CompoundMul ||
-                op == BinaryOperatorType::CompoundDiv ||
-                op == BinaryOperatorType::CompoundMod ||
-                op == BinaryOperatorType::CompoundAnd ||
-                op == BinaryOperatorType::CompoundOr  ||
-                op == BinaryOperatorType::CompoundXor) {
+            if (op == BinaryOperatorKind::CompoundAdd ||
+                op == BinaryOperatorKind::CompoundSub ||
+                op == BinaryOperatorKind::CompoundMul ||
+                op == BinaryOperatorKind::CompoundDiv ||
+                op == BinaryOperatorKind::CompoundMod ||
+                op == BinaryOperatorKind::CompoundAnd ||
+                op == BinaryOperatorKind::CompoundOr  ||
+                op == BinaryOperatorKind::CompoundXor) {
                 lhsExpr = m_Context->Allocate<CompoundAssignExpr>(m_Context, o.Range.Start, SourceRange(lhsLoc, Peek(-1)->Range.End), lhsExpr, rhsExpr, op);
             } else {
                 lhsExpr = m_Context->Allocate<BinaryOperatorExpr>(m_Context, o.Range.Start, SourceRange(lhsLoc, Peek(-1)->Range.End), lhsExpr, rhsExpr, op);
