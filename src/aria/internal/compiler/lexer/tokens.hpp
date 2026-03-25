@@ -8,7 +8,7 @@
 
 namespace Aria::Internal {
 
-    enum class TokenType {
+    enum class TokenKind {
         Semi,
         LeftParen,
         RightParen,
@@ -87,97 +87,97 @@ namespace Aria::Internal {
         Identifier
     };
 
-    inline const char* TokenTypeToString(TokenType type) {
-        switch (type) {
-            case TokenType::Semi: return ";";
-            case TokenType::LeftParen: return "(";
-            case TokenType::RightParen: return ")";
-            case TokenType::LeftBracket: return "[";
-            case TokenType::RightBracket: return "]";
-            case TokenType::LeftCurly: return "{";
-            case TokenType::RightCurly: return "}";
+    inline const char* TokenKindToString(TokenKind kind) {
+        switch (kind) {
+            case TokenKind::Semi: return ";";
+            case TokenKind::LeftParen: return "(";
+            case TokenKind::RightParen: return ")";
+            case TokenKind::LeftBracket: return "[";
+            case TokenKind::RightBracket: return "]";
+            case TokenKind::LeftCurly: return "{";
+            case TokenKind::RightCurly: return "}";
 
-            case TokenType::Plus: return "+";
-            case TokenType::PlusEq: return "+=";
-            case TokenType::Minus: return "-";
-            case TokenType::MinusEq: return "-=";
-            case TokenType::Star: return "*";
-            case TokenType::StarEq: return "*=";
-            case TokenType::Slash: return "/";
-            case TokenType::SlashEq: return "/=";
-            case TokenType::Percent: return "%";
-            case TokenType::PercentEq: return "%=";
-            case TokenType::Ampersand: return "&";
-            case TokenType::AmpersandEq: return "&=";
-            case TokenType::DoubleAmpersand: return "&&";
-            case TokenType::Pipe: return "|";
-            case TokenType::PipeEq: return "|=";
-            case TokenType::DoublePipe: return "||";
-            case TokenType::UpArrow: return "^";
-            case TokenType::UpArrowEq: return "^=";
-            case TokenType::Eq: return "=";
-            case TokenType::IsEq: return "==";
-            case TokenType::Not: return "!";
-            case TokenType::IsNotEq: return "!=";
-            case TokenType::Less: return "<";
-            case TokenType::LessOrEq: return "<=";
-            case TokenType::Greater: return ">";
-            case TokenType::GreaterOrEq: return ">=";
-            case TokenType::Hash: return "#";
+            case TokenKind::Plus: return "+";
+            case TokenKind::PlusEq: return "+=";
+            case TokenKind::Minus: return "-";
+            case TokenKind::MinusEq: return "-=";
+            case TokenKind::Star: return "*";
+            case TokenKind::StarEq: return "*=";
+            case TokenKind::Slash: return "/";
+            case TokenKind::SlashEq: return "/=";
+            case TokenKind::Percent: return "%";
+            case TokenKind::PercentEq: return "%=";
+            case TokenKind::Ampersand: return "&";
+            case TokenKind::AmpersandEq: return "&=";
+            case TokenKind::DoubleAmpersand: return "&&";
+            case TokenKind::Pipe: return "|";
+            case TokenKind::PipeEq: return "|=";
+            case TokenKind::DoublePipe: return "||";
+            case TokenKind::UpArrow: return "^";
+            case TokenKind::UpArrowEq: return "^=";
+            case TokenKind::Eq: return "=";
+            case TokenKind::IsEq: return "==";
+            case TokenKind::Not: return "!";
+            case TokenKind::IsNotEq: return "!=";
+            case TokenKind::Less: return "<";
+            case TokenKind::LessOrEq: return "<=";
+            case TokenKind::Greater: return ">";
+            case TokenKind::GreaterOrEq: return ">=";
+            case TokenKind::Hash: return "#";
 
-            case TokenType::Squigly: return "~";
-            case TokenType::Comma: return ",";
-            case TokenType::Colon: return ":";
-            case TokenType::Dot: return ".";
-            case TokenType::DoubleDot: return "..";
-            case TokenType::TripleDot: return "...";
+            case TokenKind::Squigly: return "~";
+            case TokenKind::Comma: return ",";
+            case TokenKind::Colon: return ":";
+            case TokenKind::Dot: return ".";
+            case TokenKind::DoubleDot: return "..";
+            case TokenKind::TripleDot: return "...";
 
-            case TokenType::Self: return "self";
+            case TokenKind::Self: return "self";
 
-            case TokenType::If: return "if";
-            case TokenType::Else: return "else";
+            case TokenKind::If: return "if";
+            case TokenKind::Else: return "else";
 
-            case TokenType::While: return "while";
-            case TokenType::Do: return "do";
-            case TokenType::For: return "for";
+            case TokenKind::While: return "while";
+            case TokenKind::Do: return "do";
+            case TokenKind::For: return "for";
 
-            case TokenType::Break: return "break";
-            case TokenType::Return: return "return";
+            case TokenKind::Break: return "break";
+            case TokenKind::Return: return "return";
 
-            case TokenType::Struct: return "struct";
+            case TokenKind::Struct: return "struct";
 
-            case TokenType::Construct: return "construct";
-            case TokenType::Destruct: return "destruct";
+            case TokenKind::Construct: return "construct";
+            case TokenKind::Destruct: return "destruct";
 
-            case TokenType::True: return "true";
-            case TokenType::False: return "false";
+            case TokenKind::True: return "true";
+            case TokenKind::False: return "false";
 
-            case TokenType::CharLit: return "character literal";
-            case TokenType::IntLit: return "integer literal";
-            case TokenType::NumLit: return "number literal";
-            case TokenType::StrLit: return "string literal";
+            case TokenKind::CharLit: return "character literal";
+            case TokenKind::IntLit: return "integer literal";
+            case TokenKind::NumLit: return "number literal";
+            case TokenKind::StrLit: return "string literal";
 
-            case TokenType::Void: return "void";
+            case TokenKind::Void: return "void";
 
-            case TokenType::Bool: return "bool";
+            case TokenKind::Bool: return "bool";
 
-            case TokenType::Char: return "char";
-            case TokenType::UChar: return "uchar";
-            case TokenType::Short: return "short";
-            case TokenType::UShort: return "ushort";
-            case TokenType::Int: return "int";
-            case TokenType::UInt: return "uint";
-            case TokenType::Long: return "long";
-            case TokenType::ULong: return "ulong";
+            case TokenKind::Char: return "char";
+            case TokenKind::UChar: return "uchar";
+            case TokenKind::Short: return "short";
+            case TokenKind::UShort: return "ushort";
+            case TokenKind::Int: return "int";
+            case TokenKind::UInt: return "uint";
+            case TokenKind::Long: return "long";
+            case TokenKind::ULong: return "ulong";
 
-            case TokenType::Float: return "float";
-            case TokenType::Double: return "double";
+            case TokenKind::Float: return "float";
+            case TokenKind::Double: return "double";
 
-            case TokenType::String: return "string";
+            case TokenKind::String: return "string";
 
-            case TokenType::Extern: return "extern";
+            case TokenKind::Extern: return "extern";
 
-            case TokenType::Identifier: return "identifier";
+            case TokenKind::Identifier: return "identifier";
         }
 
         ARIA_ASSERT(false, "Unreachable!");
@@ -186,7 +186,7 @@ namespace Aria::Internal {
     }
 
     struct Token {
-        TokenType Type = TokenType::Semi;
+        TokenKind Kind = TokenKind::Semi;
         SourceRange Range;
 
         StringView String;

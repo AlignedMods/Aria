@@ -20,11 +20,11 @@ namespace Aria::Internal {
 
         Token* Peek(size_t count = 0);
         Token& Consume();
-        Token* TryConsume(TokenType type, const std::string& expect);
+        Token* TryConsume(TokenKind kind, const std::string& expect);
 
         // Checks if the current token matches with the requested type
         // This function cannot fail
-        bool Match(TokenType type);
+        bool Match(TokenKind kind);
 
         StringBuilder ParseVariableType();
         TinyVector<ParamDecl*> ParseFunctionParameters();
@@ -32,7 +32,7 @@ namespace Aria::Internal {
         bool IsVariableType();
 
         BinaryOperatorKind ParseOperator();
-        size_t GetBinaryPrecedence(BinaryOperatorKind type);
+        size_t GetBinaryPrecedence(BinaryOperatorKind kind);
         size_t GetNextPrecedence(BinaryOperatorKind binop);
         Expr* ParseValue();
         Expr* ParseExpression(size_t minbp = 0);

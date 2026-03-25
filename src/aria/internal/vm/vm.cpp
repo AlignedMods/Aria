@@ -443,6 +443,11 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case OpCodeKind::Pop: {
+                    Pop(1, m_LocalStack);
+                    break;
+                }
+
                 case OpCodeKind::Store: {
                     void* dst = GetPointer(-2, m_LocalStack);
                     VMSlice src = GetVMSlice(-1, m_LocalStack);

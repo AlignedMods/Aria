@@ -85,22 +85,22 @@ TEST_CASE("Runtime Control Flow") {
     ctx.CompileFile("tests/runtime/control_flow.aria", "Runtime Control Flow");
     ctx.Run();
     
-    ctx.PushInt(0);
     ctx.Call("While()", 0);
     REQUIRE(ctx.GetInt(-1) == 10);
     ctx.Pop(1);
     
-    ctx.PushInt(0);
     ctx.Call("DoWhile1()", 0);
     REQUIRE(ctx.GetInt(-1) == 10);
     ctx.Pop(1);
     
-    ctx.PushBool(false);
     ctx.Call("DoWhile2()", 0);
     REQUIRE(ctx.GetBool(-1) == true);
     ctx.Pop(1);
+
+    ctx.Call("For()", 0);
+    REQUIRE(ctx.GetInt(-1) == 190);
+    ctx.Pop(1);
     
-    ctx.PushBool(false);
     ctx.Call("If()", 0);
     REQUIRE(ctx.GetBool(-1) == false);
     ctx.Pop(1);

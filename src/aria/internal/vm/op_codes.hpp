@@ -42,6 +42,7 @@ namespace Aria::Internal {
         Nop,
 
         Alloca,
+        Pop,
         Store,
         Dup,
 

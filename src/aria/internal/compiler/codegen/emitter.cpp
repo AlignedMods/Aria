@@ -244,7 +244,7 @@ namespace Aria::Internal {
         if (cast->GetCastKind() == CastKind::LValueToRValue) {
             return EmitExpr(cast->GetChildExpr(), ExprValueKind::RValue);
         } else {
-            EmitExpr(cast->GetChildExpr(), cast->GetValueKind());
+            EmitExpr(cast->GetChildExpr(), ExprValueKind::RValue);
             m_OpCodes.emplace_back(OpCodeKind::Cast, TypeInfoToVMType(cast->GetResolvedType()));
             return;
         }
@@ -435,7 +435,9 @@ namespace Aria::Internal {
             m_GlobalScope.DeclaredSymbols.push_back(d);
             m_GlobalScope.DeclaredSymbolMap[varDecl->GetIdentifier()] = m_GlobalScope.DeclaredSymbols.size() - 1;
         } else {
-            m_OpCodes.emplace_back(OpCodeKind::DeclareLocal, m_ActiveStackFrame.LocalCount++);
+            m_OpCodes.emplace_back(OpCodeKind::DeclareLocal, m_ActiveStackFrame.LocalCount);
+            d.Data = m_ActiveStackFrame.LocalCount;
+            m_ActiveStackFrame.LocalCount++;
 
             m_ActiveStackFrame.Scopes.back().DeclaredSymbols.push_back(d);
             m_ActiveStackFrame.Scopes.back().DeclaredSymbolMap[varDecl->GetIdentifier()] = m_ActiveStackFrame.Scopes.back().DeclaredSymbols.size() - 1;
@@ -504,10 +506,10 @@ namespace Aria::Internal {
         m_OpCodes.emplace_back(OpCodeKind::Label, loopStart);
         EmitExpr(wh->GetCondition(), wh->GetCondition()->GetValueKind());
         m_OpCodes.emplace_back(OpCodeKind::Jf, loopEnd);
+        m_OpCodes.emplace_back(OpCodeKind::Pop);
         EmitStmt(wh->GetBody());
 
         m_OpCodes.emplace_back(OpCodeKind::Jmp, loopStart);
-
         m_OpCodes.emplace_back(OpCodeKind::Label, loopEnd);
     }
 
@@ -515,7 +517,6 @@ namespace Aria::Internal {
         DoWhileStmt* wh = GetNode<DoWhileStmt>(stmt);
 
         std::string loopStart = fmt::format("dowhile.start_{}", m_DoWhileCounter);
-        std::string loopEnd = fmt::format("dowhile.end_{}", m_DoWhileCounter);
         m_DoWhileCounter++;
 
         m_OpCodes.emplace_back(OpCodeKind::Label, loopStart);
@@ -525,7 +526,33 @@ namespace Aria::Internal {
         m_OpCodes.emplace_back(OpCodeKind::Jt, loopStart);
     }
 
-    void Emitter::EmitForStmt(Stmt* stmt) { ARIA_ASSERT(false, "todo: Emitter::EmitForStmt()"); }
+    void Emitter::EmitForStmt(Stmt* stmt) {
+        ForStmt* fs = GetNode<ForStmt>(stmt);
+
+        std::string loopStart = fmt::format("for.start_{}", m_ForCounter);
+        std::string loopEnd = fmt::format("for.end_{}", m_ForCounter);
+        m_ForCounter++;
+
+        PushScope();
+        if (fs->GetPrologue()) { EmitStmt(fs->GetPrologue()); }
+
+        m_OpCodes.emplace_back(OpCodeKind::Label, loopStart);
+        if (fs->GetCondition()) {
+            EmitExpr(fs->GetCondition(), fs->GetCondition()->GetValueKind());
+            m_OpCodes.emplace_back(OpCodeKind::Jf, loopEnd);
+        }
+
+        EmitStmt(fs->GetBody());
+            
+        if (fs->GetEpilogue()) {
+            EmitExpr(fs->GetEpilogue(), fs->GetCondition()->GetValueKind());
+        }
+
+        m_OpCodes.emplace_back(OpCodeKind::Jmp, loopStart);
+        m_OpCodes.emplace_back(OpCodeKind::Label, loopEnd);
+
+        PopScope();
+    }
 
     void Emitter::EmitIfStmt(Stmt* stmt) {
         IfStmt* ifs = GetNode<IfStmt>(stmt);

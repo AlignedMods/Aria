@@ -45,8 +45,8 @@ namespace Aria::Internal {
         return m_Tokens.at(m_Index++);
     }
 
-    Token* Parser::TryConsume(TokenType type, const std::string& expect) {
-        if (Match(type)) {
+    Token* Parser::TryConsume(TokenKind kind, const std::string& expect) {
+        if (Match(kind)) {
             Token& t = Consume();
             return &t;
         }
@@ -56,12 +56,12 @@ namespace Aria::Internal {
         return nullptr;
     }
 
-    bool Parser::Match(TokenType type) {
+    bool Parser::Match(TokenKind kind) {
         if (!Peek()) {
             return false;
         }
 
-        if (Peek()->Type == type) {
+        if (Peek()->Kind == kind) {
             return true;
         } else {
             return false;
@@ -73,31 +73,31 @@ namespace Aria::Internal {
 
         StringBuilder strType;
 
-        switch (type.Type) {
-            case TokenType::Void:       strType.Append(m_Context, "void"); break;
-            case TokenType::Bool:       strType.Append(m_Context, "bool"); break;
-            case TokenType::Char:       strType.Append(m_Context, "char"); break;
-            case TokenType::UChar:      strType.Append(m_Context, "uchar"); break;
-            case TokenType::Short:      strType.Append(m_Context, "short"); break;
-            case TokenType::UShort:     strType.Append(m_Context, "ushort"); break;
-            case TokenType::Int:        strType.Append(m_Context, "int"); break;
-            case TokenType::UInt:       strType.Append(m_Context, "uint"); break;
-            case TokenType::Long:       strType.Append(m_Context, "long"); break;
-            case TokenType::ULong:      strType.Append(m_Context, "ulong"); break;
-            case TokenType::Float:      strType.Append(m_Context, "float"); break;
-            case TokenType::Double:     strType.Append(m_Context, "double"); break;
-            case TokenType::String:     strType.Append(m_Context, "string"); break;
-            case TokenType::Identifier: strType.Append(m_Context, type.String); break;
+        switch (type.Kind) {
+            case TokenKind::Void:       strType.Append(m_Context, "void"); break;
+            case TokenKind::Bool:       strType.Append(m_Context, "bool"); break;
+            case TokenKind::Char:       strType.Append(m_Context, "char"); break;
+            case TokenKind::UChar:      strType.Append(m_Context, "uchar"); break;
+            case TokenKind::Short:      strType.Append(m_Context, "short"); break;
+            case TokenKind::UShort:     strType.Append(m_Context, "ushort"); break;
+            case TokenKind::Int:        strType.Append(m_Context, "int"); break;
+            case TokenKind::UInt:       strType.Append(m_Context, "uint"); break;
+            case TokenKind::Long:       strType.Append(m_Context, "long"); break;
+            case TokenKind::ULong:      strType.Append(m_Context, "ulong"); break;
+            case TokenKind::Float:      strType.Append(m_Context, "float"); break;
+            case TokenKind::Double:     strType.Append(m_Context, "double"); break;
+            case TokenKind::String:     strType.Append(m_Context, "string"); break;
+            case TokenKind::Identifier: strType.Append(m_Context, type.String); break;
             default:                    strType.Append(m_Context, ""); break;
         }
 
-        if (Match(TokenType::LeftBracket)) {
+        if (Match(TokenKind::LeftBracket)) {
             Consume();
-            TryConsume(TokenType::RightBracket, "']'");
+            TryConsume(TokenKind::RightBracket, "']'");
             strType.Append(m_Context, "[]");
         }
 
-        if (Match(TokenType::Ampersand)) {
+        if (Match(TokenKind::Ampersand)) {
             Consume();
             strType.Append(m_Context, "&");
         }
@@ -108,14 +108,14 @@ namespace Aria::Internal {
     TinyVector<ParamDecl*> Parser::ParseFunctionParameters() {
         TinyVector<ParamDecl*> params;
 
-        while (!Match(TokenType::RightParen)) {
+        while (!Match(TokenKind::RightParen)) {
             StringBuilder type = ParseVariableType();
 
             Token& ident = Consume();
             
             ParamDecl* param = m_Context->Allocate<ParamDecl>(m_Context, ident.String, StringView(type.Data(), type.Size()));
             
-            if (Match(TokenType::Comma)) {
+            if (Match(TokenKind::Comma)) {
                 Consume();
             }
 
@@ -130,20 +130,20 @@ namespace Aria::Internal {
 
         Token type = *Peek();
 
-        switch (type.Type) {
-            case TokenType::Void:
-            case TokenType::Bool:
-            case TokenType::Char:
-            case TokenType::UChar:
-            case TokenType::Short:
-            case TokenType::UShort:
-            case TokenType::Int:
-            case TokenType::UInt:
-            case TokenType::Long:
-            case TokenType::ULong:
-            case TokenType::Float:
-            case TokenType::Double:
-            case TokenType::String: return true;
+        switch (type.Kind) {
+            case TokenKind::Void:
+            case TokenKind::Bool:
+            case TokenKind::Char:
+            case TokenKind::UChar:
+            case TokenKind::Short:
+            case TokenKind::UShort:
+            case TokenKind::Int:
+            case TokenKind::UInt:
+            case TokenKind::Long:
+            case TokenKind::ULong:
+            case TokenKind::Float:
+            case TokenKind::Double:
+            case TokenKind::String: return true;
             default: return false;
         }
 
@@ -153,7 +153,7 @@ namespace Aria::Internal {
     bool Parser::IsVariableType() {
         if (IsPrimitiveType()) { return true; }
 
-        if (Peek()->Type == TokenType::Identifier) {
+        if (Peek()->Kind == TokenKind::Identifier) {
             if (m_DeclaredTypes.contains(fmt::format("{}", Peek()->String))) {
                 return true;
             }
@@ -167,38 +167,38 @@ namespace Aria::Internal {
     BinaryOperatorKind Parser::ParseOperator() {
         Token op = *Peek();
 
-        switch (op.Type) {
-            case TokenType::Plus: return BinaryOperatorKind::Add;
-            case TokenType::PlusEq: return BinaryOperatorKind::CompoundAdd;
-            case TokenType::Minus: return BinaryOperatorKind::Sub;
-            case TokenType::MinusEq: return BinaryOperatorKind::CompoundSub;
-            case TokenType::Star: return BinaryOperatorKind::Mul;
-            case TokenType::StarEq: return BinaryOperatorKind::CompoundMul;
-            case TokenType::Slash: return BinaryOperatorKind::Div;
-            case TokenType::SlashEq: return BinaryOperatorKind::CompoundDiv;
-            case TokenType::Percent: return BinaryOperatorKind::Mod;
-            case TokenType::PercentEq: return BinaryOperatorKind::CompoundMod;
-            case TokenType::Ampersand: return BinaryOperatorKind::And;
-            case TokenType::AmpersandEq: return BinaryOperatorKind::CompoundAnd;
-            case TokenType::DoubleAmpersand: return BinaryOperatorKind::BitAnd;
-            case TokenType::Pipe: return BinaryOperatorKind::Or;
-            case TokenType::PipeEq: return BinaryOperatorKind::CompoundOr;
-            case TokenType::DoublePipe: return BinaryOperatorKind::BitOr;
-            case TokenType::UpArrow: return BinaryOperatorKind::Xor;
-            case TokenType::UpArrowEq: return BinaryOperatorKind::CompoundXor;
-            case TokenType::Less: return BinaryOperatorKind::Less;
-            case TokenType::LessOrEq: return BinaryOperatorKind::LessOrEq;
-            case TokenType::Greater: return BinaryOperatorKind::Greater;
-            case TokenType::GreaterOrEq: return BinaryOperatorKind::GreaterOrEq;
-            case TokenType::Eq: return BinaryOperatorKind::Eq;
-            case TokenType::IsEq: return BinaryOperatorKind::IsEq;
-            case TokenType::IsNotEq: return BinaryOperatorKind::IsNotEq;
+        switch (op.Kind) {
+            case TokenKind::Plus: return BinaryOperatorKind::Add;
+            case TokenKind::PlusEq: return BinaryOperatorKind::CompoundAdd;
+            case TokenKind::Minus: return BinaryOperatorKind::Sub;
+            case TokenKind::MinusEq: return BinaryOperatorKind::CompoundSub;
+            case TokenKind::Star: return BinaryOperatorKind::Mul;
+            case TokenKind::StarEq: return BinaryOperatorKind::CompoundMul;
+            case TokenKind::Slash: return BinaryOperatorKind::Div;
+            case TokenKind::SlashEq: return BinaryOperatorKind::CompoundDiv;
+            case TokenKind::Percent: return BinaryOperatorKind::Mod;
+            case TokenKind::PercentEq: return BinaryOperatorKind::CompoundMod;
+            case TokenKind::Ampersand: return BinaryOperatorKind::And;
+            case TokenKind::AmpersandEq: return BinaryOperatorKind::CompoundAnd;
+            case TokenKind::DoubleAmpersand: return BinaryOperatorKind::BitAnd;
+            case TokenKind::Pipe: return BinaryOperatorKind::Or;
+            case TokenKind::PipeEq: return BinaryOperatorKind::CompoundOr;
+            case TokenKind::DoublePipe: return BinaryOperatorKind::BitOr;
+            case TokenKind::UpArrow: return BinaryOperatorKind::Xor;
+            case TokenKind::UpArrowEq: return BinaryOperatorKind::CompoundXor;
+            case TokenKind::Less: return BinaryOperatorKind::Less;
+            case TokenKind::LessOrEq: return BinaryOperatorKind::LessOrEq;
+            case TokenKind::Greater: return BinaryOperatorKind::Greater;
+            case TokenKind::GreaterOrEq: return BinaryOperatorKind::GreaterOrEq;
+            case TokenKind::Eq: return BinaryOperatorKind::Eq;
+            case TokenKind::IsEq: return BinaryOperatorKind::IsEq;
+            case TokenKind::IsNotEq: return BinaryOperatorKind::IsNotEq;
             default: return BinaryOperatorKind::Invalid;
         }
     }
 
-    size_t Parser::GetBinaryPrecedence(BinaryOperatorKind type) {
-        switch (type) {
+    size_t Parser::GetBinaryPrecedence(BinaryOperatorKind kind) {
+        switch (kind) {
             case BinaryOperatorKind::Eq:
             case BinaryOperatorKind::CompoundAdd:
             case BinaryOperatorKind::CompoundSub:
@@ -262,22 +262,22 @@ namespace Aria::Internal {
     
         Expr* final = nullptr;
 
-        switch (value.Type) {
-            case TokenType::False: {
+        switch (value.Kind) {
+            case TokenKind::False: {
                 Token& t = Consume();
     
                 final = m_Context->Allocate<BooleanConstantExpr>(m_Context, t.Range.Start, t.Range, false);
                 break;
             }
     
-            case TokenType::True: {
+            case TokenKind::True: {
                 Token& t = Consume();
     
                 final = m_Context->Allocate<BooleanConstantExpr>(m_Context, t.Range.Start, t.Range, true);
                 break;
             }
     
-            case TokenType::CharLit: {
+            case TokenKind::CharLit: {
                 Token& t = Consume();
     
                 int8_t ch = static_cast<int8_t>(value.String.Data()[0]);
@@ -285,35 +285,35 @@ namespace Aria::Internal {
                 break;
             }
     
-            case TokenType::IntLit: {
+            case TokenKind::IntLit: {
                 Token& t = Consume();
 
                 final = m_Context->Allocate<IntegerConstantExpr>(m_Context, t.Range.Start, t.Range, t.Integer, TypeInfo::Create(m_Context, PrimitiveType::Long, false));
                 break;
             }
 
-            case TokenType::UintLit: {
+            case TokenKind::UintLit: {
                 Token& t = Consume();
 
                 final = m_Context->Allocate<IntegerConstantExpr>(m_Context, t.Range.Start, t.Range, t.Integer, TypeInfo::Create(m_Context, PrimitiveType::ULong, false));
                 break;
             }
     
-            case TokenType::NumLit: {
+            case TokenKind::NumLit: {
                 Token& t = Consume();
     
                 final = m_Context->Allocate<FloatingConstantExpr>(m_Context, t.Range.Start, t.Range, t.Number);
                 break;
             }
     
-            case TokenType::StrLit: {
+            case TokenKind::StrLit: {
                 Token& t = Consume();
     
                 final = m_Context->Allocate<StringConstantExpr>(m_Context, t.Range.Start, t.Range, t.String);
                 break;
             }
     
-            case TokenType::Minus: {
+            case TokenKind::Minus: {
                 Token& m = Consume();
     
                 Expr* expr = ParseValue();
@@ -321,19 +321,19 @@ namespace Aria::Internal {
                 break;
             }
     
-            case TokenType::LeftParen: {
+            case TokenKind::LeftParen: {
                 Token p = Consume();
     
                 if (IsVariableType()) {
                     StringBuilder type = ParseVariableType();
 
-                    TryConsume(TokenType::RightParen, "')'");
+                    TryConsume(TokenKind::RightParen, "')'");
                     Expr* expr = ParseValue();
 
                     final = m_Context->Allocate<CastExpr>(m_Context, p.Range.Start, SourceRange(p.Range.Start, expr->Range.End), expr, StringView(type.Data(), type.Size()));
                 } else {
                     Expr* expr = ParseExpression();
-                    Token* rp = TryConsume(TokenType::RightParen, "')'");
+                    Token* rp = TryConsume(TokenKind::RightParen, "')'");
 
                     if (!rp) { return nullptr; }
                     final = m_Context->Allocate<ParenExpr>(m_Context, p.Range.Start, SourceRange(p.Range.Start, rp->Range.End), expr);
@@ -342,35 +342,35 @@ namespace Aria::Internal {
                 break;
             }
 
-            case TokenType::Self: {
+            case TokenKind::Self: {
                 Token s = Consume();
 
                 final = m_Context->Allocate<SelfExpr>(m_Context, s.Range.Start, s.Range);
                 break;
             }
     
-            case TokenType::Identifier: {
+            case TokenKind::Identifier: {
                 Token i = Consume();
 
                 final = m_Context->Allocate<DeclRefExpr>(m_Context, i.Range.Start, i.Range, i.String);
 
                 // Check if this is a function call
-                if (Match(TokenType::LeftParen)) {
+                if (Match(TokenKind::LeftParen)) {
                     Token& lp = Consume();
     
                     TinyVector<Expr*> args;
 
-                    while (!Match(TokenType::RightParen)) {
+                    while (!Match(TokenKind::RightParen)) {
                         Expr* val = ParseExpression();
     
-                        if (Match(TokenType::Comma)) {
+                        if (Match(TokenKind::Comma)) {
                             Consume();
                         }
     
                         args.Append(m_Context, val);
                     }
     
-                    Token* rp = TryConsume(TokenType::RightParen, "')'");
+                    Token* rp = TryConsume(TokenKind::RightParen, "')'");
                     if (!rp) { return nullptr; }
     
                     final = m_Context->Allocate<CallExpr>(m_Context, lp.Range.Start, SourceRange(i.Range.Start, rp->Range.End), GetNode<DeclRefExpr>(final), args);
@@ -381,30 +381,30 @@ namespace Aria::Internal {
         }
 
         // Handle member access (foo.bar) and member call expressions (foo.add())
-        while (Match(TokenType::Dot)) {
+        while (Match(TokenKind::Dot)) {
             Token op = Consume();
 
-            if (op.Type == TokenType::Dot) {
-                Token* member = TryConsume(TokenType::Identifier, "identifier");
+            if (op.Kind == TokenKind::Dot) {
+                Token* member = TryConsume(TokenKind::Identifier, "identifier");
                 if (!member) { return nullptr; }
 
                 final = m_Context->Allocate<MemberExpr>(m_Context, op.Range.Start, SourceRange(final->Range.Start, member->Range.End), member->String, final);
 
-                if (Match(TokenType::LeftParen)) {
+                if (Match(TokenKind::LeftParen)) {
                     Token& lp = Consume();
     
                     TinyVector<Expr*> args;
-                    while (!Match(TokenType::RightParen)) {
+                    while (!Match(TokenKind::RightParen)) {
                         Expr* val = ParseExpression();
     
-                        if (Match(TokenType::Comma)) {
+                        if (Match(TokenKind::Comma)) {
                             Consume();
                         }
     
                         args.Append(m_Context, val);
                     }
     
-                    Token* rp = TryConsume(TokenType::RightParen, "')'");
+                    Token* rp = TryConsume(TokenKind::RightParen, "')'");
                     if (!rp) { return nullptr; }
 
                     final = m_Context->Allocate<MethodCallExpr>(m_Context, lp.Range.Start, SourceRange(final->Range.Start, rp->Range.End), GetNode<MemberExpr>(final), args);
@@ -452,22 +452,22 @@ namespace Aria::Internal {
 
     Stmt* Parser::ParseCompound() {
         TinyVector<Stmt*> stmts;
-        Token* l = TryConsume(TokenType::LeftCurly, "'{'");
+        Token* l = TryConsume(TokenKind::LeftCurly, "'{'");
 
-        while (!Match(TokenType::RightCurly)) {
+        while (!Match(TokenKind::RightCurly)) {
             Stmt* stmt = ParseToken();
             if (stmt != nullptr) {
                 stmts.Append(m_Context, stmt);
             }
         }
 
-        TryConsume(TokenType::RightCurly, "'}'");
+        TryConsume(TokenKind::RightCurly, "'}'");
 
         return m_Context->Allocate<CompoundStmt>(m_Context, stmts);
     }
 
     Stmt* Parser::ParseCompoundInline() {
-        if (Match(TokenType::LeftCurly)) {
+        if (Match(TokenKind::LeftCurly)) {
             return ParseCompound();
         } else {
             return ParseToken();
@@ -478,7 +478,7 @@ namespace Aria::Internal {
         StringBuilder type = ParseVariableType();
 
         if (Peek(1)) {
-            if (Peek(1)->Type == TokenType::LeftParen) {
+            if (Peek(1)->Kind == TokenKind::LeftParen) {
                 return ParseFunctionDecl(type, Peek(-1)->Range, external);
             }
         }
@@ -487,11 +487,11 @@ namespace Aria::Internal {
     }
 
     Stmt* Parser::ParseVariableDecl(StringBuilder type, SourceRange start) {
-        Token* ident = TryConsume(TokenType::Identifier, "identifier");
+        Token* ident = TryConsume(TokenKind::Identifier, "identifier");
         Expr* value = nullptr;
 
         if (ident) {
-            if (Match(TokenType::Eq)) {
+            if (Match(TokenKind::Eq)) {
                 Consume();
                 value = ParseExpression();
             }
@@ -504,19 +504,19 @@ namespace Aria::Internal {
     }
 
     Stmt* Parser::ParseFunctionDecl(StringBuilder returnType, SourceRange start, bool external) {
-        Token* ident = TryConsume(TokenType::Identifier, "identifier");
+        Token* ident = TryConsume(TokenKind::Identifier, "identifier");
 
         if (ident) {
             TinyVector<ParamDecl*> params;
 
-            if (Match(TokenType::LeftParen)) {
+            if (Match(TokenKind::LeftParen)) {
                 Consume();
                 params = ParseFunctionParameters();
-                TryConsume(TokenType::RightParen, "')'");
+                TryConsume(TokenKind::RightParen, "')'");
 
                 Stmt* body = nullptr;
 
-                if (Match(TokenType::LeftCurly)) {
+                if (Match(TokenKind::LeftCurly)) {
                     body = ParseCompound();
                     m_NeedsSemi = false;
                 }
@@ -541,43 +541,43 @@ namespace Aria::Internal {
     Stmt* Parser::ParseStructDecl() {
         Token s = Consume(); // Consume "struct"
 
-        Token* ident = TryConsume(TokenType::Identifier, "indentifier");
+        Token* ident = TryConsume(TokenKind::Identifier, "indentifier");
 
         if (!ident) { return nullptr; }
         m_DeclaredTypes[fmt::format("{}", ident->String)] = true;
 
         TinyVector<Decl*> fields;
 
-        TryConsume(TokenType::LeftCurly, "'{'");
+        TryConsume(TokenKind::LeftCurly, "'{'");
 
-        while (!Match(TokenType::RightCurly)) {
+        while (!Match(TokenKind::RightCurly)) {
             if (IsVariableType()) {
                 StringBuilder type = ParseVariableType();
 
-                Token* fieldName = TryConsume(TokenType::Identifier, "identifier");
+                Token* fieldName = TryConsume(TokenKind::Identifier, "identifier");
                 if (!fieldName) { return nullptr; }
 
-                if (Match(TokenType::LeftParen)) {
+                if (Match(TokenKind::LeftParen)) {
                     Consume();
 
                     TinyVector<ParamDecl*> params = ParseFunctionParameters();
-                    TryConsume(TokenType::RightParen, "')'");
+                    TryConsume(TokenKind::RightParen, "')'");
 
                     Stmt* body = ParseCompound();
                     fields.Append(m_Context, m_Context->Allocate<MethodDecl>(m_Context, fieldName->String, StringView(type.Data(), type.Size()), params, GetNode<CompoundStmt>(body)));
                 } else {
-                    TryConsume(TokenType::Semi, "';'");
+                    TryConsume(TokenKind::Semi, "';'");
 
                     fields.Append(m_Context, m_Context->Allocate<FieldDecl>(m_Context, fieldName->String, StringView(type.Data(), type.Size())));
                 }
             } else {
                 m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "expected a type name");
                 StabilizeParser();
-                TryConsume(TokenType::Semi, "';'");
+                TryConsume(TokenKind::Semi, "';'");
             }
         }
         
-        TryConsume(TokenType::RightCurly, "'}'");
+        TryConsume(TokenKind::RightCurly, "'}'");
 
         m_NeedsSemi = false;
         return m_Context->Allocate<StructDecl>(m_Context, ident->String, fields);
@@ -598,7 +598,7 @@ namespace Aria::Internal {
         Token d = Consume(); // Consume "do"
 
         Stmt* body = ParseCompoundInline();
-        TryConsume(TokenType::While, "while");
+        TryConsume(TokenKind::While, "while");
         Expr* condition = ParseExpression();
 
         return m_Context->Allocate<DoWhileStmt>(m_Context, condition, body);
@@ -607,16 +607,17 @@ namespace Aria::Internal {
     Stmt* Parser::ParseFor() {
         Token f = Consume(); // Consume "for"
 
-        TryConsume(TokenType::LeftParen, "'('");
+        TryConsume(TokenKind::LeftParen, "'('");
         
         Stmt* prologue = ParseStatement();
+        TryConsume(TokenKind::Semi, "';'");
         Expr* condition = ParseExpression();
-        TryConsume(TokenType::Semi, "';'");
+        TryConsume(TokenKind::Semi, "';'");
         Expr* epilogue = ParseExpression();
-
-        TryConsume(TokenType::RightParen, "')'");
+        TryConsume(TokenKind::RightParen, "')'");
 
         Stmt* body = ParseCompoundInline();
+        m_NeedsSemi = false;
 
         return m_Context->Allocate<ForStmt>(m_Context, prologue, condition, epilogue, body);
     }
@@ -655,29 +656,29 @@ namespace Aria::Internal {
     }
 
     Stmt* Parser::ParseStatement() {
-        TokenType t = Peek()->Type;
+        TokenKind t = Peek()->Kind;
 
         Stmt* node = nullptr;
 
         if (IsVariableType()) {
             node = ParseType();
-        } else if (t == TokenType::Extern) {
+        } else if (t == TokenKind::Extern) {
             node = ParseExtern();
-        } else if (t == TokenType::Struct) {
+        } else if (t == TokenKind::Struct) {
             node = ParseStructDecl();
-        } else if (t == TokenType::LeftCurly) {
+        } else if (t == TokenKind::LeftCurly) {
             node = ParseCompound();
-        } else if (t == TokenType::While) {
+        } else if (t == TokenKind::While) {
             node = ParseWhile();
-        } else if (t == TokenType::Do) {
+        } else if (t == TokenKind::Do) {
             node = ParseDoWhile();
-        } else if (t == TokenType::For) {
+        } else if (t == TokenKind::For) {
             node = ParseFor();
-        } else if (t == TokenType::If) {
+        } else if (t == TokenKind::If) {
             node = ParseIf();
-        } else if (t == TokenType::Break) {
+        } else if (t == TokenKind::Break) {
             node = ParseBreak();
-        } else if (t == TokenType::Return) {
+        } else if (t == TokenKind::Return) {
             node = ParseReturn();
         }
 
@@ -694,10 +695,10 @@ namespace Aria::Internal {
         }
 
         if (m_NeedsSemi) {
-            TryConsume(TokenType::Semi, "';'");
+            TryConsume(TokenKind::Semi, "';'");
         }
 
-        while (Match(TokenType::Semi)) {
+        while (Match(TokenKind::Semi)) {
             Consume();
         }
 
@@ -708,9 +709,9 @@ namespace Aria::Internal {
 
     void Parser::StabilizeParser() {
         while (Peek()) {
-            TokenType type = Peek()->Type;
+            TokenKind type = Peek()->Kind;
 
-            if (type == TokenType::Semi || type ==  TokenType::RightCurly) {
+            if (type == TokenKind::Semi || type ==  TokenKind::RightCurly) {
                 return;
             }
 
@@ -719,7 +720,7 @@ namespace Aria::Internal {
     }
 
     void Parser::ErrorExpected(const std::string& expect, SourceLocation loc, SourceRange range) {
-        m_Context->ReportCompilerError(loc, range, fmt::format("Expected {} but got \"{}\"", expect, TokenTypeToString(Peek()->Type)));
+        m_Context->ReportCompilerError(loc, range, fmt::format("Expected {} but got \"{}\"", expect, TokenKindToString(Peek()->Kind)));
     }
 
     void Parser::ErrorTooLarge(const StringView value) {

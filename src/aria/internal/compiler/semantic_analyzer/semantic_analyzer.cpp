@@ -156,7 +156,12 @@ namespace Aria::Internal {
     }
 
     void SemanticAnalyzer::HandleForStmt(Stmt* stmt) {
-        ARIA_ASSERT(false, "todo");
+        ForStmt* fs = GetNode<ForStmt>(stmt);
+
+        if (fs->GetPrologue()) { HandleStmt(fs->GetPrologue()); }
+        if (fs->GetCondition()) { HandleExpr(fs->GetCondition()); }
+        if (fs->GetEpilogue()) { HandleExpr(fs->GetEpilogue()); }
+        HandleStmt(fs->GetBody());
     }
 
     void SemanticAnalyzer::HandleIfStmt(Stmt* stmt) {}

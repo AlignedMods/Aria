@@ -26,7 +26,6 @@ namespace Aria::Internal {
             : Stmt(ctx), m_Stmts(stmts) {}
 
         inline TinyVector<Stmt*>& GetStmts() { return m_Stmts; }
-        inline const TinyVector<Stmt*>& GetStmts() const { return m_Stmts; }
 
     private:
         TinyVector<Stmt*> m_Stmts;
@@ -69,16 +68,15 @@ namespace Aria::Internal {
             : Stmt(ctx), m_Prologue(prologue), m_Condition(condition), m_Epilogue(epilogue), m_Body(body) {}
 
         inline Stmt* GetPrologue() { return m_Prologue; }
-        inline const Stmt* GetPrologue() const { return m_Prologue; }
+        inline void SetPrologue(Stmt* stmt) { m_Prologue = stmt; }
 
         inline Expr* GetCondition() { return m_Condition; }
-        inline const Expr* GetCondition() const { return m_Condition; }
+        inline void SetCondition(Expr* expr) { m_Condition = expr; }
 
         inline Expr* GetEpilogue() { return m_Epilogue; }
-        inline const Expr* GetEpilogue() const { return m_Epilogue; }
+        inline void SetEpilogue(Expr* expr) { m_Epilogue = expr; }
 
         inline Stmt* GetBody() { return m_Body; }
-        inline const Stmt* GetBody() const { return m_Body; }
 
     private:
         Stmt* m_Prologue = nullptr; // int i = 0;
@@ -92,12 +90,8 @@ namespace Aria::Internal {
             : Stmt(ctx), m_Condition(condition), m_Body(body), m_ElseBody(elseBody) {}
 
         inline Expr* GetCondition() { return m_Condition; }
-
         inline Stmt* GetBody() { return m_Body; }
-        inline const Stmt* GetBody() const { return m_Body; }
-
         inline Stmt* GetElseBody() { return m_ElseBody; }
-        inline const Stmt* GetElseBody() const { return m_ElseBody; }
 
     private:
         Expr* m_Condition = nullptr;
@@ -110,7 +104,6 @@ namespace Aria::Internal {
             : Stmt(ctx), m_Value(value) {}
 
         inline Expr* GetValue() { return m_Value; }
-        inline const Expr* GetValue() const { return m_Value; }
         inline void SetValue(Expr* expr) { m_Value = expr; }
     
     private:

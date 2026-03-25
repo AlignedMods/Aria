@@ -5,7 +5,7 @@
 
 #define ARIA_TOKEN_DATA(str, type) \
     if (buf == str) { \
-        AddToken(TokenType::type, \
+        AddToken(TokenKind::type, \
             SourceRange(m_CurrentLine, GetColumn(m_Index - buf.Size()), m_CurrentLine, GetColumn(m_Index)), \
             buf); \
         continue; \
@@ -24,9 +24,9 @@
             } \
             \
             if (isEq) { \
-                AddToken(TokenType::yesEq, SourceRange(m_CurrentLine, GetColumn(m_Index - 2), m_CurrentLine, GetColumn(m_Index))); \
+                AddToken(TokenKind::yesEq, SourceRange(m_CurrentLine, GetColumn(m_Index - 2), m_CurrentLine, GetColumn(m_Index))); \
             } else { \
-                AddToken(TokenType::noEq, SourceRange(m_CurrentLine, GetColumn(m_Index - 1), m_CurrentLine, GetColumn(m_Index))); \
+                AddToken(TokenKind::noEq, SourceRange(m_CurrentLine, GetColumn(m_Index - 1), m_CurrentLine, GetColumn(m_Index))); \
             } \
         } \
         break; \
@@ -92,7 +92,7 @@ namespace Aria::Internal {
                 ARIA_TOKEN_DATA("extern", Extern)
 
                 // If all else fails, it's an identifier
-                AddToken(TokenType::Identifier, 
+                AddToken(TokenKind::Identifier, 
                          SourceRange(m_CurrentLine, GetColumn(m_Index - buf.Size()), m_CurrentLine, GetColumn(m_Index)),
                          buf);
             } else if (std::isdigit(*Peek())) {
@@ -223,7 +223,7 @@ namespace Aria::Internal {
                         }
                     }
 
-                    AddToken(TokenType::NumLit,
+                    AddToken(TokenKind::NumLit,
                         SourceRange(m_CurrentLine, GetColumn(startIndex), m_CurrentLine, GetColumn(m_Index)),
                         buf, 0, number);
                     continue;
@@ -247,11 +247,11 @@ namespace Aria::Internal {
                     }
 
                     if (isUnsigned) {
-                        AddToken(TokenType::UintLit,
+                        AddToken(TokenKind::UintLit,
                             SourceRange(m_CurrentLine, GetColumn(m_Index - buf.Size()), m_CurrentLine, GetColumn(m_Index)),
                             buf, integer);
                     } else {
-                        AddToken(TokenType::IntLit,
+                        AddToken(TokenKind::IntLit,
                             SourceRange(m_CurrentLine, GetColumn(m_Index - buf.Size()), m_CurrentLine, GetColumn(m_Index)),
                             buf, integer);
                     }
@@ -261,27 +261,27 @@ namespace Aria::Internal {
                 continue;
             } else if (!std::isspace(*Peek())) {
                 switch (Consume()) {
-                    case ';': AddToken(TokenType::Semi, 
+                    case ';': AddToken(TokenKind::Semi, 
                         SourceRange(m_CurrentLine, GetColumn(m_Index - 1), m_CurrentLine, GetColumn(m_Index))); break;
-                    case '(': AddToken(TokenType::LeftParen,
+                    case '(': AddToken(TokenKind::LeftParen,
                         SourceRange(m_CurrentLine, GetColumn(m_Index - 1), m_CurrentLine, GetColumn(m_Index))); break;
-                    case ')': AddToken(TokenType::RightParen,
+                    case ')': AddToken(TokenKind::RightParen,
                         SourceRange(m_CurrentLine, GetColumn(m_Index - 1), m_CurrentLine, GetColumn(m_Index))); break;
-                    case '[': AddToken(TokenType::LeftBracket,
+                    case '[': AddToken(TokenKind::LeftBracket,
                         SourceRange(m_CurrentLine, GetColumn(m_Index - 1), m_CurrentLine, GetColumn(m_Index))); break;
-                    case ']': AddToken(TokenType::RightBracket,
+                    case ']': AddToken(TokenKind::RightBracket,
                         SourceRange(m_CurrentLine, GetColumn(m_Index - 1), m_CurrentLine, GetColumn(m_Index))); break;
-                    case '{': AddToken(TokenType::LeftCurly,
+                    case '{': AddToken(TokenKind::LeftCurly,
                         SourceRange(m_CurrentLine, GetColumn(m_Index - 1), m_CurrentLine, GetColumn(m_Index))); break;
-                    case '}': AddToken(TokenType::RightCurly,
+                    case '}': AddToken(TokenKind::RightCurly,
                         SourceRange(m_CurrentLine, GetColumn(m_Index - 1), m_CurrentLine, GetColumn(m_Index))); break;
-                    case '~': AddToken(TokenType::Squigly,
+                    case '~': AddToken(TokenKind::Squigly,
                         SourceRange(m_CurrentLine, GetColumn(m_Index - 1), m_CurrentLine, GetColumn(m_Index))); break;
-                    case ',': AddToken(TokenType::Comma,
+                    case ',': AddToken(TokenKind::Comma,
                         SourceRange(m_CurrentLine, GetColumn(m_Index - 1), m_CurrentLine, GetColumn(m_Index))); break;
-                    case ':': AddToken(TokenType::Colon,
+                    case ':': AddToken(TokenKind::Colon,
                         SourceRange(m_CurrentLine, GetColumn(m_Index - 1), m_CurrentLine, GetColumn(m_Index))); break;
-                    case '.': AddToken(TokenType::Dot,
+                    case '.': AddToken(TokenKind::Dot,
                         SourceRange(m_CurrentLine, GetColumn(m_Index - 1), m_CurrentLine, GetColumn(m_Index))); break;
 
                     ARIA_TOKEN_POSSIBLE_EQ('+', Plus, PlusEq)
@@ -320,10 +320,10 @@ namespace Aria::Internal {
                                 }
                             }
                         } else if (isEq) {
-                            AddToken(TokenType::SlashEq, 
+                            AddToken(TokenKind::SlashEq, 
                                 SourceRange(m_CurrentLine, GetColumn(m_Index - 2), m_CurrentLine, GetColumn(m_Index)));
                         } else {
-                            AddToken(TokenType::Slash,
+                            AddToken(TokenKind::Slash,
                                 SourceRange(m_CurrentLine, GetColumn(m_Index - 1), m_CurrentLine, GetColumn(m_Index)));
                         }
 
@@ -347,13 +347,13 @@ namespace Aria::Internal {
                         }
 
                         if (isEq) {
-                            AddToken(TokenType::AmpersandEq,
+                            AddToken(TokenKind::AmpersandEq,
                                 SourceRange(m_CurrentLine, GetColumn(m_Index - 2), m_CurrentLine, GetColumn(m_Index)));
                         } else if (isDouble) {
-                            AddToken(TokenType::DoubleAmpersand,
+                            AddToken(TokenKind::DoubleAmpersand,
                                 SourceRange(m_CurrentLine, GetColumn(m_Index - 2), m_CurrentLine, GetColumn(m_Index)));
                         } else {
-                            AddToken(TokenType::Ampersand,
+                            AddToken(TokenKind::Ampersand,
                                 SourceRange(m_CurrentLine, GetColumn(m_Index - 1), m_CurrentLine, GetColumn(m_Index)));
                         }
 
@@ -377,13 +377,13 @@ namespace Aria::Internal {
                         }
 
                         if (isEq) {
-                            AddToken(TokenType::PipeEq,
+                            AddToken(TokenKind::PipeEq,
                                 SourceRange(m_CurrentLine, GetColumn(m_Index - 2), m_CurrentLine, GetColumn(m_Index)));
                         } else if (isDouble) {
-                            AddToken(TokenType::DoublePipe,
+                            AddToken(TokenKind::DoublePipe,
                                 SourceRange(m_CurrentLine, GetColumn(m_Index - 2), m_CurrentLine, GetColumn(m_Index)));
                         } else {
-                            AddToken(TokenType::Pipe,
+                            AddToken(TokenKind::Pipe,
                                 SourceRange(m_CurrentLine, GetColumn(m_Index - 1), m_CurrentLine, GetColumn(m_Index)));
                         }
 
@@ -403,10 +403,10 @@ namespace Aria::Internal {
                         }
 
                         if (isEq) {
-                            AddToken(TokenType::UpArrowEq,
+                            AddToken(TokenKind::UpArrowEq,
                                 SourceRange(m_CurrentLine, GetColumn(m_Index - 2), m_CurrentLine, GetColumn(m_Index)));
                         } else {
-                            AddToken(TokenType::UpArrow,
+                            AddToken(TokenKind::UpArrow,
                                 SourceRange(m_CurrentLine, GetColumn(m_Index - 1), m_CurrentLine, GetColumn(m_Index)));
                         }
 
@@ -426,7 +426,7 @@ namespace Aria::Internal {
                             }
                         }
 
-                        AddToken(TokenType::CharLit,
+                        AddToken(TokenKind::CharLit,
                             SourceRange(m_CurrentLine, GetColumn(startIndex), m_CurrentLine, GetColumn(m_Index)),
                             StringView(m_Source.Data() + startIndex + 1, 1));
                         break;
@@ -443,7 +443,7 @@ namespace Aria::Internal {
                             }
                         }
 
-                        AddToken(TokenType::StrLit, 
+                        AddToken(TokenKind::StrLit, 
                             SourceRange(m_CurrentLine, GetColumn(startIndex), m_CurrentLine, GetColumn(m_Index)), 
                             StringView(m_Source.Data() + startIndex + 1, m_Index - startIndex));
                         break;
@@ -478,9 +478,9 @@ namespace Aria::Internal {
         return m_Source.At(m_Index - 1);
     }
 
-    void Lexer::AddToken(TokenType type, const SourceRange& loc, const StringView string, u64 integer, f64 number) {
+    void Lexer::AddToken(TokenKind kind, const SourceRange& loc, const StringView string, u64 integer, f64 number) {
         Token token;
-        token.Type = type;
+        token.Kind = kind;
         token.Range = loc;
 
         token.String = string;

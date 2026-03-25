@@ -115,6 +115,7 @@ namespace Aria::Internal {
         size_t m_OrCounter = 0;
         size_t m_WhileCounter = 0;
         size_t m_DoWhileCounter = 0;
+        size_t m_ForCounter = 0;
         size_t m_IfCounter = 0;
     
         CompilationContext* m_Context = nullptr;

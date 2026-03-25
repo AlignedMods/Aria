@@ -608,7 +608,18 @@ namespace Aria::Internal {
         HandleStmt(wh->GetBody());
     }
 
-    void TypeChecker::HandleForStmt(Stmt* stmt) { ARIA_ASSERT(false, "todo"); }
+    void TypeChecker::HandleForStmt(Stmt* stmt) {
+        ForStmt* fs = GetNode<ForStmt>(stmt);
+
+        m_Declarations.emplace_back();
+
+        if (fs->GetPrologue()) { HandleStmt(fs->GetPrologue()); }
+        if (fs->GetCondition()) { fs->SetCondition(HandleExpr(fs->GetCondition())); }
+        if (fs->GetEpilogue()) { fs->SetEpilogue(HandleExpr(fs->GetEpilogue())); }
+        HandleStmt(fs->GetBody());
+
+        m_Declarations.pop_back();
+    }
 
     void TypeChecker::HandleIfStmt(Stmt* stmt) {
         IfStmt* ifs = GetNode<IfStmt>(stmt);
