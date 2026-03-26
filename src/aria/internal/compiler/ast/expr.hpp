@@ -175,6 +175,8 @@ namespace Aria::Internal {
         SourceLocation Loc;
         SourceRange Range;
 
+        bool IsStmtExpr = false; // true is the expression is created as a statement (eg. x = 6 is a statement expression)
+
     protected:
         TypeInfo* m_Type = nullptr;
         ExprValueKind m_ValueKind{};

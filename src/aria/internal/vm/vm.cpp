@@ -780,44 +780,7 @@ namespace Aria::Internal {
                         CASE_CAST_GROUP(U32, u32)
                         CASE_CAST_GROUP(I64, i64)
                         CASE_CAST_GROUP(U64, u64)
-
-                    case VMTypeKind::F32: {
-                            switch (srcType.Kind) {
-                            case VMTypeKind::I1: {
-                                bool val{}; memcpy(&val, slice.Memory, slice.Size); f32 result = static_cast<f32>(val); Pop(1, m_LocalStack); Alloca({ VMTypeKind::F32 }, m_LocalStack); memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); break;
-                            } case VMTypeKind::I8: {
-                                i8 val{}; memcpy(&val, slice.Memory, slice.Size); f32 result = static_cast<f32>(val); Pop(1, m_LocalStack); Alloca({ VMTypeKind::F32 }, m_LocalStack); memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); break;
-                            } case VMTypeKind::U8: {
-                                u8 val{}; memcpy(&val, slice.Memory, slice.Size); f32 result = static_cast<f32>(val); Pop(1, m_LocalStack); Alloca({ VMTypeKind::F32 }, m_LocalStack); memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); break;
-                            } case VMTypeKind::I16: {
-                                i16 val{}; memcpy(&val, slice.Memory, slice.Size); f32 result = static_cast<f32>(val); Pop(1, m_LocalStack); Alloca({ VMTypeKind::F32 }, m_LocalStack); memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); break;
-                            } case VMTypeKind::U16: {
-                                u16 val{}; memcpy(&val, slice.Memory, slice.Size); f32 result = static_cast<f32>(val); Pop(1, m_LocalStack); Alloca({ VMTypeKind::F32 }, m_LocalStack); memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); break;
-                            } case VMTypeKind::I32: {
-                                i32 val{}; 
-                                memcpy(&val, slice.Memory, slice.Size); 
-                                f32 result = static_cast<f32>(val); 
-                                Pop(1, m_LocalStack); 
-                                Alloca({ VMTypeKind::F32 }, m_LocalStack); 
-                                memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result));
-                                break;
-                            } case VMTypeKind::U32: {
-                                u32 val{}; memcpy(&val, slice.Memory, slice.Size); f32 result = static_cast<f32>(val); Pop(1, m_LocalStack); Alloca({ VMTypeKind::F32 }, m_LocalStack); memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); break;
-                            } case VMTypeKind::I64: {
-                                i64 val{}; memcpy(&val, slice.Memory, slice.Size); f32 result = static_cast<f32>(val); Pop(1, m_LocalStack); Alloca({ VMTypeKind::F32 }, m_LocalStack); memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); break;
-                            } case VMTypeKind::U64: {
-                                u64 val{}; memcpy(&val, slice.Memory, slice.Size); f32 result = static_cast<f32>(val); Pop(1, m_LocalStack); Alloca({ VMTypeKind::F32 }, m_LocalStack); memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); break;
-                            } case VMTypeKind::F32: {
-                                f32 val{}; memcpy(&val, slice.Memory, slice.Size); f32 result = static_cast<f32>(val); Pop(1, m_LocalStack); Alloca({ VMTypeKind::F32 }, m_LocalStack); memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); break;
-                            } case VMTypeKind::F64: {
-                                f64 val{}; memcpy(&val, slice.Memory, slice.Size); f32 result = static_cast<f32>(val); Pop(1, m_LocalStack); Alloca({ VMTypeKind::F32 }, m_LocalStack); memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); break;
-                            } default: do {
-                                if (!(false)) {
-                                    fmt::print((__acrt_iob_func(2)), "{}:{}, Assertion failed with message:\n{}\n", "C:\\Users\\aligna\\Prog\\Aria\\src\\aria\\internal\\vm\\vm.cpp", 774, "Unreachable!"); __debugbreak(); abort();
-                                }
-                            } while (0);
-                            } break;
-                        }
+                        CASE_CAST_GROUP(F32, f32)
                         CASE_CAST_GROUP(F64, f64)
 
                         default: ARIA_UNREACHABLE();

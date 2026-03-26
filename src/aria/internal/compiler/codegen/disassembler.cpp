@@ -40,6 +40,11 @@ namespace Aria::Internal {
                 break;
             }
 
+            case OpCodeKind::Pop: {
+                m_Output += "    pop\n";
+                break;
+            }
+
             case OpCodeKind::PushSF: {
                 m_Output += fmt::format("    pushsf\n");
                 break;

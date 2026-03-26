@@ -8,6 +8,7 @@ void PrintHelp(const char* appName) {
 void PrintInt(Aria::Context* ctx) {
     ctx->GetArg(0);
     fmt::print("{}\n", ctx->GetInt(-1));
+    ctx->Pop(1);
 }
 
 int main(int argc, char** argv) {

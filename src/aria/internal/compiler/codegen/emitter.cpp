@@ -511,6 +511,7 @@ namespace Aria::Internal {
 
         m_OpCodes.emplace_back(OpCodeKind::Jmp, loopStart);
         m_OpCodes.emplace_back(OpCodeKind::Label, loopEnd);
+        m_OpCodes.emplace_back(OpCodeKind::Pop);
     }
 
     void Emitter::EmitDoWhileStmt(Stmt* stmt) {
@@ -545,11 +546,13 @@ namespace Aria::Internal {
         EmitStmt(fs->GetBody());
             
         if (fs->GetEpilogue()) {
-            EmitExpr(fs->GetEpilogue(), fs->GetCondition()->GetValueKind());
+            EmitExpr(fs->GetEpilogue(), fs->GetEpilogue()->GetValueKind());
+            m_OpCodes.emplace_back(OpCodeKind::Pop);
         }
 
         m_OpCodes.emplace_back(OpCodeKind::Jmp, loopStart);
         m_OpCodes.emplace_back(OpCodeKind::Label, loopEnd);
+        m_OpCodes.emplace_back(OpCodeKind::Pop);
 
         PopScope();
     }
@@ -606,6 +609,10 @@ namespace Aria::Internal {
             return;
         } else if (Expr* expr = GetNode<Expr>(stmt)) {
             EmitExpr(expr, expr->GetValueKind());
+            if (!expr->GetResolvedType()->IsVoid()) {
+                m_OpCodes.emplace_back(OpCodeKind::Pop);
+            }
+
             return;
         } else if (Decl* decl = GetNode<Decl>(stmt)) {
             EmitDecl(decl);

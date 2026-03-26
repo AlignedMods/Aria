@@ -23,7 +23,7 @@ namespace Aria::Internal {
         ident.append(indentation, ' ');
         m_Output += ident;
 
-        if (expr == nullptr) return;
+        if (expr == nullptr) { m_Output += "<<NULL>>\n"; return; };
         
         if (BooleanConstantExpr* bc = GetNode<BooleanConstantExpr>(expr)) {
             m_Output += fmt::format("BooleanConstantExpr {} '{}' {}\n", bc->GetValue(), TypeInfoToString(bc->GetResolvedType()), ExprValueKindToString(bc->GetValueKind())); return;
@@ -94,7 +94,7 @@ namespace Aria::Internal {
         ident.append(indentation, ' ');
         m_Output += ident;
 
-        if (decl == nullptr) return;
+        if (decl == nullptr) { m_Output += "<<NULL>>\n"; return; };
 
         if (TranslationUnitDecl* tuDecl = GetNode<TranslationUnitDecl>(decl)) {
             m_Output += "TranslationUnitDecl\n";
@@ -145,8 +145,6 @@ namespace Aria::Internal {
     }
 
     void ASTDumper::DumpStmt(Stmt* stmt, size_t indentation) {
-        if (stmt == nullptr) return;
-
         if (Decl* decl = GetNode<Decl>(stmt)) {
             DumpDecl(decl, indentation);
             return;
@@ -158,6 +156,8 @@ namespace Aria::Internal {
         std::string ident;
         ident.append(indentation, ' ');
         m_Output += ident;
+
+        if (stmt == nullptr) { m_Output += "<<NULL>>\n"; return; };
 
         if (CompoundStmt* compound = GetNode<CompoundStmt>(stmt)) {
             m_Output += fmt::format("CompoundStmt\n");

@@ -659,7 +659,8 @@ namespace Aria::Internal {
             HandleReturnStmt(stmt);
             return;
         } else if (Expr* expr = GetNode<Expr>(stmt)) {
-            HandleExpr(expr);
+            stmt = HandleExpr(expr);
+            GetNode<Expr>(stmt)->IsStmtExpr = true;
             return;
         } else if (Decl* decl = GetNode<Decl>(stmt)) {
             HandleDecl(decl);
