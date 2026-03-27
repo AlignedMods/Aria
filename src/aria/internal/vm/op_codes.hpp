@@ -22,6 +22,7 @@ namespace Aria::Internal {
         F32, F64,
         Ptr,
 
+        String,
         Struct
     };
 
@@ -50,6 +51,7 @@ namespace Aria::Internal {
         PopSF,
 
         Ldc,
+        LdStr,
 
         Deref,
 
@@ -70,6 +72,8 @@ namespace Aria::Internal {
         LdPtrMember,
         LdPtrArg,
         LdPtrRet,
+
+        DestructStr,
 
         Function,
         Label,
@@ -107,7 +111,7 @@ namespace Aria::Internal {
     #undef TYPED_OP
 
     struct OpCodeLdc {
-        std::variant<bool, i8, u8, i16, u16, i32, u32, i64, u64, f32, f64, std::string_view> Data;
+        std::variant<bool, i8, u8, i16, u16, i32, u32, i64, u64, f32, f64> Data;
         VMType Type;
     };
 

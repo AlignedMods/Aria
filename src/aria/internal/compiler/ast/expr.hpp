@@ -224,7 +224,7 @@ namespace Aria::Internal {
 
     struct StringConstantExpr final : public Expr {
         StringConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, StringView value)
-            : Expr(ctx, loc, range), m_Value(value) {}
+            : Expr(ctx, loc, range, TypeInfo::Create(ctx, PrimitiveType::String, false)), m_Value(value) {}
 
         inline StringView GetValue() const { return m_Value; }
 
@@ -270,6 +270,36 @@ namespace Aria::Internal {
     struct SelfExpr final : public Expr {
         SelfExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range)
             : Expr(ctx, loc, range) {}
+    };
+
+    // TemporaryExpr
+    // Represents a temporary expression
+    // eg. Print("Hello world");
+    // Here "Hello world" will call a constructor that allocates memory and therefore its destructor needs to be called
+    struct TemporaryExpr final : public Expr {
+        TemporaryExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr, TypeInfo* type)
+            : Expr(ctx, loc, range, type), m_Expression(expr) {}
+
+        inline Expr* GetExpression() { return m_Expression; }
+
+    private:
+        Expr* m_Expression = nullptr;
+    };
+
+    // ExprWithCleanups
+    // Wraps an entire expression which holds some temporaries
+    // The purpose of this node is to let the codegen know when destructors should be called
+    // eg. Print("Hello world");
+    // Here the entire expression will be wrapped inside of a "ExprWithCleanups",
+    // Because "Hello world" is a temporary expression
+    struct ExprWithCleanups final : public Expr {
+        ExprWithCleanups(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr, TypeInfo* type)
+            : Expr(ctx, loc, range, type), m_Expression(expr) {}
+
+        inline Expr* GetExpression() { return m_Expression; }
+
+    private:
+        Expr* m_Expression = nullptr;
     };
 
     struct CallExpr final : public Expr {

@@ -44,6 +44,10 @@ namespace Aria::Internal {
         } else if (SelfExpr* self = GetNode<SelfExpr>(expr)) {
             m_Output += fmt::format("SelfExpr '{}' {}\n", TypeInfoToString(self->GetResolvedType()), ExprValueKindToString(expr->GetValueKind()));
             return;
+        } else if (TemporaryExpr* tempExpr = GetNode<TemporaryExpr>(expr)) {
+            m_Output += fmt::format("TemporaryExpr '{}' {}\n", TypeInfoToString(tempExpr->GetResolvedType()), ExprValueKindToString(expr->GetValueKind()));
+            DumpExpr(tempExpr->GetExpression(), indentation + 4);
+            return;
         } else if (CallExpr* call = GetNode<CallExpr>(expr)) {
             m_Output += fmt::format("CallExpr '{}' {}\n", TypeInfoToString(call->GetResolvedType()), ExprValueKindToString(call->GetValueKind()));
             for (Expr* e : call->GetArguments()) {

@@ -25,7 +25,6 @@ namespace Aria::Internal {
         };
 
         struct StackFrame {
-            size_t SlotCount = 0;
             size_t LocalCount = 0;
             std::vector<Scope> Scopes;
             std::string Name;
@@ -53,6 +52,7 @@ namespace Aria::Internal {
         void EmitDeclRefExpr(Expr* expr,           ExprValueKind valueKind);
         void EmitMemberExpr(Expr* expr,            ExprValueKind valueKind);
         void EmitSelfExpr(Expr* expr,              ExprValueKind valueKind);
+        void EmitTemporaryExpr(Expr* expr,         ExprValueKind valueKind);
         void EmitCallExpr(Expr* expr,              ExprValueKind valueKind);
         void EmitMethodCallExpr(Expr* expr,        ExprValueKind valueKind);
         void EmitParenExpr(Expr* expr,             ExprValueKind valueKind);
@@ -85,7 +85,6 @@ namespace Aria::Internal {
 
         bool IsStartStackFrame();
         bool IsGlobalScope();
-        void IncrementStackSlotCount();
 
         void EmitDestructors(const std::vector<Declaration>& declarations);
 
@@ -117,6 +116,8 @@ namespace Aria::Internal {
         size_t m_DoWhileCounter = 0;
         size_t m_ForCounter = 0;
         size_t m_IfCounter = 0;
+
+        std::vector<Declaration> m_Temporaries;
     
         CompilationContext* m_Context = nullptr;
     };

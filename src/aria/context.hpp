@@ -72,15 +72,15 @@ namespace Aria {
         void GetArg(size_t index);
         void GetField(int32_t index, const std::string& name);
 
-        bool      GetBool     (int32_t index);
-        int8_t    GetChar     (int32_t index);
-        int16_t   GetShort    (int32_t index);
-        int32_t   GetInt      (int32_t index);
-        int64_t   GetLong     (int32_t index);
-        float     GetFloat    (int32_t index);
-        double    GetDouble   (int32_t index);
-        void*     GetPointer  (int32_t index);
-        StackSlot GetStackSlot(int32_t index);
+        bool             GetBool     (int32_t index);
+        int8_t           GetChar     (int32_t index);
+        int16_t          GetShort    (int32_t index);
+        int32_t          GetInt      (int32_t index);
+        int64_t          GetLong     (int32_t index);
+        float            GetFloat    (int32_t index);
+        double           GetDouble   (int32_t index);
+        void*            GetPointer  (int32_t index);
+        std::string_view GetString   (int32_t index);
 
         void Pop(size_t count);
 

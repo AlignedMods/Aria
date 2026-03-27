@@ -11,6 +11,12 @@ void PrintInt(Aria::Context* ctx) {
     ctx->Pop(1);
 }
 
+void Print(Aria::Context* ctx) {
+    ctx->GetArg(0);
+    fmt::print("{}\n", ctx->GetString(-1));
+    ctx->Pop(1);
+}
+
 int main(int argc, char** argv) {
     if (argc == 1) {
         PrintHelp(argv[0]);
@@ -24,6 +30,7 @@ int main(int argc, char** argv) {
     Aria::Context ctx;
     ctx.CompileFile(fileName, fileName);
     ctx.AddExternalFunction("PrintInt()", PrintInt);
+    ctx.AddExternalFunction("Print()", Print);
     fmt::print("{}", ctx.DumpAST());
     fmt::print("{}", ctx.Disassemble());
     ctx.Run();

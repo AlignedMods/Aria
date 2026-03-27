@@ -85,6 +85,13 @@ namespace Aria::Internal {
                 break;
             }
 
+            case OpCodeKind::LdStr: {
+                const std::string& str = std::get<std::string>(op.Data);
+                m_Output += fmt::format("    ldstr     \"{}\"\n", str);
+
+                break;
+            }
+
             case OpCodeKind::Deref: {
                 const VMType& type = std::get<VMType>(op.Data);
                 m_Output += fmt::format("    deref     {}\n", VMTypeToString(type));
@@ -181,6 +188,11 @@ namespace Aria::Internal {
                 break;
             }
 
+            case OpCodeKind::DestructStr: {
+                m_Output += "    destr\n";
+                break;
+            }
+
             case OpCodeKind::Function: {
                 const std::string& name = std::get<std::string>(op.Data);
                 m_Output += fmt::format(".function {}:\n", name);
@@ -256,7 +268,7 @@ namespace Aria::Internal {
             case OpCodeKind::Comment: {
                 const std::string& c = std::get<std::string>(op.Data);
 
-                m_Output += fmt::format("    // {}", c);
+                m_Output += fmt::format("    // {}\n", c);
                 break;
             }
         }
@@ -280,6 +292,8 @@ namespace Aria::Internal {
             case VMTypeKind::F64:    return "f64";
                                      
             case VMTypeKind::Ptr:    return "ptr";
+
+            case VMTypeKind::String: return "str";
 
             case VMTypeKind::Struct: return fmt::format("%{}", type.Data);
 

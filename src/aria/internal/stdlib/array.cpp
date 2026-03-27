@@ -48,20 +48,22 @@ namespace Aria::Internal {
 
     void bl__array__append__(Context* ctx) {
         Array* arr = reinterpret_cast<Array*>(ctx->GetPointer(-2));
-        StackSlot slot = ctx->GetStackSlot(-1);
+        // StackSlot slot = ctx->GetStackSlot(-1);
 
-        ARIA_ASSERT(slot.Size == arr->MemberSize, "Invalid Array::Append argument");
+        // ARIA_ASSERT(slot.Size == arr->MemberSize, "Invalid Array::Append argument");
+        // 
+        // if (arr->Size + 1 >= arr->Capacity) {
+        //     arr->Capacity *= 2;
+        //     uint8_t* newData = new uint8_t[arr->Capacity * arr->MemberSize];
+        //     memcpy(newData, arr->Data, arr->Size * arr->MemberSize);
+        //     delete[] arr->Data;
+        //     arr->Data = newData;
+        // }
+        // 
+        // memcpy(arr->Data + arr->Size * arr->MemberSize, slot.Memory, arr->MemberSize);
+        // arr->Size++;
 
-        if (arr->Size + 1 >= arr->Capacity) {
-            arr->Capacity *= 2;
-            uint8_t* newData = new uint8_t[arr->Capacity * arr->MemberSize];
-            memcpy(newData, arr->Data, arr->Size * arr->MemberSize);
-            delete[] arr->Data;
-            arr->Data = newData;
-        }
-
-        memcpy(arr->Data + arr->Size * arr->MemberSize, slot.Memory, arr->MemberSize);
-        arr->Size++;
+        ARIA_ASSERT(false, "todo!");
     }
 
     void bl__array__index__(Context* ctx) {
@@ -72,8 +74,9 @@ namespace Aria::Internal {
             ARIA_ASSERT(false, "TODO: runtime error");
         }
 
-        StackSlot retSlot = ctx->GetStackSlot(-1);
-        memcpy(retSlot.Memory, &arr->Data[index * arr->MemberSize], arr->MemberSize);
+        // StackSlot retSlot = ctx->GetStackSlot(-1);
+        // memcpy(retSlot.Memory, &arr->Data[index * arr->MemberSize], arr->MemberSize);
+        ARIA_ASSERT(false, "todo!");
     }
 
 } // namespace Aria::Internal

@@ -445,7 +445,7 @@ namespace Aria::Internal {
 
                         AddToken(TokenKind::StrLit, 
                             SourceRange(m_CurrentLine, GetColumn(startIndex), m_CurrentLine, GetColumn(m_Index)), 
-                            StringView(m_Source.Data() + startIndex + 1, m_Index - startIndex));
+                            StringView(m_Source.Data() + startIndex + 1, m_Index - startIndex - 2));
                         break;
                     }
                 }

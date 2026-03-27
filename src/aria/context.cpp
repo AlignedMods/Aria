@@ -239,10 +239,8 @@ namespace Aria {
         return m_ActiveModule->VM.GetPointer(index, m_ActiveModule->VM.m_LocalStack);
     }
 
-    StackSlot Context::GetStackSlot(int32_t index) {
-        // Internal::VMSlice slice = src->VM.GetVMSlice(index, src->VM.);
-        // return {slice.Memory, slice.Size};
-        ARIA_ASSERT(false, "todo");
+    std::string_view Context::GetString(int32_t index) {
+        return m_ActiveModule->VM.GetString(index, m_ActiveModule->VM.m_LocalStack);
     }
 
     void Context::Pop(size_t count) {

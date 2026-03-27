@@ -21,6 +21,16 @@ namespace Aria::Internal {
         PopStackFrame();
         m_OpCodes.emplace_back(OpCodeKind::Ret);
 
+        m_OpCodes.emplace_back(OpCodeKind::Function, "_end$()");
+        m_OpCodes.emplace_back(OpCodeKind::Label,    "_entry$");
+        m_OpCodes.emplace_back(OpCodeKind::PushSF);
+        PushStackFrame("_end$()");
+
+        EmitDestructors(m_GlobalScope.DeclaredSymbols);
+
+        PopStackFrame();
+        m_OpCodes.emplace_back(OpCodeKind::Ret);
+
         EmitDeclarations();
 
         m_Context->SetOpCodes(m_OpCodes);
@@ -59,9 +69,7 @@ namespace Aria::Internal {
 
     void Emitter::EmitStringConstantExpr(Expr* expr, ExprValueKind valueKind) {
         StringConstantExpr* sc = GetNode<StringConstantExpr>(expr);
-
-        ARIA_ASSERT(false, "todo!");
-        // m_OpCodes.emplace_back(OpCodeKind::LoadStr, OpCodeLoad(sc->GetValue(), sc->GetResolvedType()));
+        m_OpCodes.emplace_back(OpCodeKind::LdStr, fmt::format("{}", sc->GetValue()));
     }
 
     void Emitter::EmitDeclRefExpr(Expr* expr, ExprValueKind valueKind) {
@@ -123,11 +131,8 @@ namespace Aria::Internal {
                     expr->GetResolvedType()->Reference = true;
                 }
             }
-
-            IncrementStackSlotCount();
         } else if (declRef->GetKind() == DeclRefKind::Function) {
             m_OpCodes.emplace_back(OpCodeKind::LdFunc, fmt::format("{}()", declRef->GetRawIdentifier()));
-            IncrementStackSlotCount();
         }
     }
 
@@ -167,6 +172,22 @@ namespace Aria::Internal {
         m_OpCodes.emplace_back(OpCodeKind::LdArg, static_cast<size_t>(0));
     }
 
+    void Emitter::EmitTemporaryExpr(Expr* expr, ExprValueKind valueKind) {
+        TemporaryExpr* temp = GetNode<TemporaryExpr>(expr);
+
+        EmitExpr(temp->GetExpression(), valueKind);
+
+        // Create a new temporary
+        m_OpCodes.emplace_back(OpCodeKind::DeclareLocal, m_ActiveStackFrame.LocalCount);
+
+        Declaration d;
+        d.Type = temp->GetResolvedType();
+        d.Data = m_ActiveStackFrame.LocalCount;
+        m_ActiveStackFrame.LocalCount++;
+
+        m_Temporaries.push_back(d);
+    }
+
     void Emitter::EmitCallExpr(Expr* expr, ExprValueKind valueKind) {
         CallExpr* call = GetNode<CallExpr>(expr);
 
@@ -181,7 +202,6 @@ namespace Aria::Internal {
         TypeInfo* retType = call->GetResolvedType();
         if (retType->Type != PrimitiveType::Void) {
             m_OpCodes.emplace_back(OpCodeKind::Alloca, TypeInfoToVMType(retType));
-            IncrementStackSlotCount();
             retCount = 1;
         }
 
@@ -215,7 +235,6 @@ namespace Aria::Internal {
         TypeInfo* retType = call->GetResolvedType();
         if (retType->Type != PrimitiveType::Void) {
             m_OpCodes.emplace_back(OpCodeKind::Alloca, TypeInfoToVMType(retType));
-            IncrementStackSlotCount();
             retCount = 1;
         }
 
@@ -388,6 +407,8 @@ namespace Aria::Internal {
             return EmitMemberExpr(expr, valueKind);
         } else if (GetNode<SelfExpr>(expr)) {
             return EmitSelfExpr(expr, valueKind);
+        } else if (GetNode<TemporaryExpr>(expr)) {
+            return EmitTemporaryExpr(expr, valueKind);
         } else if (GetNode<CallExpr>(expr)) {
             return EmitCallExpr(expr, valueKind);
         } else if (GetNode<MethodCallExpr>(expr)) {
@@ -431,6 +452,7 @@ namespace Aria::Internal {
 
         if (IsGlobalScope()) {
             m_OpCodes.emplace_back(OpCodeKind::DeclareGlobal, varDecl->GetIdentifier());
+            d.Data = varDecl->GetIdentifier();
 
             m_GlobalScope.DeclaredSymbols.push_back(d);
             m_GlobalScope.DeclaredSymbolMap[varDecl->GetIdentifier()] = m_GlobalScope.DeclaredSymbols.size() - 1;
@@ -609,6 +631,10 @@ namespace Aria::Internal {
             return;
         } else if (Expr* expr = GetNode<Expr>(stmt)) {
             EmitExpr(expr, expr->GetValueKind());
+
+            EmitDestructors(m_Temporaries);
+            m_Temporaries.clear();
+
             if (!expr->GetResolvedType()->IsVoid()) {
                 m_OpCodes.emplace_back(OpCodeKind::Pop);
             }
@@ -630,20 +656,19 @@ namespace Aria::Internal {
         return IsStartStackFrame() && m_ActiveStackFrame.Scopes.size() == 1;
     }
 
-    void Emitter::IncrementStackSlotCount() {
-        m_ActiveStackFrame.SlotCount++;
-    }
-
     void Emitter::EmitDestructors(const std::vector<Declaration>& declarations) {
         for (auto it = declarations.rbegin(); it != declarations.rend(); it++) {
             auto& decl = *it;
 
-            // if (decl.Destruct) {
-            //     if (decl.Type->Type == PrimitiveType::Array) {
-            //         m_OpCodes.emplace_back(OpCodeKind::Dup, CompileToRuntimeStackSlot(decl.Slot));
-            //         m_OpCodes.emplace_back(OpCodeKind::CallExtern, "bl__array__destruct__");
-            //     }
-            // }
+            if (decl.Type->Type == PrimitiveType::String) {
+                if (std::holds_alternative<size_t>(decl.Data)) {
+                    m_OpCodes.emplace_back(OpCodeKind::LdPtrLocal, std::get<size_t>(decl.Data));
+                } else if (std::holds_alternative<std::string>(decl.Data)) {
+                    m_OpCodes.emplace_back(OpCodeKind::LdPtrGlobal, std::get<std::string>(decl.Data));
+                }
+
+                m_OpCodes.emplace_back(OpCodeKind::DestructStr);
+            }
         }
     }
 
@@ -673,6 +698,7 @@ namespace Aria::Internal {
     }
 
     void Emitter::PopScope() {
+        EmitDestructors(m_ActiveStackFrame.Scopes.back().DeclaredSymbols);
         m_ActiveStackFrame.Scopes.pop_back();
     }
 
@@ -767,6 +793,8 @@ namespace Aria::Internal {
 
             case PrimitiveType::Float:  return { VMTypeKind::F32 };
             case PrimitiveType::Double: return { VMTypeKind::F64 };
+
+            case PrimitiveType::String: { return { VMTypeKind::String }; }
 
             case PrimitiveType::Structure: {
                 StringView ident = std::get<StructDeclaration>(t->Data).Identifier;

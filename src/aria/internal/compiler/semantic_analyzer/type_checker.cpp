@@ -38,7 +38,7 @@ namespace Aria::Internal {
 
     Expr* TypeChecker::HandleStringConstantExpr(Expr* expr) {
         expr->SetValueKind(ExprValueKind::RValue);
-        ARIA_ASSERT(false, "todo!");
+        return expr;
     }
 
     Expr* TypeChecker::HandleDeclRefExpr(Expr* expr) {
@@ -127,7 +127,7 @@ namespace Aria::Internal {
         }
 
         for (size_t i = 0; i < fnDecl.ParamTypes.Size; i++) {
-            call->GetArguments().Items[i] = HandleInitializer(call->GetArguments().Items[i], fnDecl.ParamTypes.Items[i]);
+            call->GetArguments().Items[i] = HandleInitializer(call->GetArguments().Items[i], fnDecl.ParamTypes.Items[i], true);
         }
 
         call->SetResolvedType(fnDecl.ReturnType);
@@ -434,7 +434,7 @@ namespace Aria::Internal {
         TypeInfo* resolvedType = GetTypeInfoFromString(varDecl->GetParsedType());
         varDecl->SetResolvedType(resolvedType);
 
-        varDecl->SetDefaultValue(HandleInitializer(varDecl->GetDefaultValue(), resolvedType));
+        varDecl->SetDefaultValue(HandleInitializer(varDecl->GetDefaultValue(), resolvedType, false));
 
         DeclRefKind kind = DeclRefKind::LocalVar;
         if (m_Declarations.size() == 1) {
@@ -634,7 +634,7 @@ namespace Aria::Internal {
             ARIA_ASSERT(false, "todo: error msg");
         }
 
-        ret->SetValue(HandleInitializer(ret->GetValue(), m_ActiveReturnType));
+        ret->SetValue(HandleInitializer(ret->GetValue(), m_ActiveReturnType, true));
     }
 
     void TypeChecker::HandleStmt(Stmt* stmt) {
@@ -659,7 +659,7 @@ namespace Aria::Internal {
             HandleReturnStmt(stmt);
             return;
         } else if (Expr* expr = GetNode<Expr>(stmt)) {
-            stmt = HandleExpr(expr);
+            HandleExpr(expr);
             GetNode<Expr>(stmt)->IsStmtExpr = true;
             return;
         } else if (Decl* decl = GetNode<Decl>(stmt)) {
@@ -670,7 +670,7 @@ namespace Aria::Internal {
         ARIA_UNREACHABLE();
     }
 
-    Expr* TypeChecker::HandleInitializer(Expr* initializer, TypeInfo* type) {
+    Expr* TypeChecker::HandleInitializer(Expr* initializer, TypeInfo* type, bool temporary) {
         // If we are initializing a reference, the initializer must be of the same type and an lvalue
         if (type->IsReference()) {
             ARIA_ASSERT(initializer != nullptr, "initial value of a reference must be an lvalue");
@@ -682,19 +682,30 @@ namespace Aria::Internal {
 
             return initializer;
         } else if (initializer) {
+            Expr* finalExpr = initializer;
             TypeInfo* valType = HandleExpr(initializer)->GetResolvedType();
 
             ConversionCost cost = GetConversionCost(type, valType, initializer->GetValueKind());
             if (cost.CastNeeded) {
                 if (cost.ImplicitCastPossible) {
-                    return InsertImplicitCast(type, valType, initializer, cost.CaKind);
+                    finalExpr = InsertImplicitCast(type, valType, finalExpr, cost.CaKind);
                 } else {
                     m_Context->ReportCompilerError(initializer->Loc, initializer->Range, fmt::format("cannot implicitly convert from '{}' to '{}'", TypeInfoToString(valType), TypeInfoToString(type)));
                 }
             }
+
+            if (temporary) {
+                if (finalExpr->GetResolvedType()->Type == PrimitiveType::String) {
+                    finalExpr = m_Context->Allocate<TemporaryExpr>(m_Context, finalExpr->Loc, finalExpr->Range, finalExpr, finalExpr->GetResolvedType());
+                    finalExpr->SetValueKind(ExprValueKind::RValue);
+                    m_TemporaryContext = true;
+                }
+            }
+
+            return finalExpr;
         }
 
-       return initializer;
+        return nullptr;
     }
 
     TypeInfo* TypeChecker::GetTypeInfoFromString(StringView str) {
@@ -825,6 +836,10 @@ namespace Aria::Internal {
     bool TypeChecker::TypeIsEqual(TypeInfo* lhs, TypeInfo* rhs) {
         if (lhs->IsTrivial() && rhs->IsTrivial()) {
             return lhs->Type == rhs->Type;
+        }
+
+        if (lhs->IsString() && rhs->IsString()) {
+            return true;
         }
 
         if (lhs->IsStructure() && rhs->IsStructure()) {

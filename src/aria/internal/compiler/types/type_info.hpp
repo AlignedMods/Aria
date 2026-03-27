@@ -28,8 +28,6 @@ namespace Aria::Internal {
 
         Function,
 
-        StringLiteral,
-
         String,
         Array,
         Structure
@@ -87,6 +85,10 @@ namespace Aria::Internal {
 
         bool IsStructure() const {
             return Type == PrimitiveType::Structure;
+        }
+
+        bool IsString() const {
+            return Type == PrimitiveType::String;
         }
 
         bool IsSigned() const {

@@ -49,6 +49,19 @@ namespace Aria::Internal {
         m_Context = ctx;
     }
 
+    VM::~VM() {
+        const std::string& signature = "_end$()";
+
+        ARIA_ASSERT(m_Functions.contains(signature), "Byte code does not contain _end$() function");
+        VMFunction& func = m_Functions.at(signature);
+        m_ActiveFunction = &func;
+
+        // Perform a jump to the function
+        ARIA_ASSERT(func.Labels.contains("_entry$"), "_end$() function doesn't contain a \"_entry$\" label");
+        m_ProgramCounter = func.Labels.at("_entry$");
+        Run();
+    }
+
     void VM::Alloca(VMType type, Stack& stack) {
         size_t rawSize = GetVMTypeSize(type);
         size_t alignedSize = AlignToEight(rawSize);
@@ -306,6 +319,16 @@ namespace Aria::Internal {
         return p;
     }
 
+    std::string_view VM::GetString(i32 slot, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
+        ARIA_ASSERT(s.Type.Kind == VMTypeKind::String, "Invalid GetString() call!");
+
+        VMString str;
+        memcpy(&str, s.Memory, s.Size);
+
+        return { str.Data, str.Size };
+    }
+
     void VM::RunByteCode(const OpCode* data, size_t count) {
         m_Program = data;
         m_ProgramSize = count;
@@ -494,6 +517,22 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case OpCodeKind::LdStr: {
+                    const std::string& str = std::get<std::string>(op.Data);
+
+                    VMString vmstr;
+                    // Allocate the string on the heap
+                    char* newStr = new char[str.size()];
+                    memcpy(newStr, str.data(), str.size());
+
+                    vmstr.Data = newStr;
+                    vmstr.Size = str.size();
+
+                    Alloca({ VMTypeKind::String }, m_LocalStack);
+                    memcpy(GetVMSlice(-1, m_LocalStack).Memory, &vmstr, sizeof(vmstr));
+                    break;
+                }
+
                 case OpCodeKind::Deref: {
                     VMType type = std::get<VMType>(op.Data);
 
@@ -619,6 +658,17 @@ namespace Aria::Internal {
                     VMSlice slice = GetVMSlice(-(static_cast<i32>(m_LocalStack.StackSlotPointer - m_LocalStack.StackSlotBasePointer) + 1), m_LocalStack);
                     Alloca({ VMTypeKind::Ptr }, m_LocalStack);
                     StorePointer(-1, slice.Memory, m_LocalStack);
+                    break;
+                }
+
+                case OpCodeKind::DestructStr: {
+                    void* mem = GetPointer(-1, m_LocalStack);
+                    Pop(1, m_LocalStack);
+
+                    VMString& str = *reinterpret_cast<VMString*>(mem);
+                    delete[] str.Data;
+                    str.Data = nullptr;
+                    str.Size = 0;
                     break;
                 }
 
@@ -835,6 +885,8 @@ namespace Aria::Internal {
             case VMTypeKind::F64:    return 8;
                                      
             case VMTypeKind::Ptr:    return sizeof(void*);
+
+            case VMTypeKind::String: return sizeof(VMString);
 
             case VMTypeKind::Struct: return m_Structs.at(std::string(type.Data)).Size;
 

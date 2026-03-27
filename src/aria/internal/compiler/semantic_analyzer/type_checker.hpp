@@ -79,7 +79,7 @@ namespace Aria::Internal {
 
         void HandleStmt(Stmt* stmt);
 
-        Expr* HandleInitializer(Expr* initializer, TypeInfo* type);
+        Expr* HandleInitializer(Expr* initializer, TypeInfo* type, bool temporary);
 
         TypeInfo* GetTypeInfoFromString(StringView str);
 
@@ -98,6 +98,8 @@ namespace Aria::Internal {
         TypeInfo* m_ActiveStruct = nullptr;
 
         std::unordered_map<std::string, TypeInfo*> m_DeclaredTypes;
+
+        bool m_TemporaryContext = false;
 
         CompilationContext* m_Context = nullptr;
         friend class SemanticAnalyzer;

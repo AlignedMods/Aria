@@ -39,6 +39,11 @@ namespace Aria::Internal {
         size_t Size = 0;
     };
 
+    struct VMString {
+        char* Data = nullptr;
+        size_t Size = 0;
+    };
+
     // A structure which has a linear block of memory (the stack)
     // And stack slots which can be used to access the raw stack memory
     struct Stack {
@@ -59,6 +64,7 @@ namespace Aria::Internal {
     class VM {
     public:
         explicit VM(Context* ctx);
+        ~VM();
 
         // Allocates memory on a stack (local, function, global, ..)
         void Alloca(VMType type, Stack& stack);
@@ -86,17 +92,18 @@ namespace Aria::Internal {
         void StoreDouble (i32 slot, double d  , Stack& stack);
         void StorePointer(i32 slot, void* p   , Stack& stack);
 
-        bool    GetBool   (i32 slot, Stack& stack);
-        int8_t  GetChar   (i32 slot, Stack& stack);
-        int16_t GetShort  (i32 slot, Stack& stack);
-        int32_t GetInt    (i32 slot, Stack& stack);
-        int64_t GetLong   (i32 slot, Stack& stack);
-        size_t  GetSize   (i32 slot, Stack& stack);
-        float   GetFloat  (i32 slot, Stack& stack);
-        double  GetDouble (i32 slot, Stack& stack);
-        void*   GetPointer(i32 slot, Stack& stack);
+        bool             GetBool   (i32 slot, Stack& stack);
+        int8_t           GetChar   (i32 slot, Stack& stack);
+        int16_t          GetShort  (i32 slot, Stack& stack);
+        int32_t          GetInt    (i32 slot, Stack& stack);
+        int64_t          GetLong   (i32 slot, Stack& stack);
+        size_t           GetSize   (i32 slot, Stack& stack);
+        float            GetFloat  (i32 slot, Stack& stack);
+        double           GetDouble (i32 slot, Stack& stack);
+        void*            GetPointer(i32 slot, Stack& stack);
+        std::string_view GetString (i32 slot, Stack& stack);
 
-        // Run an array of op codes in the VM, executing each operations one at a time
+        // Run an array of op codes in the VM
         void RunByteCode(const OpCode* data, size_t count);
         void Run();
 
@@ -121,7 +128,7 @@ namespace Aria::Internal {
         size_t AlignToEight(size_t size);
         
     private:
-        Stack m_LocalStack; // Used for things like expressions and local variables
+        Stack m_LocalStack; // Used for expressions and local variables
         Stack m_FunctionStack; // Used to store data about function calls
         Stack m_GlobalStack; // Used for global variables
 
