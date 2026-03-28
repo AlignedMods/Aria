@@ -128,13 +128,17 @@ namespace Aria::Internal {
         size_t AlignToEight(size_t size);
         
     private:
-        Stack m_LocalStack; // Used for expressions and local variables
+        Stack m_ExpressionStack; // Used for expressions
+        Stack m_LocalStack; // Used for locals and temporaries
         Stack m_FunctionStack; // Used to store data about function calls
         Stack m_GlobalStack; // Used for global variables
 
         std::unordered_map<std::string, i32> m_GlobalMap;
 
         struct StackFrame {
+            size_t PESSBP = 0; // PreviousExpressionStackSlotBasePointer
+            size_t PESBP = 0;  // PreviousExpressionStackBasePointer
+
             size_t PLSSBP = 0; // PreviousLocalStackSlotBasePointer
             size_t PLSBP = 0;  // PreviousLocalStackBasePointer
 

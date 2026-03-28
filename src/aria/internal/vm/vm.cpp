@@ -42,9 +42,10 @@ namespace Aria::Internal {
     bool Gte(T lhs, T rhs) { return lhs >= rhs; }
 
     VM::VM(Context* ctx) {
-        m_LocalStack.   Reserve(32 * 1024, 2048);
-        m_FunctionStack.Reserve(4 * 1024, 256);
-        m_GlobalStack.  Reserve(16 * 1024, 1024);
+        m_ExpressionStack.Reserve(16 * 1024, 1024);
+        m_LocalStack.     Reserve(32 * 1024, 2048);
+        m_FunctionStack.  Reserve(4 * 1024, 256);
+        m_GlobalStack.    Reserve(16 * 1024, 1024);
 
         m_Context = ctx;
     }
@@ -106,11 +107,16 @@ namespace Aria::Internal {
 
     void VM::PushStackFrame() {
         StackFrame newStackFrame;
+        newStackFrame.PESSBP = m_ExpressionStack.StackSlotBasePointer;
+        newStackFrame.PESBP = m_ExpressionStack.StackBasePointer;
         newStackFrame.PLSSBP = m_LocalStack.StackSlotBasePointer;
         newStackFrame.PLSBP = m_LocalStack.StackBasePointer;
         newStackFrame.PreviousFunction = m_ActiveFunction;
 
-        // Save the state of the local stack (function stack gets handled with call/ret)
+        // Save the state of the local and expression stack (function stack gets handled with call/ret)
+        m_ExpressionStack.StackSlotBasePointer = m_ExpressionStack.StackSlotPointer;
+        m_ExpressionStack.StackBasePointer = m_ExpressionStack.StackPointer;
+
         m_LocalStack.StackSlotBasePointer = m_LocalStack.StackSlotPointer;
         m_LocalStack.StackBasePointer = m_LocalStack.StackPointer;
 
@@ -120,9 +126,15 @@ namespace Aria::Internal {
     void VM::PopStackFrame() {
         ARIA_ASSERT(m_StackFrames.size() > 0, "Calling VM::PopStackFrame() with no active stack frame!");
 
-        // Restore the state of the local stack
+        // Restore the state of the local and expression stack
+        m_ExpressionStack.StackSlotPointer = m_ExpressionStack.StackSlotBasePointer;
+        m_ExpressionStack.StackPointer = m_ExpressionStack.StackBasePointer;
+
         m_LocalStack.StackSlotPointer = m_LocalStack.StackSlotBasePointer;
         m_LocalStack.StackPointer = m_LocalStack.StackBasePointer;
+
+        m_ExpressionStack.StackSlotBasePointer = m_StackFrames.back().PESSBP;
+        m_ExpressionStack.StackBasePointer = m_StackFrames.back().PESBP;
 
         m_LocalStack.StackSlotBasePointer = m_StackFrames.back().PLSSBP;
         m_LocalStack.StackBasePointer = m_StackFrames.back().PLSBP;
@@ -350,11 +362,11 @@ namespace Aria::Internal {
 
     void VM::Run() {
         #define CASE_UNARYEXPR_TYPE(builtinOp, vmTypeKind, realType) case VMTypeKind::vmTypeKind: { \
-            realType value{}; memcpy(&value, GetVMSlice(-1, m_LocalStack).Memory, sizeof(realType)); \
+            realType value{}; memcpy(&value, GetVMSlice(-1, m_ExpressionStack).Memory, sizeof(realType)); \
             realType result = builtinOp(value); \
-            Pop(1, m_LocalStack); \
-            Alloca(type, m_LocalStack); \
-            VMSlice newSlot = GetVMSlice(-1, m_LocalStack); \
+            Pop(1, m_ExpressionStack); \
+            Alloca(type, m_ExpressionStack); \
+            VMSlice newSlot = GetVMSlice(-1, m_ExpressionStack); \
             memcpy(newSlot.Memory, &result, newSlot.Size); \
             break; \
         }
@@ -380,12 +392,12 @@ namespace Aria::Internal {
         #define CASE_BINEXPR_TYPE(builtinOp, vmTypeKind, realType) case VMTypeKind::vmTypeKind: { \
             realType lhs{}; \
             realType rhs{}; \
-            memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(realType)); \
-            memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(realType)); \
+            memcpy(&lhs, GetVMSlice(-2, m_ExpressionStack).Memory, sizeof(realType)); \
+            memcpy(&rhs, GetVMSlice(-1, m_ExpressionStack).Memory, sizeof(realType)); \
             realType result = builtinOp(lhs, rhs); \
-            Pop(2, m_LocalStack); \
-            Alloca(type, m_LocalStack); \
-            VMSlice s = GetVMSlice(-1, m_LocalStack); \
+            Pop(2, m_ExpressionStack); \
+            Alloca(type, m_ExpressionStack); \
+            VMSlice s = GetVMSlice(-1, m_ExpressionStack); \
             memcpy(s.Memory, &result, sizeof(realType)); \
             break; \
         }
@@ -393,12 +405,12 @@ namespace Aria::Internal {
         #define CASE_BINEXPR_TYPE_BOOL(builtinOp, vmTypeKind, realType) case VMTypeKind::vmTypeKind: { \
             realType lhs{}; \
             realType rhs{}; \
-            memcpy(&lhs, GetVMSlice(-2, m_LocalStack).Memory, sizeof(realType)); \
-            memcpy(&rhs, GetVMSlice(-1, m_LocalStack).Memory, sizeof(realType)); \
+            memcpy(&lhs, GetVMSlice(-2, m_ExpressionStack).Memory, sizeof(realType)); \
+            memcpy(&rhs, GetVMSlice(-1, m_ExpressionStack).Memory, sizeof(realType)); \
             bool result = builtinOp(lhs, rhs); \
-            Pop(2, m_LocalStack); \
-            Alloca({ VMTypeKind::I1 }, m_LocalStack); \
-            VMSlice s = GetVMSlice(-1, m_LocalStack); \
+            Pop(2, m_ExpressionStack); \
+            Alloca({ VMTypeKind::I1 }, m_ExpressionStack); \
+            VMSlice s = GetVMSlice(-1, m_ExpressionStack); \
             memcpy(s.Memory, &result, sizeof(bool)); \
             break; \
         }
@@ -463,32 +475,32 @@ namespace Aria::Internal {
                 case OpCodeKind::Alloca: {
                     VMType type = std::get<VMType>(op.Data);
 
-                    Alloca(type, m_LocalStack);
+                    Alloca(type, m_ExpressionStack);
                     break;
                 }
 
                 case OpCodeKind::Pop: {
-                    Pop(1, m_LocalStack);
+                    Pop(1, m_ExpressionStack);
                     break;
                 }
 
                 case OpCodeKind::Store: {
-                    void* dst = GetPointer(-2, m_LocalStack);
-                    VMSlice src = GetVMSlice(-1, m_LocalStack);
+                    void* dst = GetPointer(-2, m_ExpressionStack);
+                    VMSlice src = GetVMSlice(-1, m_ExpressionStack);
 
                     memcpy(dst, src.Memory, src.Size);
-                    Pop(2, m_LocalStack);
+                    Pop(2, m_ExpressionStack);
                     break;
                 }
 
                 case OpCodeKind::Dup: {
-                    Dup(-1, m_LocalStack, m_LocalStack);
+                    Dup(-1, m_ExpressionStack, m_ExpressionStack);
                     break;
                 }
 
                 case OpCodeKind::DupStr: {
-                    void* mem = GetPointer(-1, m_LocalStack);
-                    Pop(1, m_LocalStack);
+                    void* mem = GetPointer(-1, m_ExpressionStack);
+                    Pop(1, m_ExpressionStack);
 
                     VMString& str = *reinterpret_cast<VMString*>(mem);
                     VMString newStr;
@@ -496,8 +508,8 @@ namespace Aria::Internal {
                     newStr.Size = str.Size;
                     memcpy(newStr.Data, str.Data, str.Size);
 
-                    Alloca({ VMTypeKind::String }, m_LocalStack);
-                    memcpy(GetVMSlice(-1, m_LocalStack).Memory, &newStr, sizeof(newStr));
+                    Alloca({ VMTypeKind::String }, m_ExpressionStack);
+                    memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &newStr, sizeof(newStr));
 
                     break;
                 }
@@ -514,20 +526,20 @@ namespace Aria::Internal {
 
                 case OpCodeKind::Ldc: {
                     const OpCodeLdc& ldc = std::get<OpCodeLdc>(op.Data);
-                    Alloca(ldc.Type, m_LocalStack);
+                    Alloca(ldc.Type, m_ExpressionStack);
                     
                     switch (ldc.Type.Kind) {
-                        case VMTypeKind::I1:  memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<bool>(ldc.Data), GetVMTypeSize(ldc.Type)); break;
-                        case VMTypeKind::I8:  memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<i8>(ldc.Data),   GetVMTypeSize(ldc.Type)); break;
-                        case VMTypeKind::U8:  memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<u8>(ldc.Data),   GetVMTypeSize(ldc.Type)); break;
-                        case VMTypeKind::I16: memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<i16>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
-                        case VMTypeKind::U16: memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<u16>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
-                        case VMTypeKind::I32: memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<i32>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
-                        case VMTypeKind::U32: memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<u32>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
-                        case VMTypeKind::I64: memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<i64>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
-                        case VMTypeKind::U64: memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<u64>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
-                        case VMTypeKind::F32: memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<f32>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
-                        case VMTypeKind::F64: memcpy(GetVMSlice(-1, m_LocalStack).Memory, &std::get<f64>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
+                        case VMTypeKind::I1:  memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<bool>(ldc.Data), GetVMTypeSize(ldc.Type)); break;
+                        case VMTypeKind::I8:  memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<i8>(ldc.Data),   GetVMTypeSize(ldc.Type)); break;
+                        case VMTypeKind::U8:  memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<u8>(ldc.Data),   GetVMTypeSize(ldc.Type)); break;
+                        case VMTypeKind::I16: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<i16>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
+                        case VMTypeKind::U16: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<u16>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
+                        case VMTypeKind::I32: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<i32>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
+                        case VMTypeKind::U32: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<u32>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
+                        case VMTypeKind::I64: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<i64>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
+                        case VMTypeKind::U64: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<u64>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
+                        case VMTypeKind::F32: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<f32>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
+                        case VMTypeKind::F64: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<f64>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
                         default: ARIA_ASSERT(false, "Invalid \"ldc\" type");
                     }
 
@@ -545,18 +557,18 @@ namespace Aria::Internal {
                     vmstr.Data = newStr;
                     vmstr.Size = str.size();
 
-                    Alloca({ VMTypeKind::String }, m_LocalStack);
-                    memcpy(GetVMSlice(-1, m_LocalStack).Memory, &vmstr, sizeof(vmstr));
+                    Alloca({ VMTypeKind::String }, m_ExpressionStack);
+                    memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &vmstr, sizeof(vmstr));
                     break;
                 }
 
                 case OpCodeKind::Deref: {
                     VMType type = std::get<VMType>(op.Data);
 
-                    void* ptr = GetPointer(-1, m_LocalStack);
-                    Pop(1, m_LocalStack);
-                    Alloca(type, m_LocalStack);
-                    VMSlice slice = GetVMSlice(-1, m_LocalStack);
+                    void* ptr = GetPointer(-1, m_ExpressionStack);
+                    Pop(1, m_ExpressionStack);
+                    Alloca(type, m_ExpressionStack);
+                    VMSlice slice = GetVMSlice(-1, m_ExpressionStack);
                     memcpy(slice.Memory, ptr, slice.Size);
                     break;
                 }
@@ -566,13 +578,13 @@ namespace Aria::Internal {
                 case OpCodeKind::DeclareGlobal: {
                     const std::string& g = std::get<std::string>(op.Data);
 
-                    VMSlice src = GetVMSlice(-1, m_LocalStack);
+                    VMSlice src = GetVMSlice(-1, m_ExpressionStack);
 
                     Alloca(src.Type, m_GlobalStack);
                     VMSlice dst = GetVMSlice(-1, m_GlobalStack);
 
                     memcpy(dst.Memory, src.Memory, src.Size);
-                    Pop(1, m_LocalStack); // Pop the local stack slot which we just copied
+                    Pop(1, m_ExpressionStack);
 
                     m_GlobalMap[g] = { static_cast<i32>(m_GlobalStack.StackSlotPointer) - 1 };
                     break;
@@ -580,6 +592,20 @@ namespace Aria::Internal {
 
                 case OpCodeKind::DeclareLocal: {
                     size_t index = std::get<size_t>(op.Data);
+
+                    VMSlice src = GetVMSlice(-1, m_ExpressionStack);
+                    VMSlice dst;
+
+                    if (!m_StackFrames.back().LocalMap.contains(index)) {
+                        Alloca(src.Type, m_LocalStack);
+                        dst = GetVMSlice(-1, m_LocalStack);
+                    } else {
+                        dst = GetVMSlice(m_StackFrames.back().LocalMap.at(index), m_LocalStack);
+                    }
+
+                    memcpy(dst.Memory, src.Memory, src.Size);
+                    Pop(1, m_ExpressionStack);
+
                     m_StackFrames.back().LocalMap[index] = { static_cast<i32>(m_LocalStack.StackSlotPointer - m_LocalStack.StackSlotBasePointer) - 1 };
                     break;
                 };
@@ -587,43 +613,43 @@ namespace Aria::Internal {
                 case OpCodeKind::DeclareArg: {
                     size_t index = std::get<size_t>(op.Data);
 
-                    VMSlice src = GetVMSlice(-1, m_LocalStack);
+                    VMSlice src = GetVMSlice(-1, m_ExpressionStack);
 
                     Alloca(src.Type, m_FunctionStack);
                     VMSlice dst = GetVMSlice(-1, m_FunctionStack);
 
                     memcpy(dst.Memory, src.Memory, src.Size);
-                    Pop(1, m_LocalStack); // Pop the local stack slot which we just copied
+                    Pop(1, m_ExpressionStack); // Pop the local stack slot which we just copied
                     break;
                 };
 
                 case OpCodeKind::LdGlobal: {
                     const std::string& g = std::get<std::string>(op.Data);
-                    Dup(m_GlobalMap.at(g), m_LocalStack, m_GlobalStack);
+                    Dup(m_GlobalMap.at(g), m_ExpressionStack, m_GlobalStack);
                     break;
                 }
 
                 case OpCodeKind::LdLocal: {
                     size_t index = std::get<size_t>(op.Data);
-                    Dup(m_StackFrames.back().LocalMap.at(index), m_LocalStack, m_LocalStack);
+                    Dup(m_StackFrames.back().LocalMap.at(index), m_ExpressionStack, m_LocalStack);
                     break;
                 }
 
                 case OpCodeKind::LdMember: {
                     OpCodeMember mem = std::get<OpCodeMember>(op.Data);
-                    u8* base = reinterpret_cast<u8*>(GetPointer(-1, m_LocalStack));
-                    Pop(1, m_LocalStack);
+                    u8* base = reinterpret_cast<u8*>(GetPointer(-1, m_ExpressionStack));
+                    Pop(1, m_ExpressionStack);
                     
                     VMStruct s = m_Structs.at(fmt::format("{}", mem.StructType.Data));
 
-                    Alloca(mem.MemberType, m_LocalStack);
-                    memcpy(GetVMSlice(-1, m_LocalStack).Memory, base + s.FieldOffsets[mem.Index], GetVMTypeSize(mem.MemberType));
+                    Alloca(mem.MemberType, m_ExpressionStack);
+                    memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, base + s.FieldOffsets[mem.Index], GetVMTypeSize(mem.MemberType));
                     break;
                 }
 
                 case OpCodeKind::LdArg: {
                     i32 index = static_cast<i32>(std::get<size_t>(op.Data));
-                    Dup(index + 1, m_LocalStack, m_FunctionStack);
+                    Dup(index + 1, m_ExpressionStack, m_FunctionStack);
                     break;
                 }
 
@@ -638,49 +664,49 @@ namespace Aria::Internal {
                 case OpCodeKind::LdPtrGlobal: {
                     const std::string& g = std::get<std::string>(op.Data);
                     VMSlice slice = GetVMSlice(m_GlobalMap.at(g), m_GlobalStack);
-                    Alloca({ VMTypeKind::Ptr }, m_LocalStack);
-                    StorePointer(-1, slice.Memory, m_LocalStack);
+                    Alloca({ VMTypeKind::Ptr }, m_ExpressionStack);
+                    StorePointer(-1, slice.Memory, m_ExpressionStack);
                     break;
                 }
 
                 case OpCodeKind::LdPtrLocal: {
                     size_t index = std::get<size_t>(op.Data);
                     VMSlice slice = GetVMSlice(m_StackFrames.back().LocalMap.at(index), m_LocalStack);
-                    Alloca({ VMTypeKind::Ptr }, m_LocalStack);
-                    StorePointer(-1, slice.Memory, m_LocalStack);
+                    Alloca({ VMTypeKind::Ptr }, m_ExpressionStack);
+                    StorePointer(-1, slice.Memory, m_ExpressionStack);
                     break;
                 }
 
                 case OpCodeKind::LdPtrMember: {
                     OpCodeMember mem = std::get<OpCodeMember>(op.Data);
-                    u8* base = reinterpret_cast<u8*>(GetPointer(-1, m_LocalStack));
-                    Pop(1, m_LocalStack);
+                    u8* base = reinterpret_cast<u8*>(GetPointer(-1, m_ExpressionStack));
+                    Pop(1, m_ExpressionStack);
 
                     VMStruct s = m_Structs.at(fmt::format("{}", mem.StructType.Data));
 
-                    Alloca(mem.MemberType, m_LocalStack);
-                    StorePointer(-1, base + s.FieldOffsets[mem.Index], m_LocalStack);
+                    Alloca(mem.MemberType, m_ExpressionStack);
+                    StorePointer(-1, base + s.FieldOffsets[mem.Index], m_ExpressionStack);
                     break;
                 }
 
                 case OpCodeKind::LdPtrArg: {
                     i32 index = static_cast<i32>(std::get<size_t>(op.Data));
                     VMSlice slice = GetVMSlice(index + 1, m_FunctionStack);
-                    Alloca({ VMTypeKind::Ptr }, m_LocalStack);
-                    StorePointer(-1, slice.Memory, m_LocalStack);
+                    Alloca({ VMTypeKind::Ptr }, m_ExpressionStack);
+                    StorePointer(-1, slice.Memory, m_ExpressionStack);
                     break;
                 }
 
                 case OpCodeKind::LdPtrRet: {
-                    VMSlice slice = GetVMSlice(-(static_cast<i32>(m_LocalStack.StackSlotPointer - m_LocalStack.StackSlotBasePointer) + 1), m_LocalStack);
-                    Alloca({ VMTypeKind::Ptr }, m_LocalStack);
-                    StorePointer(-1, slice.Memory, m_LocalStack);
+                    VMSlice slice = GetVMSlice(-(static_cast<i32>(m_ExpressionStack.StackSlotPointer - m_ExpressionStack.StackSlotBasePointer) + 1), m_ExpressionStack);
+                    Alloca({ VMTypeKind::Ptr }, m_ExpressionStack);
+                    StorePointer(-1, slice.Memory, m_ExpressionStack);
                     break;
                 }
 
                 case OpCodeKind::DestructStr: {
-                    void* mem = GetPointer(-1, m_LocalStack);
-                    Pop(1, m_LocalStack);
+                    void* mem = GetPointer(-1, m_ExpressionStack);
+                    Pop(1, m_ExpressionStack);
 
                     VMString& str = *reinterpret_cast<VMString*>(mem);
                     delete[] str.Data;
@@ -704,7 +730,7 @@ namespace Aria::Internal {
                 case OpCodeKind::Jt: {
                     const std::string& label = std::get<std::string>(op.Data);
 
-                    if (GetBool(-1, m_LocalStack) == true) {
+                    if (GetBool(-1, m_ExpressionStack) == true) {
                         ARIA_ASSERT(m_ActiveFunction->Labels.contains(label), "Trying to jump to an unknown label!");
                         m_ProgramCounter = m_ActiveFunction->Labels.at(label);
                     }
@@ -715,7 +741,7 @@ namespace Aria::Internal {
                 case OpCodeKind::Jf: {
                     const std::string& label = std::get<std::string>(op.Data);
 
-                    if (GetBool(-1, m_LocalStack) == false) {
+                    if (GetBool(-1, m_ExpressionStack) == false) {
                         ARIA_ASSERT(m_ActiveFunction->Labels.contains(label), "Trying to jump to an unknown label!");
                         m_ProgramCounter = m_ActiveFunction->Labels.at(label);
                     }
@@ -801,16 +827,16 @@ namespace Aria::Internal {
                 case OpCodeKind::Cast: {
                     VMType dstType = std::get<VMType>(op.Data);
 
-                    VMSlice slice = GetVMSlice(-1, m_LocalStack);
+                    VMSlice slice = GetVMSlice(-1, m_ExpressionStack);
                     VMType srcType = slice.Type;
 
                     #define CASE_CAST(srcVMType, dstVMType, srcRealType, dstRealType) case VMTypeKind::srcVMType: { \
                         srcRealType val{}; \
                         memcpy(&val, slice.Memory, slice.Size); \
                         dstRealType result = static_cast<dstRealType>(val); \
-                        Pop(1, m_LocalStack); \
-                        Alloca({ dstVMType }, m_LocalStack); \
-                        memcpy(GetVMSlice(-1, m_LocalStack).Memory, &result, sizeof(result)); \
+                        Pop(1, m_ExpressionStack); \
+                        Alloca({ dstVMType }, m_ExpressionStack); \
+                        memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &result, sizeof(result)); \
                         break; \
                     }
 

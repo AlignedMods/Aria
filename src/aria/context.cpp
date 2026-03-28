@@ -105,79 +105,79 @@ namespace Aria {
     }
 
     void Context::PushBool(bool b) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I1 }, m_ActiveModule->VM.m_LocalStack);
-        m_ActiveModule->VM.StoreBool(-1 , b, m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I1 }, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.StoreBool(-1 , b, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     void Context::PushChar(int8_t c) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I8 }, m_ActiveModule->VM.m_LocalStack);
-        m_ActiveModule->VM.StoreChar(-1, c, m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I8 }, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.StoreChar(-1, c, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     void Context::PushShort(int16_t s) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I16 }, m_ActiveModule->VM.m_LocalStack);
-        m_ActiveModule->VM.StoreShort(-1, s, m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I16 }, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.StoreShort(-1, s, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     void Context::PushInt(int32_t i) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I32 }, m_ActiveModule->VM.m_LocalStack);
-        m_ActiveModule->VM.StoreInt(-1, i, m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I32 }, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.StoreInt(-1, i, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     void Context::PushLong(int64_t l) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I64 }, m_ActiveModule->VM.m_LocalStack);
-        m_ActiveModule->VM.StoreLong(-1, l, m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I64 }, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.StoreLong(-1, l, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     void Context::PushFloat(float f) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::F32 }, m_ActiveModule->VM.m_LocalStack);
-        m_ActiveModule->VM.StoreFloat(-1, f, m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::F32 }, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.StoreFloat(-1, f, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     void Context::PushDouble(double d) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::F64 }, m_ActiveModule->VM.m_LocalStack);
-        m_ActiveModule->VM.StoreDouble(-1, d, m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::F64 }, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.StoreDouble(-1, d, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     void Context::PushPointer(void* p) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::Ptr }, m_ActiveModule->VM.m_LocalStack);
-        m_ActiveModule->VM.StorePointer(-1, p, m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::Ptr }, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.StorePointer(-1, p, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     void Context::StoreBool(size_t index, bool b) {
-        m_ActiveModule->VM.StoreBool(index, b, m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.StoreBool(index, b, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     void Context::StoreChar(size_t index, int8_t c) {
-        m_ActiveModule->VM.StoreChar(index, c, m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.StoreChar(index, c, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     void Context::StoreShort(size_t index, int16_t s) {
-        m_ActiveModule->VM.StoreShort(index, s, m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.StoreShort(index, s, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     void Context::StoreInt(size_t index, int32_t i) {
-        m_ActiveModule->VM.StoreInt(index, i, m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.StoreInt(index, i, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     void Context::StoreLong(size_t index, int64_t l) {
-        m_ActiveModule->VM.StoreLong(index, l, m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.StoreLong(index, l, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     void Context::StoreFloat(size_t index, float f) {
-        m_ActiveModule->VM.StoreFloat(index, f, m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.StoreFloat(index, f, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     void Context::StoreDouble(size_t index, double d) {
-        m_ActiveModule->VM.StoreDouble(index, d, m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.StoreDouble(index, d, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     void Context::StorePointer(size_t index, void* p) {
-        m_ActiveModule->VM.StorePointer(index, p, m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.StorePointer(index, p, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     void Context::GetGlobal(const std::string& str) {
-        m_ActiveModule->VM.Dup(m_ActiveModule->VM.m_GlobalMap[str], m_ActiveModule->VM.m_LocalStack, m_ActiveModule->VM.m_GlobalStack);
+        m_ActiveModule->VM.Dup(m_ActiveModule->VM.m_GlobalMap[str], m_ActiveModule->VM.m_ExpressionStack, m_ActiveModule->VM.m_GlobalStack);
     }
 
     void Context::GetGlobalPtr(const std::string& str) {
@@ -186,7 +186,7 @@ namespace Aria {
     }
 
     void Context::GetArg(size_t index) {
-        m_ActiveModule->VM.Dup(index + 1, m_ActiveModule->VM.m_LocalStack, m_ActiveModule->VM.m_FunctionStack);
+        m_ActiveModule->VM.Dup(index + 1, m_ActiveModule->VM.m_ExpressionStack, m_ActiveModule->VM.m_FunctionStack);
     }
 
     void Context::GetField(int32_t index, const std::string& name) {
@@ -208,43 +208,43 @@ namespace Aria {
     }
 
     bool Context::GetBool(int32_t index) {
-        return m_ActiveModule->VM.GetBool(index, m_ActiveModule->VM.m_LocalStack);
+        return m_ActiveModule->VM.GetBool(index, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     int8_t Context::GetChar(int32_t index) {
-        return m_ActiveModule->VM.GetChar(index, m_ActiveModule->VM.m_LocalStack);
+        return m_ActiveModule->VM.GetChar(index, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     int16_t Context::GetShort(int32_t index) {
-        return m_ActiveModule->VM.GetShort(index, m_ActiveModule->VM.m_LocalStack);
+        return m_ActiveModule->VM.GetShort(index, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     int32_t Context::GetInt(int32_t index) {
-        return m_ActiveModule->VM.GetInt(index, m_ActiveModule->VM.m_LocalStack);
+        return m_ActiveModule->VM.GetInt(index, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     int64_t Context::GetLong(int32_t index) {
-        return m_ActiveModule->VM.GetLong(index, m_ActiveModule->VM.m_LocalStack);
+        return m_ActiveModule->VM.GetLong(index, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     float Context::GetFloat(int32_t index) {
-        return m_ActiveModule->VM.GetFloat(index, m_ActiveModule->VM.m_LocalStack);
+        return m_ActiveModule->VM.GetFloat(index, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     double Context::GetDouble(int32_t index) {
-        return m_ActiveModule->VM.GetDouble(index, m_ActiveModule->VM.m_LocalStack);
+        return m_ActiveModule->VM.GetDouble(index, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     void* Context::GetPointer(int32_t index) {
-        return m_ActiveModule->VM.GetPointer(index, m_ActiveModule->VM.m_LocalStack);
+        return m_ActiveModule->VM.GetPointer(index, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     std::string_view Context::GetString(int32_t index) {
-        return m_ActiveModule->VM.GetString(index, m_ActiveModule->VM.m_LocalStack);
+        return m_ActiveModule->VM.GetString(index, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     void Context::Pop(size_t count) {
-        m_ActiveModule->VM.Pop(count, m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.Pop(count, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     void Context::AddExternalFunction(const std::string& name, ExternFn fn) {
@@ -260,12 +260,12 @@ namespace Aria {
 
         // Move arguments onto the function stack
         for (size_t i = 0; i < argCount; i++) {
-            m_ActiveModule->VM.Dup(-static_cast<Internal::i32>(i + 1), m_ActiveModule->VM.m_FunctionStack, m_ActiveModule->VM.m_LocalStack);
+            m_ActiveModule->VM.Dup(-static_cast<Internal::i32>(i + 1), m_ActiveModule->VM.m_FunctionStack, m_ActiveModule->VM.m_ExpressionStack);
         }
-        m_ActiveModule->VM.Pop(argCount, m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.Pop(argCount, m_ActiveModule->VM.m_ExpressionStack);
 
         // Allocate the return slot
-        m_ActiveModule->VM.Alloca(reflection.Declarations.at(str).Type, m_ActiveModule->VM.m_LocalStack);
+        m_ActiveModule->VM.Alloca(reflection.Declarations.at(str).Type, m_ActiveModule->VM.m_ExpressionStack);
         m_ActiveModule->VM.Call(str, argCount);
     }
 

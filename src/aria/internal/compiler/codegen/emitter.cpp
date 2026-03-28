@@ -180,7 +180,7 @@ namespace Aria::Internal {
 
         // Create a new temporary
         m_OpCodes.emplace_back(OpCodeKind::DeclareLocal, m_ActiveStackFrame.LocalCount);
-        m_OpCodes.emplace_back(OpCodeKind::Dup);
+        m_OpCodes.emplace_back(OpCodeKind::LdLocal, m_ActiveStackFrame.LocalCount);
 
         Declaration d;
         d.Type = temp->GetResolvedType();
@@ -585,6 +585,7 @@ namespace Aria::Internal {
         if (fs->GetCondition()) {
             EmitExpr(fs->GetCondition(), fs->GetCondition()->GetValueKind());
             m_OpCodes.emplace_back(OpCodeKind::Jf, loopEnd);
+            m_OpCodes.emplace_back(OpCodeKind::Pop);
         }
 
         EmitStmt(fs->GetBody());
