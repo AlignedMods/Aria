@@ -17,34 +17,34 @@ namespace Aria::Internal {
     }
 
     Expr* TypeChecker::HandleBooleanConstantExpr(Expr* expr) {
-        expr->SetValueKind(ExprValueKind::RValue);
+        expr->ValueKind = ExprValueKind::RValue;
         return expr;
     }
 
     Expr* TypeChecker::HandleCharacterConstantExpr(Expr* expr) {
-        expr->SetValueKind(ExprValueKind::RValue);
+        expr->ValueKind = ExprValueKind::RValue;
         return expr;
     }
 
     Expr* TypeChecker::HandleIntegerConstantExpr(Expr* expr) {
-        expr->SetValueKind(ExprValueKind::RValue);
+        expr->ValueKind = ExprValueKind::RValue;
         return expr;
     }
 
     Expr* TypeChecker::HandleFloatingConstantExpr(Expr* expr) {
-        expr->SetValueKind(ExprValueKind::RValue);
+        expr->ValueKind = ExprValueKind::RValue;
         return expr;
     }
 
     Expr* TypeChecker::HandleStringConstantExpr(Expr* expr) {
-        expr->SetValueKind(ExprValueKind::RValue);
+        expr->ValueKind = ExprValueKind::RValue;
         return expr;
     }
 
     Expr* TypeChecker::HandleDeclRefExpr(Expr* expr) {
         DeclRefExpr* ref = GetNode<DeclRefExpr>(expr);
 
-        std::string ident = ref->GetIdentifier();
+        std::string ident = fmt::format(ref->GetIdentifier();
 
         if (m_ActiveStruct) {
             StructDecl* s = GetNode<StructDecl>(std::get<StructDeclaration>(m_ActiveStruct->Data).SourceDecl);
@@ -254,31 +254,31 @@ namespace Aria::Internal {
                 }
 
                 // See which conversion would be better
-                ConversionCost costLHS = GetConversionCost(LHSType, RHSType, RHS->GetValueKind()); // Cast to LHS
-                ConversionCost costRHS = GetConversionCost(RHSType, LHSType, LHS->GetValueKind()); // Cast to RHS
+                ConversionCost costRHStoLHS = GetConversionCost(LHSType, RHSType, RHS->GetValueKind());
+                ConversionCost costLHStoRHS = GetConversionCost(RHSType, LHSType, LHS->GetValueKind());
 
-                if (costLHS.CastNeeded || costRHS.CastNeeded) {
-                    bool lhsCastNeeded = costLHS.CastNeeded;
-                    bool rhsCastNeeded = costRHS.CastNeeded;
+                if (costRHStoLHS.CastNeeded || costLHStoRHS.CastNeeded) {
+                    bool lhsCastNeeded = costRHStoLHS.CastNeeded;
+                    bool rhsCastNeeded = costLHStoRHS.CastNeeded;
 
-                    if (costLHS.CoKind == ConversionKind::LValueToRValue) {
-                        binop->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, costLHS.CaKind));
+                    if (costRHStoLHS.CoKind == ConversionKind::LValueToRValue || costRHStoLHS.CoKind == ConversionKind::Narrowing) {
+                        binop->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, costRHStoLHS.CaKind));
                         RHSType = LHSType;
                         lhsCastNeeded = false;
                     }
                     
-                    if (costRHS.CoKind == ConversionKind::LValueToRValue) {
-                        binop->SetLHS(InsertImplicitCast(RHSType, LHSType, LHS, costRHS.CaKind));
+                    if (costLHStoRHS.CoKind == ConversionKind::LValueToRValue || costLHStoRHS.CoKind == ConversionKind::Narrowing) {
+                        binop->SetLHS(InsertImplicitCast(RHSType, LHSType, LHS, costLHStoRHS.CaKind));
                         LHSType = RHSType;
                         rhsCastNeeded = false;
                     }
 
                     if (lhsCastNeeded || rhsCastNeeded) {
-                        if (costLHS.CoKind == ConversionKind::Promotion) {
-                            binop->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, costLHS.CaKind));
+                        if (costRHStoLHS.CoKind == ConversionKind::Promotion) {
+                            binop->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, costRHStoLHS.CaKind));
                             RHSType = LHSType;
-                        } else if (costRHS.CoKind == ConversionKind::Promotion) {
-                            binop->SetLHS(InsertImplicitCast(RHSType, LHSType, LHS, costRHS.CaKind));
+                        } else if (costLHStoRHS.CoKind == ConversionKind::Promotion) {
+                            binop->SetLHS(InsertImplicitCast(RHSType, LHSType, LHS, costLHStoRHS.CaKind));
                             LHSType = RHSType;
                         } else {
                             m_Context->ReportCompilerError(binop->Loc, binop->Range, fmt::format("mismatched types '{}' and '{}'", TypeInfoToString(LHSType), TypeInfoToString(RHSType)));

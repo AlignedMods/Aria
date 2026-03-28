@@ -26,32 +26,26 @@ namespace Aria::Internal {
         // This function cannot fail
         bool Match(TokenKind kind);
 
-        StringBuilder ParseVariableType();
-        TinyVector<ParamDecl*> ParseFunctionParameters();
-        bool IsPrimitiveType();
-        bool IsVariableType();
-
         BinaryOperatorKind ParseOperator();
         size_t GetBinaryPrecedence(BinaryOperatorKind kind);
         size_t GetNextPrecedence(BinaryOperatorKind binop);
         Expr* ParseValue();
         Expr* ParseExpression(size_t minbp = 0);
 
-        Stmt* ParseCompound();
-        Stmt* ParseCompoundInline();
+        bool IsPrimitiveType();
+        bool IsType();
+        TypeInfo* ParseType();
 
-        Stmt* ParseType(bool external = false);
+        Decl* ParseTypeDecl();
+        Decl* ParseVariableDecl(TypeInfo* type, SourceLocation start);
+        Decl* ParseFunctionDecl(TypeInfo* type, SourceLocation start);
+        Decl* ParseStructDecl();
 
-        Stmt* ParseVariableDecl(StringBuilder type, SourceRange start);
-        Stmt* ParseFunctionDecl(StringBuilder returnType, SourceRange start, bool external = false);
-        Stmt* ParseExtern();
-
-        Stmt* ParseStructDecl();
-
+        Stmt* ParseBlock();
+        Stmt* ParseBlockInline();
         Stmt* ParseWhile();
         Stmt* ParseDoWhile();
         Stmt* ParseFor();
-
         Stmt* ParseIf();
 
         Stmt* ParseBreak();
@@ -62,7 +56,7 @@ namespace Aria::Internal {
 
         Stmt* ParseToken();
 
-        // Consumes tokens until it finds the first semi colon, closing curly or EOF
+        // Consumes tokens until it finds the first semi colon, closing curly, comma or EOF
         void StabilizeParser();
 
         void ErrorExpected(const std::string& expect, SourceLocation loc, SourceRange range);
@@ -72,10 +66,7 @@ namespace Aria::Internal {
         size_t m_Index = 0;
         Tokens m_Tokens;
 
-        bool m_NeedsSemi = true; // A flag to see if the current statement needs to finish with a semicolon
-
-        std::unordered_map<std::string, bool> m_DeclaredTypes;
-
+        std::unordered_map<std::string, Decl*> m_DeclaredTypes;
         CompilationContext* m_Context = nullptr;
     };
 

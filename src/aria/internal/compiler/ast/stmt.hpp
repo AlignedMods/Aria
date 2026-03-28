@@ -8,106 +8,116 @@
 
 namespace Aria::Internal {
 
+    enum class StmtKind {
+        Invalid = 0,
+
+        Block,
+        While,
+        DoWhile,
+        For,
+        If,
+        Return,
+        Expr,
+        Decl
+    };
+
     struct Expr;
-    struct VarDecl;
+    struct Decl;
+    struct Stmt;
+
+    struct BlockStmt {
+        BlockStmt() = default;
+        BlockStmt(const TinyVector<Stmt*>& stmts)
+            : Stmts(stmts) {}
+
+        TinyVector<Stmt*> Stmts;
+    };
+
+    struct WhileStmt {
+        WhileStmt(Expr* condition, BlockStmt body)
+            : Condition(condition), Body(body) {}
+
+        Expr* Condition = nullptr;
+        BlockStmt Body;
+    };
+    
+    struct DoWhileStmt {
+        DoWhileStmt(Expr* condition, BlockStmt body)
+            : Condition(condition), Body(body) {}
+
+        Expr* Condition = nullptr;
+        BlockStmt Body;
+    };
+    
+    struct ForStmt {
+        ForStmt(Stmt* prologue, Expr* condition, Expr* epilogue, BlockStmt body)
+            : Prologue(prologue), Condition(condition), Epilogue(epilogue), Body(body) {}
+
+        Stmt* Prologue = nullptr; // int i = 0;
+        Expr* Condition = nullptr; // i < 5;
+        Expr* Epilogue = nullptr; // i += 1;
+        BlockStmt Body;
+    };
+    
+    struct IfStmt {
+        IfStmt(Expr* condition, BlockStmt body, BlockStmt elseBody)
+            : Condition(condition), Body(body), ElseBody(elseBody) {}
+
+        Expr* Condition = nullptr;
+        BlockStmt Body;
+        BlockStmt ElseBody;
+    };
+    
+    struct ReturnStmt {
+        ReturnStmt(Expr* value)
+            : Value(value) {}
+
+        Expr* Value = nullptr;
+    };
 
     struct Stmt {
-        inline Stmt(CompilationContext* ctx)
-            : m_Context(ctx) {}
+        template <typename T>
+        static inline Stmt* Create(CompilationContext* ctx, SourceLocation loc, SourceRange range, StmtKind kind, T t) { return ctx->Allocate<Stmt>(kind, loc, range, t); }
 
-        virtual ~Stmt() {}
+        StmtKind Kind = StmtKind::Invalid;
 
-    protected:
-        CompilationContext* m_Context = nullptr;
-    };
+        SourceLocation Loc;
+        SourceRange Range;
 
-    struct CompoundStmt final : public Stmt {
-        CompoundStmt(CompilationContext* ctx, const TinyVector<Stmt*>& stmts)
-            : Stmt(ctx), m_Stmts(stmts) {}
+        union {
+            BlockStmt Block;
+            WhileStmt While;
+            DoWhileStmt DoWhile;
+            ForStmt For;
+            IfStmt If;
+            ReturnStmt Return;
+            Expr* ExprStmt;
+            Decl* DeclStmt;
+        };
 
-        inline TinyVector<Stmt*>& GetStmts() { return m_Stmts; }
+        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, BlockStmt block)
+            : Kind(kind), Loc(loc), Range(range), Block(block) {}
 
-    private:
-        TinyVector<Stmt*> m_Stmts;
-    };
+        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, WhileStmt wh)
+            : Kind(kind), Loc(loc), Range(range), While(wh) {}
 
-    struct WhileStmt final : public Stmt {
-        WhileStmt(CompilationContext* ctx, Expr* condition, Stmt* body)
-            : Stmt(ctx), m_Condition(condition), m_Body(body) {}
+        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, DoWhileStmt dowh)
+            : Kind(kind), Loc(loc), Range(range), DoWhile(dowh) {}
 
-        inline Expr* GetCondition() { return m_Condition; }
-        inline const Expr* GetCondition() const { return m_Condition; }
-        inline void SetCondition(Expr* expr) { m_Condition = expr; }
+        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, ForStmt f)
+            : Kind(kind), Loc(loc), Range(range), For(f) {}
 
-        inline Stmt* GetBody() { return m_Body; }
-        inline const Stmt* GetBody() const { return m_Body; }
+        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, IfStmt i)
+            : Kind(kind), Loc(loc), Range(range), If(i) {}
 
-    private:
-        Expr* m_Condition = nullptr;
-        Stmt* m_Body = nullptr;
-    };
-    
-    struct DoWhileStmt final : public Stmt {
-        DoWhileStmt(CompilationContext* ctx, Expr* condition, Stmt* body)
-            : Stmt(ctx), m_Condition(condition), m_Body(body) {}
+        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, ReturnStmt ret)
+            : Kind(kind), Loc(loc), Range(range), Return(ret) {}
 
-        inline Expr* GetCondition() { return m_Condition; }
-        inline const Expr* GetCondition() const { return m_Condition; }
-        inline void SetCondition(Expr* expr) { m_Condition = expr; }
+        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, Expr* expr)
+            : Kind(kind), Loc(loc), Range(range), ExprStmt(expr) {}
 
-        inline Stmt* GetBody() { return m_Body; }
-        inline const Stmt* GetBody() const { return m_Body; }
-
-    private:
-        Expr* m_Condition = nullptr;
-        Stmt* m_Body = nullptr;
-    };
-    
-    struct ForStmt final : public Stmt {
-        ForStmt(CompilationContext* ctx, Stmt* prologue, Expr* condition, Expr* epilogue, Stmt* body)
-            : Stmt(ctx), m_Prologue(prologue), m_Condition(condition), m_Epilogue(epilogue), m_Body(body) {}
-
-        inline Stmt* GetPrologue() { return m_Prologue; }
-        inline void SetPrologue(Stmt* stmt) { m_Prologue = stmt; }
-
-        inline Expr* GetCondition() { return m_Condition; }
-        inline void SetCondition(Expr* expr) { m_Condition = expr; }
-
-        inline Expr* GetEpilogue() { return m_Epilogue; }
-        inline void SetEpilogue(Expr* expr) { m_Epilogue = expr; }
-
-        inline Stmt* GetBody() { return m_Body; }
-
-    private:
-        Stmt* m_Prologue = nullptr; // int i = 0;
-        Expr* m_Condition = nullptr; // i < 5;
-        Expr* m_Epilogue = nullptr; // i += 1;
-        Stmt* m_Body = nullptr;
-    };
-    
-    struct IfStmt final : public Stmt {
-        IfStmt(CompilationContext* ctx, Expr* condition, Stmt* body, Stmt* elseBody)
-            : Stmt(ctx), m_Condition(condition), m_Body(body), m_ElseBody(elseBody) {}
-
-        inline Expr* GetCondition() { return m_Condition; }
-        inline Stmt* GetBody() { return m_Body; }
-        inline Stmt* GetElseBody() { return m_ElseBody; }
-
-    private:
-        Expr* m_Condition = nullptr;
-        Stmt* m_Body = nullptr;
-        Stmt* m_ElseBody = nullptr;
-    };
-    
-    struct ReturnStmt final : public Stmt {
-        ReturnStmt(CompilationContext* ctx, Expr* value)
-            : Stmt(ctx), m_Value(value) {}
-
-        inline Expr* GetValue() { return m_Value; }
-        inline void SetValue(Expr* expr) { m_Value = expr; }
-    
-    private:
-        Expr* m_Value = nullptr;
+        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, Decl* decl)
+            : Kind(kind), Loc(loc), Range(range), DeclStmt(decl) {}
     };
 
 } // namespace Aria::Internal

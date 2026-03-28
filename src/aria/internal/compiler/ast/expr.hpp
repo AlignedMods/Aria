@@ -11,7 +11,27 @@
 
 namespace Aria::Internal {
 
-#pragma region DeclRefKind
+    enum class ExprKind {
+        Invalid = 0,
+
+        BooleanConstant,
+        CharacterConstant,
+        IntegerConstant,
+        FloatingConstant,
+        StringConstant,
+        DeclRef,
+        Member,
+        Self,
+        Temporary,
+        Call,
+        MethodCall,
+        Paren,
+        Cast,
+        ImplicitCast,
+        UnaryOperator,
+        BinaryOperator,
+        CompoundAssign
+    };
 
     enum class DeclRefKind {
         LocalVar,
@@ -19,7 +39,6 @@ namespace Aria::Internal {
         GlobalVar,
         Function
     };
-
     inline const char* DeclRefKindToString(DeclRefKind kind) {
         switch (kind) {
             case DeclRefKind::LocalVar:  return "LocalVar";
@@ -28,10 +47,6 @@ namespace Aria::Internal {
             case DeclRefKind::Function:  return "Function";
         }
     }
-
-#pragma endregion
-
-#pragma region CastKind
 
     enum class CastKind {
         Invalid,
@@ -42,7 +57,6 @@ namespace Aria::Internal {
 
         LValueToRValue
     };
-
     inline const char* CastKindToString(CastKind kind) {
         switch (kind) {
             case CastKind::Invalid: return "Invalid";
@@ -55,17 +69,12 @@ namespace Aria::Internal {
         }
     }
 
-#pragma endregion
-
-#pragma region UnaryOperatorKind
-
     enum class UnaryOperatorKind {
         Invalid,
     
         Not, // "!"
         Negate // "-8.7f"
     };
-    
     inline const char* UnaryOperatorKindToString(UnaryOperatorKind kind) {
         switch (kind) {
             case UnaryOperatorKind::Invalid: return "invalid";
@@ -76,10 +85,6 @@ namespace Aria::Internal {
             default: ARIA_UNREACHABLE();
         }
     }
-
-#pragma endregion
-
-#pragma region BinaryOperatorKind
 
     enum class BinaryOperatorKind {
         Invalid,
@@ -102,7 +107,6 @@ namespace Aria::Internal {
         IsEq,
         IsNotEq,
     };
-    
     inline const char* BinaryOperatorKindToString(BinaryOperatorKind kind) {
         switch (kind) {
             case BinaryOperatorKind::Invalid: return "invalid";
@@ -139,15 +143,10 @@ namespace Aria::Internal {
         }
     }
 
-#pragma endregion
-
-#pragma region ExprValueKind
-
     enum class ExprValueKind {
         LValue,
         RValue
     };
-
     inline const char* ExprValueKindToString(ExprValueKind type) {
         switch (type) {
             case ExprValueKind::LValue: return "lvalue";
@@ -157,304 +156,250 @@ namespace Aria::Internal {
         }
     }
 
-#pragma endregion
+    struct Decl;
 
-    struct CopyConstructorDecl;
-    struct DestructorDecl;
+    struct BooleanConstantExpr {
+        BooleanConstantExpr(bool value)
+            : Value(value) {}
 
-    struct Expr : public Stmt {
-        Expr(CompilationContext* ctx, SourceLocation loc, SourceRange range)
-            : Stmt(ctx), Loc(loc), Range(range) {}
-
-        Expr(CompilationContext* ctx, SourceLocation loc, SourceRange range, TypeInfo* type)
-            : Stmt(ctx), Loc(loc), Range(range), m_Type(type) {}
-
-        inline TypeInfo* GetResolvedType() { return m_Type; }
-        inline void SetResolvedType(TypeInfo* type) { m_Type = type; }
-
-        inline ExprValueKind GetValueKind() const { return m_ValueKind; }
-        inline void SetValueKind(ExprValueKind kind) { m_ValueKind = kind; }
-
-        SourceLocation Loc;
-        SourceRange Range;
-
-        bool IsStmtExpr = false; // true is the expression is created as a statement (eg. x = 6 is a statement expression)
-
-    protected:
-        TypeInfo* m_Type = nullptr;
-        ExprValueKind m_ValueKind{};
-    };
-
-    struct BooleanConstantExpr final : public Expr {
-        BooleanConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, bool value)
-            : Expr(ctx, loc, range, TypeInfo::Create(ctx, PrimitiveType::Bool, false)), m_Value(value) {}
-
-        inline bool GetValue() const { return m_Value; }
-
-    private:
-        bool m_Value = false;
+        bool Value = false;
     };
     
-    struct CharacterConstantExpr final : public Expr {
-        CharacterConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, i8 value)
-            : Expr(ctx, loc, range, TypeInfo::Create(ctx, PrimitiveType::Char, false)), m_Value(value) {}
+    struct CharacterConstantExpr {
+        CharacterConstantExpr(i8 value)
+            : Value(value) {}
 
-        inline i8 GetValue() const { return m_Value; }
-
-    private:
-        i8 m_Value = 0;
+        i8 Value = 0;
     };
     
-    struct IntegerConstantExpr final : public Expr {
-        IntegerConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, u64 value, TypeInfo* resolvedType)
-            : Expr(ctx, loc, range, resolvedType), m_Value(value) {}
+    struct IntegerConstantExpr {
+        IntegerConstantExpr(u64 value)
+            : Value(value) {}
 
-        inline u64 GetValue() const { return m_Value; }
-
-    private:
-        u64 m_Value = 0;
+        u64 Value = 0;
     };
     
-    struct FloatingConstantExpr final : public Expr {
-        FloatingConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, f64 value)
-            : Expr(ctx, loc, range, TypeInfo::Create(ctx, PrimitiveType::Double, false)), m_Value(value) {}
+    struct FloatingConstantExpr {
+        FloatingConstantExpr(f64 value)
+            : Value(value) {}
 
-        inline f64 GetValue() const { return m_Value; }
-
-    private:
-        f64 m_Value = 0.0;
+        f64 Value = 0.0;
     };
 
-    struct StringConstantExpr final : public Expr {
-        StringConstantExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, StringView value)
-            : Expr(ctx, loc, range, TypeInfo::Create(ctx, PrimitiveType::String, false)), m_Value(value) {}
+    struct StringConstantExpr {
+        StringConstantExpr(StringView value)
+            : Value(value) {}
 
-        inline StringView GetValue() const { return m_Value; }
-
-    private:
-        StringView m_Value;
+        StringView Value;
     };
 
-    struct DeclRefExpr final : public Expr {
-        DeclRefExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, StringView identifier)
-            : Expr(ctx, loc, range), m_Identifier(identifier) {}
+    struct DeclRefExpr {
+        DeclRefExpr(StringView identifier)
+            : Identifier(identifier) {}
 
-        inline std::string GetIdentifier() const { return fmt::format("{}", m_Identifier); }
-        inline StringView GetRawIdentifier() const { return m_Identifier; }
-
-        inline DeclRefKind GetKind() const { return m_Kind; }
-        inline void SetKind(DeclRefKind kind) { m_Kind = kind; }
-
-    private:
-        StringView m_Identifier;
-        DeclRefKind m_Kind = DeclRefKind::LocalVar;
+        StringView Identifier;
+        DeclRefKind Kind = DeclRefKind::LocalVar;
     };
 
-    struct MemberExpr final : public Expr {
-        MemberExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, StringView member, Expr* parent)
-            : Expr(ctx, loc, range), m_Member(member), m_Parent(parent) {}
+    struct MemberExpr {
+        MemberExpr(StringView member, Expr* parent)
+            : Member(member), Parent(parent) {}
 
-        inline StringView GetMember() const { return m_Member; }
-
-        inline Expr* GetParent() { return m_Parent; }
-        inline void SetParent(Expr* parent) { m_Parent = parent; }
-
-        inline TypeInfo* GetParentType() { return m_ParentType; }
-        inline const TypeInfo* GetParentType() const { return m_ParentType; }
-        inline void SetParentType(TypeInfo* type) { m_ParentType = type; }
-
-    private:
-        StringView m_Member;
-        Expr* m_Parent = nullptr;
-
-        TypeInfo* m_ParentType = nullptr;
+        StringView Member;
+        Expr* Parent = nullptr;
+        TypeInfo* ParentType = nullptr;
     };
 
-    struct SelfExpr final : public Expr {
-        SelfExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range)
-            : Expr(ctx, loc, range) {}
+    struct SelfExpr {
+        SelfExpr() {}
     };
 
     // TemporaryExpr
     // Represents a temporary expression
     // eg. Print("Hello world");
     // Here "Hello world" will call a constructor that allocates memory and therefore its destructor needs to be called
-    struct TemporaryExpr final : public Expr {
-        TemporaryExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr, TypeInfo* type, DestructorDecl* destructor)
-            : Expr(ctx, loc, range, type), m_Expression(expr), m_Destructor(destructor) {}
+    struct TemporaryExpr {
+        TemporaryExpr(Expr* expr, TypeInfo* type, Decl* destructor)
+            : Expression(expr), Destructor(destructor) {}
 
-        inline Expr* GetExpression() { return m_Expression; }
-        inline DestructorDecl* GetDestructor() { return m_Destructor; }
-
-    private:
-        Expr* m_Expression = nullptr;
-        DestructorDecl* m_Destructor = nullptr;
+        Expr* Expression = nullptr;
+        Decl* Destructor = nullptr;
     };
 
-    // ExprWithCleanups
-    // Wraps an entire expression which holds some temporaries
-    // The purpose of this node is to let the codegen know when destructors should be called
-    // eg. Print("Hello world");
-    // Here the entire expression will be wrapped inside of a "ExprWithCleanups",
-    // Because "Hello world" is a temporary expression
-    struct ExprWithCleanups final : public Expr {
-        ExprWithCleanups(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr, TypeInfo* type)
-            : Expr(ctx, loc, range, type), m_Expression(expr) {}
+    struct CopyExpr {
+        CopyExpr(Expr* expr, TypeInfo* type, Decl* constructor)
+            : Expression(expr), Constructor(constructor) {}
 
-        inline Expr* GetExpression() { return m_Expression; }
-
-    private:
-        Expr* m_Expression = nullptr;
+        Expr* Expression = nullptr;
+        Decl* Constructor = nullptr;
     };
 
-    struct CopyExpr final : public Expr {
-        CopyExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr, TypeInfo* type, CopyConstructorDecl* constructor)
-            : Expr(ctx, loc, range, type), m_Expression(expr), m_Constructor(constructor) {}
+    struct CallExpr {
+        CallExpr(Expr* callee, TinyVector<Expr*> args)
+            : Callee(callee), Arguments(args) {}
 
-        inline Expr* GetExpression() { return m_Expression; }
-        inline CopyConstructorDecl* GetConstructor() { return m_Constructor; }
-
-    private:
-        Expr* m_Expression = nullptr;
-        CopyConstructorDecl* m_Constructor = nullptr;
+        Expr* Callee;
+        TinyVector<Expr*> Arguments;
     };
 
-    struct CallExpr final : public Expr {
-        CallExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, DeclRefExpr* callee, TinyVector<Expr*> args)
-            : Expr(ctx, loc, range), m_Callee(callee), m_Arguments(args) {}
-
-        inline Expr* GetCallee() { return m_Callee; }
-
-        inline TinyVector<Expr*> GetArguments() const { return m_Arguments; }
-        inline void SetArgument(size_t index, Expr* expr) { m_Arguments.Items[index] = expr; }
-
-    private:
-        Expr* m_Callee;
-        TinyVector<Expr*> m_Arguments;
-    };
-
-    struct MethodCallExpr final : public Expr {
-        MethodCallExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, MemberExpr* callee, TinyVector<Expr*> args)
-            : Expr(ctx, loc, range), m_Callee(callee), m_Arguments(args) {}
+    struct MethodCallExpr {
+        MethodCallExpr(Expr* callee, TinyVector<Expr*> args)
+            : Callee(callee), Arguments(args) {}
     
-        inline MemberExpr* GetCallee() { return m_Callee; }
-    
-        inline TinyVector<Expr*> GetArguments() const { return m_Arguments; }
-        inline void SetArgument(size_t index, Expr* expr) { m_Arguments.Items[index] = expr; }
-    
-    private:
-        MemberExpr* m_Callee;
-        TinyVector<Expr*> m_Arguments;
+        Expr* Callee;
+        TinyVector<Expr*> Arguments;
     };
     
     // ParenExpr
     // At its core it just wraps an expression
     // These kinds of expressions are usually from the actual source code
     // eg. 1 + (2 - 3)
-    struct ParenExpr final : public Expr {
-        ParenExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr)
-            : Expr(ctx, loc, range), m_Expression(expr) {}
+    struct ParenExpr {
+        ParenExpr(Expr* expr)
+            :  Expression(expr) {}
 
-        inline Expr* GetChildExpr() { return m_Expression; }
-        inline void SetChildExpr(Expr* newExpr) { m_Expression = newExpr; }
-
-    private:
-        Expr* m_Expression = nullptr;
+        Expr* Expression = nullptr;
     };
     
     // CastExpr
     // Represents an explicit cast in the original source code
     // This node should never represent an implicit cast, for that use ImplicitCastExpr
     // eg. int a = (int)5.5;
-    struct CastExpr final : public Expr {
-        CastExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr, StringView parsedType)
-            : Expr(ctx, loc, range), m_Expression(expr), m_ParsedDestinationType(parsedType) {}
+    struct CastExpr {
+        CastExpr(Expr* expr, TypeInfo* type)
+            : Expression(expr), Type(type) {}
 
-        inline Expr* GetChildExpr() { return m_Expression; }
-        inline void SetChildExpr(Expr* newExpr) { m_Expression = newExpr; }
-
-        inline StringView GetParsedType() const { return m_ParsedDestinationType; }
-
-        inline CastKind GetCastKind() const { return m_CastKind; }
-        inline void SetCastType(CastKind kind) { m_CastKind = kind; }
-
-    private:
-        Expr* m_Expression = nullptr;
-        StringView m_ParsedDestinationType;
-
-        CastKind m_CastKind = CastKind::Integral;
+        Expr* Expression = nullptr;
+        TypeInfo* Type = nullptr;
+        CastKind CastKind = CastKind::Invalid;
     };
 
     // ImplicitCastExpr
     // Represents an implicit cast automatically inserted by the type checker/semantic analyzer
     // eg. float a = 5; -> here "5" is implicitly converted to a float
-    struct ImplicitCastExpr final : public Expr {
-        ImplicitCastExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr, CastKind castKind)
-            : Expr(ctx, loc, range), m_Expression(expr), m_CastKind(castKind) {}
+    struct ImplicitCastExpr {
+        ImplicitCastExpr(Expr* expr, CastKind castKind)
+            : Expression(expr), CastKind(castKind) {}
 
-        inline Expr* GetChildExpr() { return m_Expression; }
-
-        inline CastKind GetCastKind() const { return m_CastKind; }
-        inline void SetCastType(CastKind kind) { m_CastKind = kind; }
-
-    private:
-        Expr* m_Expression = nullptr;
-
-        CastKind m_CastKind = CastKind::Integral;
+        Expr* Expression = nullptr;
+        CastKind CastKind = CastKind::Invalid;
     };
     
-    struct UnaryOperatorExpr final : public Expr {
-        UnaryOperatorExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr, UnaryOperatorKind op)
-            : Expr(ctx, loc, range), m_Expression(expr), m_Operator(op) {}
+    struct UnaryOperatorExpr {
+        UnaryOperatorExpr(Expr* expr, UnaryOperatorKind op)
+            : Expression(expr), Operator(op) {}
 
-        inline Expr* GetChildExpr() { return m_Expression; }
-        inline void SetChildExpr(Expr* expr) { m_Expression = expr; }
-
-        inline UnaryOperatorKind GetUnaryOperator() const { return m_Operator; }
-
-    private:
-        Expr* m_Expression = nullptr;
-        UnaryOperatorKind m_Operator = UnaryOperatorKind::Invalid;
+        Expr* Expression = nullptr;
+        UnaryOperatorKind Operator = UnaryOperatorKind::Invalid;
     };
     
-    struct BinaryOperatorExpr final : public Expr {
-        BinaryOperatorExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* lhs, Expr* rhs, BinaryOperatorKind op)
-            : Expr(ctx, loc, range), m_LHS(lhs), m_RHS(rhs), m_Operator(op) {}
+    struct BinaryOperatorExpr {
+        BinaryOperatorExpr(Expr* lhs, Expr* rhs, BinaryOperatorKind op)
+            : LHS(lhs), RHS(rhs), Operator(op) {}
 
-        inline Expr* GetLHS() { return m_LHS; }
-        inline void SetLHS(Expr* expr) { m_LHS = expr; }
-
-        inline Expr* GetRHS() { return m_RHS; }
-        inline void SetRHS(Expr* expr) { m_RHS = expr; }
-
-        inline BinaryOperatorKind GetBinaryOperator() const { return m_Operator; }
-
-    private:
-        Expr* m_LHS = nullptr;
-        Expr* m_RHS = nullptr;
-        BinaryOperatorKind m_Operator = BinaryOperatorKind::Invalid;
+        Expr* LHS = nullptr;
+        Expr* RHS = nullptr;
+        BinaryOperatorKind Operator = BinaryOperatorKind::Invalid;
     };
 
     // CompoundAssignExpr
     // Represents a binary operator which does both a normal binary operation (+, -, ..) and an assignment (=)
     // In code this looks like:
     // foo += bar;
-    struct CompoundAssignExpr final : public Expr {
-        CompoundAssignExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* lhs, Expr* rhs, BinaryOperatorKind op)
-            : Expr(ctx, loc, range), m_LHS(lhs), m_RHS(rhs), m_Operator(op) {}
+    struct CompoundAssignExpr {
+        CompoundAssignExpr(Expr* lhs, Expr* rhs, BinaryOperatorKind op)
+            : LHS(lhs), RHS(rhs), Operator(op) {}
 
-        inline Expr* GetLHS() { return m_LHS; }
-        inline void SetLHS(Expr* expr) { m_LHS = expr; }
+        Expr* LHS = nullptr;
+        Expr* RHS = nullptr;
+        BinaryOperatorKind Operator = BinaryOperatorKind::Invalid;
+    };
 
-        inline Expr* GetRHS() { return m_RHS; }
-        inline void SetRHS(Expr* expr) { m_RHS = expr; }
+    struct Expr {
+        template <typename T>
+        static inline Expr* Create(CompilationContext* ctx, 
+            SourceLocation loc, SourceRange range,
+            ExprKind kind, 
+            ExprValueKind valueKind, TypeInfo* type, 
+            T t) { return ctx->Allocate<Expr>(loc, range, kind, valueKind, type, t); }
 
-        inline BinaryOperatorKind GetBinaryOperator() const { return m_Operator; }
+        ExprKind Kind = ExprKind::Invalid;
+        ExprValueKind ValueKind = ExprValueKind::RValue;
+        TypeInfo* Type = nullptr;
 
-    private:
-        Expr* m_LHS = nullptr;
-        Expr* m_RHS = nullptr;
-        BinaryOperatorKind m_Operator = BinaryOperatorKind::Invalid;
+        SourceLocation Loc;
+        SourceRange Range;
+
+        union {
+            BooleanConstantExpr BooleanConstant;
+            CharacterConstantExpr CharacterConstant;
+            IntegerConstantExpr IntegerConstant;
+            FloatingConstantExpr FloatingConstant;
+            StringConstantExpr StringConstant;
+            DeclRefExpr DeclRef;
+            MemberExpr Member;
+            SelfExpr Self;
+            TemporaryExpr Temporary;
+            CallExpr Call;
+            MethodCallExpr MethodCall;
+            ParenExpr Paren;
+            CastExpr Cast;
+            ImplicitCastExpr ImplicitCast;
+            UnaryOperatorExpr UnaryOperator;
+            BinaryOperatorExpr BinaryOperator;
+            CompoundAssignExpr CompoundAssign;
+        };
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, BooleanConstantExpr booleanConstant)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), BooleanConstant(booleanConstant) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, CharacterConstantExpr characterConstant)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), CharacterConstant(characterConstant) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, IntegerConstantExpr integerConstant)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), IntegerConstant(integerConstant) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, FloatingConstantExpr floatingConstant)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), FloatingConstant(floatingConstant) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, StringConstantExpr stringConstant)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), StringConstant(stringConstant) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, DeclRefExpr declRef)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), DeclRef(declRef) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, MemberExpr member)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Member(member) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, SelfExpr self)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Self(self) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, TemporaryExpr temporary)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Temporary(temporary) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, CallExpr call)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Call(call) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, MethodCallExpr methodCall)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), MethodCall(methodCall) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, ParenExpr paren)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Paren(paren) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, CastExpr cast)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Cast(cast) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, ImplicitCastExpr implicitCast)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), ImplicitCast(implicitCast) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, UnaryOperatorExpr unaryOperator)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), UnaryOperator(unaryOperator) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, BinaryOperatorExpr binaryOperator)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), BinaryOperator(binaryOperator) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, CompoundAssignExpr compoundAssign)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), CompoundAssign(compoundAssign) {}
     };
 
 } // namespace Aria::Internal

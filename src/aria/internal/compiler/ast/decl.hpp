@@ -1,208 +1,151 @@
 #pragma once
 
-#include "aria/internal/compiler/ast/stmt.hpp"
+#include <aria/internal/compiler/ast/stmt.hpp>
 
 namespace Aria::Internal {
 
-#pragma region BuiltinCopyConstructorKind
+    enum class DeclKind {
+        Invalid = 0,
 
-    enum class BuiltinCopyConstructorKind {
-        String
+        TranslationUnit,
+        Var,
+        Param,
+        Function,
+        Struct,
+        Field,
+        Method,
+        BuiltinCopyConstructor,
+        BuiltinDestructor
     };
 
-#pragma endregion
-
-#pragma region BuiltinDestructorKind
-
-    enum class BuiltinDestructorKind {
+    enum class BuiltinKind {
         String
     };
-
-#pragma endregion
 
     struct Expr;
-
-    struct Decl : public Stmt {
-        Decl(CompilationContext* ctx)
-            : Stmt(ctx) {}
-    };
+    struct Stmt;
 
     // Represents an entire translation unit
     // This should always be the root node of the AST
-    struct TranslationUnitDecl final : public Decl {
-        TranslationUnitDecl(CompilationContext* ctx, TinyVector<Stmt*> stmts)
-            : Decl(ctx), m_Stmts(stmts) {}
+    struct TranslationUnitDecl {
+        TranslationUnitDecl(TinyVector<Stmt*> stmts)
+            : Stmts(stmts) {}
 
-        TinyVector<Stmt*> GetStmts() const { return m_Stmts; }
-
-    private:
-        TinyVector<Stmt*> m_Stmts;
+        TinyVector<Stmt*> Stmts;
     };
 
-    struct VarDecl final : public Decl {
-        VarDecl(CompilationContext* ctx, StringView identifier, StringView parsedType, Expr* defaultValue)
-            : Decl(ctx), m_Identifier(identifier), m_ParsedType(parsedType), m_DefaultValue(defaultValue) {}
+    struct VarDecl {
+        VarDecl(StringView identifier, TypeInfo* type, Expr* defaultValue)
+            : Identifier(identifier), Type(type), DefaultValue(defaultValue) {}
 
-        inline std::string GetIdentifier() const { return fmt::format("{}", m_Identifier); }
-        inline StringView GetRawIdentifier() const { return m_Identifier; }
-
-        inline StringView GetParsedType() const { return m_ParsedType; }
-
-        inline Expr* GetDefaultValue() { return m_DefaultValue; }
-        inline const Expr* GetDefaultValue() const { return m_DefaultValue; }
-        inline void SetDefaultValue(Expr* expr) { m_DefaultValue = expr; }
-
-        inline TypeInfo* GetResolvedType() { return m_ResolvedType; }
-        inline const TypeInfo* GetResolvedType() const { return m_ResolvedType; }
-        inline void SetResolvedType(TypeInfo* type) { m_ResolvedType = type; }
-
-    private:
-        StringView m_Identifier;
-        StringView m_ParsedType;
-        Expr* m_DefaultValue = nullptr;
-
-        TypeInfo* m_ResolvedType = nullptr;
+        StringView Identifier;
+        TypeInfo* Type = nullptr;
+        Expr* DefaultValue = nullptr;
     };
 
-    struct ParamDecl final : public Decl {
-        ParamDecl(CompilationContext* ctx, StringView identifier, StringView parsedType)
-            : Decl(ctx), m_Identifier(identifier), m_ParsedType(parsedType) {}
+    struct ParamDecl {
+        ParamDecl(StringView identifier, TypeInfo* type)
+            : Identifier(identifier), Type(type) {}
 
-        inline std::string GetIdentifier() const { return fmt::format("{}", m_Identifier); }
-        inline StringView GetRawIdentifier() const { return m_Identifier; }
-
-        inline StringView GetParsedType() const { return m_ParsedType; }
-
-        inline TypeInfo* GetResolvedType() { return m_ResolvedType; }
-        inline const TypeInfo* GetResolvedType() const { return m_ResolvedType; }
-        inline void SetResolvedType(TypeInfo* type) { m_ResolvedType = type; }
-
-    private:
-        StringView m_Identifier;
-        StringView m_ParsedType;
-
-        TypeInfo* m_ResolvedType = nullptr;
+        StringView Identifier;
+        TypeInfo* Type = nullptr;
     };
 
-    struct FunctionDecl final : public Decl {
-        FunctionDecl(CompilationContext* ctx, StringView identifier, StringView parsedType, TinyVector<ParamDecl*> params, bool external, CompoundStmt* body)
-            : Decl(ctx), m_Identifier(identifier), m_ParsedType(parsedType), m_Parameters(params), m_Extern(external), m_Body(body) {}
+    struct FunctionDecl {
+        FunctionDecl( StringView identifier, TypeInfo* type, TinyVector<ParamDecl> params, BlockStmt body)
+            : Identifier(identifier), Type(type), Parameters(params), Body(body) {}
 
-        inline std::string GetIdentifier() const { return fmt::format("{}", m_Identifier); }
-        inline StringView GetRawIdentifier() const { return m_Identifier; }
-
-        inline StringView GetParsedType() const { return m_ParsedType; }
-
-        inline TinyVector<ParamDecl*> GetParameters() const { return m_Parameters; }
-        inline bool IsExtern() const { return m_Extern; }
-
-        inline CompoundStmt* GetBody() { return m_Body; }
-        inline const CompoundStmt* GetBody() const { return m_Body; }
-
-        inline TypeInfo* GetResolvedType() { return m_ResolvedType; }
-        inline const TypeInfo* GetResolvedType() const { return m_ResolvedType; }
-        inline void SetResolvedType(TypeInfo* type) { m_ResolvedType = type; }
-
-    private:
-        StringView m_Identifier;
-        StringView m_ParsedType;
-        TinyVector<ParamDecl*> m_Parameters;
-        bool m_Extern = false;
-
-        CompoundStmt* m_Body = nullptr;
-
-        TypeInfo* m_ResolvedType = nullptr;
+        StringView Identifier;
+        TypeInfo* Type = nullptr;
+        TinyVector<ParamDecl> Parameters;
+        BlockStmt Body;
     };
 
-    struct StructDecl final : public Decl {
-        StructDecl(CompilationContext* ctx, StringView identifier, TinyVector<Decl*> fields)
-            : Decl(ctx), m_Identifier(identifier), m_Fields(fields) {}
+    struct StructDecl {
+        StructDecl(StringView identifier, TinyVector<Decl*> fields)
+            : Identifier(identifier), Fields(fields) {}
 
-        inline std::string GetIdentifier() const { return fmt::format("{}", m_Identifier); }
-        inline StringView GetRawIdentifier() const { return m_Identifier; }
-
-        inline TinyVector<Decl*> GetFields() const { return m_Fields; }
-
-    private:
-        StringView m_Identifier;
-        TinyVector<Decl*> m_Fields;
+        StringView Identifier;
+        TinyVector<Decl*> Fields;
     };
 
-    struct FieldDecl final : public Decl {
-        FieldDecl(CompilationContext* ctx, StringView identifier, StringView parsedType)
-            : Decl(ctx), m_Identifier(identifier), m_ParsedType(parsedType) {}
+    struct FieldDecl {
+        FieldDecl(StringView identifier, StringView parsedType)
+            : Identifier(identifier), ParsedType(parsedType) {}
 
-        inline std::string GetIdentifier() const { return fmt::format("{}", m_Identifier); }
-        inline StringView GetRawIdentifier() const { return m_Identifier; }
-
-        inline StringView GetParsedType() const { return m_ParsedType; }
-
-        inline TypeInfo* GetResolvedType() { return m_ResolvedType; }
-        inline const TypeInfo* GetResolvedType() const { return m_ResolvedType; }
-        inline void SetResolvedType(TypeInfo* type) { m_ResolvedType = type; }
-
-    private:
-        StringView m_Identifier;
-        StringView m_ParsedType;
-        
-        TypeInfo* m_ResolvedType = nullptr;
+        StringView Identifier;
+        StringView ParsedType;
+        TypeInfo* ResolvedType = nullptr;
     };
 
-    struct MethodDecl final : public Decl {
-        MethodDecl(CompilationContext* ctx, StringView identifier, StringView parsedType, TinyVector<ParamDecl*> parameters, CompoundStmt* body)
-            : Decl(ctx), m_Identifier(identifier), m_Parameters(parameters), m_ParsedType(parsedType), m_Body(body) {}
+    struct MethodDecl {
+        MethodDecl(StringView identifier, StringView parsedType, TinyVector<ParamDecl*> parameters, BlockStmt body)
+            : Identifier(identifier), Parameters(parameters), ParsedType(parsedType), Body(body) {}
 
-        inline std::string GetIdentifier() const { return fmt::format("{}", m_Identifier); }
-        inline StringView GetRawIdentifier() const { return m_Identifier; }
-
-        inline StringView GetParsedType() const { return m_ParsedType; }
-
-        inline TinyVector<ParamDecl*> GetParameters() const { return m_Parameters; }
-
-        inline CompoundStmt* GetBody() { return m_Body; }
-        inline const CompoundStmt* GetBody() const { return m_Body; }
-
-        inline TypeInfo* GetResolvedType() { return m_ResolvedType; }
-        inline const TypeInfo* GetResolvedType() const { return m_ResolvedType; }
-        inline void SetResolvedType(TypeInfo* type) { m_ResolvedType = type; }
-
-    private:
-        StringView m_Identifier;
-        StringView m_ParsedType;
-        TinyVector<ParamDecl*> m_Parameters;
-        CompoundStmt* m_Body = nullptr;
-
-        TypeInfo* m_ResolvedType = nullptr;
+        StringView Identifier;
+        StringView ParsedType;
+        TinyVector<ParamDecl*> Parameters;
+        BlockStmt Body;
+        TypeInfo* ResolvedType = nullptr;
     };
 
-    struct CopyConstructorDecl : public Decl {
-        CopyConstructorDecl(CompilationContext* ctx)
-            : Decl(ctx) {}
+    struct BuiltinCopyConstructorDecl {
+        BuiltinCopyConstructorDecl(BuiltinKind kind)
+            : Kind(kind) {}
+
+        BuiltinKind Kind = BuiltinKind::String;
     };
 
-    struct BuiltinCopyConstructorDecl final : public CopyConstructorDecl {
-        BuiltinCopyConstructorDecl(CompilationContext* ctx, BuiltinCopyConstructorKind kind)
-            : CopyConstructorDecl(ctx), m_Kind(kind) {}
+    struct BuiltinDestructorDecl {
+        BuiltinDestructorDecl(BuiltinKind kind)
+            : Kind(kind) {}
 
-        BuiltinCopyConstructorKind GetKind() const { return m_Kind; }
-
-    private:
-        BuiltinCopyConstructorKind m_Kind{};
+        BuiltinKind Kind = BuiltinKind::String;
     };
 
-    struct DestructorDecl : public Decl {
-        DestructorDecl(CompilationContext* ctx)
-            : Decl(ctx) {}
-    };
+    struct Decl {
+        template <typename T>
+        static inline Decl* Create(CompilationContext* ctx, SourceLocation loc, SourceRange range, DeclKind kind, T t) { return ctx->Allocate<Decl>(loc, range, kind, t); }
 
-    struct BuiltinDestructorDecl final : public DestructorDecl {
-        BuiltinDestructorDecl(CompilationContext* ctx, BuiltinDestructorKind kind)
-            : DestructorDecl(ctx), m_Kind(kind) {}
+        DeclKind Kind = DeclKind::Invalid;
 
-        BuiltinDestructorKind GetKind() const { return m_Kind; }
+        SourceLocation Loc;
+        SourceRange Range;
 
-    private:
-        BuiltinDestructorKind m_Kind{};
+        union {
+            TranslationUnitDecl TranslationUnit;
+            VarDecl Var;
+            ParamDecl Param;
+            FunctionDecl Function;
+            FieldDecl Field;
+            MethodDecl Method;
+            BuiltinCopyConstructorDecl BuiltinCopyConstructor;
+            BuiltinDestructorDecl BuiltinDestructor;
+        };
+
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, TranslationUnitDecl translationUnit)
+            : Loc(loc), Range(range), Kind(kind), TranslationUnit(translationUnit) {}
+
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, VarDecl var)
+            : Loc(loc), Range(range), Kind(kind), Var(var) {}
+
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, ParamDecl param)
+            : Loc(loc), Range(range), Kind(kind), Param(param) {}
+
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, FunctionDecl function)
+            : Loc(loc), Range(range), Kind(kind), Function(function) {}
+
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, FieldDecl field)
+            : Loc(loc), Range(range), Kind(kind), Field(field) {}
+
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, MethodDecl method)
+            : Loc(loc), Range(range), Kind(kind), Method(method) {}
+
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, BuiltinCopyConstructorDecl builtinCopyConstructor)
+            : Loc(loc), Range(range), Kind(kind), BuiltinCopyConstructor(builtinCopyConstructor) {}
+
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, BuiltinDestructorDecl builtinDestructor)
+            : Loc(loc), Range(range), Kind(kind), BuiltinDestructor(builtinDestructor) {}
     };
 
 } // namespace Aria::Internal

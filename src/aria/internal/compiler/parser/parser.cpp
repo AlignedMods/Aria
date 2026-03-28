@@ -25,8 +25,9 @@ namespace Aria::Internal {
             }
         }
 
-        TranslationUnitDecl* root = m_Context->Allocate<TranslationUnitDecl>(m_Context, stmts);
-        m_Context->SetRootASTNode(root);
+        TranslationUnitDecl root(stmts);
+        Decl* decl = Decl::Create(m_Context, SourceLocation(), SourceRange(), DeclKind::TranslationUnit, root);
+        m_Context->SetRootASTNode(Stmt::Create(m_Context, SourceLocation(), SourceRange(), StmtKind::Decl, decl));
     }
 
     Token* Parser::Peek(size_t count) {
@@ -66,102 +67,6 @@ namespace Aria::Internal {
         } else {
             return false;
         }
-    }
-
-    StringBuilder Parser::ParseVariableType() {
-        Token type = Consume();
-
-        StringBuilder strType;
-
-        switch (type.Kind) {
-            case TokenKind::Void:       strType.Append(m_Context, "void"); break;
-            case TokenKind::Bool:       strType.Append(m_Context, "bool"); break;
-            case TokenKind::Char:       strType.Append(m_Context, "char"); break;
-            case TokenKind::UChar:      strType.Append(m_Context, "uchar"); break;
-            case TokenKind::Short:      strType.Append(m_Context, "short"); break;
-            case TokenKind::UShort:     strType.Append(m_Context, "ushort"); break;
-            case TokenKind::Int:        strType.Append(m_Context, "int"); break;
-            case TokenKind::UInt:       strType.Append(m_Context, "uint"); break;
-            case TokenKind::Long:       strType.Append(m_Context, "long"); break;
-            case TokenKind::ULong:      strType.Append(m_Context, "ulong"); break;
-            case TokenKind::Float:      strType.Append(m_Context, "float"); break;
-            case TokenKind::Double:     strType.Append(m_Context, "double"); break;
-            case TokenKind::String:     strType.Append(m_Context, "string"); break;
-            case TokenKind::Identifier: strType.Append(m_Context, type.String); break;
-            default:                    strType.Append(m_Context, ""); break;
-        }
-
-        if (Match(TokenKind::LeftBracket)) {
-            Consume();
-            TryConsume(TokenKind::RightBracket, "']'");
-            strType.Append(m_Context, "[]");
-        }
-
-        if (Match(TokenKind::Ampersand)) {
-            Consume();
-            strType.Append(m_Context, "&");
-        }
-
-        return strType;
-    }
-
-    TinyVector<ParamDecl*> Parser::ParseFunctionParameters() {
-        TinyVector<ParamDecl*> params;
-
-        while (!Match(TokenKind::RightParen)) {
-            StringBuilder type = ParseVariableType();
-
-            Token& ident = Consume();
-            
-            ParamDecl* param = m_Context->Allocate<ParamDecl>(m_Context, ident.String, StringView(type.Data(), type.Size()));
-            
-            if (Match(TokenKind::Comma)) {
-                Consume();
-            }
-
-            params.Append(m_Context, param);
-        }
-
-        return params;
-    }
-
-    bool Parser::IsPrimitiveType() {
-        if (!Peek()) { return false; }
-
-        Token type = *Peek();
-
-        switch (type.Kind) {
-            case TokenKind::Void:
-            case TokenKind::Bool:
-            case TokenKind::Char:
-            case TokenKind::UChar:
-            case TokenKind::Short:
-            case TokenKind::UShort:
-            case TokenKind::Int:
-            case TokenKind::UInt:
-            case TokenKind::Long:
-            case TokenKind::ULong:
-            case TokenKind::Float:
-            case TokenKind::Double:
-            case TokenKind::String: return true;
-            default: return false;
-        }
-
-        return false;
-    }
-
-    bool Parser::IsVariableType() {
-        if (IsPrimitiveType()) { return true; }
-
-        if (Peek()->Kind == TokenKind::Identifier) {
-            if (m_DeclaredTypes.contains(fmt::format("{}", Peek()->String))) {
-                return true;
-            }
-
-            return false;
-        }
-
-        return false;
     }
 
     BinaryOperatorKind Parser::ParseOperator() {
@@ -266,14 +171,18 @@ namespace Aria::Internal {
             case TokenKind::False: {
                 Token& t = Consume();
     
-                final = m_Context->Allocate<BooleanConstantExpr>(m_Context, t.Range.Start, t.Range, false);
+                final = Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::BooleanConstant, 
+                    ExprValueKind::RValue, TypeInfo::Create(m_Context, PrimitiveType::Bool, false), 
+                    BooleanConstantExpr(false));
                 break;
             }
     
             case TokenKind::True: {
                 Token& t = Consume();
     
-                final = m_Context->Allocate<BooleanConstantExpr>(m_Context, t.Range.Start, t.Range, true);
+                final = Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::BooleanConstant, 
+                    ExprValueKind::RValue, TypeInfo::Create(m_Context, PrimitiveType::Bool, false), 
+                    BooleanConstantExpr(true));
                 break;
             }
     
@@ -281,62 +190,79 @@ namespace Aria::Internal {
                 Token& t = Consume();
     
                 int8_t ch = static_cast<int8_t>(value.String.Data()[0]);
-                final = m_Context->Allocate<CharacterConstantExpr>(m_Context, t.Range.Start, t.Range, ch);
+                final = Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::CharacterConstant, 
+                    ExprValueKind::RValue, TypeInfo::Create(m_Context, PrimitiveType::Char, false), 
+                    CharacterConstantExpr(ch));
                 break;
             }
     
             case TokenKind::IntLit: {
                 Token& t = Consume();
 
-                final = m_Context->Allocate<IntegerConstantExpr>(m_Context, t.Range.Start, t.Range, t.Integer, TypeInfo::Create(m_Context, PrimitiveType::Long, false));
+                final = Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::IntegerConstant,
+                    ExprValueKind::RValue, TypeInfo::Create(m_Context, PrimitiveType::Long, false), 
+                    IntegerConstantExpr(t.Integer));
                 break;
             }
 
             case TokenKind::UintLit: {
                 Token& t = Consume();
 
-                final = m_Context->Allocate<IntegerConstantExpr>(m_Context, t.Range.Start, t.Range, t.Integer, TypeInfo::Create(m_Context, PrimitiveType::ULong, false));
+                final = Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::IntegerConstant, 
+                    ExprValueKind::RValue, TypeInfo::Create(m_Context, PrimitiveType::ULong, false), 
+                    IntegerConstantExpr(t.Integer));
                 break;
             }
     
             case TokenKind::NumLit: {
                 Token& t = Consume();
     
-                final = m_Context->Allocate<FloatingConstantExpr>(m_Context, t.Range.Start, t.Range, t.Number);
+                final = Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::FloatingConstant,
+                    ExprValueKind::RValue, TypeInfo::Create(m_Context, PrimitiveType::Double, false), 
+                    FloatingConstantExpr(t.Number));
                 break;
             }
     
             case TokenKind::StrLit: {
                 Token& t = Consume();
     
-                final = m_Context->Allocate<StringConstantExpr>(m_Context, t.Range.Start, t.Range, t.String);
+                final = Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::StringConstant,
+                    ExprValueKind::RValue, TypeInfo::Create(m_Context, PrimitiveType::String, false), 
+                    IntegerConstantExpr(t.Integer));
                 break;
             }
     
             case TokenKind::Minus: {
                 Token& m = Consume();
-    
-                Expr* expr = ParseValue();
-                final = m_Context->Allocate<UnaryOperatorExpr>(m_Context, m.Range.Start, SourceRange(m.Range.Start, expr->Range.End), expr, UnaryOperatorKind::Negate);
+                Expr* subExpr = ParseValue();
+
+                final = Expr::Create(m_Context, m.Range.Start, m.Range, ExprKind::UnaryOperator,
+                    ExprValueKind::RValue, nullptr,
+                    UnaryOperatorExpr(subExpr, UnaryOperatorKind::Negate));
                 break;
             }
     
             case TokenKind::LeftParen: {
                 Token p = Consume();
     
-                if (IsVariableType()) {
-                    StringBuilder type = ParseVariableType();
+                if (IsType()) {
+                    TypeInfo* type = ParseType();
 
                     TryConsume(TokenKind::RightParen, "')'");
-                    Expr* expr = ParseValue();
+                    Expr* subExpr = ParseValue();
 
-                    final = m_Context->Allocate<CastExpr>(m_Context, p.Range.Start, SourceRange(p.Range.Start, expr->Range.End), expr, StringView(type.Data(), type.Size()));
+                    final = Expr::Create(m_Context, p.Range.Start, SourceRange(p.Range.Start, subExpr->Range.End), ExprKind::Cast,
+                        subExpr->ValueKind, subExpr->Type, 
+                        CastExpr(subExpr, type));
                 } else {
-                    Expr* expr = ParseExpression();
+                    Expr* subExpr = ParseExpression();
                     Token* rp = TryConsume(TokenKind::RightParen, "')'");
 
                     if (!rp) { return nullptr; }
-                    final = m_Context->Allocate<ParenExpr>(m_Context, p.Range.Start, SourceRange(p.Range.Start, rp->Range.End), expr);
+
+                    final = Expr::Create(m_Context, p.Range.Start, SourceRange(p.Range.Start, rp->Range.End), ExprKind::Paren,
+                        subExpr->ValueKind, subExpr->Type, 
+                        ParenExpr(subExpr));
                 }
                 
                 break;
@@ -345,14 +271,18 @@ namespace Aria::Internal {
             case TokenKind::Self: {
                 Token s = Consume();
 
-                final = m_Context->Allocate<SelfExpr>(m_Context, s.Range.Start, s.Range);
+                final = Expr::Create(m_Context, s.Range.Start, s.Range, ExprKind::Self,
+                    ExprValueKind::LValue, nullptr, 
+                    SelfExpr());
                 break;
             }
     
             case TokenKind::Identifier: {
                 Token i = Consume();
 
-                final = m_Context->Allocate<DeclRefExpr>(m_Context, i.Range.Start, i.Range, i.String);
+                final = Expr::Create(m_Context, i.Range.Start, i.Range, ExprKind::DeclRef,
+                    ExprValueKind::LValue, nullptr, 
+                    DeclRefExpr(i.String));
 
                 // Check if this is a function call
                 if (Match(TokenKind::LeftParen)) {
@@ -373,7 +303,9 @@ namespace Aria::Internal {
                     Token* rp = TryConsume(TokenKind::RightParen, "')'");
                     if (!rp) { return nullptr; }
     
-                    final = m_Context->Allocate<CallExpr>(m_Context, lp.Range.Start, SourceRange(i.Range.Start, rp->Range.End), GetNode<DeclRefExpr>(final), args);
+                    final = Expr::Create(m_Context, lp.Range.Start, SourceRange(i.Range.Start, rp->Range.End), ExprKind::Call,
+                        ExprValueKind::RValue, nullptr, 
+                        CallExpr(final, args));
                 }
 
                 break;
@@ -388,7 +320,9 @@ namespace Aria::Internal {
                 Token* member = TryConsume(TokenKind::Identifier, "identifier");
                 if (!member) { return nullptr; }
 
-                final = m_Context->Allocate<MemberExpr>(m_Context, op.Range.Start, SourceRange(final->Range.Start, member->Range.End), member->String, final);
+                final = Expr::Create(m_Context, op.Range.Start, SourceRange(final->Range.Start, member->Range.End), ExprKind::Member,
+                    ExprValueKind::LValue, nullptr, 
+                    MemberExpr(member->String, final));
 
                 if (Match(TokenKind::LeftParen)) {
                     Token& lp = Consume();
@@ -407,7 +341,9 @@ namespace Aria::Internal {
                     Token* rp = TryConsume(TokenKind::RightParen, "')'");
                     if (!rp) { return nullptr; }
 
-                    final = m_Context->Allocate<MethodCallExpr>(m_Context, lp.Range.Start, SourceRange(final->Range.Start, rp->Range.End), GetNode<MemberExpr>(final), args);
+                    final = Expr::Create(m_Context, lp.Range.Start, SourceRange(final->Range.Start, rp->Range.End), ExprKind::MethodCall,
+                        ExprValueKind::LValue, nullptr, 
+                        MethodCallExpr(final, args));
                 }
             }
         }
@@ -439,9 +375,13 @@ namespace Aria::Internal {
                 op == BinaryOperatorKind::CompoundAnd ||
                 op == BinaryOperatorKind::CompoundOr  ||
                 op == BinaryOperatorKind::CompoundXor) {
-                lhsExpr = m_Context->Allocate<CompoundAssignExpr>(m_Context, o.Range.Start, SourceRange(lhsLoc, Peek(-1)->Range.End), lhsExpr, rhsExpr, op);
+                lhsExpr = Expr::Create(m_Context, o.Range.Start, SourceRange(lhsLoc, Peek(-1)->Range.End), ExprKind::CompoundAssign, 
+                    ExprValueKind::LValue, nullptr, 
+                    CompoundAssignExpr(lhsExpr, rhsExpr, op));
             } else {
-                lhsExpr = m_Context->Allocate<BinaryOperatorExpr>(m_Context, o.Range.Start, SourceRange(lhsLoc, Peek(-1)->Range.End), lhsExpr, rhsExpr, op);
+                lhsExpr = Expr::Create(m_Context, o.Range.Start, SourceRange(lhsLoc, Peek(-1)->Range.End), ExprKind::BinaryOperator, 
+                    ExprValueKind::RValue, nullptr, 
+                    BinaryOperatorExpr(lhsExpr, rhsExpr, op));
             }
 
             lhsLoc = Peek()->Range.Start;
@@ -450,43 +390,96 @@ namespace Aria::Internal {
         return lhsExpr;
     }
 
-    Stmt* Parser::ParseCompound() {
-        TinyVector<Stmt*> stmts;
-        Token* l = TryConsume(TokenKind::LeftCurly, "'{'");
+    bool Parser::IsPrimitiveType() {
+        if (!Peek()) { return false; }
 
-        while (!Match(TokenKind::RightCurly)) {
-            Stmt* stmt = ParseToken();
-            if (stmt != nullptr) {
-                stmts.Append(m_Context, stmt);
-            }
+        Token type = *Peek();
+
+        switch (type.Kind) {
+            case TokenKind::Void:
+            case TokenKind::Bool:
+            case TokenKind::Char:
+            case TokenKind::UChar:
+            case TokenKind::Short:
+            case TokenKind::UShort:
+            case TokenKind::Int:
+            case TokenKind::UInt:
+            case TokenKind::Long:
+            case TokenKind::ULong:
+            case TokenKind::Float:
+            case TokenKind::Double:
+            case TokenKind::String: return true;
+            default: return false;
         }
 
-        TryConsume(TokenKind::RightCurly, "'}'");
-
-        return m_Context->Allocate<CompoundStmt>(m_Context, stmts);
+        return false;
     }
 
-    Stmt* Parser::ParseCompoundInline() {
-        if (Match(TokenKind::LeftCurly)) {
-            return ParseCompound();
+    bool Parser::IsType() {
+        if (IsPrimitiveType()) { return true; }
+
+        if (Peek()->Kind == TokenKind::Identifier) {
+            if (m_DeclaredTypes.contains(fmt::format("{}", Peek()->String))) {
+                return true;
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+
+    TypeInfo* Parser::ParseType() {
+        ARIA_ASSERT(IsType(), "Cannot parse a type out of a non type");
+
+        TypeInfo* type = TypeInfo::Create(m_Context, PrimitiveType::Invalid, false);
+
+        switch (Consume().Kind) {
+            case TokenKind::Void:       type->Type = PrimitiveType::Void; break;
+
+            case TokenKind::Bool:       type->Type = PrimitiveType::Bool; break;
+
+            case TokenKind::Char:       type->Type = PrimitiveType::Char; break;
+            case TokenKind::UChar:      type->Type = PrimitiveType::UChar; break;
+            case TokenKind::Short:      type->Type = PrimitiveType::Short; break;
+            case TokenKind::UShort:     type->Type = PrimitiveType::UShort; break;
+            case TokenKind::Int:        type->Type = PrimitiveType::Int; break;
+            case TokenKind::UInt:       type->Type = PrimitiveType::UInt; break;
+            case TokenKind::Long:       type->Type = PrimitiveType::Long; break;
+            case TokenKind::ULong:      type->Type = PrimitiveType::ULong; break;
+
+            case TokenKind::String:     type->Type = PrimitiveType::String; break;
+
+            case TokenKind::Identifier: {
+                StringView ident = Peek(-1)->String;
+                type->Type = PrimitiveType::Structure;
+                type->Data = StructDeclaration(ident, m_DeclaredTypes.at(fmt::format("{}", ident)));
+                break;
+            }
+
+            default: ARIA_UNREACHABLE(); break;
+        }
+
+        if (Match(TokenKind::Ampersand)) {
+            Consume();
+            type->Reference = true;
+        }
+
+        return type;
+    }
+
+    Decl* Parser::ParseTypeDecl() {
+        SourceLocation start = Peek()->Range.Start;
+        TypeInfo* type = ParseType();
+
+        if (Peek(1) && Peek(1)->Kind == TokenKind::LeftParen) {
+            return ParseFunctionDecl(type, start);
         } else {
-            return ParseToken();
+            return ParseVariableDecl(type, start);
         }
     }
 
-    Stmt* Parser::ParseType(bool external) {
-        StringBuilder type = ParseVariableType();
-
-        if (Peek(1)) {
-            if (Peek(1)->Kind == TokenKind::LeftParen) {
-                return ParseFunctionDecl(type, Peek(-1)->Range, external);
-            }
-        }
-
-        return ParseVariableDecl(type, Peek(-1)->Range);
-    }
-
-    Stmt* Parser::ParseVariableDecl(StringBuilder type, SourceRange start) {
+    Decl* Parser::ParseVariableDecl(TypeInfo* type, SourceLocation start) {
         Token* ident = TryConsume(TokenKind::Identifier, "identifier");
         Expr* value = nullptr;
 
@@ -496,140 +489,204 @@ namespace Aria::Internal {
                 value = ParseExpression();
             }
 
-            return m_Context->Allocate<VarDecl>(m_Context, ident->String, StringView(type.Data(), type.Size()), value);
+            return Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Var, VarDecl(ident->String, type, value));
         } else {
             StabilizeParser();
             return nullptr;
         }
     }
 
-    Stmt* Parser::ParseFunctionDecl(StringBuilder returnType, SourceRange start, bool external) {
+    Decl* Parser::ParseFunctionDecl(TypeInfo* type, SourceLocation start) {
         Token* ident = TryConsume(TokenKind::Identifier, "identifier");
 
         if (ident) {
-            TinyVector<ParamDecl*> params;
+            TinyVector<ParamDecl> params;
 
             if (Match(TokenKind::LeftParen)) {
                 Consume();
-                params = ParseFunctionParameters();
-                TryConsume(TokenKind::RightParen, "')'");
 
-                Stmt* body = nullptr;
+                while (!Match(TokenKind::RightParen)) {
+                    if (!IsType()) {
+                        StabilizeParser();
+                        m_Context->ReportCompilerError(Peek(-1)->Range.Start, Peek(-1)->Range, "expected a type");
+                        continue;
+                    }
 
-                if (Match(TokenKind::LeftCurly)) {
-                    body = ParseCompound();
-                    m_NeedsSemi = false;
+                    TypeInfo* type = ParseType();
+                    Token* ident = TryConsume(TokenKind::Identifier, "identifier");
+                    if (!ident) {
+                        StabilizeParser();
+                        continue;
+                    }
+
+                    params.Append(m_Context, ParamDecl(ident->String, type));
+
+                    if (Match(TokenKind::Comma)) { continue; }
+                    if (Match(TokenKind::RightParen)) { break; }
+
+                    StabilizeParser();
+                    m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "expected either ',' or ')'");
                 }
 
-                return m_Context->Allocate<FunctionDecl>(m_Context, ident->String, StringView(returnType.Data(), returnType.Size()), params, external, GetNode<CompoundStmt>(body));
+                TryConsume(TokenKind::RightParen, "')'");
+
+                BlockStmt body;
+
+                if (Match(TokenKind::LeftCurly)) {
+                    body = ParseBlock()->Block;
+                } else {
+                    Token* semi = TryConsume(TokenKind::Semi, "';'");
+
+                    if (!semi) {
+                        StabilizeParser();
+                    }
+                }
+
+                return Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Function, FunctionDecl(ident->String, type, params, body));
             } else {
+                StabilizeParser();
                 ErrorExpected("'('", Peek()->Range.End, Peek()->Range);
             }
 
             return nullptr;
         } else {
+            StabilizeParser();
             return nullptr;
         }
     }
 
-    Stmt* Parser::ParseExtern() {
-        Consume();
-
-        return ParseType(true);
-    }
-
-    Stmt* Parser::ParseStructDecl() {
+    Decl* Parser::ParseStructDecl() {
         Token s = Consume(); // Consume "struct"
 
-        Token* ident = TryConsume(TokenKind::Identifier, "indentifier");
+        // Token* ident = TryConsume(TokenKind::Identifier, "indentifier");
+        // 
+        // if (!ident) { return nullptr; }
+        // m_DeclaredTypes[fmt::format("{}", ident->String)] = true;
+        // 
+        // TinyVector<Decl*> fields;
+        // 
+        // TryConsume(TokenKind::LeftCurly, "'{'");
+        // 
+        // while (!Match(TokenKind::RightCurly)) {
+        //     if (IsVariableType()) {
+        //         StringBuilder type = ParseVariableType();
+        // 
+        //         Token* fieldName = TryConsume(TokenKind::Identifier, "identifier");
+        //         if (!fieldName) { return nullptr; }
+        // 
+        //         if (Match(TokenKind::LeftParen)) {
+        //             Consume();
+        // 
+        //             TinyVector<ParamDecl*> params = ParseFunctionParameters();
+        //             TryConsume(TokenKind::RightParen, "')'");
+        // 
+        //             Stmt* body = ParseCompound();
+        //             fields.Append(m_Context, m_Context->Allocate<MethodDecl>(m_Context, fieldName->String, StringView(type.Data(), type.Size()), params, GetNode<CompoundStmt>(body)));
+        //         } else {
+        //             TryConsume(TokenKind::Semi, "';'");
+        // 
+        //             fields.Append(m_Context, m_Context->Allocate<FieldDecl>(m_Context, fieldName->String, StringView(type.Data(), type.Size())));
+        //         }
+        //     } else {
+        //         m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "expected a type name");
+        //         StabilizeParser();
+        //         TryConsume(TokenKind::Semi, "';'");
+        //     }
+        // }
+        // 
+        // TryConsume(TokenKind::RightCurly, "'}'");
+        // 
+        // m_NeedsSemi = false;
+        // return m_Context->Allocate<StructDecl>(m_Context, ident->String, fields);
+        ARIA_ASSERT(false, "todo!");
+    }
 
-        if (!ident) { return nullptr; }
-        m_DeclaredTypes[fmt::format("{}", ident->String)] = true;
-
-        TinyVector<Decl*> fields;
-
-        TryConsume(TokenKind::LeftCurly, "'{'");
+    Stmt* Parser::ParseBlock() {
+        TinyVector<Stmt*> stmts;
+        Token* l = TryConsume(TokenKind::LeftCurly, "'{'");
+        if (!l) { return nullptr; }
 
         while (!Match(TokenKind::RightCurly)) {
-            if (IsVariableType()) {
-                StringBuilder type = ParseVariableType();
+            Stmt* stmt = ParseToken();
 
-                Token* fieldName = TryConsume(TokenKind::Identifier, "identifier");
-                if (!fieldName) { return nullptr; }
+            Token* semi = TryConsume(TokenKind::Semi, "';'");
 
-                if (Match(TokenKind::LeftParen)) {
-                    Consume();
-
-                    TinyVector<ParamDecl*> params = ParseFunctionParameters();
-                    TryConsume(TokenKind::RightParen, "')'");
-
-                    Stmt* body = ParseCompound();
-                    fields.Append(m_Context, m_Context->Allocate<MethodDecl>(m_Context, fieldName->String, StringView(type.Data(), type.Size()), params, GetNode<CompoundStmt>(body)));
-                } else {
-                    TryConsume(TokenKind::Semi, "';'");
-
-                    fields.Append(m_Context, m_Context->Allocate<FieldDecl>(m_Context, fieldName->String, StringView(type.Data(), type.Size())));
-                }
-            } else {
-                m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "expected a type name");
-                StabilizeParser();
-                TryConsume(TokenKind::Semi, "';'");
+            if (stmt != nullptr && semi != nullptr) {
+                stmts.Append(m_Context, stmt);
             }
         }
-        
-        TryConsume(TokenKind::RightCurly, "'}'");
 
-        m_NeedsSemi = false;
-        return m_Context->Allocate<StructDecl>(m_Context, ident->String, fields);
+        Token* r = TryConsume(TokenKind::RightCurly, "'}'");
+        if (!r) { return nullptr; }
+
+        return Stmt::Create(m_Context, l->Range.Start, SourceRange(l->Range.Start, r->Range.End), StmtKind::Block, BlockStmt(stmts));
+    }
+
+    Stmt* Parser::ParseBlockInline() {
+        if (Match(TokenKind::LeftCurly)) {
+            return ParseBlock();
+        } else {
+            Stmt* stmt = ParseToken();
+            if (!stmt) { return nullptr; }
+
+            Token* semi = TryConsume(TokenKind::Semi, "';'");
+            if (!semi) { return nullptr; }
+
+            TinyVector<Stmt*> stmts;
+            stmts.Append(m_Context, stmt);
+
+            return Stmt::Create(m_Context, stmt->Loc, stmt->Range, StmtKind::Block, BlockStmt(stmts));
+        }
     }
 
     Stmt* Parser::ParseWhile() {
         Token w = Consume(); // Consume "while"
 
         Expr* condition = ParseExpression();
-        Stmt* body = ParseCompoundInline();
+        BlockStmt body = ParseBlockInline()->Block;
 
-        m_NeedsSemi = false;
-
-        return m_Context->Allocate<WhileStmt>(m_Context, condition, body);
+        return Stmt::Create(m_Context, w.Range.Start, SourceRange(w.Range.Start, Peek(-1)->Range.End), StmtKind::While, WhileStmt(condition, body));
     }
 
     Stmt* Parser::ParseDoWhile() {
         Token d = Consume(); // Consume "do"
 
-        Stmt* body = ParseCompoundInline();
-        TryConsume(TokenKind::While, "while");
-        Expr* condition = ParseExpression();
-
-        return m_Context->Allocate<DoWhileStmt>(m_Context, condition, body);
+        // Stmt* body = ParseCompoundInline();
+        // TryConsume(TokenKind::While, "while");
+        // Expr* condition = ParseExpression();
+        // 
+        // return Stmt::Create(m_Context, w.Range.Start, SourceRange(w.Range.Start, Peek(-1)->Range.End), StmtKind::DoWhile, DoWhileStmt(condition, body));
+        ARIA_ASSERT(false, "todo!");
     }
 
     Stmt* Parser::ParseFor() {
         Token f = Consume(); // Consume "for"
 
-        TryConsume(TokenKind::LeftParen, "'('");
-        
-        Stmt* prologue = ParseStatement();
-        TryConsume(TokenKind::Semi, "';'");
-        Expr* condition = ParseExpression();
-        TryConsume(TokenKind::Semi, "';'");
-        Expr* epilogue = ParseExpression();
-        TryConsume(TokenKind::RightParen, "')'");
-
-        Stmt* body = ParseCompoundInline();
-        m_NeedsSemi = false;
-
-        return m_Context->Allocate<ForStmt>(m_Context, prologue, condition, epilogue, body);
+        // TryConsume(TokenKind::LeftParen, "'('");
+        // 
+        // Stmt* prologue = ParseStatement();
+        // TryConsume(TokenKind::Semi, "';'");
+        // Expr* condition = ParseExpression();
+        // TryConsume(TokenKind::Semi, "';'");
+        // Expr* epilogue = ParseExpression();
+        // TryConsume(TokenKind::RightParen, "')'");
+        // 
+        // Stmt* body = ParseCompoundInline();
+        // m_NeedsSemi = false;
+        // 
+        // return m_Context->Allocate<ForStmt>(m_Context, prologue, condition, epilogue, body);
+        ARIA_ASSERT(false, "todo!");
     }
 
     Stmt* Parser::ParseIf() {
-        Token i = Consume(); // Consume "if"
-
-        Expr* condition = ParseExpression();
-        Stmt* body = ParseStatement();
-
-        m_NeedsSemi = false;
-        return m_Context->Allocate<IfStmt>(m_Context, condition, body, nullptr);
+        // Token i = Consume(); // Consume "if"
+        // 
+        // Expr* condition = ParseExpression();
+        // Stmt* body = ParseStatement();
+        // 
+        // m_NeedsSemi = false;
+        // return m_Context->Allocate<IfStmt>(m_Context, condition, body, nullptr);
+        ARIA_ASSERT(false, "todo!");
     }
 
     Stmt* Parser::ParseBreak() {
@@ -647,12 +704,13 @@ namespace Aria::Internal {
     }
 
     Stmt* Parser::ParseReturn() {
-        Token r = Consume(); // Consume "return"
-
-        Expr* value = ParseExpression();
-
-        ReturnStmt* ret = m_Context->Allocate<ReturnStmt>(m_Context, value);
-        return ret;
+        // Token r = Consume(); // Consume "return"
+        // 
+        // Expr* value = ParseExpression();
+        // 
+        // ReturnStmt* ret = m_Context->Allocate<ReturnStmt>(m_Context, value);
+        // return ret;
+        ARIA_ASSERT(false, "todo!");
     }
 
     Stmt* Parser::ParseStatement() {
@@ -660,14 +718,14 @@ namespace Aria::Internal {
 
         Stmt* node = nullptr;
 
-        if (IsVariableType()) {
-            node = ParseType();
-        } else if (t == TokenKind::Extern) {
-            node = ParseExtern();
+        if (IsType()) {
+            Decl* decl = ParseTypeDecl();
+            node = Stmt::Create(m_Context, decl->Loc, decl->Range, StmtKind::Decl, decl);
         } else if (t == TokenKind::Struct) {
-            node = ParseStructDecl();
+            Decl* decl = ParseStructDecl();
+            node = Stmt::Create(m_Context, decl->Loc, decl->Range, StmtKind::Decl, decl);
         } else if (t == TokenKind::LeftCurly) {
-            node = ParseCompound();
+            node = ParseBlock();
         } else if (t == TokenKind::While) {
             node = ParseWhile();
         } else if (t == TokenKind::Do) {
@@ -691,18 +749,12 @@ namespace Aria::Internal {
         if (Stmt* stmt = ParseStatement()) {
             s = stmt;
         } else if (Expr* expr = ParseExpression()) {
-            s = expr;
-        }
-
-        if (m_NeedsSemi) {
-            TryConsume(TokenKind::Semi, "';'");
+            s = Stmt::Create(m_Context, expr->Loc, expr->Range, StmtKind::Expr, expr);
         }
 
         while (Match(TokenKind::Semi)) {
             Consume();
         }
-
-        m_NeedsSemi = true;
 
         return s;
     }
@@ -711,7 +763,7 @@ namespace Aria::Internal {
         while (Peek()) {
             TokenKind type = Peek()->Kind;
 
-            if (type == TokenKind::Semi || type ==  TokenKind::RightCurly) {
+            if (type == TokenKind::Semi || type == TokenKind::RightCurly || type == TokenKind::Comma) {
                 return;
             }
 
