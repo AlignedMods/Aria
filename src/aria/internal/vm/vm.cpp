@@ -52,14 +52,15 @@ namespace Aria::Internal {
     VM::~VM() {
         const std::string& signature = "_end$()";
 
-        ARIA_ASSERT(m_Functions.contains(signature), "Byte code does not contain _end$() function");
-        VMFunction& func = m_Functions.at(signature);
-        m_ActiveFunction = &func;
+        if (m_Functions.contains(signature)) {
+            VMFunction& func = m_Functions.at(signature);
+            m_ActiveFunction = &func;
 
-        // Perform a jump to the function
-        ARIA_ASSERT(func.Labels.contains("_entry$"), "_end$() function doesn't contain a \"_entry$\" label");
-        m_ProgramCounter = func.Labels.at("_entry$");
-        Run();
+            // Perform a jump to the function
+            ARIA_ASSERT(func.Labels.contains("_entry$"), "_end$() function doesn't contain a \"_entry$\" label");
+            m_ProgramCounter = func.Labels.at("_entry$");
+            Run();
+        }
     }
 
     void VM::Alloca(VMType type, Stack& stack) {
@@ -482,6 +483,22 @@ namespace Aria::Internal {
 
                 case OpCodeKind::Dup: {
                     Dup(-1, m_LocalStack, m_LocalStack);
+                    break;
+                }
+
+                case OpCodeKind::DupStr: {
+                    void* mem = GetPointer(-1, m_LocalStack);
+                    Pop(1, m_LocalStack);
+
+                    VMString& str = *reinterpret_cast<VMString*>(mem);
+                    VMString newStr;
+                    newStr.Data = new char[str.Size];
+                    newStr.Size = str.Size;
+                    memcpy(newStr.Data, str.Data, str.Size);
+
+                    Alloca({ VMTypeKind::String }, m_LocalStack);
+                    memcpy(GetVMSlice(-1, m_LocalStack).Memory, &newStr, sizeof(newStr));
+
                     break;
                 }
 

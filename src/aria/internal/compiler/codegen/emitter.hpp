@@ -13,6 +13,7 @@ namespace Aria::Internal {
         struct Declaration {
             std::variant<size_t, std::string> Data;
             TypeInfo* Type = nullptr;
+            DestructorDecl* Destructor = nullptr;
         };
 
         struct RuntimeStructDeclaration {
@@ -53,6 +54,7 @@ namespace Aria::Internal {
         void EmitMemberExpr(Expr* expr,            ExprValueKind valueKind);
         void EmitSelfExpr(Expr* expr,              ExprValueKind valueKind);
         void EmitTemporaryExpr(Expr* expr,         ExprValueKind valueKind);
+        void EmitCopyExpr(Expr* expr,              ExprValueKind valueKind);
         void EmitCallExpr(Expr* expr,              ExprValueKind valueKind);
         void EmitMethodCallExpr(Expr* expr,        ExprValueKind valueKind);
         void EmitParenExpr(Expr* expr,             ExprValueKind valueKind);

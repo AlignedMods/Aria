@@ -4,6 +4,22 @@
 
 namespace Aria::Internal {
 
+#pragma region BuiltinCopyConstructorKind
+
+    enum class BuiltinCopyConstructorKind {
+        String
+    };
+
+#pragma endregion
+
+#pragma region BuiltinDestructorKind
+
+    enum class BuiltinDestructorKind {
+        String
+    };
+
+#pragma endregion
+
     struct Expr;
 
     struct Decl : public Stmt {
@@ -157,6 +173,36 @@ namespace Aria::Internal {
         CompoundStmt* m_Body = nullptr;
 
         TypeInfo* m_ResolvedType = nullptr;
+    };
+
+    struct CopyConstructorDecl : public Decl {
+        CopyConstructorDecl(CompilationContext* ctx)
+            : Decl(ctx) {}
+    };
+
+    struct BuiltinCopyConstructorDecl final : public CopyConstructorDecl {
+        BuiltinCopyConstructorDecl(CompilationContext* ctx, BuiltinCopyConstructorKind kind)
+            : CopyConstructorDecl(ctx), m_Kind(kind) {}
+
+        BuiltinCopyConstructorKind GetKind() const { return m_Kind; }
+
+    private:
+        BuiltinCopyConstructorKind m_Kind{};
+    };
+
+    struct DestructorDecl : public Decl {
+        DestructorDecl(CompilationContext* ctx)
+            : Decl(ctx) {}
+    };
+
+    struct BuiltinDestructorDecl final : public DestructorDecl {
+        BuiltinDestructorDecl(CompilationContext* ctx, BuiltinDestructorKind kind)
+            : DestructorDecl(ctx), m_Kind(kind) {}
+
+        BuiltinDestructorKind GetKind() const { return m_Kind; }
+
+    private:
+        BuiltinDestructorKind m_Kind{};
     };
 
 } // namespace Aria::Internal

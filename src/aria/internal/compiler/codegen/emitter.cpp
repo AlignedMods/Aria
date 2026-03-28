@@ -29,6 +29,7 @@ namespace Aria::Internal {
         EmitDestructors(m_GlobalScope.DeclaredSymbols);
 
         PopStackFrame();
+        m_OpCodes.emplace_back(OpCodeKind::PopSF);
         m_OpCodes.emplace_back(OpCodeKind::Ret);
 
         EmitDeclarations();
@@ -179,13 +180,28 @@ namespace Aria::Internal {
 
         // Create a new temporary
         m_OpCodes.emplace_back(OpCodeKind::DeclareLocal, m_ActiveStackFrame.LocalCount);
+        m_OpCodes.emplace_back(OpCodeKind::Dup);
 
         Declaration d;
         d.Type = temp->GetResolvedType();
         d.Data = m_ActiveStackFrame.LocalCount;
+        d.Destructor = temp->GetDestructor();
         m_ActiveStackFrame.LocalCount++;
 
         m_Temporaries.push_back(d);
+    }
+
+    void Emitter::EmitCopyExpr(Expr* expr, ExprValueKind valueKind) {
+        CopyExpr* copy = GetNode<CopyExpr>(expr);
+
+        EmitExpr(copy->GetExpression(), ExprValueKind::LValue);
+
+        if (BuiltinCopyConstructorDecl* builtin = GetNode<BuiltinCopyConstructorDecl>(copy->GetConstructor())) {
+            switch (builtin->GetKind()) {
+                case BuiltinCopyConstructorKind::String: m_OpCodes.emplace_back(OpCodeKind::DupStr); break;
+                default: ARIA_UNREACHABLE();
+            }
+        }
     }
 
     void Emitter::EmitCallExpr(Expr* expr, ExprValueKind valueKind) {
@@ -409,6 +425,8 @@ namespace Aria::Internal {
             return EmitSelfExpr(expr, valueKind);
         } else if (GetNode<TemporaryExpr>(expr)) {
             return EmitTemporaryExpr(expr, valueKind);
+        } else if (GetNode<CopyExpr>(expr)) {
+            return EmitCopyExpr(expr, valueKind);
         } else if (GetNode<CallExpr>(expr)) {
             return EmitCallExpr(expr, valueKind);
         } else if (GetNode<MethodCallExpr>(expr)) {
@@ -449,6 +467,10 @@ namespace Aria::Internal {
 
         Declaration d;
         d.Type = varDecl->GetResolvedType();
+
+        if (varDecl->GetResolvedType()->Type == PrimitiveType::String) {
+            d.Destructor = m_Context->Allocate<BuiltinDestructorDecl>(m_Context, BuiltinDestructorKind::String);
+        }
 
         if (IsGlobalScope()) {
             m_OpCodes.emplace_back(OpCodeKind::DeclareGlobal, varDecl->GetIdentifier());
@@ -660,14 +682,19 @@ namespace Aria::Internal {
         for (auto it = declarations.rbegin(); it != declarations.rend(); it++) {
             auto& decl = *it;
 
-            if (decl.Type->Type == PrimitiveType::String) {
+            if (decl.Destructor) {
                 if (std::holds_alternative<size_t>(decl.Data)) {
                     m_OpCodes.emplace_back(OpCodeKind::LdPtrLocal, std::get<size_t>(decl.Data));
                 } else if (std::holds_alternative<std::string>(decl.Data)) {
                     m_OpCodes.emplace_back(OpCodeKind::LdPtrGlobal, std::get<std::string>(decl.Data));
                 }
 
-                m_OpCodes.emplace_back(OpCodeKind::DestructStr);
+                if (BuiltinDestructorDecl* builtin = GetNode<BuiltinDestructorDecl>(decl.Destructor)) {
+                    switch (builtin->GetKind()) {
+                        case BuiltinDestructorKind::String: m_OpCodes.emplace_back(OpCodeKind::DestructStr); break;
+                        default: ARIA_UNREACHABLE();
+                    }
+                }
             }
         }
     }

@@ -123,11 +123,14 @@ namespace Aria::Internal {
         FunctionDeclaration& fnDecl = std::get<FunctionDeclaration>(calleeType->Data);
 
         if (fnDecl.ParamTypes.Size != call->GetArguments().Size) {
-            ARIA_ASSERT(false, "todo: error msg");
-        }
-
-        for (size_t i = 0; i < fnDecl.ParamTypes.Size; i++) {
-            call->GetArguments().Items[i] = HandleInitializer(call->GetArguments().Items[i], fnDecl.ParamTypes.Items[i], true);
+            m_Context->ReportCompilerError(call->Loc, call->Range, fmt::format("Mismatched argument count, function expects {} but got {}", fnDecl.ParamTypes.Size, call->GetArguments().Size));
+            for (size_t i = 0; i < call->GetArguments().Size; i++) {
+                call->GetArguments().Items[i]->SetResolvedType(TypeInfo::Create(m_Context, PrimitiveType::Void, false));
+            }
+        } else {
+            for (size_t i = 0; i < fnDecl.ParamTypes.Size; i++) {
+                call->GetArguments().Items[i] = HandleInitializer(call->GetArguments().Items[i], fnDecl.ParamTypes.Items[i], true);
+            }
         }
 
         call->SetResolvedType(fnDecl.ReturnType);
@@ -682,21 +685,27 @@ namespace Aria::Internal {
 
             return initializer;
         } else if (initializer) {
-            Expr* finalExpr = initializer;
-            TypeInfo* valType = HandleExpr(initializer)->GetResolvedType();
+            Expr* finalExpr = HandleExpr(initializer);
+            TypeInfo* valType = finalExpr->GetResolvedType();
 
-            ConversionCost cost = GetConversionCost(type, valType, initializer->GetValueKind());
+            if (initializer->GetValueKind() == ExprValueKind::LValue) {
+                if (valType->Type == PrimitiveType::String) {
+                    finalExpr = m_Context->Allocate<CopyExpr>(m_Context, finalExpr->Loc, finalExpr->Range, finalExpr, valType, m_Context->Allocate<BuiltinCopyConstructorDecl>(m_Context, BuiltinCopyConstructorKind::String));
+                }
+            }
+
+            ConversionCost cost = GetConversionCost(type, valType, finalExpr->GetValueKind());
             if (cost.CastNeeded) {
                 if (cost.ImplicitCastPossible) {
                     finalExpr = InsertImplicitCast(type, valType, finalExpr, cost.CaKind);
                 } else {
-                    m_Context->ReportCompilerError(initializer->Loc, initializer->Range, fmt::format("cannot implicitly convert from '{}' to '{}'", TypeInfoToString(valType), TypeInfoToString(type)));
+                    m_Context->ReportCompilerError(finalExpr->Loc, finalExpr->Range, fmt::format("cannot implicitly convert from '{}' to '{}'", TypeInfoToString(valType), TypeInfoToString(type)));
                 }
             }
 
             if (temporary) {
                 if (finalExpr->GetResolvedType()->Type == PrimitiveType::String) {
-                    finalExpr = m_Context->Allocate<TemporaryExpr>(m_Context, finalExpr->Loc, finalExpr->Range, finalExpr, finalExpr->GetResolvedType());
+                    finalExpr = m_Context->Allocate<TemporaryExpr>(m_Context, finalExpr->Loc, finalExpr->Range, finalExpr, finalExpr->GetResolvedType(), m_Context->Allocate<BuiltinDestructorDecl>(m_Context, BuiltinDestructorKind::String));
                     finalExpr->SetValueKind(ExprValueKind::RValue);
                     m_TemporaryContext = true;
                 }

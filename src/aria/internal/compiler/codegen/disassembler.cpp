@@ -64,6 +64,11 @@ namespace Aria::Internal {
                 break;
             }
 
+            case OpCodeKind::DupStr: {
+                m_Output += fmt::format("    dupstr\n");
+                break;
+            }
+
             case OpCodeKind::Ldc: {
                 const OpCodeLdc& ldc = std::get<OpCodeLdc>(op.Data);
 

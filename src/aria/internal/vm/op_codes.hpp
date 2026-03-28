@@ -46,6 +46,7 @@ namespace Aria::Internal {
         Pop,
         Store,
         Dup,
+        DupStr,
 
         PushSF,
         PopSF,

@@ -159,6 +159,9 @@ namespace Aria::Internal {
 
 #pragma endregion
 
+    struct CopyConstructorDecl;
+    struct DestructorDecl;
+
     struct Expr : public Stmt {
         Expr(CompilationContext* ctx, SourceLocation loc, SourceRange range)
             : Stmt(ctx), Loc(loc), Range(range) {}
@@ -277,13 +280,15 @@ namespace Aria::Internal {
     // eg. Print("Hello world");
     // Here "Hello world" will call a constructor that allocates memory and therefore its destructor needs to be called
     struct TemporaryExpr final : public Expr {
-        TemporaryExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr, TypeInfo* type)
-            : Expr(ctx, loc, range, type), m_Expression(expr) {}
+        TemporaryExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr, TypeInfo* type, DestructorDecl* destructor)
+            : Expr(ctx, loc, range, type), m_Expression(expr), m_Destructor(destructor) {}
 
         inline Expr* GetExpression() { return m_Expression; }
+        inline DestructorDecl* GetDestructor() { return m_Destructor; }
 
     private:
         Expr* m_Expression = nullptr;
+        DestructorDecl* m_Destructor = nullptr;
     };
 
     // ExprWithCleanups
@@ -300,6 +305,18 @@ namespace Aria::Internal {
 
     private:
         Expr* m_Expression = nullptr;
+    };
+
+    struct CopyExpr final : public Expr {
+        CopyExpr(CompilationContext* ctx, SourceLocation loc, SourceRange range, Expr* expr, TypeInfo* type, CopyConstructorDecl* constructor)
+            : Expr(ctx, loc, range, type), m_Expression(expr), m_Constructor(constructor) {}
+
+        inline Expr* GetExpression() { return m_Expression; }
+        inline CopyConstructorDecl* GetConstructor() { return m_Constructor; }
+
+    private:
+        Expr* m_Expression = nullptr;
+        CopyConstructorDecl* m_Constructor = nullptr;
     };
 
     struct CallExpr final : public Expr {
