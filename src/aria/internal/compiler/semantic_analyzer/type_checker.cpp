@@ -740,7 +740,69 @@ namespace Aria::Internal {
         ReplaceExpr(srcExpr, implicitCast);
     }
 
-    void TypeChecker::InsertArithmeticPromotion(Expr* src, Expr* dst) {}
+    void TypeChecker::RequireRValue(Expr* expr) {
+        if (expr->ValueKind == ExprValueKind::LValue) {
+            InsertImplicitCast(expr->Type, expr->Type, expr, CastKind::LValueToRValue);
+        }
+    }
+
+    void TypeChecker::InsertArithmeticPromotion(Expr* lhs, Expr* rhs) {
+        TypeInfo* lhsType = lhs->Type;
+        TypeInfo* rhsType = rhs->Type;
+
+        if (TypeIsEqual(lhsType, rhsType)) {
+            RequireRValue(lhs);
+            RequireRValue(rhs);
+            return;
+        }
+
+        if (lhsType->IsIntegral() && rhsType->IsIntegral()) {
+            size_t lSize = TypeGetSize(lhsType);
+            size_t rSize = TypeGetSize(rhsType);
+
+            if (lSize > rSize) {
+                InsertImplicitCast(lhsType, rhsType, rhs, CastKind::Integral);
+                RequireRValue(lhs);
+            } else if (rSize > lSize) {
+                InsertImplicitCast(rhsType, lhsType, lhs, CastKind::Integral);
+                RequireRValue(rhs);
+            } else if (lSize == rSize) {
+                // We know that the types are not equal so we likely have a signed/unsigned mismatch
+                m_Context->ReportCompilerError(lhs->Loc, SourceRange(lhs->Range.Start, rhs->Range.End), fmt::format("Mismatched types '{}' and '{}' (implicit signedness conversions are not allowed here)", TypeInfoToString(lhsType), TypeInfoToString(rhsType)));
+            }
+
+            return;
+        }
+
+        if (lhsType->IsIntegral() && rhsType->IsFloatingPoint()) {
+            InsertImplicitCast(rhsType, lhsType, lhs, CastKind::IntegralToFloating);
+            RequireRValue(rhs);
+            return;
+        }
+
+        if (lhsType->IsFloatingPoint() && rhsType->IsIntegral()) {
+            InsertImplicitCast(lhsType, rhsType, rhs, CastKind::IntegralToFloating);
+            RequireRValue(lhs);
+            return;
+        }
+
+        if (lhsType->IsFloatingPoint() && rhsType->IsFloatingPoint()) {
+            size_t lSize = TypeGetSize(lhsType);
+            size_t rSize = TypeGetSize(rhsType);
+
+            if (lSize > rSize) {
+                InsertImplicitCast(lhsType, rhsType, rhs, CastKind::Floating);
+                RequireRValue(lhs);
+            } else if (rSize > lSize) {
+                InsertImplicitCast(rhsType, lhsType, lhs, CastKind::Floating);
+                RequireRValue(rhs);
+            }
+
+            return;
+        }
+
+        ARIA_UNREACHABLE();
+    }
 
     void TypeChecker::ReplaceExpr(Expr* src, Expr* newExpr) {
         *src = *newExpr;

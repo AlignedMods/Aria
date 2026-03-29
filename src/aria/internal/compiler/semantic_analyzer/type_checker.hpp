@@ -83,6 +83,7 @@ namespace Aria::Internal {
 
         ConversionCost GetConversionCost(TypeInfo* dst, TypeInfo* src, ExprValueKind srcKind);
         void InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastKind castKind);
+        void RequireRValue(Expr* expr);
         void InsertArithmeticPromotion(Expr* lhs, Expr* rhs);
 
         void ReplaceExpr(Expr* src, Expr* newExpr);
