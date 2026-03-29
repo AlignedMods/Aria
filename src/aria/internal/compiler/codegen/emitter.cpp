@@ -448,38 +448,42 @@ namespace Aria::Internal {
 
     void Emitter::EmitExpr(Expr* expr, ExprValueKind valueKind) {
         if (expr->Kind == ExprKind::BooleanConstant) {
-            return EmitBooleanConstantExpr(expr, valueKind);
+            EmitBooleanConstantExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::CharacterConstant) {
-            return EmitCharacterConstantExpr(expr, valueKind);
+            EmitCharacterConstantExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::IntegerConstant) {
-            return EmitIntegerConstantExpr(expr, valueKind);
+            EmitIntegerConstantExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::FloatingConstant) {
-            return EmitFloatingConstantExpr(expr, valueKind);
+            EmitFloatingConstantExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::StringConstant) {
-            return EmitStringConstantExpr(expr, valueKind);
+            EmitStringConstantExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::DeclRef) {
-            return EmitDeclRefExpr(expr, valueKind);
+            EmitDeclRefExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::Member) {
-            return EmitMemberExpr(expr, valueKind);
+            EmitMemberExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::Call) {
-            return EmitCallExpr(expr, valueKind);
+            EmitCallExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::MethodCall) {
-            return EmitMethodCallExpr(expr, valueKind);
+            EmitMethodCallExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::Paren) {
-            return EmitParenExpr(expr, valueKind);
+            EmitParenExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::Cast) {
-            return EmitCastExpr(expr, valueKind);
+            EmitCastExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::ImplicitCast) {
-            return EmitImplicitCastExpr(expr, valueKind);
+            EmitImplicitCastExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::UnaryOperator) {
-            return EmitUnaryOperatorExpr(expr, valueKind);
+            EmitUnaryOperatorExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::BinaryOperator) {
-            return EmitBinaryOperatorExpr(expr, valueKind);
+            EmitBinaryOperatorExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::CompoundAssign) {
-            return EmitCompoundAssignExpr(expr, valueKind);
+            EmitCompoundAssignExpr(expr, valueKind);
         }
 
-        ARIA_UNREACHABLE();
+        if (expr->IsStmtExpr) {
+            if (!expr->Type->IsVoid()) {
+                m_PendingOpCodes.emplace_back(OpCodeKind::Pop);
+            }
+        }
     }
 
     void Emitter::EmitTranslationUnitDecl(Decl* decl) {
@@ -588,90 +592,78 @@ namespace Aria::Internal {
     }
 
     void Emitter::EmitWhileStmt(Stmt* stmt) {
-        // WhileStmt* wh = GetNode<WhileStmt>(stmt);
-        // 
-        // std::string loopStart = fmt::format("while.start_{}", m_WhileCounter);
-        // std::string loopEnd = fmt::format("while.end_{}", m_WhileCounter);
-        // m_WhileCounter++;
-        // 
-        // m_PendingOpCodes.emplace_back(OpCodeKind::Label, loopStart);
-        // EmitExpr(wh->GetCondition(), wh->GetCondition()->GetValueKind());
-        // m_PendingOpCodes.emplace_back(OpCodeKind::Jf, loopEnd);
-        // m_PendingOpCodes.emplace_back(OpCodeKind::Pop);
-        // EmitStmt(wh->GetBody());
-        // 
-        // m_PendingOpCodes.emplace_back(OpCodeKind::Jmp, loopStart);
-        // m_PendingOpCodes.emplace_back(OpCodeKind::Label, loopEnd);
-        // m_PendingOpCodes.emplace_back(OpCodeKind::Pop);
-
-        ARIA_ASSERT(false, "todo!");
+        WhileStmt wh = stmt->While;
+        
+        std::string loopStart = fmt::format("while.start_{}", m_WhileCounter);
+        std::string loopEnd = fmt::format("while.end_{}", m_WhileCounter);
+        m_WhileCounter++;
+        
+        m_PendingOpCodes.emplace_back(OpCodeKind::Label, loopStart);
+        EmitExpr(wh.Condition, wh.Condition->ValueKind);
+        m_PendingOpCodes.emplace_back(OpCodeKind::JfPop, loopEnd);
+        EmitStmt(wh.Body);
+        
+        m_PendingOpCodes.emplace_back(OpCodeKind::Jmp, loopStart);
+        m_PendingOpCodes.emplace_back(OpCodeKind::Label, loopEnd);
     }
 
     void Emitter::EmitDoWhileStmt(Stmt* stmt) {
-        // DoWhileStmt* wh = GetNode<DoWhileStmt>(stmt);
-        // 
-        // std::string loopStart = fmt::format("dowhile.start_{}", m_DoWhileCounter);
-        // m_DoWhileCounter++;
-        // 
-        // m_PendingOpCodes.emplace_back(OpCodeKind::Label, loopStart);
-        // EmitStmt(wh->GetBody());
-        // 
-        // EmitExpr(wh->GetCondition(), wh->GetCondition()->GetValueKind());
-        // m_PendingOpCodes.emplace_back(OpCodeKind::Jt, loopStart);
-
-        ARIA_ASSERT(false, "todo!");
+        DoWhileStmt wh = stmt->DoWhile;
+        
+        std::string loopStart = fmt::format("dowhile.start_{}", m_DoWhileCounter);
+        m_DoWhileCounter++;
+        
+        m_PendingOpCodes.emplace_back(OpCodeKind::Label, loopStart);
+        EmitStmt(wh.Body);
+        
+        EmitExpr(wh.Condition, wh.Condition->ValueKind);
+        m_PendingOpCodes.emplace_back(OpCodeKind::JtPop, loopStart);
     }
 
     void Emitter::EmitForStmt(Stmt* stmt) {
-        // ForStmt* fs = GetNode<ForStmt>(stmt);
-        // 
-        // std::string loopStart = fmt::format("for.start_{}", m_ForCounter);
-        // std::string loopEnd = fmt::format("for.end_{}", m_ForCounter);
-        // m_ForCounter++;
-        // 
-        // PushScope();
-        // if (fs->GetPrologue()) { EmitStmt(fs->GetPrologue()); }
-        // 
-        // m_PendingOpCodes.emplace_back(OpCodeKind::Label, loopStart);
-        // if (fs->GetCondition()) {
-        //     EmitExpr(fs->GetCondition(), fs->GetCondition()->GetValueKind());
-        //     m_PendingOpCodes.emplace_back(OpCodeKind::Jf, loopEnd);
-        //     m_PendingOpCodes.emplace_back(OpCodeKind::Pop);
-        // }
-        // 
-        // EmitStmt(fs->GetBody());
-        //     
-        // if (fs->GetEpilogue()) {
-        //     EmitExpr(fs->GetEpilogue(), fs->GetEpilogue()->GetValueKind());
-        //     m_PendingOpCodes.emplace_back(OpCodeKind::Pop);
-        // }
-        // 
-        // m_PendingOpCodes.emplace_back(OpCodeKind::Jmp, loopStart);
-        // m_PendingOpCodes.emplace_back(OpCodeKind::Label, loopEnd);
-        // m_PendingOpCodes.emplace_back(OpCodeKind::Pop);
-        // 
-        // PopScope();
-
-        ARIA_ASSERT(false, "todo!");
+        ForStmt fs = stmt->For;
+        
+        std::string loopStart = fmt::format("for.start_{}", m_ForCounter);
+        std::string loopEnd = fmt::format("for.end_{}", m_ForCounter);
+        m_ForCounter++;
+        
+        PushScope();
+        if (fs.Prologue) { EmitStmt(fs.Prologue); }
+        
+        m_PendingOpCodes.emplace_back(OpCodeKind::Label, loopStart);
+        if (fs.Condition) {
+            EmitExpr(fs.Condition, fs.Condition->ValueKind);
+            m_PendingOpCodes.emplace_back(OpCodeKind::JfPop, loopEnd);
+        }
+        
+        EmitBlockStmt(fs.Body);
+            
+        if (fs.Epilogue) {
+            EmitExpr(fs.Epilogue, fs.Epilogue->ValueKind);
+            m_PendingOpCodes.emplace_back(OpCodeKind::Pop);
+        }
+        
+        m_PendingOpCodes.emplace_back(OpCodeKind::Jmp, loopStart);
+        m_PendingOpCodes.emplace_back(OpCodeKind::Label, loopEnd);
+        
+        PopScope();
     }
 
     void Emitter::EmitIfStmt(Stmt* stmt) {
-        // IfStmt* ifs = GetNode<IfStmt>(stmt);
-        // 
-        // EmitExpr(ifs->GetCondition(), ifs->GetCondition()->GetValueKind());
-        // std::string ifBody = fmt::format("if.body_{}", m_IfCounter);
-        // std::string ifEnd = fmt::format("if.end_{}", m_IfCounter);
-        // 
-        // m_PendingOpCodes.emplace_back(OpCodeKind::Jt, ifBody);
-        // m_PendingOpCodes.emplace_back(OpCodeKind::Jmp, ifEnd);
-        // 
-        // m_PendingOpCodes.emplace_back(OpCodeKind::Label, ifBody);
-        // EmitStmt(ifs->GetBody());
-        // m_PendingOpCodes.emplace_back(OpCodeKind::Label, ifEnd);
-        // 
-        // m_IfCounter++;
-
-        ARIA_ASSERT(false, "todo!");
+        IfStmt ifs = stmt->If;
+        
+        std::string ifBody = fmt::format("if.body_{}", m_IfCounter);
+        std::string ifEnd = fmt::format("if.end_{}", m_IfCounter);
+        
+        EmitExpr(ifs.Condition, ifs.Condition->ValueKind);
+        m_PendingOpCodes.emplace_back(OpCodeKind::JtPop, ifBody);
+        m_PendingOpCodes.emplace_back(OpCodeKind::Jmp, ifEnd);
+        
+        m_PendingOpCodes.emplace_back(OpCodeKind::Label, ifBody);
+        EmitStmt(ifs.Body);
+        m_PendingOpCodes.emplace_back(OpCodeKind::Label, ifEnd);
+        
+        m_IfCounter++;
     }
 
     void Emitter::EmitReturnStmt(Stmt* stmt) {

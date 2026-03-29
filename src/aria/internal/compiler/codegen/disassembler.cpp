@@ -225,10 +225,24 @@ namespace Aria::Internal {
                 break;
             }
 
+            case OpCodeKind::JtPop: {
+                const std::string& label = std::get<std::string>(op.Data);
+
+                m_Output += fmt::format("    jtpop     {}\n", label);
+                break;
+            }
+
             case OpCodeKind::Jf: {
                 const std::string& label = std::get<std::string>(op.Data);
 
                 m_Output += fmt::format("    jf        {}\n", label);
+                break;
+            }
+
+            case OpCodeKind::JfPop: {
+                const std::string& label = std::get<std::string>(op.Data);
+
+                m_Output += fmt::format("    jfpop     {}\n", label);
                 break;
             }
 

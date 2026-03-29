@@ -34,38 +34,38 @@ namespace Aria::Internal {
     };
 
     struct WhileStmt {
-        WhileStmt(Expr* condition, BlockStmt body)
+        WhileStmt(Expr* condition, Stmt* body)
             : Condition(condition), Body(body) {}
 
         Expr* Condition = nullptr;
-        BlockStmt Body;
+        Stmt* Body = nullptr;
     };
     
     struct DoWhileStmt {
-        DoWhileStmt(Expr* condition, BlockStmt body)
+        DoWhileStmt(Expr* condition, Stmt* body)
             : Condition(condition), Body(body) {}
 
         Expr* Condition = nullptr;
-        BlockStmt Body;
+        Stmt* Body = nullptr;
     };
     
     struct ForStmt {
-        ForStmt(Stmt* prologue, Expr* condition, Expr* epilogue, BlockStmt body)
+        ForStmt(Stmt* prologue, Expr* condition, Expr* epilogue, Stmt* body)
             : Prologue(prologue), Condition(condition), Epilogue(epilogue), Body(body) {}
 
         Stmt* Prologue = nullptr; // int i = 0;
         Expr* Condition = nullptr; // i < 5;
         Expr* Epilogue = nullptr; // i += 1;
-        BlockStmt Body;
+        Stmt* Body = nullptr;
     };
     
     struct IfStmt {
-        IfStmt(Expr* condition, BlockStmt body, BlockStmt elseBody)
+        IfStmt(Expr* condition, Stmt* body, Stmt* elseBody)
             : Condition(condition), Body(body), ElseBody(elseBody) {}
 
         Expr* Condition = nullptr;
-        BlockStmt Body;
-        BlockStmt ElseBody;
+        Stmt* Body = nullptr;
+        Stmt* ElseBody = nullptr;
     };
     
     struct ReturnStmt {

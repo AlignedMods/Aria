@@ -655,7 +655,9 @@ namespace Aria::Internal {
         Token w = Consume(); // Consume "while"
 
         Expr* condition = ParseExpression();
-        BlockStmt body = ParseBlockInline()->Block;
+        Stmt* body = ParseBlockInline();
+
+        m_NeedsSemi = false;
 
         return Stmt::Create(m_Context, w.Range.Start, SourceRange(w.Range.Start, Peek(-1)->Range.End), StmtKind::While, WhileStmt(condition, body));
     }
@@ -663,42 +665,39 @@ namespace Aria::Internal {
     Stmt* Parser::ParseDoWhile() {
         Token d = Consume(); // Consume "do"
 
-        // Stmt* body = ParseCompoundInline();
-        // TryConsume(TokenKind::While, "while");
-        // Expr* condition = ParseExpression();
-        // 
-        // return Stmt::Create(m_Context, w.Range.Start, SourceRange(w.Range.Start, Peek(-1)->Range.End), StmtKind::DoWhile, DoWhileStmt(condition, body));
-        ARIA_ASSERT(false, "todo!");
+        Stmt* body = ParseBlockInline();
+        TryConsume(TokenKind::While, "while");
+        Expr* condition = ParseExpression();
+        
+        return Stmt::Create(m_Context, d.Range.Start, SourceRange(d.Range.Start, Peek(-1)->Range.End), StmtKind::DoWhile, DoWhileStmt(condition, body));
     }
 
     Stmt* Parser::ParseFor() {
         Token f = Consume(); // Consume "for"
 
-        // TryConsume(TokenKind::LeftParen, "'('");
-        // 
-        // Stmt* prologue = ParseStatement();
-        // TryConsume(TokenKind::Semi, "';'");
-        // Expr* condition = ParseExpression();
-        // TryConsume(TokenKind::Semi, "';'");
-        // Expr* epilogue = ParseExpression();
-        // TryConsume(TokenKind::RightParen, "')'");
-        // 
-        // Stmt* body = ParseCompoundInline();
-        // m_NeedsSemi = false;
-        // 
-        // return m_Context->Allocate<ForStmt>(m_Context, prologue, condition, epilogue, body);
-        ARIA_ASSERT(false, "todo!");
+        TryConsume(TokenKind::LeftParen, "'('");
+        
+        Stmt* prologue = ParseStatement();
+        TryConsume(TokenKind::Semi, "';'");
+        Expr* condition = ParseExpression();
+        TryConsume(TokenKind::Semi, "';'");
+        Expr* epilogue = ParseExpression();
+        TryConsume(TokenKind::RightParen, "')'");
+        
+        Stmt* body = ParseBlockInline();
+        m_NeedsSemi = false;
+        
+        return Stmt::Create(m_Context, f.Range.Start, SourceRange(f.Range.Start, Peek(-1)->Range.End), StmtKind::For, ForStmt(prologue, condition, epilogue, body));
     }
 
     Stmt* Parser::ParseIf() {
-        // Token i = Consume(); // Consume "if"
-        // 
-        // Expr* condition = ParseExpression();
-        // Stmt* body = ParseStatement();
-        // 
-        // m_NeedsSemi = false;
-        // return m_Context->Allocate<IfStmt>(m_Context, condition, body, nullptr);
-        ARIA_ASSERT(false, "todo!");
+        Token i = Consume(); // Consume "if"
+        
+        Expr* condition = ParseExpression();
+        Stmt* body = ParseStatement();
+        
+        m_NeedsSemi = false;
+        return Stmt::Create(m_Context, i.Range.Start, SourceRange(i.Range.Start, Peek(-1)->Range.End), StmtKind::If, IfStmt(condition, body, nullptr));
     }
 
     Stmt* Parser::ParseBreak() {

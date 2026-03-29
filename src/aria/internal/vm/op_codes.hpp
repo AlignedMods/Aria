@@ -80,7 +80,9 @@ namespace Aria::Internal {
         Label,
         Jmp,
         Jt,
+        JtPop,
         Jf,
+        JfPop,
 
         Call,
         Ret,

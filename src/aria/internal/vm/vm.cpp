@@ -738,6 +738,18 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case OpCodeKind::JtPop: {
+                    const std::string& label = std::get<std::string>(op.Data);
+
+                    if (GetBool(-1, m_ExpressionStack) == true) {
+                        ARIA_ASSERT(m_ActiveFunction->Labels.contains(label), "Trying to jump to an unknown label!");
+                        m_ProgramCounter = m_ActiveFunction->Labels.at(label);
+                    }
+
+                    Pop(1, m_ExpressionStack);
+                    break;
+                }
+
                 case OpCodeKind::Jf: {
                     const std::string& label = std::get<std::string>(op.Data);
 
@@ -746,6 +758,18 @@ namespace Aria::Internal {
                         m_ProgramCounter = m_ActiveFunction->Labels.at(label);
                     }
 
+                    break;
+                }
+
+                case OpCodeKind::JfPop: {
+                    const std::string& label = std::get<std::string>(op.Data);
+
+                    if (GetBool(-1, m_ExpressionStack) == false) {
+                        ARIA_ASSERT(m_ActiveFunction->Labels.contains(label), "Trying to jump to an unknown label!");
+                        m_ProgramCounter = m_ActiveFunction->Labels.at(label);
+                    }
+
+                    Pop(1, m_ExpressionStack);
                     break;
                 }
 

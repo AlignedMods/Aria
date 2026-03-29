@@ -496,66 +496,63 @@ namespace Aria::Internal {
     }
 
     void TypeChecker::HandleWhileStmt(Stmt* stmt) {
-        // WhileStmt* wh = GetNode<WhileStmt>(stmt);
-        // 
-        // TypeInfo* type = HandleExpr(wh->GetCondition())->GetResolvedType();
-        // TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
-        // 
-        // ConversionCost cost = GetConversionCost(boolType, type, wh->GetCondition()->GetValueKind());
-        // if (cost.CastNeeded) {
-        //     if (cost.ImplicitCastPossible) {
-        //         wh->SetCondition(InsertImplicitCast(boolType, type, wh->GetCondition(), cost.CaKind));
-        //     } else {
-        //         ARIA_ASSERT(false, "todo");
-        //     }
-        // }
-        // 
-        // HandleStmt(wh->GetBody());
+        WhileStmt wh = stmt->While;
 
-        ARIA_ASSERT(false, "todo!");
+        HandleExpr(wh.Condition);
+        RequireRValue(wh.Condition);
+
+        if (!wh.Condition->Type->IsBoolean()) {
+            ARIA_ASSERT(false, "todo: add error");
+        }
+
+        HandleStmt(wh.Body);
     }
 
     void TypeChecker::HandleDoWhileStmt(Stmt* stmt) {
-        // DoWhileStmt* wh = GetNode<DoWhileStmt>(stmt);
-        // 
-        // TypeInfo* type = HandleExpr(wh->GetCondition())->GetResolvedType();
-        // TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
-        // 
-        // ConversionCost cost = GetConversionCost(boolType, type, wh->GetCondition()->GetValueKind());
-        // if (cost.CastNeeded) {
-        //     if (cost.ImplicitCastPossible) {
-        //         wh->SetCondition(InsertImplicitCast(boolType, type, wh->GetCondition(), cost.CaKind));
-        //     } else {
-        //         ARIA_ASSERT(false, "todo");
-        //     }
-        // }
-        // 
-        // HandleStmt(wh->GetBody());
+        DoWhileStmt wh = stmt->DoWhile;
 
-        ARIA_ASSERT(false, "todo!");
+        HandleExpr(wh.Condition);
+        RequireRValue(wh.Condition);
+
+        if (!wh.Condition->Type->IsBoolean()) {
+            ARIA_ASSERT(false, "todo: add error");
+        }
+
+        HandleStmt(wh.Body);
     }
 
     void TypeChecker::HandleForStmt(Stmt* stmt) {
-        // ForStmt* fs = GetNode<ForStmt>(stmt);
-        // 
-        // m_Declarations.emplace_back();
-        // 
-        // if (fs->GetPrologue()) { HandleStmt(fs->GetPrologue()); }
-        // if (fs->GetCondition()) { fs->SetCondition(HandleExpr(fs->GetCondition())); }
-        // if (fs->GetEpilogue()) { fs->SetEpilogue(HandleExpr(fs->GetEpilogue())); }
-        // HandleStmt(fs->GetBody());
-        // 
-        // m_Declarations.pop_back();
+        ForStmt fs = stmt->For;
 
-        ARIA_ASSERT(false, "todo!");
+        m_Declarations.emplace_back();
+        
+        if (fs.Prologue) { HandleStmt(fs.Prologue); }
+
+        if (fs.Condition) {
+            HandleExpr(fs.Condition);
+            RequireRValue(fs.Condition);
+
+            if (!fs.Condition->Type->IsBoolean()) {
+                ARIA_ASSERT(false, "todo: add error");
+            }
+        }
+
+        if (fs.Epilogue) { HandleExpr(fs.Epilogue); }
+        HandleStmt(fs.Body);
+        
+        m_Declarations.pop_back();
     }
 
     void TypeChecker::HandleIfStmt(Stmt* stmt) {
-        // IfStmt* ifs = GetNode<IfStmt>(stmt);
-        // HandleExpr(ifs->GetCondition());
-        // HandleStmt(ifs->GetBody());
+        IfStmt ifs = stmt->If;
+        HandleExpr(ifs.Condition);
+        RequireRValue(ifs.Condition);
 
-        ARIA_ASSERT(false, "todo!");
+        if (!ifs.Condition->Type->IsBoolean()) {
+            ARIA_ASSERT(false, "todo: add error");
+        }
+
+        HandleStmt(ifs.Body);
     }
 
     void TypeChecker::HandleReturnStmt(Stmt* stmt) {
@@ -585,7 +582,9 @@ namespace Aria::Internal {
         } else if (stmt->Kind == StmtKind::Return) {
             return HandleReturnStmt(stmt);
         } else if (stmt->Kind == StmtKind::Expr) {
-            return HandleExpr(stmt->ExprStmt);
+            HandleExpr(stmt->ExprStmt);
+            stmt->ExprStmt->IsStmtExpr = true;
+            return;
         } else if (stmt->Kind == StmtKind::Decl) {
             return HandleDecl(stmt->DeclStmt);
         }

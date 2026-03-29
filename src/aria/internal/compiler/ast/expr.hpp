@@ -332,6 +332,8 @@ namespace Aria::Internal {
         ExprValueKind ValueKind = ExprValueKind::RValue;
         TypeInfo* Type = nullptr;
 
+        bool IsStmtExpr = false;
+
         SourceLocation Loc;
         SourceRange Range;
 
