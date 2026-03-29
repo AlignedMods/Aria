@@ -1,6 +1,6 @@
 int result = 0; // Expected to be 24
 
-extern void ExternalFunction(int a, int b, int c);
+void ExternalFunction(int a, int b, int c);
 
 int add(int lhs, int rhs) {
     return lhs + rhs;

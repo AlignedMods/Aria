@@ -66,6 +66,8 @@ namespace Aria::Internal {
         size_t m_Index = 0;
         Tokens m_Tokens;
 
+        bool m_NeedsSemi = true;
+
         std::unordered_map<std::string, Decl*> m_DeclaredTypes;
         CompilationContext* m_Context = nullptr;
     };

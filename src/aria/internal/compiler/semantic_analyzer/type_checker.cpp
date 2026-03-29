@@ -177,31 +177,21 @@ namespace Aria::Internal {
     }
 
     void TypeChecker::HandleUnaryOperatorExpr(Expr* expr) {
-        // UnaryOperatorExpr* unop = GetNode<UnaryOperatorExpr>(expr);
-        // 
-        // unop->SetChildExpr(HandleExpr(unop->GetChildExpr()));
-        // TypeInfo* type = unop->GetChildExpr()->GetResolvedType();
-        // 
-        // ConversionCost cost = GetConversionCost(type, type, unop->GetChildExpr()->GetValueKind());
-        // if (cost.CastNeeded) {
-        //     if (cost.ImplicitCastPossible) {
-        //         unop->SetChildExpr(InsertImplicitCast(type, type, unop->GetChildExpr(), cost.CaKind));
-        //     } else {
-        //         ARIA_ASSERT(false, "todo: TypeChecker::HandleVarDecl() error");
-        //     }
-        // }
-        // 
-        // switch (unop->GetUnaryOperator()) {
-        //     case UnaryOperatorKind::Negate: {
-        //         ARIA_ASSERT(type->IsNumeric(), "todo: add error message");
-        //         unop->SetResolvedType(type);
-        //         return unop;
-        //     }
-        // }
-        // 
-        // ARIA_UNREACHABLE();
+        UnaryOperatorExpr& unop = expr->UnaryOperator;
+        
+        HandleExpr(unop.Expression);
+        RequireRValue(unop.Expression);
+        TypeInfo* type = unop.Expression->Type;
+        
+        switch (unop.Operator) {
+            case UnaryOperatorKind::Negate: {
+                ARIA_ASSERT(type->IsNumeric(), "todo: add error message");
+                expr->Type = type;
+                break;
+            }
 
-        ARIA_ASSERT(false, "todo!");
+            default: ARIA_UNREACHABLE();
+        }
     }
 
     void TypeChecker::HandleBinaryOperatorExpr(Expr* expr) {
@@ -309,37 +299,34 @@ namespace Aria::Internal {
     }
 
     void TypeChecker::HandleCompoundAssignExpr(Expr* expr) {
-        // CompoundAssignExpr* compAss = GetNode<CompoundAssignExpr>(expr);
-        // 
-        // compAss->SetLHS(HandleExpr(compAss->GetLHS()));
-        // compAss->SetRHS(HandleExpr(compAss->GetRHS()));
-        // 
-        // Expr* LHS = compAss->GetLHS();
-        // Expr* RHS = compAss->GetRHS();
-        // 
-        // TypeInfo* LHSType = LHS->GetResolvedType();
-        // TypeInfo* RHSType = RHS->GetResolvedType();
-        // 
-        // if (compAss->GetLHS()->GetValueKind() != ExprValueKind::LValue) {
-        //     m_Context->ReportCompilerError(compAss->GetLHS()->Loc, compAss->GetLHS()->Range, "Expression must be a modifiable lvalue");
-        // }
-        // 
-        // ConversionCost cost = GetConversionCost(LHSType, RHSType, compAss->GetRHS()->GetValueKind());
-        // 
-        // if (cost.CastNeeded) {
-        //     if (cost.ImplicitCastPossible) {
-        //         compAss->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, cost.CaKind));
-        //         RHSType = LHSType;
-        //     } else {
-        //         m_Context->ReportCompilerError(compAss->GetRHS()->Loc, compAss->GetRHS()->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(RHSType), TypeInfoToString(LHSType)));
-        //     }
-        // }
-        // 
-        // compAss->SetResolvedType(LHSType);
-        // compAss->SetValueKind(ExprValueKind::LValue);
-        // return compAss;
-
-        ARIA_ASSERT(false, "todo!");
+        CompoundAssignExpr& compAss = expr->CompoundAssign;
+        
+        HandleExpr(compAss.LHS);
+        HandleExpr(compAss.RHS);
+        
+        Expr* LHS = compAss.LHS;
+        Expr* RHS = compAss.RHS;
+        
+        TypeInfo* LHSType = LHS->Type;
+        TypeInfo* RHSType = RHS->Type;
+        
+        if (LHS->ValueKind != ExprValueKind::LValue) {
+            m_Context->ReportCompilerError(compAss.LHS->Loc, compAss.LHS->Range, "Expression must be a modifiable lvalue");
+        }
+        
+        ConversionCost cost = GetConversionCost(LHSType, RHSType, compAss.RHS->ValueKind);
+        
+        if (cost.CastNeeded) {
+            if (cost.ImplicitCastPossible) {
+                InsertImplicitCast(LHSType, RHSType, RHS, cost.CaKind);
+                RHSType = LHSType;
+            } else {
+                m_Context->ReportCompilerError(compAss.RHS->Loc, compAss.RHS->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(RHSType), TypeInfoToString(LHSType)));
+            }
+        }
+        
+        expr->Type = LHSType;
+        expr->ValueKind = ExprValueKind::LValue;
     }
 
     void TypeChecker::HandleExpr(Expr* expr) {
@@ -403,38 +390,24 @@ namespace Aria::Internal {
     }
 
     void TypeChecker::HandleFunctionDecl(Decl* decl) {
-        // FunctionDecl* fnDecl = GetNode<FunctionDecl>(decl);
-        // 
-        // TypeInfo* returnType = GetTypeInfoFromString(fnDecl->GetParsedType());
-        // TinyVector<TypeInfo*> paramTypes;
-        // m_ActiveReturnType = returnType;
-        // 
-        // m_Declarations.emplace_back();
-        // 
-        // for (ParamDecl* p : fnDecl->GetParameters()) {
-        //     HandleParamDecl(p);
-        //     TypeInfo* pType = p->GetResolvedType();
-        //     paramTypes.Append(m_Context, pType);
-        // }
-        // 
-        // // We make the function visible to itself by declaring it before the body
-        // FunctionDeclaration fd;
-        // fd.ParamTypes = paramTypes;
-        // fd.ReturnType = returnType;
-        // 
-        // TypeInfo* resolvedType = TypeInfo::Create(m_Context, PrimitiveType::Function, false, fd);
-        // fnDecl->SetResolvedType(resolvedType);
-        // 
-        // std::string ident = fnDecl->GetIdentifier();
-        // m_Declarations.front()[ident] = { fnDecl->GetResolvedType(), decl, DeclRefKind::Function };
-        // 
-        // if (fnDecl->GetBody()) {
-        //     HandleCompoundStmt(fnDecl->GetBody());
-        // }
-        // 
-        // m_Declarations.pop_back();
-        // m_ActiveReturnType = nullptr;
-        ARIA_ASSERT(false, "todo!");
+        FunctionDecl fnDecl = decl->Function;
+        
+        m_ActiveReturnType = std::get<FunctionDeclaration>(fnDecl.Type->Data).ReturnType;
+        m_Declarations.emplace_back();
+        
+        for (Decl* p : fnDecl.Parameters) {
+            HandleParamDecl(p);
+        }
+        
+        std::string ident = fmt::format("{}", fnDecl.Identifier);
+        m_Declarations.front()[ident] = { fnDecl.Type, decl, DeclRefKind::Function };
+        
+        if (fnDecl.Body) {
+            HandleStmt(fnDecl.Body);
+        }
+        
+        m_Declarations.pop_back();
+        m_ActiveReturnType = nullptr;
     }
 
     void TypeChecker::HandleStructDecl(Decl* decl) {
@@ -586,15 +559,13 @@ namespace Aria::Internal {
     }
 
     void TypeChecker::HandleReturnStmt(Stmt* stmt) {
-        // ReturnStmt* ret = GetNode<ReturnStmt>(stmt);
-        // 
-        // if (m_ActiveReturnType == nullptr) {
-        //     ARIA_ASSERT(false, "todo: error msg");
-        // }
-        // 
-        // ret->SetValue(HandleInitializer(ret->GetValue(), m_ActiveReturnType, true));
-
-        ARIA_ASSERT(false, "todo!");
+        ReturnStmt& ret = stmt->Return;
+        
+        if (m_ActiveReturnType == nullptr) {
+            ARIA_ASSERT(false, "todo: error msg");
+        }
+        
+        HandleInitializer(ret.Value, m_ActiveReturnType, false);
     }
 
     void TypeChecker::HandleStmt(Stmt* stmt) {
@@ -655,12 +626,12 @@ namespace Aria::Internal {
             }
 
             if (temporary) {
-                ARIA_ASSERT(false, "todo!");
-                // if (finalExpr->GetResolvedType()->Type == PrimitiveType::String) {
-                //     finalExpr = m_Context->Allocate<TemporaryExpr>(m_Context, finalExpr->Loc, finalExpr->Range, finalExpr, finalExpr->GetResolvedType(), m_Context->Allocate<BuiltinDestructorDecl>(m_Context, BuiltinDestructorKind::String));
-                //     finalExpr->SetValueKind(ExprValueKind::RValue);
-                //     m_TemporaryContext = true;
-                // }
+                if (initializer->Type->Type == PrimitiveType::String) {
+                    ARIA_ASSERT(false, "todo!");
+                    // finalExpr = m_Context->Allocate<TemporaryExpr>(m_Context, finalExpr->Loc, finalExpr->Range, finalExpr, finalExpr->GetResolvedType(), m_Context->Allocate<BuiltinDestructorDecl>(m_Context, BuiltinDestructorKind::String));
+                    // finalExpr->SetValueKind(ExprValueKind::RValue);
+                    m_TemporaryContext = true;
+                }
             }
         }
     }

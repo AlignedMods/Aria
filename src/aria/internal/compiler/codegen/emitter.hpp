@@ -95,10 +95,13 @@ namespace Aria::Internal {
         void PushScope();
         void PopScope();
 
+        void MergePendingOpCodes();
+
         VMType TypeInfoToVMType(TypeInfo* t);
 
     private:
         std::vector<OpCode> m_OpCodes;
+        std::vector<OpCode> m_PendingOpCodes; // Op codes that will be appended to the main op codes after the function body has been fully generated
         CompilerReflectionData m_ReflectionData;
 
         Stmt* m_RootASTNode = nullptr;

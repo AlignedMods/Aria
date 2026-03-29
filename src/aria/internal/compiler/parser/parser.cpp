@@ -351,10 +351,14 @@ namespace Aria::Internal {
     }
 
     Expr* Parser::ParseExpression(size_t minbp) {
-        SourceLocation lhsLoc = Peek()->Range.Start;
+        SourceRange lhsRange = Peek()->Range;
         Expr* lhsExpr = ParseValue();
 
-        if (!lhsExpr) { return nullptr; }
+        if (!lhsExpr) {
+            ErrorExpected("expression", lhsRange.Start, lhsRange);
+            StabilizeParser();
+            return nullptr;
+        }
 
         // There are two conditions to this loop
         // A valid operator (the first half of the check) and a valid precedence (the second half)
@@ -374,16 +378,16 @@ namespace Aria::Internal {
                 op == BinaryOperatorKind::CompoundAnd ||
                 op == BinaryOperatorKind::CompoundOr  ||
                 op == BinaryOperatorKind::CompoundXor) {
-                lhsExpr = Expr::Create(m_Context, o.Range.Start, SourceRange(lhsLoc, Peek(-1)->Range.End), ExprKind::CompoundAssign, 
+                lhsExpr = Expr::Create(m_Context, o.Range.Start, SourceRange(lhsRange.Start, Peek(-1)->Range.End), ExprKind::CompoundAssign, 
                     ExprValueKind::LValue, nullptr, 
                     CompoundAssignExpr(lhsExpr, rhsExpr, op));
             } else {
-                lhsExpr = Expr::Create(m_Context, o.Range.Start, SourceRange(lhsLoc, Peek(-1)->Range.End), ExprKind::BinaryOperator, 
+                lhsExpr = Expr::Create(m_Context, o.Range.Start, SourceRange(lhsRange.Start, Peek(-1)->Range.End), ExprKind::BinaryOperator, 
                     ExprValueKind::RValue, nullptr, 
                     BinaryOperatorExpr(lhsExpr, rhsExpr, op));
             }
 
-            lhsLoc = Peek()->Range.Start;
+            lhsRange = Peek()->Range;
         }
 
         return lhsExpr;
@@ -499,10 +503,12 @@ namespace Aria::Internal {
     }
 
     Decl* Parser::ParseFunctionDecl(TypeInfo* type, SourceLocation start) {
+        m_NeedsSemi = false;
         Token* ident = TryConsume(TokenKind::Identifier, "identifier");
 
         if (ident) {
             TinyVector<Decl*> params;
+            TinyVector<TypeInfo*> paramTypes;
 
             if (Match(TokenKind::LeftParen)) {
                 Consume();
@@ -514,16 +520,17 @@ namespace Aria::Internal {
                         continue;
                     }
 
-                    TypeInfo* type = ParseType();
+                    TypeInfo* paramType = ParseType();
                     Token* ident = TryConsume(TokenKind::Identifier, "identifier");
                     if (!ident) {
                         StabilizeParser();
                         continue;
                     }
 
-                    params.Append(m_Context, Decl::Create(m_Context, ident->Range.Start, ident->Range, DeclKind::Param, ParamDecl(ident->String, type)));
+                    params.Append(m_Context, Decl::Create(m_Context, ident->Range.Start, ident->Range, DeclKind::Param, ParamDecl(ident->String, paramType)));
+                    paramTypes.Append(m_Context, paramType);
 
-                    if (Match(TokenKind::Comma)) { continue; }
+                    if (Match(TokenKind::Comma)) { Consume(); continue; }
                     if (Match(TokenKind::RightParen)) { break; }
 
                     StabilizeParser();
@@ -544,7 +551,13 @@ namespace Aria::Internal {
                     }
                 }
 
-                return Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Function, FunctionDecl(ident->String, type, params, body));
+                FunctionDeclaration typeDecl;
+                typeDecl.ReturnType = type;
+                typeDecl.ParamTypes = paramTypes;
+
+                TypeInfo* finalType = TypeInfo::Create(m_Context, PrimitiveType::Function, false, typeDecl);
+
+                return Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Function, FunctionDecl(ident->String, finalType, params, body));
             } else {
                 StabilizeParser();
                 ErrorExpected("'('", Peek()->Range.End, Peek()->Range);
@@ -611,10 +624,10 @@ namespace Aria::Internal {
         while (!Match(TokenKind::RightCurly)) {
             Stmt* stmt = ParseToken();
 
-            Token* semi = TryConsume(TokenKind::Semi, "';'");
-
-            if (stmt != nullptr && semi != nullptr) {
+            if (stmt != nullptr) {
                 stmts.Append(m_Context, stmt);
+            } else {
+                StabilizeParser();
             }
         }
 
@@ -630,9 +643,6 @@ namespace Aria::Internal {
         } else {
             Stmt* stmt = ParseToken();
             if (!stmt) { return nullptr; }
-
-            Token* semi = TryConsume(TokenKind::Semi, "';'");
-            if (!semi) { return nullptr; }
 
             TinyVector<Stmt*> stmts;
             stmts.Append(m_Context, stmt);
@@ -706,13 +716,10 @@ namespace Aria::Internal {
     }
 
     Stmt* Parser::ParseReturn() {
-        // Token r = Consume(); // Consume "return"
-        // 
-        // Expr* value = ParseExpression();
-        // 
-        // ReturnStmt* ret = m_Context->Allocate<ReturnStmt>(m_Context, value);
-        // return ret;
-        ARIA_ASSERT(false, "todo!");
+        Token r = Consume(); // Consume "return"
+        Expr* value = ParseExpression();
+        
+        return Stmt::Create(m_Context, r.Range.Start, SourceRange(r.Range.Start, Peek(-1)->Range.End), StmtKind::Return, ReturnStmt(value));
     }
 
     Stmt* Parser::ParseStatement() {
@@ -754,6 +761,15 @@ namespace Aria::Internal {
             s = Stmt::Create(m_Context, expr->Loc, expr->Range, StmtKind::Expr, expr);
         }
 
+        if (m_NeedsSemi) {
+            if (!TryConsume(TokenKind::Semi, "';'")) {
+                return nullptr;
+            }
+
+            m_NeedsSemi = true;
+        }
+
+        // Consume stray semicolons
         while (Match(TokenKind::Semi)) {
             Consume();
         }
