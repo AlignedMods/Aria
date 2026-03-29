@@ -73,7 +73,7 @@ namespace Aria::Internal {
 
         void EmitDecl(Decl* decl);
 
-        void EmitCompoundStmt(Stmt* stmt);
+        void EmitBlockStmt(Stmt* stmt);
         void EmitWhileStmt(Stmt* stmt);
         void EmitDoWhileStmt(Stmt* stmt);
         void EmitForStmt(Stmt* stmt);

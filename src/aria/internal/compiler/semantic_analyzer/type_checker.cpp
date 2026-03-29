@@ -24,7 +24,7 @@ namespace Aria::Internal {
     void TypeChecker::HandleStringConstantExpr(Expr* expr) {}
 
     void TypeChecker::HandleDeclRefExpr(Expr* expr) {
-        DeclRefExpr ref = expr->DeclRef;
+        DeclRefExpr& ref = expr->DeclRef;
         std::string ident = fmt::format("{}", ref.Identifier);
 
         if (m_ActiveStruct) {
@@ -59,7 +59,7 @@ namespace Aria::Internal {
     }
 
     void TypeChecker::HandleMemberExpr(Expr* expr) {
-        MemberExpr mem = expr->Member;
+        MemberExpr& mem = expr->Member;
 
         HandleExpr(mem.Parent);
         TypeInfo* parentType = mem.Parent->Type;
@@ -92,7 +92,7 @@ namespace Aria::Internal {
     }
 
     void TypeChecker::HandleCallExpr(Expr* expr) {
-        CallExpr call = expr->Call;
+        CallExpr& call = expr->Call;
 
         HandleExpr(call.Callee);
         TypeInfo* calleeType = call.Callee->Type;
@@ -149,7 +149,7 @@ namespace Aria::Internal {
     }
 
     void TypeChecker::HandleParenExpr(Expr* expr) {
-        ParenExpr paren = expr->Paren;
+        ParenExpr& paren = expr->Paren;
         HandleExpr(paren.Expression);
 
         expr->Type = paren.Expression->Type;
@@ -157,7 +157,7 @@ namespace Aria::Internal {
     }
 
     void TypeChecker::HandleCastExpr(Expr* expr) {
-        CastExpr cast = expr->Cast;
+        CastExpr& cast = expr->Cast;
         
         HandleExpr(cast.Expression);
         expr->Type = cast.Type;
@@ -205,7 +205,7 @@ namespace Aria::Internal {
     }
 
     void TypeChecker::HandleBinaryOperatorExpr(Expr* expr) {
-        BinaryOperatorExpr binop = expr->BinaryOperator;
+        BinaryOperatorExpr& binop = expr->BinaryOperator;
 
         HandleExpr(binop.LHS);
         HandleExpr(binop.RHS);

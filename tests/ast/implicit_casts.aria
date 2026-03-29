@@ -5,4 +5,3 @@ short c = 5; // Should have an implicit cast for LongToShort
 long d = c; // Should have an implicit cast for ShortToLong
 
 float e = 5 * b / c; // 5 and c should be casted to floats, b should have a LValueToRValue cast
-long f = 7 + 7u;
