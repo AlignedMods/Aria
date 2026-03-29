@@ -1,5 +1,4 @@
 #include "aria/internal/compiler/semantic_analyzer/semantic_analyzer.hpp"
-#include "aria/internal/compiler/ast/ast.hpp"
 
 namespace Aria::Internal {
 
@@ -15,52 +14,52 @@ namespace Aria::Internal {
         HandleStmt(m_RootASTNode);
     }
 
-    TypeInfo* SemanticAnalyzer::HandleBooleanConstantExpr(Expr* expr) { return expr->GetResolvedType(); }
-    TypeInfo* SemanticAnalyzer::HandleCharacterConstantExpr(Expr* expr) { return expr->GetResolvedType(); }
-    TypeInfo* SemanticAnalyzer::HandleIntegerConstantExpr(Expr* expr) { return expr->GetResolvedType(); }
-    TypeInfo* SemanticAnalyzer::HandleFloatingConstantExpr(Expr* expr) { return expr->GetResolvedType(); }
-    TypeInfo* SemanticAnalyzer::HandleStringConstantExpr(Expr* expr) { return expr->GetResolvedType(); }
-    TypeInfo* SemanticAnalyzer::HandleDeclRefExpr(Expr* expr) { return expr->GetResolvedType(); }
-    TypeInfo* SemanticAnalyzer::HandleMemberExpr(Expr* expr) { return expr->GetResolvedType(); }
-    TypeInfo* SemanticAnalyzer::HandleCallExpr(Expr* expr) { return expr->GetResolvedType(); }
-    TypeInfo* SemanticAnalyzer::HandleMethodCallExpr(Expr* expr) { return expr->GetResolvedType(); }
-    TypeInfo* SemanticAnalyzer::HandleParenExpr(Expr* expr) { return expr->GetResolvedType(); }
-    TypeInfo* SemanticAnalyzer::HandleCastExpr(Expr* expr) { return expr->GetResolvedType(); }
-    TypeInfo* SemanticAnalyzer::HandleImplicitCastExpr(Expr* expr) { return expr->GetResolvedType(); }
-    TypeInfo* SemanticAnalyzer::HandleUnaryOperatorExpr(Expr* expr) { return expr->GetResolvedType(); }
-    TypeInfo* SemanticAnalyzer::HandleBinaryOperatorExpr(Expr* expr) { return expr->GetResolvedType(); }
-    TypeInfo* SemanticAnalyzer::HandleCompoundAssignExpr(Expr* expr) { return expr->GetResolvedType(); }
+    void SemanticAnalyzer::HandleBooleanConstantExpr(Expr* expr)   {}
+    void SemanticAnalyzer::HandleCharacterConstantExpr(Expr* expr) {}
+    void SemanticAnalyzer::HandleIntegerConstantExpr(Expr* expr)   {}
+    void SemanticAnalyzer::HandleFloatingConstantExpr(Expr* expr)  {}
+    void SemanticAnalyzer::HandleStringConstantExpr(Expr* expr)    {}
+    void SemanticAnalyzer::HandleDeclRefExpr(Expr* expr)           {}
+    void SemanticAnalyzer::HandleMemberExpr(Expr* expr)            {}
+    void SemanticAnalyzer::HandleCallExpr(Expr* expr)              {}
+    void SemanticAnalyzer::HandleMethodCallExpr(Expr* expr)        {}
+    void SemanticAnalyzer::HandleParenExpr(Expr* expr)             {}
+    void SemanticAnalyzer::HandleCastExpr(Expr* expr)              {}
+    void SemanticAnalyzer::HandleImplicitCastExpr(Expr* expr)      {}
+    void SemanticAnalyzer::HandleUnaryOperatorExpr(Expr* expr)     {}
+    void SemanticAnalyzer::HandleBinaryOperatorExpr(Expr* expr)    {}
+    void SemanticAnalyzer::HandleCompoundAssignExpr(Expr* expr)    {}
 
-    TypeInfo* SemanticAnalyzer::HandleExpr(Expr* expr) {
-        if (GetNode<BooleanConstantExpr>(expr)) {
+    void SemanticAnalyzer::HandleExpr(Expr* expr) {
+        if (expr->Kind == ExprKind::BooleanConstant) {
             return HandleBooleanConstantExpr(expr);
-        } else if (GetNode<CharacterConstantExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::CharacterConstant) {
             return HandleCharacterConstantExpr(expr);
-        } else if (GetNode<IntegerConstantExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::IntegerConstant) {
             return HandleIntegerConstantExpr(expr);
-        } else if (GetNode<FloatingConstantExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::FloatingConstant) {
             return HandleFloatingConstantExpr(expr);
-        } else if (GetNode<StringConstantExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::StringConstant) {
             return HandleStringConstantExpr(expr);
-        } else if (GetNode<DeclRefExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::DeclRef) {
             return HandleDeclRefExpr(expr);
-        } else if (GetNode<MemberExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::Member) {
             return HandleMemberExpr(expr);
-        } else if (GetNode<CallExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::Call) {
             return HandleCallExpr(expr);
-        } else if (GetNode<MethodCallExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::MethodCall) {
             return HandleMethodCallExpr(expr);
-        } else if (GetNode<ParenExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::Paren) {
             return HandleParenExpr(expr);
-        } else if (GetNode<CastExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::Cast) {
             return HandleCastExpr(expr);
-        } else if (GetNode<ImplicitCastExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::ImplicitCast) {
             return HandleImplicitCastExpr(expr);
-        } else if (GetNode<UnaryOperatorExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::UnaryOperator) {
             return HandleUnaryOperatorExpr(expr);
-        } else if (GetNode<BinaryOperatorExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::BinaryOperator) {
             return HandleBinaryOperatorExpr(expr);
-        } else if (GetNode<CompoundAssignExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::CompoundAssign) {
             return HandleCompoundAssignExpr(expr);
         }
 
@@ -68,153 +67,88 @@ namespace Aria::Internal {
     }
 
     void SemanticAnalyzer::HandleTranslationUnitDecl(Decl* decl) {
-        TranslationUnitDecl* tu = GetNode<TranslationUnitDecl>(decl);
+        TranslationUnitDecl tu = decl->TranslationUnit;
 
-        for (Stmt* stmt : tu->GetStmts()) {
+        for (Stmt* stmt : tu.Stmts) {
             HandleStmt(stmt);
         }
     }
 
-    void SemanticAnalyzer::HandleVarDecl(Decl* decl) {
-        VarDecl* varDecl = GetNode<VarDecl>(decl);
-
-        auto& map = GetActiveDeclMap();
-
-        VariableDeclaration d;
-        d.Type = varDecl->GetResolvedType();
-        d.SourceDecl = varDecl;
-
-        map[varDecl->GetIdentifier()] = d;
-    }
-
-    void SemanticAnalyzer::HandleParamDecl(Decl* decl) {
-        ParamDecl* paramDecl = GetNode<ParamDecl>(decl);
-
-        auto& map = GetActiveDeclMap();
-
-        ParameterDeclaration d;
-        d.Type = paramDecl->GetResolvedType();
-        d.SourceDecl = paramDecl;
-
-        map[paramDecl->GetIdentifier()] = d;
-    }
-
-    void SemanticAnalyzer::HandleFunctionDecl(Decl* decl) {
-        FunctionDecl* fnDecl = GetNode<FunctionDecl>(decl);
-
-        if (fnDecl->GetBody()) {
-            PushScope();
-
-            for (ParamDecl* p : fnDecl->GetParameters()) {
-                HandleParamDecl(p);
-            }
-
-            HandleCompoundStmt(fnDecl->GetBody());
-
-            PopScope();
-        }
-    }
-
+    void SemanticAnalyzer::HandleVarDecl(Decl* decl) {}
+    void SemanticAnalyzer::HandleParamDecl(Decl* decl) {}
+    void SemanticAnalyzer::HandleFunctionDecl(Decl* decl) {}
     void SemanticAnalyzer::HandleStructDecl(Decl* decl) {}
 
     void SemanticAnalyzer::HandleDecl(Decl* decl) {
-        if (GetNode<TranslationUnitDecl>(decl)) {
+        if (decl->Kind == DeclKind::TranslationUnit) {
             return HandleTranslationUnitDecl(decl);
-        } else if (GetNode<VarDecl>(decl)) {
+        } else if (decl->Kind == DeclKind::Var) {
             return HandleVarDecl(decl);
-        } else if (GetNode<ParamDecl>(decl)) {
+        } else if (decl->Kind == DeclKind::Param) {
             return HandleParamDecl(decl);
-        } else if (GetNode<FunctionDecl>(decl)) {
+        } else if (decl->Kind == DeclKind::Function) {
             return HandleFunctionDecl(decl);
-        } else if (GetNode<StructDecl>(decl)) {
+        } else if (decl->Kind == DeclKind::Struct) {
             return HandleStructDecl(decl);
         }
 
         ARIA_UNREACHABLE();
     }
 
-    void SemanticAnalyzer::HandleCompoundStmt(Stmt* stmt) {
-        CompoundStmt* compound = GetNode<CompoundStmt>(stmt);
+    void SemanticAnalyzer::HandleBlockStmt(Stmt* stmt) {
+        BlockStmt block = stmt->Block;
 
-        for (Stmt* s : compound->GetStmts()) {
+        for (Stmt* s : block.Stmts) {
             HandleStmt(s);
         }
     }
 
     void SemanticAnalyzer::HandleWhileStmt(Stmt* stmt) {
-        WhileStmt* wh = GetNode<WhileStmt>(stmt);
-
-        HandleExpr(wh->GetCondition());
-        HandleStmt(wh->GetBody());
+        // WhileStmt wh = stmt->While;
+        // 
+        // HandleExpr(wh.Condition);
+        // HandleStmt(wh.Body);
     }
 
     void SemanticAnalyzer::HandleDoWhileStmt(Stmt* stmt) {
-        DoWhileStmt* wh = GetNode<DoWhileStmt>(stmt);
-
-        HandleExpr(wh->GetCondition());
-        HandleStmt(wh->GetBody());
+        // DoWhileStmt* wh = GetNode<DoWhileStmt>(stmt);
+        // 
+        // HandleExpr(wh->GetCondition());
+        // HandleStmt(wh->GetBody());
     }
 
     void SemanticAnalyzer::HandleForStmt(Stmt* stmt) {
-        ForStmt* fs = GetNode<ForStmt>(stmt);
-
-        if (fs->GetPrologue()) { HandleStmt(fs->GetPrologue()); }
-        if (fs->GetCondition()) { HandleExpr(fs->GetCondition()); }
-        if (fs->GetEpilogue()) { HandleExpr(fs->GetEpilogue()); }
-        HandleStmt(fs->GetBody());
+        // ForStmt* fs = GetNode<ForStmt>(stmt);
+        // 
+        // if (fs->GetPrologue()) { HandleStmt(fs->GetPrologue()); }
+        // if (fs->GetCondition()) { HandleExpr(fs->GetCondition()); }
+        // if (fs->GetEpilogue()) { HandleExpr(fs->GetEpilogue()); }
+        // HandleStmt(fs->GetBody());
     }
 
     void SemanticAnalyzer::HandleIfStmt(Stmt* stmt) {}
-
     void SemanticAnalyzer::HandleReturnStmt(Stmt* stmt) {}
 
     void SemanticAnalyzer::HandleStmt(Stmt* stmt) {
-        if (GetNode<CompoundStmt>(stmt)) {
-            PushScope();
-            HandleCompoundStmt(stmt);
-            PopScope();
-            return;
-        } else if (GetNode<WhileStmt>(stmt)) {
-            HandleWhileStmt(stmt);
-            return;
-        } else if (GetNode<DoWhileStmt>(stmt)) {
-            HandleDoWhileStmt(stmt);
-            return;
-        } else if (GetNode<ForStmt>(stmt)) {
-            HandleForStmt(stmt);
-            return;
-        } else if (GetNode<IfStmt>(stmt)) {
-            HandleIfStmt(stmt);
-            return;
-        } else if (GetNode<ReturnStmt>(stmt)) {
-            HandleReturnStmt(stmt);
-            return;
-        } else if (Expr* expr = GetNode<Expr>(stmt)) {
-            HandleExpr(expr);
-            return;
-        } else if (Decl* decl = GetNode<Decl>(stmt)) {
-            HandleDecl(decl);
-            return;
+        if (stmt->Kind == StmtKind::Block) {
+            return HandleBlockStmt(stmt);
+        } else if (stmt->Kind == StmtKind::While) {
+            return HandleWhileStmt(stmt);
+        } else if (stmt->Kind == StmtKind::DoWhile) {
+            return HandleDoWhileStmt(stmt);
+        } else if (stmt->Kind == StmtKind::For) {
+            return HandleForStmt(stmt);
+        } else if (stmt->Kind == StmtKind::If) {
+            return HandleIfStmt(stmt);
+        } else if (stmt->Kind == StmtKind::Return) {
+            return HandleReturnStmt(stmt);
+        } else if (stmt->Kind == StmtKind::Expr) {
+            return HandleExpr(stmt->ExprStmt);
+        } else if (stmt->Kind == StmtKind::Decl) {
+            return HandleDecl(stmt->DeclStmt);
         }
 
         ARIA_UNREACHABLE();
-    }
-
-    void SemanticAnalyzer::PushScope() {
-        m_Scopes.emplace_back();
-    }
-
-    void SemanticAnalyzer::PopScope() {
-        ARIA_ASSERT(m_Scopes.size() > 0, "SemanticAnalyzer::PopScope() called with no active scopes");
-        m_Scopes.pop_back();
-    }
-
-    std::unordered_map<std::string, SemanticAnalyzer::Declaration>& SemanticAnalyzer::GetActiveDeclMap() {
-        if (m_Scopes.size() == 0) {
-            return m_GlobalDeclaredSymbols;
-        }
-
-        return m_Scopes.back().DeclaredSymbols;
     }
 
 } // namespace Aria::Internal

@@ -13,7 +13,7 @@ namespace Aria::Internal {
     struct Decl;
 
     enum class PrimitiveType {
-        Invalid = 0,
+        Error = 0,
         Void,
 
         Bool,
@@ -50,7 +50,7 @@ namespace Aria::Internal {
     };
 
     struct TypeInfo {
-        PrimitiveType Type = PrimitiveType::Invalid;
+        PrimitiveType Type = PrimitiveType::Error;
         std::variant<size_t, TypeInfo*, FunctionDeclaration, ArrayDeclaration, StructDeclaration> Data;
         bool Reference = false;
 
@@ -110,7 +110,7 @@ namespace Aria::Internal {
         std::string str;
 
         switch (type->Type) {
-            case PrimitiveType::Invalid: str = "invalid"; break;
+            case PrimitiveType::Error:   str = "error"; break;
             case PrimitiveType::Void:    str = "void"; break;
 
             case PrimitiveType::Bool:    str = "bool"; break;

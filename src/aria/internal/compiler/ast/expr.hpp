@@ -207,7 +207,6 @@ namespace Aria::Internal {
 
         StringView Member;
         Expr* Parent = nullptr;
-        TypeInfo* ParentType = nullptr;
     };
 
     struct SelfExpr {
@@ -323,6 +322,12 @@ namespace Aria::Internal {
             ExprValueKind valueKind, TypeInfo* type, 
             T t) { return ctx->Allocate<Expr>(loc, range, kind, valueKind, type, t); }
 
+        static inline Expr* Copy(CompilationContext* ctx, Expr* other) {
+            Expr* newExpr = ctx->Allocate<Expr>();
+            memcpy(newExpr, other, sizeof(Expr));
+            return newExpr;
+        }
+
         ExprKind Kind = ExprKind::Invalid;
         ExprValueKind ValueKind = ExprValueKind::RValue;
         TypeInfo* Type = nullptr;
@@ -349,6 +354,9 @@ namespace Aria::Internal {
             BinaryOperatorExpr BinaryOperator;
             CompoundAssignExpr CompoundAssign;
         };
+
+        Expr()
+            : BooleanConstant(false) {}
 
         Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, BooleanConstantExpr booleanConstant)
             : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), BooleanConstant(booleanConstant) {}

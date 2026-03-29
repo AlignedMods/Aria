@@ -52,13 +52,13 @@ namespace Aria::Internal {
     };
 
     struct FunctionDecl {
-        FunctionDecl( StringView identifier, TypeInfo* type, TinyVector<ParamDecl> params, BlockStmt body)
+        FunctionDecl( StringView identifier, TypeInfo* type, TinyVector<Decl*> params, Stmt* body)
             : Identifier(identifier), Type(type), Parameters(params), Body(body) {}
 
         StringView Identifier;
         TypeInfo* Type = nullptr;
-        TinyVector<ParamDecl> Parameters;
-        BlockStmt Body;
+        TinyVector<Decl*> Parameters;
+        Stmt* Body = nullptr;
     };
 
     struct StructDecl {
@@ -75,18 +75,18 @@ namespace Aria::Internal {
 
         StringView Identifier;
         StringView ParsedType;
-        TypeInfo* ResolvedType = nullptr;
+        TypeInfo* Type = nullptr;
     };
 
     struct MethodDecl {
-        MethodDecl(StringView identifier, StringView parsedType, TinyVector<ParamDecl*> parameters, BlockStmt body)
+        MethodDecl(StringView identifier, StringView parsedType, TinyVector<Decl*> parameters, Stmt* body)
             : Identifier(identifier), Parameters(parameters), ParsedType(parsedType), Body(body) {}
 
         StringView Identifier;
         StringView ParsedType;
-        TinyVector<ParamDecl*> Parameters;
-        BlockStmt Body;
-        TypeInfo* ResolvedType = nullptr;
+        TinyVector<Decl*> Parameters;
+        Stmt* Body = nullptr;
+        TypeInfo* Type = nullptr;
     };
 
     struct BuiltinCopyConstructorDecl {
@@ -117,6 +117,7 @@ namespace Aria::Internal {
             VarDecl Var;
             ParamDecl Param;
             FunctionDecl Function;
+            StructDecl Struct;
             FieldDecl Field;
             MethodDecl Method;
             BuiltinCopyConstructorDecl BuiltinCopyConstructor;
@@ -134,6 +135,9 @@ namespace Aria::Internal {
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, FunctionDecl function)
             : Loc(loc), Range(range), Kind(kind), Function(function) {}
+
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, StructDecl struc)
+            : Loc(loc), Range(range), Kind(kind), Struct(struc) {}
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, FieldDecl field)
             : Loc(loc), Range(range), Kind(kind), Field(field) {}

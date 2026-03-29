@@ -1,5 +1,4 @@
 #include "aria/internal/compiler/parser/parser.hpp"
-#include "aria/internal/compiler/ast/ast.hpp"
 
 #include "fmt/format.h"
 
@@ -432,7 +431,7 @@ namespace Aria::Internal {
     TypeInfo* Parser::ParseType() {
         ARIA_ASSERT(IsType(), "Cannot parse a type out of a non type");
 
-        TypeInfo* type = TypeInfo::Create(m_Context, PrimitiveType::Invalid, false);
+        TypeInfo* type = TypeInfo::Create(m_Context, PrimitiveType::Error, false);
 
         switch (Consume().Kind) {
             case TokenKind::Void:       type->Type = PrimitiveType::Void; break;
@@ -447,6 +446,9 @@ namespace Aria::Internal {
             case TokenKind::UInt:       type->Type = PrimitiveType::UInt; break;
             case TokenKind::Long:       type->Type = PrimitiveType::Long; break;
             case TokenKind::ULong:      type->Type = PrimitiveType::ULong; break;
+
+            case TokenKind::Float:      type->Type = PrimitiveType::Float; break;
+            case TokenKind::Double:     type->Type = PrimitiveType::Double; break;
 
             case TokenKind::String:     type->Type = PrimitiveType::String; break;
 
@@ -500,7 +502,7 @@ namespace Aria::Internal {
         Token* ident = TryConsume(TokenKind::Identifier, "identifier");
 
         if (ident) {
-            TinyVector<ParamDecl> params;
+            TinyVector<Decl*> params;
 
             if (Match(TokenKind::LeftParen)) {
                 Consume();
@@ -519,7 +521,7 @@ namespace Aria::Internal {
                         continue;
                     }
 
-                    params.Append(m_Context, ParamDecl(ident->String, type));
+                    params.Append(m_Context, Decl::Create(m_Context, ident->Range.Start, ident->Range, DeclKind::Param, ParamDecl(ident->String, type)));
 
                     if (Match(TokenKind::Comma)) { continue; }
                     if (Match(TokenKind::RightParen)) { break; }
@@ -530,10 +532,10 @@ namespace Aria::Internal {
 
                 TryConsume(TokenKind::RightParen, "')'");
 
-                BlockStmt body;
+                Stmt* body = nullptr;
 
                 if (Match(TokenKind::LeftCurly)) {
-                    body = ParseBlock()->Block;
+                    body = ParseBlock();
                 } else {
                     Token* semi = TryConsume(TokenKind::Semi, "';'");
 

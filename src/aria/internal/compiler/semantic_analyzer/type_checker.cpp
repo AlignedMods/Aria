@@ -1,5 +1,4 @@
 #include "aria/internal/compiler/semantic_analyzer/type_checker.hpp"
-#include "aria/internal/compiler/ast/ast.hpp"
 
 namespace Aria::Internal {
 
@@ -10,58 +9,36 @@ namespace Aria::Internal {
     }
 
     void TypeChecker::CheckImpl() {
+        m_ErrorType = TypeInfo::Create(m_Context, PrimitiveType::Error, false);
+
         // We always want to have at least one map for declarations (global space)
         m_Declarations.resize(1);
 
         HandleStmt(m_RootASTNode);
     }
 
-    Expr* TypeChecker::HandleBooleanConstantExpr(Expr* expr) {
-        expr->ValueKind = ExprValueKind::RValue;
-        return expr;
-    }
+    void TypeChecker::HandleBooleanConstantExpr(Expr* expr) {}
+    void TypeChecker::HandleCharacterConstantExpr(Expr* expr) {}
+    void TypeChecker::HandleIntegerConstantExpr(Expr* expr) {}
+    void TypeChecker::HandleFloatingConstantExpr(Expr* expr) {}
+    void TypeChecker::HandleStringConstantExpr(Expr* expr) {}
 
-    Expr* TypeChecker::HandleCharacterConstantExpr(Expr* expr) {
-        expr->ValueKind = ExprValueKind::RValue;
-        return expr;
-    }
-
-    Expr* TypeChecker::HandleIntegerConstantExpr(Expr* expr) {
-        expr->ValueKind = ExprValueKind::RValue;
-        return expr;
-    }
-
-    Expr* TypeChecker::HandleFloatingConstantExpr(Expr* expr) {
-        expr->ValueKind = ExprValueKind::RValue;
-        return expr;
-    }
-
-    Expr* TypeChecker::HandleStringConstantExpr(Expr* expr) {
-        expr->ValueKind = ExprValueKind::RValue;
-        return expr;
-    }
-
-    Expr* TypeChecker::HandleDeclRefExpr(Expr* expr) {
-        DeclRefExpr* ref = GetNode<DeclRefExpr>(expr);
-
-        std::string ident = fmt::format(ref->GetIdentifier();
+    void TypeChecker::HandleDeclRefExpr(Expr* expr) {
+        DeclRefExpr ref = expr->DeclRef;
+        std::string ident = fmt::format("{}", ref.Identifier);
 
         if (m_ActiveStruct) {
-            StructDecl* s = GetNode<StructDecl>(std::get<StructDeclaration>(m_ActiveStruct->Data).SourceDecl);
-            ARIA_ASSERT(s != nullptr, "how");
+            StructDecl s = std::get<StructDeclaration>(m_ActiveStruct->Data).SourceDecl->Struct;
 
-            for (Decl* d : s->GetFields()) {
-                if (FieldDecl* fd = GetNode<FieldDecl>(d)) {
-                    if (fd->GetRawIdentifier() == ref->GetRawIdentifier()) {
-                        SelfExpr* self = m_Context->Allocate<SelfExpr>(m_Context, ref->Loc, ref->Range);
-                        self->SetResolvedType(m_ActiveStruct);
-                        self->SetValueKind(ExprValueKind::LValue);
-
-                        MemberExpr* mem = m_Context->Allocate<MemberExpr>(m_Context, ref->Loc, ref->Range, ref->GetRawIdentifier(), self);
-                        mem->SetResolvedType(fd->GetResolvedType());
-                        mem->SetParentType(self->GetResolvedType());
-                        mem->SetValueKind(ExprValueKind::LValue);
-                        return mem;
+            // Check for implicit self
+            for (Decl* d : s.Fields) {
+                if (d->Kind == DeclKind::Field) {
+                    FieldDecl fd = d->Field;
+                    if (fd.Identifier == ref.Identifier) {
+                        Expr* self = Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::Self, ExprValueKind::LValue, m_ActiveStruct, SelfExpr());
+                        Expr* member = Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::Member, ExprValueKind::LValue, fd.Type, MemberExpr(ref.Identifier, self));
+                        ReplaceExpr(expr, member);
+                        return;
                     }
                 }
             }
@@ -71,169 +48,172 @@ namespace Aria::Internal {
             auto& it = m_Declarations.at(i - 1);
 
             if (it.contains(ident)) {
-                ref->SetResolvedType(it.at(ident).ResolvedType);
-                ref->SetKind(it.at(ident).DeclKind);
-                ref->SetValueKind(ExprValueKind::LValue);
-                return ref;
+                ref.Kind = it.at(ident).DeclKind;
+                expr->Type = it.at(ident).ResolvedType;
+                return;
             }
         }
 
-        m_Context->ReportCompilerError(ref->Loc, ref->Range, fmt::format("Undeclared identifier \"{}\"", ref->GetRawIdentifier()));
-        ref->SetResolvedType(TypeInfo::Create(m_Context, PrimitiveType::Void, false));
-        ref->SetValueKind(ExprValueKind::LValue);
-        return ref;
+        m_Context->ReportCompilerError(expr->Loc, expr->Range, fmt::format("Undeclared identifier \"{}\"", ref.Identifier));
+        expr->Type = m_ErrorType;
     }
 
-    Expr* TypeChecker::HandleMemberExpr(Expr* expr) {
-        MemberExpr* mem = GetNode<MemberExpr>(expr);
+    void TypeChecker::HandleMemberExpr(Expr* expr) {
+        MemberExpr mem = expr->Member;
 
-        mem->SetParent(HandleExpr(mem->GetParent()));
-        TypeInfo* parentType = mem->GetParent()->GetResolvedType();
+        HandleExpr(mem.Parent);
+        TypeInfo* parentType = mem.Parent->Type;
         TypeInfo* memberType = nullptr;
         StructDeclaration& sd = std::get<StructDeclaration>(parentType->Data);
 
-        StructDecl* s = GetNode<StructDecl>(sd.SourceDecl);
+        StructDecl s = sd.SourceDecl->Struct;
 
-        for (Decl* field : s->GetFields()) {
-            if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
-                if (fd->GetRawIdentifier() == mem->GetMember()) {
-                    memberType = fd->GetResolvedType();
+        for (Decl* field : s.Fields) {
+            if (field->Kind == DeclKind::Field) {
+                FieldDecl fd = field->Field;
+                if (fd.Identifier == mem.Member) {
+                    memberType = fd.Type;
                 }
-            } else if (MethodDecl* md = GetNode<MethodDecl>(field)) {
-                if (md->GetRawIdentifier() == mem->GetMember()) {
-                    memberType = md->GetResolvedType();
+            } else if (field->Kind == DeclKind::Method) {
+                MethodDecl md = field->Method;
+                if (md.Identifier == mem.Member) {
+                    memberType = md.Type;
                 }
             }
         }
 
         if (!memberType) {
-            ARIA_ASSERT(false, "todo: add error msg");
+            m_Context->ReportCompilerError(expr->Loc, expr->Range, fmt::format("Unknown member \"{}\" in '{}'", mem.Member, TypeInfoToString(parentType)));
+            expr->Type = m_ErrorType;
+            return;
         }
 
-        mem->SetParentType(parentType);
-        mem->SetResolvedType(memberType);
-        mem->SetValueKind(ExprValueKind::LValue);
-        return mem;
+        expr->Type = memberType;
     }
 
-    Expr* TypeChecker::HandleCallExpr(Expr* expr) {
-        CallExpr* call = GetNode<CallExpr>(expr);
+    void TypeChecker::HandleCallExpr(Expr* expr) {
+        CallExpr call = expr->Call;
 
-        TypeInfo* calleeType = HandleExpr(call->GetCallee())->GetResolvedType();
+        HandleExpr(call.Callee);
+        TypeInfo* calleeType = call.Callee->Type;
+
+        if (calleeType->Type != PrimitiveType::Function) {
+            m_Context->ReportCompilerError(expr->Loc, expr->Range, "Cannot call an object of non-function type");
+            expr->Type = m_ErrorType;
+            return;
+        }
         FunctionDeclaration& fnDecl = std::get<FunctionDeclaration>(calleeType->Data);
 
-        if (fnDecl.ParamTypes.Size != call->GetArguments().Size) {
-            m_Context->ReportCompilerError(call->Loc, call->Range, fmt::format("Mismatched argument count, function expects {} but got {}", fnDecl.ParamTypes.Size, call->GetArguments().Size));
-            for (size_t i = 0; i < call->GetArguments().Size; i++) {
-                call->GetArguments().Items[i]->SetResolvedType(TypeInfo::Create(m_Context, PrimitiveType::Void, false));
+        if (fnDecl.ParamTypes.Size != call.Arguments.Size) {
+            m_Context->ReportCompilerError(expr->Loc, expr->Range, fmt::format("Mismatched argument count, function expects {} but got {}", fnDecl.ParamTypes.Size, call.Arguments.Size));
+            for (size_t i = 0; i < call.Arguments.Size; i++) {
+                call.Arguments.Items[i]->Type = m_ErrorType;
             }
         } else {
             for (size_t i = 0; i < fnDecl.ParamTypes.Size; i++) {
-                call->GetArguments().Items[i] = HandleInitializer(call->GetArguments().Items[i], fnDecl.ParamTypes.Items[i], true);
+                HandleInitializer(call.Arguments.Items[i], fnDecl.ParamTypes.Items[i], true);
             }
         }
 
-        call->SetResolvedType(fnDecl.ReturnType);
-        call->SetValueKind((fnDecl.ReturnType->IsReference()) ? ExprValueKind::LValue : ExprValueKind::RValue);
-        return call;
+        expr->Type = fnDecl.ReturnType;
+        expr->ValueKind = (fnDecl.ReturnType->IsReference()) ? ExprValueKind::LValue : ExprValueKind::RValue;
     }
 
-    Expr* TypeChecker::HandleMethodCallExpr(Expr* expr) {
-        MethodCallExpr* call = GetNode<MethodCallExpr>(expr);
-        TypeInfo* calleeType = HandleExpr(call->GetCallee())->GetResolvedType();
-
-        FunctionDeclaration& fnDecl = std::get<FunctionDeclaration>(calleeType->Data);
-
-        if (fnDecl.ParamTypes.Size != call->GetArguments().Size) {
-            ARIA_ASSERT(false, "todo: error msg");
-        }
-
-        for (size_t i = 0; i < fnDecl.ParamTypes.Size; i++) {
-            TypeInfo* paramType = fnDecl.ParamTypes.Items[i];
-            TypeInfo* argType = HandleExpr(call->GetArguments().Items[i])->GetResolvedType();
-
-            ConversionCost cost = GetConversionCost(paramType, argType, call->GetArguments().Items[i]->GetValueKind());
-            if (cost.CastNeeded) {
-                if (cost.ImplicitCastPossible) {
-                    call->SetArgument(i, InsertImplicitCast(paramType, argType, call->GetArguments().Items[i], cost.CaKind));
-                } else {
-                    ARIA_ASSERT(false, "todo: error msg");
-                }
-            }
-        }
-
-        call->SetResolvedType(fnDecl.ReturnType);
-        return call;
+    void TypeChecker::HandleMethodCallExpr(Expr* expr) {
+        // MethodCallExpr* call = GetNode<MethodCallExpr>(expr);
+        // TypeInfo* calleeType = HandleExpr(call->GetCallee())->GetResolvedType();
+        // 
+        // FunctionDeclaration& fnDecl = std::get<FunctionDeclaration>(calleeType->Data);
+        // 
+        // if (fnDecl.ParamTypes.Size != call->GetArguments().Size) {
+        //     ARIA_ASSERT(false, "todo: error msg");
+        // }
+        // 
+        // for (size_t i = 0; i < fnDecl.ParamTypes.Size; i++) {
+        //     TypeInfo* paramType = fnDecl.ParamTypes.Items[i];
+        //     TypeInfo* argType = HandleExpr(call->GetArguments().Items[i])->GetResolvedType();
+        // 
+        //     ConversionCost cost = GetConversionCost(paramType, argType, call->GetArguments().Items[i]->GetValueKind());
+        //     if (cost.CastNeeded) {
+        //         if (cost.ImplicitCastPossible) {
+        //             call->SetArgument(i, InsertImplicitCast(paramType, argType, call->GetArguments().Items[i], cost.CaKind));
+        //         } else {
+        //             ARIA_ASSERT(false, "todo: error msg");
+        //         }
+        //     }
+        // }
+        // 
+        // call->SetResolvedType(fnDecl.ReturnType);
+        // return call;
+        ARIA_ASSERT(false, "todo!");
     }
 
-    Expr* TypeChecker::HandleParenExpr(Expr* expr) {
-        ParenExpr* paren = GetNode<ParenExpr>(expr);
-        paren->SetChildExpr(HandleExpr(paren->GetChildExpr()));
-        paren->SetResolvedType(paren->GetChildExpr()->GetResolvedType());
-        paren->SetValueKind(paren->GetChildExpr()->GetValueKind());
-        return paren;
+    void TypeChecker::HandleParenExpr(Expr* expr) {
+        ParenExpr paren = expr->Paren;
+        HandleExpr(paren.Expression);
+
+        expr->Type = paren.Expression->Type;
+        expr->ValueKind = paren.Expression->ValueKind;
     }
 
-    Expr* TypeChecker::HandleCastExpr(Expr* expr) {
-        CastExpr* cast = GetNode<CastExpr>(expr);
-        cast->SetValueKind(ExprValueKind::RValue);
-        cast->SetChildExpr(HandleExpr(cast->GetChildExpr()));
-        TypeInfo* srcType = cast->GetChildExpr()->GetResolvedType();
-        TypeInfo* dstType = GetTypeInfoFromString(cast->GetParsedType());
+    void TypeChecker::HandleCastExpr(Expr* expr) {
+        CastExpr cast = expr->Cast;
+        
+        HandleExpr(cast.Expression);
+        expr->Type = cast.Type;
 
-        ConversionCost cost = GetConversionCost(dstType, srcType, cast->GetChildExpr()->GetValueKind());
+        TypeInfo* srcType = cast.Expression->Type;
+        TypeInfo* dstType = cast.Type;
+
+        ConversionCost cost = GetConversionCost(dstType, srcType, cast.Expression->ValueKind);
 
         if (cost.CastNeeded) {
             if (cost.ExplicitCastPossible) {
-                cast->SetResolvedType(dstType);
-                cast->SetCastType(cost.CaKind);
+                cast.CastKind = cost.CaKind;
             } else {
                 ARIA_ASSERT(false, "todo: add error message");
             }
         }
-
-        return cast;
     }
 
-    Expr* TypeChecker::HandleUnaryOperatorExpr(Expr* expr) {
-        UnaryOperatorExpr* unop = GetNode<UnaryOperatorExpr>(expr);
+    void TypeChecker::HandleUnaryOperatorExpr(Expr* expr) {
+        // UnaryOperatorExpr* unop = GetNode<UnaryOperatorExpr>(expr);
+        // 
+        // unop->SetChildExpr(HandleExpr(unop->GetChildExpr()));
+        // TypeInfo* type = unop->GetChildExpr()->GetResolvedType();
+        // 
+        // ConversionCost cost = GetConversionCost(type, type, unop->GetChildExpr()->GetValueKind());
+        // if (cost.CastNeeded) {
+        //     if (cost.ImplicitCastPossible) {
+        //         unop->SetChildExpr(InsertImplicitCast(type, type, unop->GetChildExpr(), cost.CaKind));
+        //     } else {
+        //         ARIA_ASSERT(false, "todo: TypeChecker::HandleVarDecl() error");
+        //     }
+        // }
+        // 
+        // switch (unop->GetUnaryOperator()) {
+        //     case UnaryOperatorKind::Negate: {
+        //         ARIA_ASSERT(type->IsNumeric(), "todo: add error message");
+        //         unop->SetResolvedType(type);
+        //         return unop;
+        //     }
+        // }
+        // 
+        // ARIA_UNREACHABLE();
 
-        unop->SetChildExpr(HandleExpr(unop->GetChildExpr()));
-        TypeInfo* type = unop->GetChildExpr()->GetResolvedType();
-
-        ConversionCost cost = GetConversionCost(type, type, unop->GetChildExpr()->GetValueKind());
-        if (cost.CastNeeded) {
-            if (cost.ImplicitCastPossible) {
-                unop->SetChildExpr(InsertImplicitCast(type, type, unop->GetChildExpr(), cost.CaKind));
-            } else {
-                ARIA_ASSERT(false, "todo: TypeChecker::HandleVarDecl() error");
-            }
-        }
-
-        switch (unop->GetUnaryOperator()) {
-            case UnaryOperatorKind::Negate: {
-                ARIA_ASSERT(type->IsNumeric(), "todo: add error message");
-                unop->SetResolvedType(type);
-                return unop;
-            }
-        }
-
-        ARIA_UNREACHABLE();
+        ARIA_ASSERT(false, "todo!");
     }
 
-    Expr* TypeChecker::HandleBinaryOperatorExpr(Expr* expr) {
-        BinaryOperatorExpr* binop = GetNode<BinaryOperatorExpr>(expr);
+    void TypeChecker::HandleBinaryOperatorExpr(Expr* expr) {
+        BinaryOperatorExpr binop = expr->BinaryOperator;
 
-        binop->SetLHS(HandleExpr(binop->GetLHS()));
-        binop->SetRHS(HandleExpr(binop->GetRHS()));
+        HandleExpr(binop.LHS);
+        HandleExpr(binop.RHS);
 
-        Expr* LHS = binop->GetLHS();
-        Expr* RHS = binop->GetRHS();
+        Expr* LHS = binop.LHS;
+        Expr* RHS = binop.RHS;
 
-        TypeInfo* LHSType = LHS->GetResolvedType();
-        TypeInfo* RHSType = RHS->GetResolvedType();
-
-        switch (binop->GetBinaryOperator()) {
+        switch (binop.Operator) {
             case BinaryOperatorKind::Add:
             case BinaryOperatorKind::Sub:
             case BinaryOperatorKind::Mul:
@@ -245,178 +225,151 @@ namespace Aria::Internal {
             case BinaryOperatorKind::GreaterOrEq:
             case BinaryOperatorKind::IsEq: 
             case BinaryOperatorKind::IsNotEq: {
-                if (!LHSType->IsNumeric()) {
-                    m_Context->ReportCompilerError(LHS->Loc, LHS->Range, fmt::format("expression must be of a numeric type but is of type '{}'", TypeInfoToString(LHSType)));
+                if (!LHS->Type->IsNumeric()) {
+                    m_Context->ReportCompilerError(LHS->Loc, LHS->Range, fmt::format("Expression must be of a numeric type but is of type '{}'", TypeInfoToString(LHS->Type)));
                 }
 
-                if (!RHSType->IsNumeric()) {
-                    m_Context->ReportCompilerError(RHS->Loc, RHS->Range, fmt::format("expression must be of a numeric type but is of type '{}'", TypeInfoToString(RHSType)));
+                if (!LHS->Type->IsNumeric()) {
+                    m_Context->ReportCompilerError(RHS->Loc, RHS->Range, fmt::format("Expression must be of a numeric type but is of type '{}'", TypeInfoToString(RHS->Type)));
                 }
 
-                // See which conversion would be better
-                ConversionCost costRHStoLHS = GetConversionCost(LHSType, RHSType, RHS->GetValueKind());
-                ConversionCost costLHStoRHS = GetConversionCost(RHSType, LHSType, LHS->GetValueKind());
+                InsertArithmeticPromotion(LHS, RHS);
 
-                if (costRHStoLHS.CastNeeded || costLHStoRHS.CastNeeded) {
-                    bool lhsCastNeeded = costRHStoLHS.CastNeeded;
-                    bool rhsCastNeeded = costLHStoRHS.CastNeeded;
-
-                    if (costRHStoLHS.CoKind == ConversionKind::LValueToRValue || costRHStoLHS.CoKind == ConversionKind::Narrowing) {
-                        binop->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, costRHStoLHS.CaKind));
-                        RHSType = LHSType;
-                        lhsCastNeeded = false;
-                    }
-                    
-                    if (costLHStoRHS.CoKind == ConversionKind::LValueToRValue || costLHStoRHS.CoKind == ConversionKind::Narrowing) {
-                        binop->SetLHS(InsertImplicitCast(RHSType, LHSType, LHS, costLHStoRHS.CaKind));
-                        LHSType = RHSType;
-                        rhsCastNeeded = false;
-                    }
-
-                    if (lhsCastNeeded || rhsCastNeeded) {
-                        if (costRHStoLHS.CoKind == ConversionKind::Promotion) {
-                            binop->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, costRHStoLHS.CaKind));
-                            RHSType = LHSType;
-                        } else if (costLHStoRHS.CoKind == ConversionKind::Promotion) {
-                            binop->SetLHS(InsertImplicitCast(RHSType, LHSType, LHS, costLHStoRHS.CaKind));
-                            LHSType = RHSType;
-                        } else {
-                            m_Context->ReportCompilerError(binop->Loc, binop->Range, fmt::format("mismatched types '{}' and '{}'", TypeInfoToString(LHSType), TypeInfoToString(RHSType)));
-                        }
-                    }
-                }
-
-                if (binop->GetBinaryOperator() == BinaryOperatorKind::Less ||
-                    binop->GetBinaryOperator() == BinaryOperatorKind::LessOrEq ||
-                    binop->GetBinaryOperator() == BinaryOperatorKind::Greater ||
-                    binop->GetBinaryOperator() == BinaryOperatorKind::GreaterOrEq ||
-                    binop->GetBinaryOperator() == BinaryOperatorKind::IsEq ||
-                    binop->GetBinaryOperator() == BinaryOperatorKind::IsNotEq) 
+                if (binop.Operator == BinaryOperatorKind::Less ||
+                    binop.Operator == BinaryOperatorKind::LessOrEq ||
+                    binop.Operator == BinaryOperatorKind::Greater ||
+                    binop.Operator == BinaryOperatorKind::GreaterOrEq ||
+                    binop.Operator == BinaryOperatorKind::IsEq ||
+                    binop.Operator == BinaryOperatorKind::IsNotEq) 
                 {
                     TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
-                    binop->SetResolvedType(boolType);
-                    binop->SetValueKind(ExprValueKind::RValue);
-                    return binop;
+                    expr->Type = boolType;
+                    expr->ValueKind = ExprValueKind::RValue;
+                    return;
                 }
 
-                binop->SetResolvedType(LHSType);
-                binop->SetValueKind(ExprValueKind::RValue);
-                return binop;
+                expr->Type = LHS->Type;
+                expr->ValueKind = ExprValueKind::RValue;
+
+                return;
             }
 
             case BinaryOperatorKind::Eq: {
-                if (binop->GetLHS()->GetValueKind() != ExprValueKind::LValue) {
-                    m_Context->ReportCompilerError(LHS->Loc, LHS->Range, "expression must be a modifiable lvalue");
+                if (LHS->ValueKind != ExprValueKind::LValue) {
+                    m_Context->ReportCompilerError(LHS->Loc, LHS->Range, "Expression must be a modifiable lvalue");
                 }
 
-                ConversionCost cost = GetConversionCost(LHSType, RHSType, binop->GetRHS()->GetValueKind());
+                ConversionCost cost = GetConversionCost(LHS->Type, RHS->Type, RHS->ValueKind);
 
                 if (cost.CastNeeded) {
                     if (cost.ImplicitCastPossible) {
-                        binop->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, cost.CaKind));
-                        RHSType = LHSType;
+                        InsertImplicitCast(LHS->Type, RHS->Type, RHS, cost.CaKind);
                     } else {
-                        m_Context->ReportCompilerError(binop->Loc, binop->Range, fmt::format("cannot implicitly convert from '{}' to '{}'", TypeInfoToString(RHSType), TypeInfoToString(LHSType)));
+                        m_Context->ReportCompilerError(expr->Loc, expr->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(RHS->Type), TypeInfoToString(LHS->Type)));
                     }
                 }
 
-                binop->SetResolvedType(LHSType);
-                binop->SetValueKind(ExprValueKind::LValue);
-                return binop;
+                expr->Type = LHS->Type;
+                expr->ValueKind = ExprValueKind::LValue;
+
+                return;
             }
 
             case BinaryOperatorKind::BitAnd:
             case BinaryOperatorKind::BitOr: {
                 TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
 
-                ConversionCost costLHS = GetConversionCost(boolType, LHSType, LHS->GetValueKind());
-                ConversionCost costRHS = GetConversionCost(boolType, RHSType, RHS->GetValueKind());
+                ConversionCost costLHS = GetConversionCost(boolType, LHS->Type, LHS->ValueKind);
+                ConversionCost costRHS = GetConversionCost(boolType, RHS->Type, RHS->ValueKind);
 
                 if (costLHS.CastNeeded) {
                     if (costLHS.ImplicitCastPossible) {
-                        binop->SetLHS(InsertImplicitCast(boolType, LHSType, LHS, costLHS.CaKind));
+                        InsertImplicitCast(boolType, LHS->Type, LHS, costLHS.CaKind);
                     } else {
-                        m_Context->ReportCompilerError(LHS->Loc, LHS->Range, fmt::format("cannot implicitly convert from '{}' to 'bool'", TypeInfoToString(LHSType)));
+                        m_Context->ReportCompilerError(LHS->Loc, LHS->Range, fmt::format("Cannot implicitly convert from '{}' to 'bool'", TypeInfoToString(LHS->Type)));
                     }
                 }
 
                 if (costRHS.CastNeeded) {
                     if (costRHS.ImplicitCastPossible) {
-                        binop->SetRHS(InsertImplicitCast(boolType, RHSType, RHS, costRHS.CaKind));
+                        InsertImplicitCast(boolType, RHS->Type, RHS, costRHS.CaKind);
                     } else {
-                        m_Context->ReportCompilerError(LHS->Loc, LHS->Range, fmt::format("cannot implicitly convert from '{}' to 'bool'", TypeInfoToString(RHSType)));
+                        m_Context->ReportCompilerError(LHS->Loc, LHS->Range, fmt::format("Cannot implicitly convert from '{}' to 'bool'", TypeInfoToString(RHS->Type)));
                     }
                 }
 
-                binop->SetResolvedType(boolType);
-                binop->SetValueKind(ExprValueKind::RValue);
-                return binop;
+                expr->Type = boolType;
+                expr->ValueKind = ExprValueKind::RValue;
+
+                return;
             }
         }
 
         ARIA_UNREACHABLE();
     }
 
-    Expr* TypeChecker::HandleCompoundAssignExpr(Expr* expr) {
-        CompoundAssignExpr* compAss = GetNode<CompoundAssignExpr>(expr);
-        
-        compAss->SetLHS(HandleExpr(compAss->GetLHS()));
-        compAss->SetRHS(HandleExpr(compAss->GetRHS()));
+    void TypeChecker::HandleCompoundAssignExpr(Expr* expr) {
+        // CompoundAssignExpr* compAss = GetNode<CompoundAssignExpr>(expr);
+        // 
+        // compAss->SetLHS(HandleExpr(compAss->GetLHS()));
+        // compAss->SetRHS(HandleExpr(compAss->GetRHS()));
+        // 
+        // Expr* LHS = compAss->GetLHS();
+        // Expr* RHS = compAss->GetRHS();
+        // 
+        // TypeInfo* LHSType = LHS->GetResolvedType();
+        // TypeInfo* RHSType = RHS->GetResolvedType();
+        // 
+        // if (compAss->GetLHS()->GetValueKind() != ExprValueKind::LValue) {
+        //     m_Context->ReportCompilerError(compAss->GetLHS()->Loc, compAss->GetLHS()->Range, "Expression must be a modifiable lvalue");
+        // }
+        // 
+        // ConversionCost cost = GetConversionCost(LHSType, RHSType, compAss->GetRHS()->GetValueKind());
+        // 
+        // if (cost.CastNeeded) {
+        //     if (cost.ImplicitCastPossible) {
+        //         compAss->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, cost.CaKind));
+        //         RHSType = LHSType;
+        //     } else {
+        //         m_Context->ReportCompilerError(compAss->GetRHS()->Loc, compAss->GetRHS()->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(RHSType), TypeInfoToString(LHSType)));
+        //     }
+        // }
+        // 
+        // compAss->SetResolvedType(LHSType);
+        // compAss->SetValueKind(ExprValueKind::LValue);
+        // return compAss;
 
-        Expr* LHS = compAss->GetLHS();
-        Expr* RHS = compAss->GetRHS();
-
-        TypeInfo* LHSType = LHS->GetResolvedType();
-        TypeInfo* RHSType = RHS->GetResolvedType();
-
-        if (compAss->GetLHS()->GetValueKind() != ExprValueKind::LValue) {
-            m_Context->ReportCompilerError(compAss->GetLHS()->Loc, compAss->GetLHS()->Range, "Expression must be a modifiable lvalue");
-        }
-
-        ConversionCost cost = GetConversionCost(LHSType, RHSType, compAss->GetRHS()->GetValueKind());
-
-        if (cost.CastNeeded) {
-            if (cost.ImplicitCastPossible) {
-                compAss->SetRHS(InsertImplicitCast(LHSType, RHSType, RHS, cost.CaKind));
-                RHSType = LHSType;
-            } else {
-                m_Context->ReportCompilerError(compAss->GetRHS()->Loc, compAss->GetRHS()->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(RHSType), TypeInfoToString(LHSType)));
-            }
-        }
-
-        compAss->SetResolvedType(LHSType);
-        compAss->SetValueKind(ExprValueKind::LValue);
-        return compAss;
+        ARIA_ASSERT(false, "todo!");
     }
 
-    Expr* TypeChecker::HandleExpr(Expr* expr) {
-        if (GetNode<BooleanConstantExpr>(expr)) {
+    void TypeChecker::HandleExpr(Expr* expr) {
+        if (expr->Kind == ExprKind::BooleanConstant) {
             return HandleBooleanConstantExpr(expr);
-        } else if (GetNode<CharacterConstantExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::CharacterConstant) {
             return HandleCharacterConstantExpr(expr);
-        } else if (GetNode<IntegerConstantExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::IntegerConstant) {
             return HandleIntegerConstantExpr(expr);
-        } else if (GetNode<FloatingConstantExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::FloatingConstant) {
             return HandleFloatingConstantExpr(expr);
-        } else if (GetNode<StringConstantExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::StringConstant) {
             return HandleStringConstantExpr(expr);
-        } else if (GetNode<DeclRefExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::DeclRef) {
             return HandleDeclRefExpr(expr);
-        } else if (GetNode<MemberExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::Member) {
             return HandleMemberExpr(expr);
-        } else if (GetNode<CallExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::Call) {
             return HandleCallExpr(expr);
-        } else if (GetNode<MethodCallExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::MethodCall) {
             return HandleMethodCallExpr(expr);
-        } else if (GetNode<ParenExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::Paren) {
             return HandleParenExpr(expr);
-        } else if (GetNode<CastExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::Cast) {
             return HandleCastExpr(expr);
-        } else if (GetNode<UnaryOperatorExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::UnaryOperator) {
             return HandleUnaryOperatorExpr(expr);
-        } else if (GetNode<BinaryOperatorExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::BinaryOperator) {
             return HandleBinaryOperatorExpr(expr);
-        } else if (GetNode<CompoundAssignExpr>(expr)) {
+        } else if (expr->Kind == ExprKind::CompoundAssign) {
             return HandleCompoundAssignExpr(expr);
         }
 
@@ -424,347 +377,292 @@ namespace Aria::Internal {
     }
 
     void TypeChecker::HandleTranslationUnitDecl(Decl* decl) {
-        TranslationUnitDecl* tu = GetNode<TranslationUnitDecl>(decl);       
+        TranslationUnitDecl tu = decl->TranslationUnit;       
 
-        for (Stmt* stmt : tu->GetStmts()) {
+        for (Stmt* stmt : tu.Stmts) {
             HandleStmt(stmt);
         }
     }
 
     void TypeChecker::HandleVarDecl(Decl* decl) {
-        VarDecl* varDecl = GetNode<VarDecl>(decl);
+        VarDecl varDecl = decl->Var;
 
-        TypeInfo* resolvedType = GetTypeInfoFromString(varDecl->GetParsedType());
-        varDecl->SetResolvedType(resolvedType);
-
-        varDecl->SetDefaultValue(HandleInitializer(varDecl->GetDefaultValue(), resolvedType, false));
+        HandleInitializer(varDecl.DefaultValue, varDecl.Type, false);
 
         DeclRefKind kind = DeclRefKind::LocalVar;
         if (m_Declarations.size() == 1) {
             kind = DeclRefKind::GlobalVar;
         }
         
-        std::string ident = varDecl->GetIdentifier();
-        m_Declarations.back()[ident] = { varDecl->GetResolvedType(), decl, kind };
+        m_Declarations.back()[fmt::format("{}", varDecl.Identifier)] = { varDecl.Type, decl, kind };
     }
 
     void TypeChecker::HandleParamDecl(Decl* decl) {
-        ParamDecl* paramDecl = GetNode<ParamDecl>(decl);
-
-        TypeInfo* resolvedType = GetTypeInfoFromString(paramDecl->GetParsedType());
-        paramDecl->SetResolvedType(resolvedType);
-
-        std::string ident = paramDecl->GetIdentifier();
-        m_Declarations.back()[ident] = { paramDecl->GetResolvedType(), decl, DeclRefKind::ParamVar };
+        ParamDecl paramDecl = decl->Param;
+        m_Declarations.back()[fmt::format("{}", paramDecl.Identifier)] = { paramDecl.Type, decl, DeclRefKind::ParamVar };
     }
 
     void TypeChecker::HandleFunctionDecl(Decl* decl) {
-        FunctionDecl* fnDecl = GetNode<FunctionDecl>(decl);
-
-        TypeInfo* returnType = GetTypeInfoFromString(fnDecl->GetParsedType());
-        TinyVector<TypeInfo*> paramTypes;
-        m_ActiveReturnType = returnType;
-
-        m_Declarations.emplace_back();
-
-        for (ParamDecl* p : fnDecl->GetParameters()) {
-            HandleParamDecl(p);
-            TypeInfo* pType = p->GetResolvedType();
-            paramTypes.Append(m_Context, pType);
-        }
-
-        // We make the function visible to itself by declaring it before the body
-        FunctionDeclaration fd;
-        fd.ParamTypes = paramTypes;
-        fd.ReturnType = returnType;
-        
-        TypeInfo* resolvedType = TypeInfo::Create(m_Context, PrimitiveType::Function, false, fd);
-        fnDecl->SetResolvedType(resolvedType);
-
-        std::string ident = fnDecl->GetIdentifier();
-        m_Declarations.front()[ident] = { fnDecl->GetResolvedType(), decl, DeclRefKind::Function };
-
-        if (fnDecl->GetBody()) {
-            HandleCompoundStmt(fnDecl->GetBody());
-        }
-
-        m_Declarations.pop_back();
-        m_ActiveReturnType = nullptr;
+        // FunctionDecl* fnDecl = GetNode<FunctionDecl>(decl);
+        // 
+        // TypeInfo* returnType = GetTypeInfoFromString(fnDecl->GetParsedType());
+        // TinyVector<TypeInfo*> paramTypes;
+        // m_ActiveReturnType = returnType;
+        // 
+        // m_Declarations.emplace_back();
+        // 
+        // for (ParamDecl* p : fnDecl->GetParameters()) {
+        //     HandleParamDecl(p);
+        //     TypeInfo* pType = p->GetResolvedType();
+        //     paramTypes.Append(m_Context, pType);
+        // }
+        // 
+        // // We make the function visible to itself by declaring it before the body
+        // FunctionDeclaration fd;
+        // fd.ParamTypes = paramTypes;
+        // fd.ReturnType = returnType;
+        // 
+        // TypeInfo* resolvedType = TypeInfo::Create(m_Context, PrimitiveType::Function, false, fd);
+        // fnDecl->SetResolvedType(resolvedType);
+        // 
+        // std::string ident = fnDecl->GetIdentifier();
+        // m_Declarations.front()[ident] = { fnDecl->GetResolvedType(), decl, DeclRefKind::Function };
+        // 
+        // if (fnDecl->GetBody()) {
+        //     HandleCompoundStmt(fnDecl->GetBody());
+        // }
+        // 
+        // m_Declarations.pop_back();
+        // m_ActiveReturnType = nullptr;
+        ARIA_ASSERT(false, "todo!");
     }
 
     void TypeChecker::HandleStructDecl(Decl* decl) {
-        StructDecl* s = GetNode<StructDecl>(decl);
+        // StructDecl* s = GetNode<StructDecl>(decl);
+        // 
+        // StructDeclaration d;
+        // d.Identifier = s->GetRawIdentifier();
+        // d.SourceDecl = s;
+        // 
+        // std::vector<MethodDecl*> methods;
+        // 
+        // TypeInfo* structType = TypeInfo::Create(m_Context, PrimitiveType::Structure, false, d);
+        // 
+        // for (Decl* field : s->GetFields()) {
+        //     if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
+        //         fd->SetResolvedType(GetTypeInfoFromString(fd->GetParsedType()));
+        //     } else if (MethodDecl* md = GetNode<MethodDecl>(field)) {
+        //         methods.push_back(md);
+        //     }
+        // }
+        // 
+        // m_DeclaredTypes[s->GetIdentifier()] = structType;
+        // 
+        // m_ActiveStruct = TypeInfo::Create(m_Context, structType->Type, true, structType->Data);
+        // 
+        // for (MethodDecl* md : methods) {
+        //     TypeInfo* returnType = GetTypeInfoFromString(md->GetParsedType());
+        //     TinyVector<TypeInfo*> paramTypes;
+        //     m_ActiveReturnType = returnType;
+        //     
+        // 
+        //     m_Declarations.emplace_back();
+        // 
+        //     for (ParamDecl* p : md->GetParameters()) {
+        //         HandleParamDecl(p);
+        //         TypeInfo* pType = p->GetResolvedType();
+        //         paramTypes.Append(m_Context, pType);
+        //     }
+        // 
+        //     // We make the function visible to itself by declaring it before the body
+        //     FunctionDeclaration fd;
+        //     fd.ParamTypes = paramTypes;
+        //     fd.ReturnType = returnType;
+        //     
+        //     TypeInfo* resolvedType = TypeInfo::Create(m_Context, PrimitiveType::Function, false, fd);
+        //     md->SetResolvedType(resolvedType);
+        // 
+        //     std::string ident = md->GetIdentifier();
+        //     m_Declarations.front()[ident] = { md->GetResolvedType(), decl, DeclRefKind::Function };
+        // 
+        //     if (md->GetBody()) {
+        //         HandleCompoundStmt(md->GetBody());
+        //     }
+        // 
+        //     m_Declarations.pop_back();
+        //     m_ActiveReturnType = nullptr;
+        // }
+        // 
+        // m_ActiveStruct = nullptr;
 
-        StructDeclaration d;
-        d.Identifier = s->GetRawIdentifier();
-        d.SourceDecl = s;
-
-        std::vector<MethodDecl*> methods;
-
-        TypeInfo* structType = TypeInfo::Create(m_Context, PrimitiveType::Structure, false, d);
-
-        for (Decl* field : s->GetFields()) {
-            if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
-                fd->SetResolvedType(GetTypeInfoFromString(fd->GetParsedType()));
-            } else if (MethodDecl* md = GetNode<MethodDecl>(field)) {
-                methods.push_back(md);
-            }
-        }
-
-        m_DeclaredTypes[s->GetIdentifier()] = structType;
-
-        m_ActiveStruct = TypeInfo::Create(m_Context, structType->Type, true, structType->Data);
-
-        for (MethodDecl* md : methods) {
-            TypeInfo* returnType = GetTypeInfoFromString(md->GetParsedType());
-            TinyVector<TypeInfo*> paramTypes;
-            m_ActiveReturnType = returnType;
-            
-
-            m_Declarations.emplace_back();
-
-            for (ParamDecl* p : md->GetParameters()) {
-                HandleParamDecl(p);
-                TypeInfo* pType = p->GetResolvedType();
-                paramTypes.Append(m_Context, pType);
-            }
-
-            // We make the function visible to itself by declaring it before the body
-            FunctionDeclaration fd;
-            fd.ParamTypes = paramTypes;
-            fd.ReturnType = returnType;
-            
-            TypeInfo* resolvedType = TypeInfo::Create(m_Context, PrimitiveType::Function, false, fd);
-            md->SetResolvedType(resolvedType);
-
-            std::string ident = md->GetIdentifier();
-            m_Declarations.front()[ident] = { md->GetResolvedType(), decl, DeclRefKind::Function };
-
-            if (md->GetBody()) {
-                HandleCompoundStmt(md->GetBody());
-            }
-
-            m_Declarations.pop_back();
-            m_ActiveReturnType = nullptr;
-        }
-
-        m_ActiveStruct = nullptr;
+        ARIA_ASSERT(false, "todo!");
     }
 
     void TypeChecker::HandleDecl(Decl* decl) {
-        if (GetNode<TranslationUnitDecl>(decl)) {
+        if (decl->Kind == DeclKind::TranslationUnit) {
             return HandleTranslationUnitDecl(decl);
-        } else if (GetNode<VarDecl>(decl)) {
+        } else if (decl->Kind == DeclKind::Var) {
             return HandleVarDecl(decl);
-        } else if (GetNode<ParamDecl>(decl)) {
+        } else if (decl->Kind == DeclKind::Param) {
             return HandleParamDecl(decl);
-        } else if (GetNode<FunctionDecl>(decl)) {
+        } else if (decl->Kind == DeclKind::Function) {
             return HandleFunctionDecl(decl);
-        } else if (GetNode<StructDecl>(decl)) {
+        } else if (decl->Kind == DeclKind::Struct) {
             return HandleStructDecl(decl);
         }
 
         ARIA_UNREACHABLE();
     }
 
-    void TypeChecker::HandleCompoundStmt(Stmt* stmt) {
-        CompoundStmt* compound = GetNode<CompoundStmt>(stmt);
+    void TypeChecker::HandleBlockStmt(Stmt* stmt) {
+        BlockStmt block = stmt->Block;
 
-        for (Stmt* s : compound->GetStmts()) {
+        for (Stmt* s : block.Stmts) {
             HandleStmt(s);
         }
     }
 
     void TypeChecker::HandleWhileStmt(Stmt* stmt) {
-        WhileStmt* wh = GetNode<WhileStmt>(stmt);
+        // WhileStmt* wh = GetNode<WhileStmt>(stmt);
+        // 
+        // TypeInfo* type = HandleExpr(wh->GetCondition())->GetResolvedType();
+        // TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
+        // 
+        // ConversionCost cost = GetConversionCost(boolType, type, wh->GetCondition()->GetValueKind());
+        // if (cost.CastNeeded) {
+        //     if (cost.ImplicitCastPossible) {
+        //         wh->SetCondition(InsertImplicitCast(boolType, type, wh->GetCondition(), cost.CaKind));
+        //     } else {
+        //         ARIA_ASSERT(false, "todo");
+        //     }
+        // }
+        // 
+        // HandleStmt(wh->GetBody());
 
-        TypeInfo* type = HandleExpr(wh->GetCondition())->GetResolvedType();
-        TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
-
-        ConversionCost cost = GetConversionCost(boolType, type, wh->GetCondition()->GetValueKind());
-        if (cost.CastNeeded) {
-            if (cost.ImplicitCastPossible) {
-                wh->SetCondition(InsertImplicitCast(boolType, type, wh->GetCondition(), cost.CaKind));
-            } else {
-                ARIA_ASSERT(false, "todo");
-            }
-        }
-
-        HandleStmt(wh->GetBody());
+        ARIA_ASSERT(false, "todo!");
     }
 
     void TypeChecker::HandleDoWhileStmt(Stmt* stmt) {
-        DoWhileStmt* wh = GetNode<DoWhileStmt>(stmt);
+        // DoWhileStmt* wh = GetNode<DoWhileStmt>(stmt);
+        // 
+        // TypeInfo* type = HandleExpr(wh->GetCondition())->GetResolvedType();
+        // TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
+        // 
+        // ConversionCost cost = GetConversionCost(boolType, type, wh->GetCondition()->GetValueKind());
+        // if (cost.CastNeeded) {
+        //     if (cost.ImplicitCastPossible) {
+        //         wh->SetCondition(InsertImplicitCast(boolType, type, wh->GetCondition(), cost.CaKind));
+        //     } else {
+        //         ARIA_ASSERT(false, "todo");
+        //     }
+        // }
+        // 
+        // HandleStmt(wh->GetBody());
 
-        TypeInfo* type = HandleExpr(wh->GetCondition())->GetResolvedType();
-        TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
-
-        ConversionCost cost = GetConversionCost(boolType, type, wh->GetCondition()->GetValueKind());
-        if (cost.CastNeeded) {
-            if (cost.ImplicitCastPossible) {
-                wh->SetCondition(InsertImplicitCast(boolType, type, wh->GetCondition(), cost.CaKind));
-            } else {
-                ARIA_ASSERT(false, "todo");
-            }
-        }
-
-        HandleStmt(wh->GetBody());
+        ARIA_ASSERT(false, "todo!");
     }
 
     void TypeChecker::HandleForStmt(Stmt* stmt) {
-        ForStmt* fs = GetNode<ForStmt>(stmt);
+        // ForStmt* fs = GetNode<ForStmt>(stmt);
+        // 
+        // m_Declarations.emplace_back();
+        // 
+        // if (fs->GetPrologue()) { HandleStmt(fs->GetPrologue()); }
+        // if (fs->GetCondition()) { fs->SetCondition(HandleExpr(fs->GetCondition())); }
+        // if (fs->GetEpilogue()) { fs->SetEpilogue(HandleExpr(fs->GetEpilogue())); }
+        // HandleStmt(fs->GetBody());
+        // 
+        // m_Declarations.pop_back();
 
-        m_Declarations.emplace_back();
-
-        if (fs->GetPrologue()) { HandleStmt(fs->GetPrologue()); }
-        if (fs->GetCondition()) { fs->SetCondition(HandleExpr(fs->GetCondition())); }
-        if (fs->GetEpilogue()) { fs->SetEpilogue(HandleExpr(fs->GetEpilogue())); }
-        HandleStmt(fs->GetBody());
-
-        m_Declarations.pop_back();
+        ARIA_ASSERT(false, "todo!");
     }
 
     void TypeChecker::HandleIfStmt(Stmt* stmt) {
-        IfStmt* ifs = GetNode<IfStmt>(stmt);
-        HandleExpr(ifs->GetCondition());
-        HandleStmt(ifs->GetBody());
+        // IfStmt* ifs = GetNode<IfStmt>(stmt);
+        // HandleExpr(ifs->GetCondition());
+        // HandleStmt(ifs->GetBody());
+
+        ARIA_ASSERT(false, "todo!");
     }
 
     void TypeChecker::HandleReturnStmt(Stmt* stmt) {
-        ReturnStmt* ret = GetNode<ReturnStmt>(stmt);
+        // ReturnStmt* ret = GetNode<ReturnStmt>(stmt);
+        // 
+        // if (m_ActiveReturnType == nullptr) {
+        //     ARIA_ASSERT(false, "todo: error msg");
+        // }
+        // 
+        // ret->SetValue(HandleInitializer(ret->GetValue(), m_ActiveReturnType, true));
 
-        if (m_ActiveReturnType == nullptr) {
-            ARIA_ASSERT(false, "todo: error msg");
-        }
-
-        ret->SetValue(HandleInitializer(ret->GetValue(), m_ActiveReturnType, true));
+        ARIA_ASSERT(false, "todo!");
     }
 
     void TypeChecker::HandleStmt(Stmt* stmt) {
-        if (GetNode<CompoundStmt>(stmt)) {
+        if (stmt->Kind == StmtKind::Block) {
             m_Declarations.emplace_back();
-            HandleCompoundStmt(stmt);
+            HandleBlockStmt(stmt);
             m_Declarations.pop_back();
             return;
-        } else if (GetNode<WhileStmt>(stmt)) {
-            HandleWhileStmt(stmt);
-            return;
-        } else if (GetNode<DoWhileStmt>(stmt)) {
-            HandleDoWhileStmt(stmt);
-            return;
-        } else if (GetNode<ForStmt>(stmt)) {
-            HandleForStmt(stmt);
-            return;
-        } else if (GetNode<IfStmt>(stmt)) {
-            HandleIfStmt(stmt);
-            return;
-        } else if (GetNode<ReturnStmt>(stmt)) {
-            HandleReturnStmt(stmt);
-            return;
-        } else if (Expr* expr = GetNode<Expr>(stmt)) {
-            HandleExpr(expr);
-            GetNode<Expr>(stmt)->IsStmtExpr = true;
-            return;
-        } else if (Decl* decl = GetNode<Decl>(stmt)) {
-            HandleDecl(decl);
-            return;
+        } else if (stmt->Kind == StmtKind::While) {
+            return HandleWhileStmt(stmt);
+        } else if (stmt->Kind == StmtKind::DoWhile) {
+            return HandleDoWhileStmt(stmt);
+        } else if (stmt->Kind == StmtKind::For) {
+            return HandleForStmt(stmt);
+        } else if (stmt->Kind == StmtKind::If) {
+            return HandleIfStmt(stmt);
+        } else if (stmt->Kind == StmtKind::Return) {
+            return HandleReturnStmt(stmt);
+        } else if (stmt->Kind == StmtKind::Expr) {
+            return HandleExpr(stmt->ExprStmt);
+        } else if (stmt->Kind == StmtKind::Decl) {
+            return HandleDecl(stmt->DeclStmt);
         }
 
         ARIA_UNREACHABLE();
     }
 
-    Expr* TypeChecker::HandleInitializer(Expr* initializer, TypeInfo* type, bool temporary) {
+    void TypeChecker::HandleInitializer(Expr* initializer, TypeInfo* type, bool temporary) {
         // If we are initializing a reference, the initializer must be of the same type and an lvalue
         if (type->IsReference()) {
             ARIA_ASSERT(initializer != nullptr, "initial value of a reference must be an lvalue");
-            TypeInfo* valType = HandleExpr(initializer)->GetResolvedType();
+            HandleExpr(initializer);
+            TypeInfo* initType = initializer->Type;
 
-            if (!TypeIsEqual(type, valType) || initializer->GetValueKind() != ExprValueKind::LValue) {
-                m_Context->ReportCompilerError(initializer->Loc, initializer->Range, "initial value of reference must be an lvalue");
+            if (!TypeIsEqual(type, initType) || initializer->ValueKind != ExprValueKind::LValue) {
+                m_Context->ReportCompilerError(initializer->Loc, initializer->Range, "Initial value of reference must be an lvalue");
             }
-
-            return initializer;
         } else if (initializer) {
-            Expr* finalExpr = HandleExpr(initializer);
-            TypeInfo* valType = finalExpr->GetResolvedType();
+            HandleExpr(initializer);
+            TypeInfo* initType = initializer->Type;
 
-            if (initializer->GetValueKind() == ExprValueKind::LValue) {
-                if (valType->Type == PrimitiveType::String) {
-                    finalExpr = m_Context->Allocate<CopyExpr>(m_Context, finalExpr->Loc, finalExpr->Range, finalExpr, valType, m_Context->Allocate<BuiltinCopyConstructorDecl>(m_Context, BuiltinCopyConstructorKind::String));
+            if (initializer->ValueKind == ExprValueKind::LValue) {
+                if (initType->Type == PrimitiveType::String) {
+                    ARIA_ASSERT(false, "todo!");
+                    // Expr* copyExpr = Expr::Create(m_Context, initializer->Loc, initializer->Range, ExprKind::, )
+                    // ReplaceExpr(initializer, )
+                    // finalExpr = m_Context->Allocate<CopyExpr>(m_Context, finalExpr->Loc, finalExpr->Range, finalExpr, valType, m_Context->Allocate<BuiltinCopyConstructorDecl>(m_Context, BuiltinCopyConstructorKind::String));
                 }
             }
 
-            ConversionCost cost = GetConversionCost(type, valType, finalExpr->GetValueKind());
+            ConversionCost cost = GetConversionCost(type, initType, initializer->ValueKind);
             if (cost.CastNeeded) {
                 if (cost.ImplicitCastPossible) {
-                    finalExpr = InsertImplicitCast(type, valType, finalExpr, cost.CaKind);
+                    InsertImplicitCast(type, initType, initializer, cost.CaKind);
                 } else {
-                    m_Context->ReportCompilerError(finalExpr->Loc, finalExpr->Range, fmt::format("cannot implicitly convert from '{}' to '{}'", TypeInfoToString(valType), TypeInfoToString(type)));
+                    m_Context->ReportCompilerError(initializer->Loc, initializer->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(initType), TypeInfoToString(type)));
                 }
             }
 
             if (temporary) {
-                if (finalExpr->GetResolvedType()->Type == PrimitiveType::String) {
-                    finalExpr = m_Context->Allocate<TemporaryExpr>(m_Context, finalExpr->Loc, finalExpr->Range, finalExpr, finalExpr->GetResolvedType(), m_Context->Allocate<BuiltinDestructorDecl>(m_Context, BuiltinDestructorKind::String));
-                    finalExpr->SetValueKind(ExprValueKind::RValue);
-                    m_TemporaryContext = true;
-                }
-            }
-
-            return finalExpr;
-        }
-
-        return nullptr;
-    }
-
-    TypeInfo* TypeChecker::GetTypeInfoFromString(StringView str) {
-        size_t bracket = str.Find('[');
-        size_t amp = str.Find('&');
-
-        std::string isolatedType = fmt::format("{}", str);
-        bool array = false;
-        bool reference = false;
-
-        if (amp != StringView::npos) {
-            isolatedType = isolatedType.substr(0, amp);
-            reference = true;
-        }
-
-        if (bracket != StringView::npos) {
-            isolatedType = isolatedType.substr(0, bracket);
-            array = true;
-        }
-        
-        TypeInfo* type = nullptr;
-
-        if (isolatedType == "void")   { type = TypeInfo::Create(m_Context, PrimitiveType::Void, reference);   }
-        if (isolatedType == "bool")   { type = TypeInfo::Create(m_Context, PrimitiveType::Bool, reference);   }
-        if (isolatedType == "char")   { type = TypeInfo::Create(m_Context, PrimitiveType::Char, reference);   }
-        if (isolatedType == "uchar")  { type = TypeInfo::Create(m_Context, PrimitiveType::UChar, reference);  }
-        if (isolatedType == "short")  { type = TypeInfo::Create(m_Context, PrimitiveType::Short, reference);  }
-        if (isolatedType == "ushort") { type = TypeInfo::Create(m_Context, PrimitiveType::UShort, reference); }
-        if (isolatedType == "int")    { type = TypeInfo::Create(m_Context, PrimitiveType::Int, reference);    }
-        if (isolatedType == "uint")   { type = TypeInfo::Create(m_Context, PrimitiveType::UInt, reference);   }
-        if (isolatedType == "long")   { type = TypeInfo::Create(m_Context, PrimitiveType::Long, reference);   }
-        if (isolatedType == "ulong")  { type = TypeInfo::Create(m_Context, PrimitiveType::ULong, reference);  }
-        if (isolatedType == "float")  { type = TypeInfo::Create(m_Context, PrimitiveType::Float, reference);  }
-        if (isolatedType == "double") { type = TypeInfo::Create(m_Context, PrimitiveType::Double, reference); }
-        if (isolatedType == "string") { type = TypeInfo::Create(m_Context, PrimitiveType::String, reference); }
-
-        #undef TYPE
-
-        // Handle user defined type
-        if (!type) {
-            if (m_DeclaredTypes.contains(isolatedType)) {
-                TypeInfo* sType = m_DeclaredTypes.at(isolatedType);
-                type = TypeInfo::Create(m_Context, sType->Type, reference, sType->Data);
-            } else {
-                // ErrorUndeclaredIdentifier(StringView(isolatedType.c_str(), isolatedType.size()), 0, 0);
-                ARIA_ASSERT(false, "todo");
+                ARIA_ASSERT(false, "todo!");
+                // if (finalExpr->GetResolvedType()->Type == PrimitiveType::String) {
+                //     finalExpr = m_Context->Allocate<TemporaryExpr>(m_Context, finalExpr->Loc, finalExpr->Range, finalExpr, finalExpr->GetResolvedType(), m_Context->Allocate<BuiltinDestructorDecl>(m_Context, BuiltinDestructorKind::String));
+                //     finalExpr->SetValueKind(ExprValueKind::RValue);
+                //     m_TemporaryContext = true;
+                // }
             }
         }
-
-        return type;
     }
 
     ConversionCost TypeChecker::GetConversionCost(TypeInfo* dst, TypeInfo* src, ExprValueKind srcType) {
@@ -835,11 +733,17 @@ namespace Aria::Internal {
         return cost;
     }
 
-    Expr* TypeChecker::InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastKind castKind) {
-        ImplicitCastExpr* newExpr = m_Context->Allocate<ImplicitCastExpr>(m_Context, srcExpr->Loc, srcExpr->Range, srcExpr, castKind);
-        newExpr->SetResolvedType(dstType);
-        newExpr->SetValueKind(ExprValueKind::RValue);
-        return newExpr;
+    void TypeChecker::InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastKind castKind) {
+        Expr* src = Expr::Copy(m_Context, srcExpr); // We must copy the original expression to avoid overwriting the same memory
+        Expr* implicitCast = Expr::Create(m_Context, src->Loc, src->Range, ExprKind::ImplicitCast, ExprValueKind::RValue, dstType, ImplicitCastExpr(src, castKind));
+
+        ReplaceExpr(srcExpr, implicitCast);
+    }
+
+    void TypeChecker::InsertArithmeticPromotion(Expr* src, Expr* dst) {}
+
+    void TypeChecker::ReplaceExpr(Expr* src, Expr* newExpr) {
+        *src = *newExpr;
     }
 
     bool TypeChecker::TypeIsEqual(TypeInfo* lhs, TypeInfo* rhs) {

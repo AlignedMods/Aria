@@ -45,22 +45,22 @@ namespace Aria::Internal {
     private:
         void CheckImpl();
 
-        Expr* HandleBooleanConstantExpr(Expr* expr);
-        Expr* HandleCharacterConstantExpr(Expr* expr);
-        Expr* HandleIntegerConstantExpr(Expr* expr);
-        Expr* HandleFloatingConstantExpr(Expr* expr);
-        Expr* HandleStringConstantExpr(Expr* expr);
-        Expr* HandleDeclRefExpr(Expr* expr);
-        Expr* HandleMemberExpr(Expr* expr);
-        Expr* HandleCallExpr(Expr* expr);
-        Expr* HandleMethodCallExpr(Expr* expr);
-        Expr* HandleParenExpr(Expr* expr);
-        Expr* HandleCastExpr(Expr* expr);
-        Expr* HandleUnaryOperatorExpr(Expr* expr);
-        Expr* HandleBinaryOperatorExpr(Expr* expr);
-        Expr* HandleCompoundAssignExpr(Expr* expr);
+        void HandleBooleanConstantExpr(Expr* expr);
+        void HandleCharacterConstantExpr(Expr* expr);
+        void HandleIntegerConstantExpr(Expr* expr);
+        void HandleFloatingConstantExpr(Expr* expr);
+        void HandleStringConstantExpr(Expr* expr);
+        void HandleDeclRefExpr(Expr* expr);
+        void HandleMemberExpr(Expr* expr);
+        void HandleCallExpr(Expr* expr);
+        void HandleMethodCallExpr(Expr* expr);
+        void HandleParenExpr(Expr* expr);
+        void HandleCastExpr(Expr* expr);
+        void HandleUnaryOperatorExpr(Expr* expr);
+        void HandleBinaryOperatorExpr(Expr* expr);
+        void HandleCompoundAssignExpr(Expr* expr);
 
-        Expr* HandleExpr(Expr* expr);
+        void HandleExpr(Expr* expr);
 
         void HandleTranslationUnitDecl(Decl* decl);
         void HandleVarDecl(Decl* decl);
@@ -70,7 +70,7 @@ namespace Aria::Internal {
 
         void HandleDecl(Decl* decl);
 
-        void HandleCompoundStmt(Stmt* stmt);
+        void HandleBlockStmt(Stmt* stmt);
         void HandleWhileStmt(Stmt* stmt);
         void HandleDoWhileStmt(Stmt* stmt);
         void HandleForStmt(Stmt* stmt);
@@ -79,19 +79,22 @@ namespace Aria::Internal {
 
         void HandleStmt(Stmt* stmt);
 
-        Expr* HandleInitializer(Expr* initializer, TypeInfo* type, bool temporary);
+        void HandleInitializer(Expr* initializer, TypeInfo* type, bool temporary);
 
-        TypeInfo* GetTypeInfoFromString(StringView str);
-
-        // type1 is the destination type and type2 is the source type
         ConversionCost GetConversionCost(TypeInfo* dst, TypeInfo* src, ExprValueKind srcKind);
-        Expr* InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastKind castKind); // Returns the new ImplicitCastExpr
+        void InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastKind castKind);
+        void InsertArithmeticPromotion(Expr* lhs, Expr* rhs);
+
+        void ReplaceExpr(Expr* src, Expr* newExpr);
 
         bool TypeIsEqual(TypeInfo* lhs, TypeInfo* rhs);
         size_t TypeGetSize(TypeInfo* t); // NOTE: works only on trivial types
 
     private:
         Stmt* m_RootASTNode = nullptr;
+
+        // Type used for expressions when an error has occured
+        TypeInfo* m_ErrorType = nullptr;
 
         std::vector<std::unordered_map<std::string, Declaration>> m_Declarations;
         TypeInfo* m_ActiveReturnType = nullptr;

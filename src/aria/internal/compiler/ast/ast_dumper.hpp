@@ -3,7 +3,6 @@
 #include "aria/internal/compiler/ast/expr.hpp"
 #include "aria/internal/compiler/ast/stmt.hpp"
 #include "aria/internal/compiler/ast/decl.hpp"
-#include "aria/internal/compiler/ast/ast.hpp"
 
 namespace Aria::Internal {
 
