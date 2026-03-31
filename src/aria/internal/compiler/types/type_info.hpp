@@ -56,6 +56,8 @@ namespace Aria::Internal {
 
         static TypeInfo* Create(CompilationContext* ctx, PrimitiveType type, bool isReference, decltype(TypeInfo::Data) data = {});
 
+        bool IsError() const { return Type == PrimitiveType::Error; }
+
         bool IsTrivial() const {
             return IsVoid() || IsBoolean() || IsNumeric();
         }

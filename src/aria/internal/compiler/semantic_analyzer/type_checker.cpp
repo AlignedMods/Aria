@@ -215,12 +215,14 @@ namespace Aria::Internal {
             case BinaryOperatorKind::GreaterOrEq:
             case BinaryOperatorKind::IsEq: 
             case BinaryOperatorKind::IsNotEq: {
-                if (!LHS->Type->IsNumeric()) {
-                    m_Context->ReportCompilerError(LHS->Loc, LHS->Range, fmt::format("Expression must be of a numeric type but is of type '{}'", TypeInfoToString(LHS->Type)));
-                }
+                if (!LHS->Type->IsError() && !RHS->Type->IsError()) {
+                    if (!LHS->Type->IsNumeric()) {
+                        m_Context->ReportCompilerError(LHS->Loc, LHS->Range, fmt::format("Expression must be of a numeric type but is of type '{}'", TypeInfoToString(LHS->Type)));
+                    }
 
-                if (!LHS->Type->IsNumeric()) {
-                    m_Context->ReportCompilerError(RHS->Loc, RHS->Range, fmt::format("Expression must be of a numeric type but is of type '{}'", TypeInfoToString(RHS->Type)));
+                    if (!LHS->Type->IsNumeric()) {
+                        m_Context->ReportCompilerError(RHS->Loc, RHS->Range, fmt::format("Expression must be of a numeric type but is of type '{}'", TypeInfoToString(RHS->Type)));
+                    }
                 }
 
                 InsertArithmeticPromotion(LHS, RHS);
@@ -722,6 +724,10 @@ namespace Aria::Internal {
     void TypeChecker::InsertArithmeticPromotion(Expr* lhs, Expr* rhs) {
         TypeInfo* lhsType = lhs->Type;
         TypeInfo* rhsType = rhs->Type;
+
+        if (lhsType->Type == PrimitiveType::Error || rhsType->Type == PrimitiveType::Error) {
+            return;
+        }
 
         if (TypeIsEqual(lhsType, rhsType)) {
             RequireRValue(lhs);
