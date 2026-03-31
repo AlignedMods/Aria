@@ -8,6 +8,7 @@
 #include "aria/internal/compiler/ast/decl.hpp"
 
 #include <unordered_map>
+#include <functional>
 
 namespace Aria::Internal {
 
@@ -16,6 +17,7 @@ namespace Aria::Internal {
         Parser(CompilationContext* ctx);
 
     private:
+        void AddExprRules();
         void ParseImpl();
 
         Token* Peek(size_t count = 0);
@@ -26,11 +28,20 @@ namespace Aria::Internal {
         // This function cannot fail
         bool Match(TokenKind kind);
 
-        BinaryOperatorKind ParseOperator();
-        size_t GetBinaryPrecedence(BinaryOperatorKind kind);
-        size_t GetNextPrecedence(BinaryOperatorKind binop);
-        Expr* ParseValue();
-        Expr* ParseExpression(size_t minbp = 0);
+        // Expressions
+        Expr* ParseGrouping(Expr* left);
+        Expr* ParseCall(Expr* left);
+        UnaryOperatorKind GetUnaryOperatorFromToken(Token* token);
+        BinaryOperatorKind GetBinaryOperatorFromToken(Token* token);
+        Expr* ParseUnary(Expr* left);
+        Expr* ParseBinary(Expr* left);
+        Expr* ParseCompoundAssignment(Expr* left);
+        Expr* ParseMember(Expr* left);
+        Expr* ParsePrimary(Expr* left);
+
+        Expr* ParsePrecedenceWithLeft(Expr* left, size_t precedence);
+        Expr* ParsePrecedence(size_t precedence);
+        Expr* ParseExpression();
 
         bool IsPrimitiveType();
         bool IsType();
@@ -67,6 +78,14 @@ namespace Aria::Internal {
         Tokens m_Tokens;
 
         bool m_NeedsSemi = true;
+
+        using ParseExprFn = std::function<Expr*(Expr*)>;
+        struct ParseExprRule {
+            ParseExprFn Prefix = nullptr;
+            ParseExprFn Infix = nullptr;
+            size_t Precedence = 0;
+        };
+        std::unordered_map<TokenKind, ParseExprRule> m_ExprRules;
 
         std::unordered_map<std::string, Decl*> m_DeclaredTypes;
         CompilationContext* m_Context = nullptr;

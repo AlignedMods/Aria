@@ -265,8 +265,8 @@ namespace Aria::Internal {
                 return;
             }
 
-            case BinaryOperatorKind::BitAnd:
-            case BinaryOperatorKind::BitOr: {
+            case BinaryOperatorKind::LogAnd:
+            case BinaryOperatorKind::LogOr: {
                 TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
 
                 ConversionCost costLHS = GetConversionCost(boolType, LHS->Type, LHS->ValueKind);

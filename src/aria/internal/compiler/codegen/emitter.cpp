@@ -373,8 +373,8 @@ namespace Aria::Internal {
             BINOP(IsEq,        Cmp)
             BINOP(IsNotEq,     Ncmp)
         
-            case BinaryOperatorKind::BitAnd: {
-                std::string andEnd = fmt::format("and.end_{}", m_AndCounter);
+            case BinaryOperatorKind::LogAnd: {
+                std::string andEnd = fmt::format("logand.end_{}", m_AndCounter);
                 m_AndCounter++;
         
                 EmitExpr(binop.LHS, binop.LHS->ValueKind);
@@ -388,8 +388,8 @@ namespace Aria::Internal {
                 break;
             }
         
-            case BinaryOperatorKind::BitOr: {
-                std::string orEnd = fmt::format("or.end_{}", m_OrCounter);
+            case BinaryOperatorKind::LogOr: {
+                std::string orEnd = fmt::format("logor.end_{}", m_OrCounter);
                 m_OrCounter++;
         
                 EmitExpr(binop.LHS, binop.LHS->ValueKind);

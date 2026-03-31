@@ -6,13 +6,68 @@
 #include <charconv>
 #include <limits>
 
+#define BIND_PARSE_RULE(fn) [this](Expr* expr) -> Expr* { return fn(expr); }
+
+static constexpr size_t PREC_NONE = 0;
+static constexpr size_t PREC_ASSIGNMENT = 10;
+static constexpr size_t PREC_RELATIONAL = 20;
+static constexpr size_t PREC_BIT = 30;
+static constexpr size_t PREC_ADDITIVE = 40;
+static constexpr size_t PREC_MULTIPLICATIVE = 50;
+static constexpr size_t PREC_CALL = 60;
+
 namespace Aria::Internal {
 
     Parser::Parser(CompilationContext* ctx) {
         m_Context = ctx;
         m_Tokens = ctx->GetTokens();
 
+        AddExprRules();
         ParseImpl();
+    }
+
+    void Parser::AddExprRules() {
+        m_ExprRules.reserve(static_cast<size_t>(TokenKind::Last));
+
+        m_ExprRules[TokenKind::LeftParen] =       { BIND_PARSE_RULE(ParseGrouping), BIND_PARSE_RULE(ParseCall), PREC_CALL };
+        m_ExprRules[TokenKind::Plus] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_ADDITIVE };
+        m_ExprRules[TokenKind::Minus] =           { BIND_PARSE_RULE(ParseUnary), BIND_PARSE_RULE(ParseBinary), PREC_ADDITIVE };
+        m_ExprRules[TokenKind::Star] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_MULTIPLICATIVE };
+        m_ExprRules[TokenKind::Slash] =           { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_MULTIPLICATIVE };
+        m_ExprRules[TokenKind::Percent] =         { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_MULTIPLICATIVE };
+        m_ExprRules[TokenKind::Ampersand] =       { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
+        m_ExprRules[TokenKind::DoubleAmpersand] = { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::Pipe] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
+        m_ExprRules[TokenKind::DoublePipe] =      { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::UpArrow] =         { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
+        m_ExprRules[TokenKind::IsEq] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::IsNotEq] =         { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::Less] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::LessOrEq] =        { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::Greater] =         { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::GreaterOrEq] =     { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+
+        m_ExprRules[TokenKind::Eq] =              { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::PlusEq] =          { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::MinusEq] =         { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::StarEq] =          { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::SlashEq] =         { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::PercentEq] =       { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::AmpersandEq] =     { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::PipeEq] =          { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::UpArrowEq] =       { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
+
+        m_ExprRules[TokenKind::Dot] =             { nullptr, BIND_PARSE_RULE(ParseMember), PREC_CALL };
+
+        m_ExprRules[TokenKind::Self] =            { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::True] =            { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::False] =           { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::CharLit] =         { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::IntLit] =          { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::UintLit] =         { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::NumLit] =          { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::StrLit] =          { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::Identifier] =      { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
     }
 
     void Parser::ParseImpl() {
@@ -68,10 +123,70 @@ namespace Aria::Internal {
         }
     }
 
-    BinaryOperatorKind Parser::ParseOperator() {
-        Token op = *Peek();
+    Expr* Parser::ParseGrouping(Expr* left) {
+        ARIA_ASSERT(left == nullptr, "Parser::ParseGrouping() should not have a left side");
 
-        switch (op.Kind) {
+        Token* lp = TryConsume(TokenKind::LeftParen, "'('");
+        if (IsType()) { // Cast
+            TypeInfo* type = ParseType();
+            if (!TryConsume(TokenKind::RightParen, "')'")) {
+                StabilizeParser();
+                return nullptr;
+            }
+
+            Expr* child = ParseExpression();
+
+            return Expr::Create(m_Context, lp->Range.Start, SourceRange(lp->Range.Start, child->Range.End), ExprKind::Cast, 
+                ExprValueKind::RValue, type,
+                CastExpr(child, type));
+        } else { // Grouping of expression
+            Expr* child = ParseExpression();
+            Token* rp = TryConsume(TokenKind::RightParen, "')'");
+
+            if (!rp) {
+                StabilizeParser();
+                return nullptr;
+            }
+
+            return Expr::Create(m_Context, lp->Range.Start, SourceRange(lp->Range.Start, rp->Range.End), ExprKind::Paren, 
+                child->ValueKind, child->Type,
+                ParenExpr(child));
+        }
+    }
+
+    Expr* Parser::ParseCall(Expr* left) {
+        ARIA_ASSERT(left, "Parser::ParseCall() expects a left side");
+
+        Token* lp = TryConsume(TokenKind::LeftParen, "'('");
+        TinyVector<Expr*> args;
+
+        while (!Match(TokenKind::RightParen)) {
+            Expr* val = ParseExpression();
+    
+            if (Match(TokenKind::Comma)) {
+                Consume();
+            }
+    
+            args.Append(m_Context, val);
+        }
+    
+        Token* rp = TryConsume(TokenKind::RightParen, "')'");
+        if (!rp) { return nullptr; }
+    
+        return Expr::Create(m_Context, lp->Range.Start, SourceRange(left->Range.Start, rp->Range.End), ExprKind::Call,
+            ExprValueKind::RValue, nullptr, 
+            CallExpr(left, args));
+    }
+
+    UnaryOperatorKind Parser::GetUnaryOperatorFromToken(Token* token) {
+        switch (token->Kind) {
+            case TokenKind::Minus: return UnaryOperatorKind::Negate;
+            default: return UnaryOperatorKind::Invalid;
+        }
+    }
+
+    BinaryOperatorKind Parser::GetBinaryOperatorFromToken(Token* token) {
+        switch (token->Kind) {
             case TokenKind::Plus: return BinaryOperatorKind::Add;
             case TokenKind::PlusEq: return BinaryOperatorKind::CompoundAdd;
             case TokenKind::Minus: return BinaryOperatorKind::Sub;
@@ -82,13 +197,13 @@ namespace Aria::Internal {
             case TokenKind::SlashEq: return BinaryOperatorKind::CompoundDiv;
             case TokenKind::Percent: return BinaryOperatorKind::Mod;
             case TokenKind::PercentEq: return BinaryOperatorKind::CompoundMod;
-            case TokenKind::Ampersand: return BinaryOperatorKind::And;
+            case TokenKind::Ampersand: return BinaryOperatorKind::BitAnd;
             case TokenKind::AmpersandEq: return BinaryOperatorKind::CompoundAnd;
-            case TokenKind::DoubleAmpersand: return BinaryOperatorKind::BitAnd;
-            case TokenKind::Pipe: return BinaryOperatorKind::Or;
+            case TokenKind::DoubleAmpersand: return BinaryOperatorKind::LogAnd;
+            case TokenKind::Pipe: return BinaryOperatorKind::BitOr;
             case TokenKind::PipeEq: return BinaryOperatorKind::CompoundOr;
-            case TokenKind::DoublePipe: return BinaryOperatorKind::BitOr;
-            case TokenKind::UpArrow: return BinaryOperatorKind::Xor;
+            case TokenKind::DoublePipe: return BinaryOperatorKind::LogOr;
+            case TokenKind::UpArrow: return BinaryOperatorKind::BitXor;
             case TokenKind::UpArrowEq: return BinaryOperatorKind::CompoundXor;
             case TokenKind::Less: return BinaryOperatorKind::Less;
             case TokenKind::LessOrEq: return BinaryOperatorKind::LessOrEq;
@@ -101,296 +216,147 @@ namespace Aria::Internal {
         }
     }
 
-    size_t Parser::GetBinaryPrecedence(BinaryOperatorKind kind) {
-        switch (kind) {
-            case BinaryOperatorKind::Eq:
-            case BinaryOperatorKind::CompoundAdd:
-            case BinaryOperatorKind::CompoundSub:
-            case BinaryOperatorKind::CompoundMul:
-            case BinaryOperatorKind::CompoundMod:
-            case BinaryOperatorKind::CompoundDiv:
-            case BinaryOperatorKind::CompoundAnd:
-            case BinaryOperatorKind::CompoundOr:
-            case BinaryOperatorKind::CompoundXor:
-                return 10;
+    Expr* Parser::ParseUnary(Expr* left) {
+        ARIA_ASSERT(left == nullptr, "Parser::ParseUnary() should not have a left side");
 
-            case BinaryOperatorKind::Less:
-            case BinaryOperatorKind::LessOrEq:
-            case BinaryOperatorKind::Greater:
-            case BinaryOperatorKind::GreaterOrEq:
-            case BinaryOperatorKind::IsEq:
-            case BinaryOperatorKind::IsNotEq:
-            case BinaryOperatorKind::BitAnd:
-            case BinaryOperatorKind::BitOr:
-                return 20;
+        Token op = Consume();
+        Expr* expr = ParseExpression();
 
-            case BinaryOperatorKind::And:
-            case BinaryOperatorKind::Or:
-            case BinaryOperatorKind::Xor:
-                return 30;
-
-            case BinaryOperatorKind::Add:
-            case BinaryOperatorKind::Sub:
-                return 40;
-
-            case BinaryOperatorKind::Mod:
-            case BinaryOperatorKind::Mul:
-            case BinaryOperatorKind::Div:
-                return 50;
-        }
-
-        ARIA_ASSERT(false, "Unreachable");
-        return -1;
+        return Expr::Create(m_Context, op.Range.Start, SourceRange(op.Range.Start, expr->Range.End), ExprKind::UnaryOperator,
+            ExprValueKind::RValue, expr->Type,
+            UnaryOperatorExpr(expr, GetUnaryOperatorFromToken(&op)));
     }
 
-    size_t Parser::GetNextPrecedence(BinaryOperatorKind binop) {
-        switch (binop) {
-            case BinaryOperatorKind::Eq:
-            case BinaryOperatorKind::CompoundAdd:
-            case BinaryOperatorKind::CompoundSub:
-            case BinaryOperatorKind::CompoundMul:
-            case BinaryOperatorKind::CompoundDiv:
-            case BinaryOperatorKind::CompoundMod:
-            case BinaryOperatorKind::CompoundAnd:
-            case BinaryOperatorKind::CompoundOr:
-            case BinaryOperatorKind::CompoundXor:
-                return GetBinaryPrecedence(binop); // Right associative
+    Expr* Parser::ParseBinary(Expr* left) {
+        ARIA_ASSERT(left, "Parser::ParseBinary() expects a left side");
 
-            default: return GetBinaryPrecedence(binop) + 1; // Left associative
+        Token op = Consume();
+        Expr* right = nullptr;
+        
+        if (op.Kind == TokenKind::Eq) { right = ParsePrecedence(PREC_ASSIGNMENT); }
+        else { right = ParsePrecedence(m_ExprRules[op.Kind].Precedence + 1); }
+
+        if (right) {
+            return Expr::Create(m_Context, op.Range.Start, SourceRange(left->Range.Start, right->Range.End), ExprKind::BinaryOperator,
+                ExprValueKind::RValue, nullptr,
+                BinaryOperatorExpr(left, right, GetBinaryOperatorFromToken(&op)));
         }
+        
+        return nullptr;
     }
 
-    Expr* Parser::ParseValue() {
-        if (!Peek()) { return nullptr; }
-        Token& value = *Peek();
-    
-        Expr* final = nullptr;
+    Expr* Parser::ParseCompoundAssignment(Expr* left) {
+        ARIA_ASSERT(left, "Parser::ParseCompoundAssignment() expects a left side");
 
-        switch (value.Kind) {
+        Token op = Consume();
+        Expr* right = ParsePrecedence(PREC_ASSIGNMENT);
+
+        return Expr::Create(m_Context, op.Range.Start, SourceRange(left->Range.Start, right->Range.End), ExprKind::CompoundAssign,
+            ExprValueKind::RValue, nullptr,
+            BinaryOperatorExpr(left, right, GetBinaryOperatorFromToken(&op)));
+    }
+
+    Expr* Parser::ParseMember(Expr* left) { ARIA_ASSERT(false, "todo!"); }
+
+    Expr* Parser::ParsePrimary(Expr* left) {
+        ARIA_ASSERT(left == nullptr, "Parser::ParsePrimary() should not have a left side");
+
+        Token& t = Consume();
+        switch (t.Kind) {
             case TokenKind::False: {
-                Token& t = Consume();
-    
-                final = Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::BooleanConstant, 
+                return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::BooleanConstant, 
                     ExprValueKind::RValue, TypeInfo::Create(m_Context, PrimitiveType::Bool, false), 
                     BooleanConstantExpr(false));
-                break;
             }
-    
+
             case TokenKind::True: {
-                Token& t = Consume();
-    
-                final = Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::BooleanConstant, 
+                return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::BooleanConstant, 
                     ExprValueKind::RValue, TypeInfo::Create(m_Context, PrimitiveType::Bool, false), 
                     BooleanConstantExpr(true));
-                break;
             }
-    
+
             case TokenKind::CharLit: {
-                Token& t = Consume();
-    
-                int8_t ch = static_cast<int8_t>(value.String.Data()[0]);
-                final = Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::CharacterConstant, 
+                int8_t ch = static_cast<int8_t>(t.String.Data()[0]);
+                return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::CharacterConstant, 
                     ExprValueKind::RValue, TypeInfo::Create(m_Context, PrimitiveType::Char, false), 
                     CharacterConstantExpr(ch));
-                break;
             }
     
             case TokenKind::IntLit: {
-                Token& t = Consume();
-
-                final = Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::IntegerConstant,
+                return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::IntegerConstant,
                     ExprValueKind::RValue, TypeInfo::Create(m_Context, PrimitiveType::Long, false), 
                     IntegerConstantExpr(t.Integer));
-                break;
             }
 
             case TokenKind::UintLit: {
-                Token& t = Consume();
-
-                final = Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::IntegerConstant, 
+                return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::IntegerConstant, 
                     ExprValueKind::RValue, TypeInfo::Create(m_Context, PrimitiveType::ULong, false), 
                     IntegerConstantExpr(t.Integer));
-                break;
             }
     
             case TokenKind::NumLit: {
-                Token& t = Consume();
-    
-                final = Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::FloatingConstant,
+                return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::FloatingConstant,
                     ExprValueKind::RValue, TypeInfo::Create(m_Context, PrimitiveType::Double, false), 
                     FloatingConstantExpr(t.Number));
-                break;
             }
     
             case TokenKind::StrLit: {
-                Token& t = Consume();
-    
-                final = Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::StringConstant,
+                return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::StringConstant,
                     ExprValueKind::RValue, TypeInfo::Create(m_Context, PrimitiveType::String, false), 
                     IntegerConstantExpr(t.Integer));
-                break;
-            }
-    
-            case TokenKind::Minus: {
-                Token& m = Consume();
-                Expr* subExpr = ParseValue();
-
-                final = Expr::Create(m_Context, m.Range.Start, m.Range, ExprKind::UnaryOperator,
-                    ExprValueKind::RValue, nullptr,
-                    UnaryOperatorExpr(subExpr, UnaryOperatorKind::Negate));
-                break;
-            }
-    
-            case TokenKind::LeftParen: {
-                Token p = Consume();
-    
-                if (IsType()) {
-                    TypeInfo* type = ParseType();
-
-                    TryConsume(TokenKind::RightParen, "')'");
-                    Expr* subExpr = ParseValue();
-
-                    final = Expr::Create(m_Context, p.Range.Start, SourceRange(p.Range.Start, subExpr->Range.End), ExprKind::Cast,
-                        subExpr->ValueKind, subExpr->Type, 
-                        CastExpr(subExpr, type));
-                } else {
-                    Expr* subExpr = ParseExpression();
-                    Token* rp = TryConsume(TokenKind::RightParen, "')'");
-
-                    if (!rp) { return nullptr; }
-
-                    final = Expr::Create(m_Context, p.Range.Start, SourceRange(p.Range.Start, rp->Range.End), ExprKind::Paren,
-                        subExpr->ValueKind, subExpr->Type, 
-                        ParenExpr(subExpr));
-                }
-                
-                break;
             }
 
-            case TokenKind::Self: {
-                Token s = Consume();
-
-                final = Expr::Create(m_Context, s.Range.Start, s.Range, ExprKind::Self,
-                    ExprValueKind::LValue, nullptr, 
-                    SelfExpr());
-                break;
-            }
-    
             case TokenKind::Identifier: {
-                Token i = Consume();
-
-                final = Expr::Create(m_Context, i.Range.Start, i.Range, ExprKind::DeclRef,
+                return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::DeclRef,
                     ExprValueKind::LValue, nullptr, 
-                    DeclRefExpr(i.String));
-
-                // Check if this is a function call
-                if (Match(TokenKind::LeftParen)) {
-                    Token& lp = Consume();
-    
-                    TinyVector<Expr*> args;
-
-                    while (!Match(TokenKind::RightParen)) {
-                        Expr* val = ParseExpression();
-    
-                        if (Match(TokenKind::Comma)) {
-                            Consume();
-                        }
-    
-                        args.Append(m_Context, val);
-                    }
-    
-                    Token* rp = TryConsume(TokenKind::RightParen, "')'");
-                    if (!rp) { return nullptr; }
-    
-                    final = Expr::Create(m_Context, lp.Range.Start, SourceRange(i.Range.Start, rp->Range.End), ExprKind::Call,
-                        ExprValueKind::RValue, nullptr, 
-                        CallExpr(final, args));
-                }
-
-                break;
+                    DeclRefExpr(t.String));
             }
+
+            default: ARIA_UNREACHABLE();
         }
-
-        // Handle member access (foo.bar) and member call expressions (foo.add())
-        while (Match(TokenKind::Dot)) {
-            Token op = Consume();
-
-            if (op.Kind == TokenKind::Dot) {
-                Token* member = TryConsume(TokenKind::Identifier, "identifier");
-                if (!member) { return nullptr; }
-
-                final = Expr::Create(m_Context, op.Range.Start, SourceRange(final->Range.Start, member->Range.End), ExprKind::Member,
-                    ExprValueKind::LValue, nullptr, 
-                    MemberExpr(member->String, final));
-
-                if (Match(TokenKind::LeftParen)) {
-                    Token& lp = Consume();
-    
-                    TinyVector<Expr*> args;
-                    while (!Match(TokenKind::RightParen)) {
-                        Expr* val = ParseExpression();
-    
-                        if (Match(TokenKind::Comma)) {
-                            Consume();
-                        }
-    
-                        args.Append(m_Context, val);
-                    }
-    
-                    Token* rp = TryConsume(TokenKind::RightParen, "')'");
-                    if (!rp) { return nullptr; }
-
-                    final = Expr::Create(m_Context, lp.Range.Start, SourceRange(final->Range.Start, rp->Range.End), ExprKind::MethodCall,
-                        ExprValueKind::LValue, nullptr, 
-                        MethodCallExpr(final, args));
-                }
-            }
-        }
-
-        return final;
     }
 
-    Expr* Parser::ParseExpression(size_t minbp) {
-        SourceRange lhsRange = Peek()->Range;
-        Expr* lhsExpr = ParseValue();
+    Expr* Parser::ParsePrecedenceWithLeft(Expr* left, size_t precedence) {
+        ARIA_ASSERT(left, "Parser::ParsePrecedenceWithLeft() expects a left side");
 
-        if (!lhsExpr) {
-            ErrorExpected("expression", lhsRange.Start, lhsRange);
+        while (true) {
+            Token* tok = Peek();
+            size_t tokPrecedence = m_ExprRules[tok->Kind].Precedence;
+
+            if (precedence > tokPrecedence) { break; }
+
+            ParseExprFn infixRule = m_ExprRules[tok->Kind].Infix;
+
+            if (!infixRule) {
+                StabilizeParser();
+                m_Context->ReportCompilerError(tok->Range.Start, tok->Range, fmt::format("'{}' cannot appear here, did you forget something before the operator?", TokenKindToString(tok->Kind)));
+                return nullptr;
+            }
+
+            left = infixRule(left);
+        }
+
+        return left;
+    }
+
+    Expr* Parser::ParsePrecedence(size_t precedence) {
+        Token* tok = Peek();
+        ParseExprFn prefixRule = m_ExprRules[tok->Kind].Prefix;
+
+        if (!prefixRule) {
             StabilizeParser();
+            m_Context->ReportCompilerError(tok->Range.Start, tok->Range, "Expected an expression");
             return nullptr;
         }
 
-        // There are two conditions to this loop
-        // A valid operator (the first half of the check) and a valid precedence (the second half)
-        while ((Peek() && ParseOperator() != BinaryOperatorKind::Invalid) && 
-               (GetBinaryPrecedence(ParseOperator()) >= minbp)) {
-            BinaryOperatorKind op = ParseOperator();
-            Token o = Consume();
+        Expr* left = prefixRule(nullptr);
+        if (!left) { return left; }
 
-            Expr* rhsExpr = ParseExpression(GetNextPrecedence(op));
-            if (!rhsExpr) { return nullptr; }
+        return ParsePrecedenceWithLeft(left, precedence);
+    }
 
-            if (op == BinaryOperatorKind::CompoundAdd ||
-                op == BinaryOperatorKind::CompoundSub ||
-                op == BinaryOperatorKind::CompoundMul ||
-                op == BinaryOperatorKind::CompoundDiv ||
-                op == BinaryOperatorKind::CompoundMod ||
-                op == BinaryOperatorKind::CompoundAnd ||
-                op == BinaryOperatorKind::CompoundOr  ||
-                op == BinaryOperatorKind::CompoundXor) {
-                lhsExpr = Expr::Create(m_Context, o.Range.Start, SourceRange(lhsRange.Start, Peek(-1)->Range.End), ExprKind::CompoundAssign, 
-                    ExprValueKind::LValue, nullptr, 
-                    CompoundAssignExpr(lhsExpr, rhsExpr, op));
-            } else {
-                lhsExpr = Expr::Create(m_Context, o.Range.Start, SourceRange(lhsRange.Start, Peek(-1)->Range.End), ExprKind::BinaryOperator, 
-                    ExprValueKind::RValue, nullptr, 
-                    BinaryOperatorExpr(lhsExpr, rhsExpr, op));
-            }
-
-            lhsRange = Peek()->Range;
-        }
-
-        return lhsExpr;
+    Expr* Parser::ParseExpression() {
+        return ParsePrecedence(PREC_ASSIGNMENT);
     }
 
     bool Parser::IsPrimitiveType() {

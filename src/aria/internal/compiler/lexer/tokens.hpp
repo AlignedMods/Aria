@@ -29,7 +29,6 @@ namespace Aria::Internal {
         Not, IsNotEq,
         Less, LessOrEq,
         Greater, GreaterOrEq,
-        Hash,
 
         Squigly,
         Comma,
@@ -84,7 +83,9 @@ namespace Aria::Internal {
 
         Extern,
 
-        Identifier
+        Identifier,
+
+        Last
     };
 
     inline const char* TokenKindToString(TokenKind kind) {
@@ -123,7 +124,6 @@ namespace Aria::Internal {
             case TokenKind::LessOrEq: return "<=";
             case TokenKind::Greater: return ">";
             case TokenKind::GreaterOrEq: return ">=";
-            case TokenKind::Hash: return "#";
 
             case TokenKind::Squigly: return "~";
             case TokenKind::Comma: return ",";

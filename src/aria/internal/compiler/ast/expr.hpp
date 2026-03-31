@@ -99,9 +99,9 @@ namespace Aria::Internal {
         Greater,
         GreaterOrEq,
 
-        And, CompoundAnd, BitAnd,
-        Or,  CompoundOr,  BitOr,
-        Xor, CompoundXor,
+        BitAnd, CompoundAnd, LogAnd,
+        BitOr,  CompoundOr,  LogOr,
+        BitXor, CompoundXor,
     
         Eq,
         IsEq,
@@ -126,13 +126,13 @@ namespace Aria::Internal {
             case BinaryOperatorKind::Greater: return ">";
             case BinaryOperatorKind::GreaterOrEq: return ">=";
 
-            case BinaryOperatorKind::And: return "&";
+            case BinaryOperatorKind::BitAnd: return "&";
             case BinaryOperatorKind::CompoundAnd: return "&=";
-            case BinaryOperatorKind::BitAnd: return "&&";
-            case BinaryOperatorKind::Or: return "|";
+            case BinaryOperatorKind::LogAnd: return "&&";
+            case BinaryOperatorKind::BitOr: return "|";
             case BinaryOperatorKind::CompoundOr: return "|=";
-            case BinaryOperatorKind::BitOr: return "||";
-            case BinaryOperatorKind::Xor: return "^";
+            case BinaryOperatorKind::LogOr: return "||";
+            case BinaryOperatorKind::BitXor: return "^";
             case BinaryOperatorKind::CompoundXor: return "^=";
 
             case BinaryOperatorKind::Eq: return "=";

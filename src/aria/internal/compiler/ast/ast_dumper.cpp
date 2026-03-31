@@ -170,30 +170,30 @@ namespace Aria::Internal {
             return;
         } else if (stmt->Kind == StmtKind::While) {
             m_Output += "WhileStmt\n";
-            // DumpExpr(wh->GetCondition(), indentation + 4);
-            // DumpStmt(wh->GetBody(), indentation + 4);
+            DumpExpr(stmt->While.Condition, indentation + 4);
+            DumpStmt(stmt->While.Body, indentation + 4);
             return;
         } else if (stmt->Kind == StmtKind::DoWhile) {
             m_Output += "DoWhileStmt\n";
-            // DumpStmt(doWh->GetBody(), indentation + 4);
-            // DumpExpr(doWh->GetCondition(), indentation + 4);
+            DumpExpr(stmt->DoWhile.Condition, indentation + 4);
+            DumpStmt(stmt->DoWhile.Body, indentation + 4);
             return;
         } else if (stmt->Kind == StmtKind::For) {
             m_Output += "ForStmt\n";
-            // DumpStmt(fo->GetPrologue(), indentation + 4);
-            // DumpExpr(fo->GetCondition(), indentation + 4);
-            // DumpExpr(fo->GetEpilogue(), indentation + 4);
-            // DumpStmt(fo->GetBody(), indentation + 4);
+            DumpStmt(stmt->For.Prologue, indentation + 4);
+            DumpExpr(stmt->For.Condition, indentation + 4);
+            DumpExpr(stmt->For.Epilogue, indentation + 4);
+            DumpStmt(stmt->For.Body, indentation + 4);
             return;
         } else if (stmt->Kind == StmtKind::If) {
             m_Output += "IfStmt\n";
-            // DumpExpr(i->GetCondition(), indentation + 4);
-            // DumpStmt(i->GetBody(), indentation + 4);
-            // DumpStmt(i->GetElseBody(), indentation + 4);
+            DumpExpr(stmt->If.Condition, indentation + 4);
+            DumpStmt(stmt->If.Body, indentation + 4);
+            if (stmt->If.ElseBody) DumpStmt(stmt->If.ElseBody, indentation + 4);
             return;
         } else if (stmt->Kind == StmtKind::Return) {
             m_Output += "ReturnStmt\n";
-            // DumpExpr(ret->GetValue(), indentation + 4);
+            DumpExpr(stmt->Return.Value, indentation + 4);
             return;
         } 
 
