@@ -1,7 +1,7 @@
 // Should return 10
-int While() {
+fn int While() {
     int i = 0;
-    while (i < 10) {
+    while i < 10 {
         i = i + 1;
     }
 
@@ -9,27 +9,27 @@ int While() {
 }
 
 // Should return 10
-int DoWhile1() {
+fn int DoWhile1() {
     int i = 0;
     do {
         i = i + 1;
-    } while (i < 10);
+    } while i < 10;
 
     return i;
 }
 
 // Should return true
 // True means that the loop was ran before the condition was checked, which is the correct behavior
-bool DoWhile2() {
+fn bool DoWhile2() {
     do {
         return true;
-    } while (false);
+    } while false;
 
     return false;
 }
 
 // Should return 190
-int For() {
+fn int For() {
     int result = 0;
 
     for (int i = 0; i < 20; i += 1) {
@@ -39,8 +39,8 @@ int For() {
     return result;
 }
 
-bool If() {
-    if (4 < 6) {
+fn bool If() {
+    if 4 < 6 {
         return false;
     }
 

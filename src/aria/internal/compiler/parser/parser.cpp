@@ -8,6 +8,15 @@
 
 #define BIND_PARSE_RULE(fn) [this](Expr* expr) -> Expr* { return fn(expr); }
 
+#define ASSIGN_OR_RET(varName, expr) do { \
+        varName = expr; \
+        if (!varName) { return nullptr; } \
+    } while (false)
+
+#define CONSUME_OR_RET(kind) do { \
+        if (!TryConsume(TokenKind::kind, TokenKindToString(TokenKind::kind))) { return nullptr; } \
+    } while (false)
+
 static constexpr size_t PREC_NONE = 0;
 static constexpr size_t PREC_ASSIGNMENT = 10;
 static constexpr size_t PREC_RELATIONAL = 20;
@@ -73,7 +82,7 @@ namespace Aria::Internal {
     void Parser::ParseImpl() {
         TinyVector<Stmt*> stmts;
         while (Peek()) {
-            Stmt* stmt = ParseToken();
+            Stmt* stmt = ParseGlobal();
             if (stmt != nullptr) {
                 stmts.Append(m_Context, stmt);
             }
@@ -440,100 +449,341 @@ namespace Aria::Internal {
         return type;
     }
 
-    Decl* Parser::ParseTypeDecl() {
+    Stmt* Parser::ParseBlock() {
+        TinyVector<Stmt*> stmts;
+        Token* l = TryConsume(TokenKind::LeftCurly, "'{'");
+        if (!l) { return nullptr; }
+
+        while (!Match(TokenKind::RightCurly)) {
+            Stmt* stmt = ParseStatement();
+
+            if (stmt != nullptr) {
+                stmts.Append(m_Context, stmt);
+            }
+        }
+
+        Token* r = TryConsume(TokenKind::RightCurly, "'}'");
+        if (!r) { return nullptr; }
+
+        return Stmt::Create(m_Context, l->Range.Start, SourceRange(l->Range.Start, r->Range.End), StmtKind::Block, BlockStmt(stmts));
+    }
+
+    Stmt* Parser::ParseBlockInline() {
+        if (Match(TokenKind::LeftCurly)) {
+            return ParseBlock();
+        } else {
+            Stmt* stmt = ParseStatement();
+            if (!stmt) { return nullptr; }
+
+            TinyVector<Stmt*> stmts;
+            stmts.Append(m_Context, stmt);
+
+            return Stmt::Create(m_Context, stmt->Loc, stmt->Range, StmtKind::Block, BlockStmt(stmts));
+        }
+    }
+
+    Stmt* Parser::ParseWhile() {
+        Token w = Consume(); // Consume "while"
+
+        Expr* condition = ParseExpression();
+        Stmt* body = ParseBlockInline();
+
+        return Stmt::Create(m_Context, w.Range.Start, SourceRange(w.Range.Start, Peek(-1)->Range.End), StmtKind::While, WhileStmt(condition, body));
+    }
+
+    Stmt* Parser::ParseDoWhile() {
+        Token d = Consume(); // Consume "do"
+
+        Stmt* body = ParseBlockInline();
+        TryConsume(TokenKind::While, "while");
+        Expr* condition = ParseExpression();
+        
+        return Stmt::Create(m_Context, d.Range.Start, SourceRange(d.Range.Start, Peek(-1)->Range.End), StmtKind::DoWhile, DoWhileStmt(condition, body));
+    }
+
+    Stmt* Parser::ParseFor() {
+        Token f = Consume(); // Consume "for"
+
+        if (!TryConsume(TokenKind::LeftParen, "'('")) {
+            StabilizeParser();
+            return nullptr;
+        }
+
+        Stmt* prologue = ParseStatement();
+        Expr* condition = ParseExpression();
+        TryConsume(TokenKind::Semi, "';'");
+        Expr* epilogue = ParseExpression();
+
+        if (!TryConsume(TokenKind::RightParen, "')'")) {
+            StabilizeParser();
+            return nullptr;
+        }
+        
+        Stmt* body = ParseBlockInline();
+        
+        return Stmt::Create(m_Context, f.Range.Start, SourceRange(f.Range.Start, Peek(-1)->Range.End), StmtKind::For, ForStmt(prologue, condition, epilogue, body));
+    }
+
+    Stmt* Parser::ParseIf() {
+        Token i = Consume(); // Consume "if"
+        
+        Expr* condition = ParseExpression();
+        Stmt* body = ParseStatement();
+        
+        return Stmt::Create(m_Context, i.Range.Start, SourceRange(i.Range.Start, Peek(-1)->Range.End), StmtKind::If, IfStmt(condition, body, nullptr));
+    }
+
+    Stmt* Parser::ParseBreak() {
+        ARIA_ASSERT(false, "todo: add break parsing");
+        // Token b = Consume(); // Consume "break"
+
+        // return Allocate<NodeStmt>(nullptr, b.Loc);
+    }
+
+    Stmt* Parser::ParseContinue() {
+        ARIA_ASSERT(false, "todo: add continue parsing");
+        // Token c = Consume(); // Consume "continue"
+
+        // return Allocate<NodeStmt>(nullptr, c.Loc);
+    }
+
+    Stmt* Parser::ParseReturn() {
+        Token r = Consume(); // Consume "return"
+        Expr* value = ParseExpression();
+        
+        return Stmt::Create(m_Context, r.Range.Start, SourceRange(r.Range.Start, Peek(-1)->Range.End), StmtKind::Return, ReturnStmt(value));
+    }
+
+    Stmt* Parser::ParseExpressionStatement() {
+        Expr* expr = nullptr;
+        ASSIGN_OR_RET(expr, ParseExpression());
+        CONSUME_OR_RET(Semi);
+        
+        return Stmt::Create(m_Context, expr->Loc, SourceRange(expr->Range.Start, Peek(-1)->Range.End), StmtKind::Expr, expr);
+    }
+
+    Stmt* Parser::ParseDeclarationStatement() {
+        Decl* decl = nullptr;
+        ASSIGN_OR_RET(decl, ParseVariableDecl());
+
+        return Stmt::Create(m_Context, decl->Loc, SourceRange(decl->Range.Start, Peek(-1)->Range.End), StmtKind::Decl, decl);
+    }
+
+    Stmt* Parser::ParseDeclarationOrExpression() {
+        ARIA_ASSERT(Peek()->Kind == TokenKind::Identifier, "Invalid lex state in Parser::ParseDeclarationOrExpression()");
+
+        if (m_DeclaredTypes.contains(fmt::format("{}", Peek()->String))) {
+            Decl* decl = nullptr;
+            ASSIGN_OR_RET(decl, ParseVariableDecl());
+            CONSUME_OR_RET(Semi);
+
+            return Stmt::Create(m_Context, decl->Loc, SourceRange(decl->Range.Start, Peek(-1)->Range.End), StmtKind::Decl, decl);
+        }
+
+        return ParseExpressionStatement();
+    }
+
+    Stmt* Parser::ParseStatement() {
+        switch (Peek()->Kind) {
+            case TokenKind::Semi: {
+                Token& tok = Consume();
+                return Stmt::Create(m_Context, tok.Range.Start, tok.Range, StmtKind::Nop, NopStmt());
+            }
+
+            case TokenKind::LeftParen:
+            case TokenKind::Minus:
+            case TokenKind::Not:
+            case TokenKind::Self:
+            case TokenKind::True:
+            case TokenKind::False:
+            case TokenKind::CharLit:
+            case TokenKind::IntLit:
+            case TokenKind::UintLit:
+            case TokenKind::NumLit:
+            case TokenKind::StrLit:
+                return ParseExpressionStatement();
+
+            case TokenKind::Identifier:
+                return ParseDeclarationOrExpression();
+
+            case TokenKind::LeftCurly:
+                return ParseBlock();
+
+            case TokenKind::If:
+                return ParseIf();
+
+            case TokenKind::While:
+                return ParseWhile();
+
+            case TokenKind::Do:
+                return ParseDoWhile();
+
+            case TokenKind::For:
+                return ParseFor();
+
+            case TokenKind::Return:
+                return ParseReturn();
+
+            case TokenKind::Void:
+            case TokenKind::Bool:
+            case TokenKind::Char:
+            case TokenKind::UChar:
+            case TokenKind::Short:
+            case TokenKind::UShort:
+            case TokenKind::Int:
+            case TokenKind::UInt:
+            case TokenKind::Long:
+            case TokenKind::ULong:
+            case TokenKind::Float:
+            case TokenKind::Double:
+            case TokenKind::String:
+                return ParseDeclarationStatement();
+
+            case TokenKind::Fn: {
+                Token& tok = Consume();
+                m_Context->ReportCompilerError(tok.Range.Start, tok.Range, fmt::format("Function declaration is not allowed here"));
+                return nullptr;
+            }
+
+            case TokenKind::Struct: {
+                Token& tok = Consume();
+                m_Context->ReportCompilerError(tok.Range.Start, tok.Range, fmt::format("Structure declaration is not allowed here"));
+                return nullptr;
+            }
+
+            case TokenKind::Plus:
+            case TokenKind::PlusEq:
+            case TokenKind::MinusEq:
+            case TokenKind::Star:
+            case TokenKind::StarEq:
+            case TokenKind::Slash:
+            case TokenKind::SlashEq:
+            case TokenKind::Percent:
+            case TokenKind::PercentEq:
+            case TokenKind::Ampersand:
+            case TokenKind::AmpersandEq:
+            case TokenKind::DoubleAmpersand:
+            case TokenKind::Pipe:
+            case TokenKind::PipeEq:
+            case TokenKind::DoublePipe:
+            case TokenKind::UpArrow:
+            case TokenKind::UpArrowEq:
+            case TokenKind::Eq:
+            case TokenKind::IsEq:
+            case TokenKind::IsNotEq:
+            case TokenKind::Less:
+            case TokenKind::LessOrEq:
+            case TokenKind::Greater:
+            case TokenKind::GreaterOrEq: {
+                Token& tok = Consume();
+                m_Context->ReportCompilerError(tok.Range.Start, tok.Range, fmt::format("Unexpected binary operator '{}' while looking for statement", TokenKindToString(tok.Kind)));
+                return nullptr;
+            }
+
+            case TokenKind::RightParen:
+            case TokenKind::LeftBracket:
+            case TokenKind::RightBracket:
+            case TokenKind::RightCurly:
+            case TokenKind::Comma:
+            case TokenKind::Colon:
+            case TokenKind::Dot: {
+                Token& tok = Consume();
+                m_Context->ReportCompilerError(tok.Range.Start, tok.Range, fmt::format("Unexpected token '{}' while looking for statement", TokenKindToString(tok.Kind)));
+                return nullptr;
+            }
+
+            case TokenKind::Break:
+            case TokenKind::Construct:
+            case TokenKind::Destruct: Consume(); ARIA_ASSERT(false, "todo!"); return nullptr;
+
+            case TokenKind::Last: ARIA_UNREACHABLE();
+        }
+
+        ARIA_UNREACHABLE();
+        return nullptr;
+    }
+
+    Decl* Parser::ParseVariableDecl() {
+        ARIA_ASSERT(IsType(), "Parser::ParseVariableDecl() expects the current token to be a type");
+
         SourceLocation start = Peek()->Range.Start;
         TypeInfo* type = ParseType();
-
-        if (Peek(1) && Peek(1)->Kind == TokenKind::LeftParen) {
-            return ParseFunctionDecl(type, start);
-        } else {
-            return ParseVariableDecl(type, start);
-        }
-    }
-
-    Decl* Parser::ParseVariableDecl(TypeInfo* type, SourceLocation start) {
-        Token* ident = TryConsume(TokenKind::Identifier, "identifier");
+        Token* ident = nullptr;
+        
+        ASSIGN_OR_RET(ident, TryConsume(TokenKind::Identifier, "identifier"));
         Expr* value = nullptr;
 
-        if (ident) {
-            if (Match(TokenKind::Eq)) {
-                Consume();
-                value = ParseExpression();
-            }
-
-            return Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Var, VarDecl(ident->String, type, value));
-        } else {
-            StabilizeParser();
-            return nullptr;
+        if (Match(TokenKind::Eq)) {
+            Consume();
+            value = ParseExpression();
         }
+
+        CONSUME_OR_RET(Semi);
+
+        return Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Var, VarDecl(ident->String, type, value));
     }
 
-    Decl* Parser::ParseFunctionDecl(TypeInfo* type, SourceLocation start) {
-        m_NeedsSemi = false;
-        Token* ident = TryConsume(TokenKind::Identifier, "identifier");
+    Decl* Parser::ParseFunctionDecl() {
+        SourceLocation start = Peek()->Range.Start;
+        Token fn = Consume(); // Consume "fn"
 
-        if (ident) {
-            TinyVector<Decl*> params;
-            TinyVector<TypeInfo*> paramTypes;
-
-            if (Match(TokenKind::LeftParen)) {
-                Consume();
-
-                while (!Match(TokenKind::RightParen)) {
-                    if (!IsType()) {
-                        StabilizeParser();
-                        m_Context->ReportCompilerError(Peek(-1)->Range.Start, Peek(-1)->Range, "expected a type");
-                        continue;
-                    }
-
-                    TypeInfo* paramType = ParseType();
-                    Token* ident = TryConsume(TokenKind::Identifier, "identifier");
-                    if (!ident) {
-                        StabilizeParser();
-                        continue;
-                    }
-
-                    params.Append(m_Context, Decl::Create(m_Context, ident->Range.Start, ident->Range, DeclKind::Param, ParamDecl(ident->String, paramType)));
-                    paramTypes.Append(m_Context, paramType);
-
-                    if (Match(TokenKind::Comma)) { Consume(); continue; }
-                    if (Match(TokenKind::RightParen)) { break; }
-
-                    StabilizeParser();
-                    m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "expected either ',' or ')'");
-                }
-
-                TryConsume(TokenKind::RightParen, "')'");
-
-                Stmt* body = nullptr;
-
-                if (Match(TokenKind::LeftCurly)) {
-                    body = ParseBlock();
-                } else {
-                    Token* semi = TryConsume(TokenKind::Semi, "';'");
-
-                    if (!semi) {
-                        StabilizeParser();
-                    }
-                }
-
-                FunctionDeclaration typeDecl;
-                typeDecl.ReturnType = type;
-                typeDecl.ParamTypes = paramTypes;
-
-                TypeInfo* finalType = TypeInfo::Create(m_Context, PrimitiveType::Function, false, typeDecl);
-
-                return Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Function, FunctionDecl(ident->String, finalType, params, body));
-            } else {
-                StabilizeParser();
-                ErrorExpected("'('", Peek()->Range.End, Peek()->Range);
-            }
-
-            return nullptr;
-        } else {
+        if (!IsType()) {
+            m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type");
             StabilizeParser();
             return nullptr;
         }
+
+        TypeInfo* type = ParseType();
+        Token* ident = nullptr;
+        ASSIGN_OR_RET(ident, TryConsume(TokenKind::Identifier, "identifier"));
+
+        CONSUME_OR_RET(LeftParen);
+
+        TinyVector<Decl*> params;
+        TinyVector<TypeInfo*> paramTypes;
+
+        while (!Match(TokenKind::RightParen)) {
+            if (!IsType()) {
+                m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type");
+                StabilizeParser();
+                continue;
+            }
+
+            TypeInfo* paramType = ParseType();
+            Token* paramIdent = TryConsume(TokenKind::Identifier, "identifier");
+            
+            if (!paramIdent) {
+                StabilizeParser();
+                continue;
+            }
+
+            params.Append(m_Context, Decl::Create(m_Context, paramIdent->Range.Start, paramIdent->Range, DeclKind::Param, ParamDecl(paramIdent->String, paramType)));
+            paramTypes.Append(m_Context, paramType);
+
+            if (Match(TokenKind::Comma)) { Consume(); continue; }
+            if (Match(TokenKind::RightParen)) { break; }
+
+            StabilizeParser();
+            m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "expected either ',' or ')'");
+        }
+
+        CONSUME_OR_RET(RightParen);
+
+        Stmt* body = nullptr;
+
+        if (Match(TokenKind::LeftCurly)) {
+            body = ParseBlock();
+        } else {
+            CONSUME_OR_RET(Semi);
+        }
+
+        FunctionDeclaration typeDecl;
+        typeDecl.ReturnType = type;
+        typeDecl.ParamTypes = paramTypes;
+
+        TypeInfo* finalType = TypeInfo::Create(m_Context, PrimitiveType::Function, false, typeDecl);
+
+        return Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Function, FunctionDecl(ident->String, finalType, params, body));
     }
 
     Decl* Parser::ParseStructDecl() {
@@ -582,171 +832,66 @@ namespace Aria::Internal {
         ARIA_ASSERT(false, "todo!");
     }
 
-    Stmt* Parser::ParseBlock() {
-        TinyVector<Stmt*> stmts;
-        Token* l = TryConsume(TokenKind::LeftCurly, "'{'");
-        if (!l) { return nullptr; }
+    Stmt* Parser::ParseGlobal() {
+        switch (Peek()->Kind) {
+            case TokenKind::Void:
+            case TokenKind::Bool:
+            case TokenKind::Char:
+            case TokenKind::UChar:
+            case TokenKind::Short:
+            case TokenKind::UShort:
+            case TokenKind::Int:
+            case TokenKind::UInt:
+            case TokenKind::Long:
+            case TokenKind::ULong:
+            case TokenKind::Float:
+            case TokenKind::Double:
+            case TokenKind::String:
+                return ParseDeclarationStatement();
 
-        while (!Match(TokenKind::RightCurly)) {
-            Stmt* stmt = ParseToken();
+            case TokenKind::Identifier: {
+                if (m_DeclaredTypes.contains(fmt::format("{}", Peek()->String))) {
+                    return ParseDeclarationStatement();
+                }
 
-            if (stmt != nullptr) {
-                stmts.Append(m_Context, stmt);
-            } else {
+                m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, fmt::format("Expected the start of a global declaration", TokenKindToString(Peek()->Kind)));
                 StabilizeParser();
-            }
-        }
-
-        Token* r = TryConsume(TokenKind::RightCurly, "'}'");
-        if (!r) { return nullptr; }
-
-        return Stmt::Create(m_Context, l->Range.Start, SourceRange(l->Range.Start, r->Range.End), StmtKind::Block, BlockStmt(stmts));
-    }
-
-    Stmt* Parser::ParseBlockInline() {
-        if (Match(TokenKind::LeftCurly)) {
-            return ParseBlock();
-        } else {
-            Stmt* stmt = ParseToken();
-            if (!stmt) { return nullptr; }
-
-            TinyVector<Stmt*> stmts;
-            stmts.Append(m_Context, stmt);
-
-            return Stmt::Create(m_Context, stmt->Loc, stmt->Range, StmtKind::Block, BlockStmt(stmts));
-        }
-    }
-
-    Stmt* Parser::ParseWhile() {
-        Token w = Consume(); // Consume "while"
-
-        Expr* condition = ParseExpression();
-        Stmt* body = ParseBlockInline();
-
-        m_NeedsSemi = false;
-
-        return Stmt::Create(m_Context, w.Range.Start, SourceRange(w.Range.Start, Peek(-1)->Range.End), StmtKind::While, WhileStmt(condition, body));
-    }
-
-    Stmt* Parser::ParseDoWhile() {
-        Token d = Consume(); // Consume "do"
-
-        Stmt* body = ParseBlockInline();
-        TryConsume(TokenKind::While, "while");
-        Expr* condition = ParseExpression();
-        
-        return Stmt::Create(m_Context, d.Range.Start, SourceRange(d.Range.Start, Peek(-1)->Range.End), StmtKind::DoWhile, DoWhileStmt(condition, body));
-    }
-
-    Stmt* Parser::ParseFor() {
-        Token f = Consume(); // Consume "for"
-
-        TryConsume(TokenKind::LeftParen, "'('");
-        
-        Stmt* prologue = ParseStatement();
-        TryConsume(TokenKind::Semi, "';'");
-        Expr* condition = ParseExpression();
-        TryConsume(TokenKind::Semi, "';'");
-        Expr* epilogue = ParseExpression();
-        TryConsume(TokenKind::RightParen, "')'");
-        
-        Stmt* body = ParseBlockInline();
-        m_NeedsSemi = false;
-        
-        return Stmt::Create(m_Context, f.Range.Start, SourceRange(f.Range.Start, Peek(-1)->Range.End), StmtKind::For, ForStmt(prologue, condition, epilogue, body));
-    }
-
-    Stmt* Parser::ParseIf() {
-        Token i = Consume(); // Consume "if"
-        
-        Expr* condition = ParseExpression();
-        Stmt* body = ParseStatement();
-        
-        m_NeedsSemi = false;
-        return Stmt::Create(m_Context, i.Range.Start, SourceRange(i.Range.Start, Peek(-1)->Range.End), StmtKind::If, IfStmt(condition, body, nullptr));
-    }
-
-    Stmt* Parser::ParseBreak() {
-        ARIA_ASSERT(false, "todo: add break parsing");
-        // Token b = Consume(); // Consume "break"
-
-        // return Allocate<NodeStmt>(nullptr, b.Loc);
-    }
-
-    Stmt* Parser::ParseContinue() {
-        ARIA_ASSERT(false, "todo: add continue parsing");
-        // Token c = Consume(); // Consume "continue"
-
-        // return Allocate<NodeStmt>(nullptr, c.Loc);
-    }
-
-    Stmt* Parser::ParseReturn() {
-        Token r = Consume(); // Consume "return"
-        Expr* value = ParseExpression();
-        
-        return Stmt::Create(m_Context, r.Range.Start, SourceRange(r.Range.Start, Peek(-1)->Range.End), StmtKind::Return, ReturnStmt(value));
-    }
-
-    Stmt* Parser::ParseStatement() {
-        TokenKind t = Peek()->Kind;
-
-        Stmt* node = nullptr;
-
-        if (IsType()) {
-            Decl* decl = ParseTypeDecl();
-            node = Stmt::Create(m_Context, decl->Loc, decl->Range, StmtKind::Decl, decl);
-        } else if (t == TokenKind::Struct) {
-            Decl* decl = ParseStructDecl();
-            node = Stmt::Create(m_Context, decl->Loc, decl->Range, StmtKind::Decl, decl);
-        } else if (t == TokenKind::LeftCurly) {
-            node = ParseBlock();
-        } else if (t == TokenKind::While) {
-            node = ParseWhile();
-        } else if (t == TokenKind::Do) {
-            node = ParseDoWhile();
-        } else if (t == TokenKind::For) {
-            node = ParseFor();
-        } else if (t == TokenKind::If) {
-            node = ParseIf();
-        } else if (t == TokenKind::Break) {
-            node = ParseBreak();
-        } else if (t == TokenKind::Return) {
-            node = ParseReturn();
-        }
-
-        return node;
-    }
-
-    Stmt* Parser::ParseToken() {
-        Stmt* s = nullptr;
-
-        if (Stmt* stmt = ParseStatement()) {
-            s = stmt;
-        } else if (Expr* expr = ParseExpression()) {
-            s = Stmt::Create(m_Context, expr->Loc, expr->Range, StmtKind::Expr, expr);
-        }
-
-        if (m_NeedsSemi) {
-            if (!TryConsume(TokenKind::Semi, "';'")) {
                 return nullptr;
             }
 
-            m_NeedsSemi = true;
-        }
+            case TokenKind::Fn: {
+                Decl* decl = nullptr;
+                ASSIGN_OR_RET(decl, ParseFunctionDecl());
 
-        // Consume stray semicolons
-        while (Match(TokenKind::Semi)) {
-            Consume();
-        }
+                return Stmt::Create(m_Context, decl->Loc, decl->Range, StmtKind::Decl, decl);
+            }
 
-        return s;
+            case TokenKind::Struct: {
+                Decl* decl = nullptr;
+                ASSIGN_OR_RET(decl, ParseStructDecl());
+
+                return Stmt::Create(m_Context, decl->Loc, decl->Range, StmtKind::Decl, decl);
+            }
+
+            case TokenKind::Semi: {
+                m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, fmt::format("Token ';' was unexpected, try removing it")); 
+                Consume(); 
+                return nullptr;
+            }
+
+            default: {
+                m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, fmt::format("Expected the start of a global declaration", TokenKindToString(Peek()->Kind)));
+                Consume();
+                return nullptr;
+            }
+        }
     }
 
     void Parser::StabilizeParser() {
         while (Peek()) {
             TokenKind type = Peek()->Kind;
 
-            if (type == TokenKind::Semi || type == TokenKind::RightCurly || type == TokenKind::Comma) {
+            if (type == TokenKind::Semi || type == TokenKind::LeftCurly || type == TokenKind::RightCurly || type == TokenKind::Comma) {
                 return;
             }
 
@@ -755,11 +900,11 @@ namespace Aria::Internal {
     }
 
     void Parser::ErrorExpected(const std::string& expect, SourceLocation loc, SourceRange range) {
-        m_Context->ReportCompilerError(loc, range, fmt::format("Expected {} but got \"{}\"", expect, TokenKindToString(Peek()->Kind)));
-    }
-
-    void Parser::ErrorTooLarge(const StringView value) {
-        // m_Context->ReportCompilerError(Peek(-1)->Line, Peek(-1)->Column, fmt::format("Constant {} is too large", value));
+        if (Peek()) {
+            m_Context->ReportCompilerError(loc, range, fmt::format("Expected '{}' but got '{}'", expect, TokenKindToString(Peek()->Kind)));
+        } else {
+            m_Context->ReportCompilerError(loc, range, fmt::format("Expected '{}' but got EOF", expect));
+        }
     }
 
 } // namespace Aria::Internal

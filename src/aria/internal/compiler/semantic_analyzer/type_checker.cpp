@@ -559,14 +559,17 @@ namespace Aria::Internal {
         ReturnStmt& ret = stmt->Return;
         
         if (m_ActiveReturnType == nullptr) {
-            ARIA_ASSERT(false, "todo: error msg");
+            m_Context->ReportCompilerError(stmt->Loc, stmt->Range, "\"return\" statement out of function body is not allowed");
+            ret.Value->Type = m_ErrorType;
+            return;
         }
         
         HandleInitializer(ret.Value, m_ActiveReturnType, false);
     }
 
     void TypeChecker::HandleStmt(Stmt* stmt) {
-        if (stmt->Kind == StmtKind::Block) {
+        if (stmt->Kind == StmtKind::Nop) { return; }
+        else if (stmt->Kind == StmtKind::Block) {
             m_Declarations.emplace_back();
             HandleBlockStmt(stmt);
             m_Declarations.pop_back();

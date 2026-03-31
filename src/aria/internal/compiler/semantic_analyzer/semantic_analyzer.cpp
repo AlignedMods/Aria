@@ -130,7 +130,8 @@ namespace Aria::Internal {
     void SemanticAnalyzer::HandleReturnStmt(Stmt* stmt) {}
 
     void SemanticAnalyzer::HandleStmt(Stmt* stmt) {
-        if (stmt->Kind == StmtKind::Block) {
+        if (stmt->Kind == StmtKind::Nop) { return; }
+        else if (stmt->Kind == StmtKind::Block) {
             return HandleBlockStmt(stmt);
         } else if (stmt->Kind == StmtKind::While) {
             return HandleWhileStmt(stmt);

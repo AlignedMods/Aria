@@ -679,7 +679,8 @@ namespace Aria::Internal {
     }
 
     void Emitter::EmitStmt(Stmt* stmt) {
-        if (stmt->Kind == StmtKind::Block) {
+        if (stmt->Kind == StmtKind::Nop) { return; }
+        else if (stmt->Kind == StmtKind::Block) {
             PushScope();
             EmitBlockStmt(stmt);
             PopScope();

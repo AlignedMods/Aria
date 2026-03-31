@@ -162,7 +162,8 @@ namespace Aria::Internal {
         ident.append(indentation, ' ');
         m_Output += ident;
 
-        if (stmt->Kind == StmtKind::Block) {
+        if (stmt->Kind == StmtKind::Nop) { return; }
+        else if (stmt->Kind == StmtKind::Block) {
             m_Output += fmt::format("BlockStmt\n");
             for (Stmt* stmt : stmt->Block.Stmts) {
                 DumpStmt(stmt, indentation + 4);

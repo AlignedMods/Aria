@@ -63,6 +63,7 @@ namespace Aria::Internal {
                 ARIA_TOKEN_DATA("break", Break)
                 ARIA_TOKEN_DATA("return", Return)
 
+                ARIA_TOKEN_DATA("fn", Fn)
                 ARIA_TOKEN_DATA("struct", Struct)
 
                 ARIA_TOKEN_DATA("construct", Construct)
@@ -274,8 +275,6 @@ namespace Aria::Internal {
                     case '{': AddToken(TokenKind::LeftCurly,
                         SourceRange(m_CurrentLine, GetColumn(m_Index - 1), m_CurrentLine, GetColumn(m_Index))); break;
                     case '}': AddToken(TokenKind::RightCurly,
-                        SourceRange(m_CurrentLine, GetColumn(m_Index - 1), m_CurrentLine, GetColumn(m_Index))); break;
-                    case '~': AddToken(TokenKind::Squigly,
                         SourceRange(m_CurrentLine, GetColumn(m_Index - 1), m_CurrentLine, GetColumn(m_Index))); break;
                     case ',': AddToken(TokenKind::Comma,
                         SourceRange(m_CurrentLine, GetColumn(m_Index - 1), m_CurrentLine, GetColumn(m_Index))); break;

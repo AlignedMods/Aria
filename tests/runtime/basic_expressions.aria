@@ -1,4 +1,4 @@
-bool ShouldNeverBeCalled();
+fn bool ShouldNeverBeCalled();
 
 int a = 5 + 5;
 int b = (a + 5) / -5;
@@ -20,6 +20,6 @@ bool bb = true || ShouldNeverBeCalled();
 
 // This next section handles compound assignment
 int cc = 1;
-cc += 3;
+int cca = cc += 3;
 int dd = 0x05;
-dd *= 0x05 + 0x05;
+int dda = dd *= 0x05 + 0x05;

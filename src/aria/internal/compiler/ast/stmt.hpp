@@ -11,6 +11,7 @@ namespace Aria::Internal {
     enum class StmtKind {
         Invalid = 0,
 
+        Nop,
         Block,
         While,
         DoWhile,
@@ -24,6 +25,10 @@ namespace Aria::Internal {
     struct Expr;
     struct Decl;
     struct Stmt;
+
+    struct NopStmt {
+        NopStmt() = default;
+    };
 
     struct BlockStmt {
         BlockStmt() = default;
@@ -85,6 +90,7 @@ namespace Aria::Internal {
         SourceRange Range;
 
         union {
+            NopStmt Nop;
             BlockStmt Block;
             WhileStmt While;
             DoWhileStmt DoWhile;
@@ -94,6 +100,9 @@ namespace Aria::Internal {
             Expr* ExprStmt;
             Decl* DeclStmt;
         };
+
+        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, NopStmt nop)
+            : Kind(kind), Loc(loc), Range(range), Nop(nop) {}
 
         Stmt(StmtKind kind, SourceLocation loc, SourceRange range, BlockStmt block)
             : Kind(kind), Loc(loc), Range(range), Block(block) {}

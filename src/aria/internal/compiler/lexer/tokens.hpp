@@ -30,12 +30,9 @@ namespace Aria::Internal {
         Less, LessOrEq,
         Greater, GreaterOrEq,
 
-        Squigly,
         Comma,
         Colon,
         Dot,
-        DoubleDot,
-        TripleDot,
 
         Self,
 
@@ -52,6 +49,7 @@ namespace Aria::Internal {
         True,
         False,
 
+        Fn,
         Struct,
 
         Construct,
@@ -125,12 +123,9 @@ namespace Aria::Internal {
             case TokenKind::Greater: return ">";
             case TokenKind::GreaterOrEq: return ">=";
 
-            case TokenKind::Squigly: return "~";
             case TokenKind::Comma: return ",";
             case TokenKind::Colon: return ":";
             case TokenKind::Dot: return ".";
-            case TokenKind::DoubleDot: return "..";
-            case TokenKind::TripleDot: return "...";
 
             case TokenKind::Self: return "self";
 
@@ -144,6 +139,7 @@ namespace Aria::Internal {
             case TokenKind::Break: return "break";
             case TokenKind::Return: return "return";
 
+            case TokenKind::Fn: return "fn";
             case TokenKind::Struct: return "struct";
 
             case TokenKind::Construct: return "construct";
@@ -174,8 +170,6 @@ namespace Aria::Internal {
             case TokenKind::Double: return "double";
 
             case TokenKind::String: return "string";
-
-            case TokenKind::Extern: return "extern";
 
             case TokenKind::Identifier: return "identifier";
         }

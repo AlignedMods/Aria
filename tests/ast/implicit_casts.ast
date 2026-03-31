@@ -1,0 +1,25 @@
+TranslationUnitDecl
+    VarDecl 'a' 'int'
+        ImplicitCastExpr 'int' <Integral> rvalue
+            IntegerConstantExpr 9 'long' rvalue
+    VarDecl 'aa' 'int'
+        ImplicitCastExpr 'int' <LValueToRValue> rvalue
+            DeclRefExpr 'a' 'int' GlobalVar lvalue
+    VarDecl 'b' 'float'
+        ImplicitCastExpr 'float' <IntegralToFloating> rvalue
+            DeclRefExpr 'a' 'int' GlobalVar lvalue
+    VarDecl 'c' 'short'
+        ImplicitCastExpr 'short' <Integral> rvalue
+            IntegerConstantExpr 5 'long' rvalue
+    VarDecl 'd' 'long'
+        ImplicitCastExpr 'long' <Integral> rvalue
+            DeclRefExpr 'c' 'short' GlobalVar lvalue
+    VarDecl 'e' 'float'
+        BinaryOperatorExpr '/' 'float' rvalue
+            BinaryOperatorExpr '*' 'float' rvalue
+                ImplicitCastExpr 'float' <IntegralToFloating> rvalue
+                    IntegerConstantExpr 5 'long' rvalue
+                ImplicitCastExpr 'float' <LValueToRValue> rvalue
+                    DeclRefExpr 'b' 'float' GlobalVar lvalue
+            ImplicitCastExpr 'float' <IntegralToFloating> rvalue
+                DeclRefExpr 'c' 'short' GlobalVar lvalue

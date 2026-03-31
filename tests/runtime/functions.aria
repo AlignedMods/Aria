@@ -1,18 +1,18 @@
 int result = 0; // Expected to be 24
 
-void ExternalFunction(int a, int b, int c);
+fn void ExternalFunction(int a, int b, int c);
 
-int add(int lhs, int rhs) {
+fn int add(int lhs, int rhs) {
     return lhs + rhs;
 }
 
-int sub(int lhs, int rhs) {
+fn int sub(int lhs, int rhs) {
     return lhs - rhs;
 }
 
 int otherResult = 0; // This is here to confirm that you can have code in between function definitions
 
-void main() {
+fn void main() {
     result = add(5, 9);
     result = result + add(sub(6, 3), 7);
     otherResult = result + 2;
