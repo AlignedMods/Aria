@@ -12,10 +12,24 @@ namespace Aria::Internal {
     private:
         void LexImpl();
 
-        const char* Peek(size_t count = 0);
-        char Consume();
+        char Peek(size_t count = 0);
+        void Backtrack(size_t count = 1);
+        void Consume(size_t count = 1);
+        bool TryConsume(char c);
 
-        void AddToken(TokenKind kind, const SourceRange& loc, const StringView string = {}, u64 integer = 0, f64 number = 0.0);
+        void ParseCharLiteral();
+        void ParseDecimalLiteral();
+        void ParseStringLiteral();
+
+        void ParseIdentifier();
+
+        void ParseSingleLineComment();
+
+        void SkipWhitespace();
+
+        void AddToken(TokenKind kind, const SourceRange& range, StringView string);
+        void AddTokenWithInteger(TokenKind kind, const SourceRange& range, u64 integer);
+        void AddTokenWithNumber(TokenKind kind, const SourceRange& range, f64 number);
 
         size_t GetColumn(size_t index);
 

@@ -9,6 +9,7 @@
 namespace Aria::Internal {
 
     enum class TokenKind {
+        // VVV Punctuation VVV //
         Semi,
         LeftParen,
         RightParen,
@@ -16,7 +17,12 @@ namespace Aria::Internal {
         RightBracket,
         LeftCurly,
         RightCurly,
+        Comma,
+        Colon,
+        Dot,
+        // ^^^ Punctuation ^^^ //
 
+        // VVV Operators VVV //
         Plus, PlusEq,
         Minus, MinusEq,
         Star, StarEq,
@@ -25,46 +31,38 @@ namespace Aria::Internal {
         Ampersand, AmpersandEq, DoubleAmpersand,
         Pipe, PipeEq, DoublePipe,
         UpArrow, UpArrowEq,
-        Eq, IsEq,
-        Not, IsNotEq,
-        Less, LessOrEq,
-        Greater, GreaterOrEq,
+        Eq, EqEq,
+        Bang, BangEq,
+        Less, LessEq,
+        Greater, GreaterEq,
+        // ^^^ Operators ^^^ //
 
-        Comma,
-        Colon,
-        Dot,
-
-        Self,
-
-        If,
-        Else,
-
-        While,
-        Do,
-        For,
-
-        Break,
-        Return,
-
+        // VVV Literals and constants VVV //
         True,
         False,
-
-        Fn,
-        Struct,
-
-        Construct,
-        Destruct,
-
         CharLit,
         IntLit,
         UintLit,
         NumLit,
         StrLit,
+        // ^^^ Literals and constants ^^^ //
 
+        // VVV Keywords VVV //
+        If,
+        Else,
+        While,
+        Do,
+        For,
+        Break,
+        Return,
+        Self,
+        Fn,
+        Struct,
+        // ^^^ Keywords ^^^ //
+
+        // VVV Types VVV //
         Void,
-
         Bool,
-
         Char,
         UChar,
         Short,
@@ -73,13 +71,10 @@ namespace Aria::Internal {
         UInt,
         Long,
         ULong,
-
         Float,
         Double,
-
         String,
-
-        Extern,
+        // ^^^ Types ^^^ //
 
         Identifier,
 
@@ -88,6 +83,7 @@ namespace Aria::Internal {
 
     inline const char* TokenKindToString(TokenKind kind) {
         switch (kind) {
+            // VVV Punctuation VVV //
             case TokenKind::Semi: return ";";
             case TokenKind::LeftParen: return "(";
             case TokenKind::RightParen: return ")";
@@ -95,7 +91,12 @@ namespace Aria::Internal {
             case TokenKind::RightBracket: return "]";
             case TokenKind::LeftCurly: return "{";
             case TokenKind::RightCurly: return "}";
+            case TokenKind::Comma: return ",";
+            case TokenKind::Colon: return ":";
+            case TokenKind::Dot: return ".";
+            // ^^^ Punctuation ^^^ //
 
+            // VVV Operators VVV //
             case TokenKind::Plus: return "+";
             case TokenKind::PlusEq: return "+=";
             case TokenKind::Minus: return "-";
@@ -115,48 +116,40 @@ namespace Aria::Internal {
             case TokenKind::UpArrow: return "^";
             case TokenKind::UpArrowEq: return "^=";
             case TokenKind::Eq: return "=";
-            case TokenKind::IsEq: return "==";
-            case TokenKind::Not: return "!";
-            case TokenKind::IsNotEq: return "!=";
+            case TokenKind::EqEq: return "==";
+            case TokenKind::Bang: return "!";
+            case TokenKind::BangEq: return "!=";
             case TokenKind::Less: return "<";
-            case TokenKind::LessOrEq: return "<=";
+            case TokenKind::LessEq: return "<=";
             case TokenKind::Greater: return ">";
-            case TokenKind::GreaterOrEq: return ">=";
+            case TokenKind::GreaterEq: return ">=";
+            // ^^^ Operators ^^^ //
 
-            case TokenKind::Comma: return ",";
-            case TokenKind::Colon: return ":";
-            case TokenKind::Dot: return ".";
-
-            case TokenKind::Self: return "self";
-
-            case TokenKind::If: return "if";
-            case TokenKind::Else: return "else";
-
-            case TokenKind::While: return "while";
-            case TokenKind::Do: return "do";
-            case TokenKind::For: return "for";
-
-            case TokenKind::Break: return "break";
-            case TokenKind::Return: return "return";
-
-            case TokenKind::Fn: return "fn";
-            case TokenKind::Struct: return "struct";
-
-            case TokenKind::Construct: return "construct";
-            case TokenKind::Destruct: return "destruct";
-
+            // VVV Literals and constants VVV //
             case TokenKind::True: return "true";
             case TokenKind::False: return "false";
-
             case TokenKind::CharLit: return "character literal";
             case TokenKind::IntLit: return "integer literal";
             case TokenKind::NumLit: return "number literal";
             case TokenKind::StrLit: return "string literal";
+            // ^^^ Literals and constants ^^^ //
 
+            // VVV Keywords VVV //
+            case TokenKind::If: return "if";
+            case TokenKind::Else: return "else";
+            case TokenKind::While: return "while";
+            case TokenKind::Do: return "do";
+            case TokenKind::For: return "for";
+            case TokenKind::Break: return "break";
+            case TokenKind::Return: return "return";
+            case TokenKind::Self: return "self";
+            case TokenKind::Fn: return "fn";
+            case TokenKind::Struct: return "struct";
+            // ^^^ Keywords ^^^ //
+            
+            // VVV Types VVV //
             case TokenKind::Void: return "void";
-
             case TokenKind::Bool: return "bool";
-
             case TokenKind::Char: return "char";
             case TokenKind::UChar: return "uchar";
             case TokenKind::Short: return "short";
@@ -165,11 +158,10 @@ namespace Aria::Internal {
             case TokenKind::UInt: return "uint";
             case TokenKind::Long: return "long";
             case TokenKind::ULong: return "ulong";
-
             case TokenKind::Float: return "float";
             case TokenKind::Double: return "double";
-
             case TokenKind::String: return "string";
+            // ^^^ Types ^^^ //
 
             case TokenKind::Identifier: return "identifier";
         }

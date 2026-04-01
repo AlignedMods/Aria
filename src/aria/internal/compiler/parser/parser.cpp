@@ -49,12 +49,12 @@ namespace Aria::Internal {
         m_ExprRules[TokenKind::Pipe] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
         m_ExprRules[TokenKind::DoublePipe] =      { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
         m_ExprRules[TokenKind::UpArrow] =         { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
-        m_ExprRules[TokenKind::IsEq] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::IsNotEq] =         { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::EqEq] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::BangEq] =         { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
         m_ExprRules[TokenKind::Less] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::LessOrEq] =        { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::LessEq] =        { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
         m_ExprRules[TokenKind::Greater] =         { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::GreaterOrEq] =     { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::GreaterEq] =     { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
 
         m_ExprRules[TokenKind::Eq] =              { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_ASSIGNMENT };
         m_ExprRules[TokenKind::PlusEq] =          { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
@@ -215,12 +215,12 @@ namespace Aria::Internal {
             case TokenKind::UpArrow: return BinaryOperatorKind::BitXor;
             case TokenKind::UpArrowEq: return BinaryOperatorKind::CompoundXor;
             case TokenKind::Less: return BinaryOperatorKind::Less;
-            case TokenKind::LessOrEq: return BinaryOperatorKind::LessOrEq;
+            case TokenKind::LessEq: return BinaryOperatorKind::LessOrEq;
             case TokenKind::Greater: return BinaryOperatorKind::Greater;
-            case TokenKind::GreaterOrEq: return BinaryOperatorKind::GreaterOrEq;
+            case TokenKind::GreaterEq: return BinaryOperatorKind::GreaterOrEq;
             case TokenKind::Eq: return BinaryOperatorKind::Eq;
-            case TokenKind::IsEq: return BinaryOperatorKind::IsEq;
-            case TokenKind::IsNotEq: return BinaryOperatorKind::IsNotEq;
+            case TokenKind::EqEq: return BinaryOperatorKind::IsEq;
+            case TokenKind::BangEq: return BinaryOperatorKind::IsNotEq;
             default: return BinaryOperatorKind::Invalid;
         }
     }
@@ -592,7 +592,7 @@ namespace Aria::Internal {
 
             case TokenKind::LeftParen:
             case TokenKind::Minus:
-            case TokenKind::Not:
+            case TokenKind::Bang:
             case TokenKind::Self:
             case TokenKind::True:
             case TokenKind::False:
@@ -669,12 +669,12 @@ namespace Aria::Internal {
             case TokenKind::UpArrow:
             case TokenKind::UpArrowEq:
             case TokenKind::Eq:
-            case TokenKind::IsEq:
-            case TokenKind::IsNotEq:
+            case TokenKind::EqEq:
+            case TokenKind::BangEq:
             case TokenKind::Less:
-            case TokenKind::LessOrEq:
+            case TokenKind::LessEq:
             case TokenKind::Greater:
-            case TokenKind::GreaterOrEq: {
+            case TokenKind::GreaterEq: {
                 Token& tok = Consume();
                 m_Context->ReportCompilerError(tok.Range.Start, tok.Range, fmt::format("Unexpected binary operator '{}' while looking for statement", TokenKindToString(tok.Kind)));
                 return nullptr;
@@ -693,8 +693,7 @@ namespace Aria::Internal {
             }
 
             case TokenKind::Break:
-            case TokenKind::Construct:
-            case TokenKind::Destruct: Consume(); ARIA_ASSERT(false, "todo!"); return nullptr;
+                Consume(); ARIA_ASSERT(false, "todo!"); return nullptr;
 
             case TokenKind::Last: ARIA_UNREACHABLE();
         }

@@ -39,6 +39,31 @@ namespace Aria::Internal {
             m_Size += str.Size();
         }
 
+        inline void Append(CompilationContext* ctx, char c) {
+            m_Size += 1;
+
+            if (m_Size >= m_Capacity) {
+                if (m_Capacity == 0) {
+                    m_Capacity = 16;
+                } else {
+                    m_Capacity *= 2;
+                }
+
+                char* newStr = reinterpret_cast<char*>(ctx->AllocateSized(m_Capacity));
+                if (m_Str) {
+                    memcpy(newStr, m_Str, m_Size);
+                }
+
+                m_Str = newStr;
+            }
+            
+            m_Str[m_Size - 1] = c;
+        }
+
+        operator StringView() {
+            return StringView(m_Str, m_Size);
+        }
+
     private:
         char* m_Str = nullptr;
         size_t m_Capacity = 0;
