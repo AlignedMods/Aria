@@ -179,6 +179,9 @@ namespace Aria::Internal {
             m_Context->ReportCompilerError(loc, SourceRange(start, loc), "Unterminated character literal");
             return;
         }
+
+        SourceLocation loc = SourceLocation(m_CurrentLine, GetColumn(m_Index));
+        AddTokenWithInteger(TokenKind::CharLit, SourceRange(start, loc), static_cast<u64>(c));
     }
 
     void Lexer::ParseDecimalLiteral() {

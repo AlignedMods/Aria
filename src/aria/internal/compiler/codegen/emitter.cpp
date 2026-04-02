@@ -628,7 +628,7 @@ namespace Aria::Internal {
         m_ForCounter++;
         
         PushScope();
-        if (fs.Prologue) { EmitStmt(fs.Prologue); }
+        if (fs.Prologue) { EmitDecl(fs.Prologue); }
         
         m_PendingOpCodes.emplace_back(OpCodeKind::Label, loopStart);
         if (fs.Condition) {

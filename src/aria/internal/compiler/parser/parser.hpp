@@ -73,9 +73,16 @@ namespace Aria::Internal {
 
         void ErrorExpected(const std::string& expect, SourceLocation loc, SourceRange range);
 
+        bool ExprOk(Expr* expr);
+        bool DeclOk(Decl* decl);
+
     private:
         size_t m_Index = 0;
         Tokens m_Tokens;
+
+        Expr* m_ErrorExpr = nullptr;
+        Decl* m_ErrorDecl = nullptr;
+        Stmt* m_ErrorStmt = nullptr;
 
         using ParseExprFn = std::function<Expr*(Expr*)>;
         struct ParseExprRule {

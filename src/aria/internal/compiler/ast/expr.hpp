@@ -14,6 +14,7 @@ namespace Aria::Internal {
     enum class ExprKind {
         Invalid = 0,
 
+        Error,
         BooleanConstant,
         CharacterConstant,
         IntegerConstant,
@@ -158,6 +159,10 @@ namespace Aria::Internal {
 
     struct Decl;
 
+    struct ErrorExpr {
+        ErrorExpr() = default;
+    };
+
     struct BooleanConstantExpr {
         BooleanConstantExpr(bool value)
             : Value(value) {}
@@ -210,7 +215,7 @@ namespace Aria::Internal {
     };
 
     struct SelfExpr {
-        SelfExpr() {}
+        SelfExpr() = default;
     };
 
     // TemporaryExpr
@@ -338,6 +343,7 @@ namespace Aria::Internal {
         SourceRange Range;
 
         union {
+            ErrorExpr Error;
             BooleanConstantExpr BooleanConstant;
             CharacterConstantExpr CharacterConstant;
             IntegerConstantExpr IntegerConstant;
@@ -359,6 +365,9 @@ namespace Aria::Internal {
 
         Expr()
             : BooleanConstant(false) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, ErrorExpr error)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Error(error) {}
 
         Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, BooleanConstantExpr booleanConstant)
             : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), BooleanConstant(booleanConstant) {}

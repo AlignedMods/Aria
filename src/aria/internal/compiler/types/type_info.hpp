@@ -170,4 +170,19 @@ namespace Aria::Internal {
         return str;
     }
 
+    // To avoid unnecessary allocations of primitive types we declare them here globally
+    inline TypeInfo ErrorType =  { PrimitiveType::Error };
+    inline TypeInfo BoolType =   { PrimitiveType::Bool };
+    inline TypeInfo CharType =   { PrimitiveType::Char };
+    inline TypeInfo UCharType =  { PrimitiveType::UChar };
+    inline TypeInfo ShortType =  { PrimitiveType::Short };
+    inline TypeInfo UShortType = { PrimitiveType::UShort };
+    inline TypeInfo IntType =    { PrimitiveType::Int };
+    inline TypeInfo UIntType =   { PrimitiveType::UInt };
+    inline TypeInfo LongType =   { PrimitiveType::Long };
+    inline TypeInfo ULongType =  { PrimitiveType::ULong };
+    inline TypeInfo DoubleType = { PrimitiveType::Double };
+    inline TypeInfo FloatType =  { PrimitiveType::Float };
+    inline TypeInfo StringType = { PrimitiveType::String };
+
 } // namespace Aria::Internal

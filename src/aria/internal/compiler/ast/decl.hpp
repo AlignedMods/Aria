@@ -7,6 +7,7 @@ namespace Aria::Internal {
     enum class DeclKind {
         Invalid = 0,
 
+        Error,
         TranslationUnit,
         Var,
         Param,
@@ -24,6 +25,10 @@ namespace Aria::Internal {
 
     struct Expr;
     struct Stmt;
+
+    struct ErrorDecl {
+        ErrorDecl() = default;
+    };
 
     // Represents an entire translation unit
     // This should always be the root node of the AST
@@ -113,6 +118,7 @@ namespace Aria::Internal {
         SourceRange Range;
 
         union {
+            ErrorDecl Error;
             TranslationUnitDecl TranslationUnit;
             VarDecl Var;
             ParamDecl Param;
@@ -123,6 +129,9 @@ namespace Aria::Internal {
             BuiltinCopyConstructorDecl BuiltinCopyConstructor;
             BuiltinDestructorDecl BuiltinDestructor;
         };
+
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, ErrorDecl error)
+            : Loc(loc), Range(range), Kind(kind), Error(error) {}
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, TranslationUnitDecl translationUnit)
             : Loc(loc), Range(range), Kind(kind), TranslationUnit(translationUnit) {}

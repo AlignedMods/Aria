@@ -11,6 +11,7 @@ namespace Aria::Internal {
     enum class StmtKind {
         Invalid = 0,
 
+        Error,
         Nop,
         Block,
         While,
@@ -25,6 +26,10 @@ namespace Aria::Internal {
     struct Expr;
     struct Decl;
     struct Stmt;
+
+    struct ErrorStmt {
+        ErrorStmt() = default;
+    };
 
     struct NopStmt {
         NopStmt() = default;
@@ -55,10 +60,10 @@ namespace Aria::Internal {
     };
     
     struct ForStmt {
-        ForStmt(Stmt* prologue, Expr* condition, Expr* epilogue, Stmt* body)
+        ForStmt(Decl* prologue, Expr* condition, Expr* epilogue, Stmt* body)
             : Prologue(prologue), Condition(condition), Epilogue(epilogue), Body(body) {}
 
-        Stmt* Prologue = nullptr; // int i = 0;
+        Decl* Prologue = nullptr; // int i = 0;
         Expr* Condition = nullptr; // i < 5;
         Expr* Epilogue = nullptr; // i += 1;
         Stmt* Body = nullptr;
@@ -90,6 +95,7 @@ namespace Aria::Internal {
         SourceRange Range;
 
         union {
+            ErrorStmt Error;
             NopStmt Nop;
             BlockStmt Block;
             WhileStmt While;
@@ -100,6 +106,9 @@ namespace Aria::Internal {
             Expr* ExprStmt;
             Decl* DeclStmt;
         };
+
+        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, ErrorStmt error)
+            : Kind(kind), Loc(loc), Range(range), Error(error) {}
 
         Stmt(StmtKind kind, SourceLocation loc, SourceRange range, NopStmt nop)
             : Kind(kind), Loc(loc), Range(range), Nop(nop) {}

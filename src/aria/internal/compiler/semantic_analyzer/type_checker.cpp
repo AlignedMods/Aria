@@ -332,7 +332,8 @@ namespace Aria::Internal {
     }
 
     void TypeChecker::HandleExpr(Expr* expr) {
-        if (expr->Kind == ExprKind::BooleanConstant) {
+        if (expr->Kind == ExprKind::Error) { return; }
+        else if (expr->Kind == ExprKind::BooleanConstant) {
             return HandleBooleanConstantExpr(expr);
         } else if (expr->Kind == ExprKind::CharacterConstant) {
             return HandleCharacterConstantExpr(expr);
@@ -474,7 +475,8 @@ namespace Aria::Internal {
     }
 
     void TypeChecker::HandleDecl(Decl* decl) {
-        if (decl->Kind == DeclKind::TranslationUnit) {
+        if(decl->Kind == DeclKind::Error) { return; }
+        else if (decl->Kind == DeclKind::TranslationUnit) {
             return HandleTranslationUnitDecl(decl);
         } else if (decl->Kind == DeclKind::Var) {
             return HandleVarDecl(decl);
@@ -528,14 +530,14 @@ namespace Aria::Internal {
 
         m_Declarations.emplace_back();
         
-        if (fs.Prologue) { HandleStmt(fs.Prologue); }
+        if (fs.Prologue) { HandleDecl(fs.Prologue); }
 
         if (fs.Condition) {
             HandleExpr(fs.Condition);
             RequireRValue(fs.Condition);
 
-            if (!fs.Condition->Type->IsBoolean()) {
-                ARIA_ASSERT(false, "todo: add error");
+            if (!fs.Condition->Type->IsBoolean() && !fs.Condition->Type->IsError()) {
+                m_Context->ReportCompilerError(fs.Condition->Loc, fs.Condition->Range, fmt::format("While loop condition must be of a boolean type but is '{}'", TypeInfoToString(fs.Condition->Type)));
             }
         }
 
@@ -570,7 +572,8 @@ namespace Aria::Internal {
     }
 
     void TypeChecker::HandleStmt(Stmt* stmt) {
-        if (stmt->Kind == StmtKind::Nop) { return; }
+        if (stmt->Kind == StmtKind::Error) { return; }
+        else if (stmt->Kind == StmtKind::Nop) { return; }
         else if (stmt->Kind == StmtKind::Block) {
             m_Declarations.emplace_back();
             HandleBlockStmt(stmt);

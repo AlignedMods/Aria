@@ -25,10 +25,12 @@ namespace Aria::Internal {
 
         if (expr == nullptr) { m_Output += "<<NULL>>\n"; return; };
         
-        if (expr->Kind == ExprKind::BooleanConstant) {
+        if (expr->Kind == ExprKind::Error) {
+            m_Output += fmt::format("ErrorExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
+        } else if (expr->Kind == ExprKind::BooleanConstant) {
             m_Output += fmt::format("BooleanConstantExpr {} '{}' {}\n", expr->BooleanConstant.Value, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
         } else if (expr->Kind == ExprKind::CharacterConstant) {
-            m_Output += fmt::format("CharacterConstant '{}' '{}' {}\n", expr->CharacterConstant.Value, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
+            m_Output += fmt::format("CharacterConstant '{:c}' '{}' {}\n", expr->CharacterConstant.Value, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
         } else if (expr->Kind == ExprKind::IntegerConstant) {
             m_Output += fmt::format("IntegerConstantExpr {} '{}' {}\n", expr->IntegerConstant.Value, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
         } else if (expr->Kind == ExprKind::FloatingConstant) {
@@ -99,7 +101,11 @@ namespace Aria::Internal {
 
         if (decl == nullptr) { m_Output += "<<NULL>>\n"; return; };
 
-        if (decl->Kind == DeclKind::TranslationUnit) {
+        if (decl->Kind == DeclKind::Error) {
+            m_Output += "ErrorDecl\n";
+            return;
+        }
+        else if (decl->Kind == DeclKind::TranslationUnit) {
             m_Output += "TranslationUnitDecl\n";
 
             for (Stmt* stmt : decl->TranslationUnit.Stmts) {
@@ -162,8 +168,14 @@ namespace Aria::Internal {
         ident.append(indentation, ' ');
         m_Output += ident;
 
-        if (stmt->Kind == StmtKind::Nop) { return; }
-        else if (stmt->Kind == StmtKind::Block) {
+        if (stmt->Kind == StmtKind::Error) {
+            m_Output += fmt::format("ErrorStmt\n");
+            return;
+        }
+        else if (stmt->Kind == StmtKind::Nop) {
+            m_Output += fmt::format("NopStmt\n");
+            return;
+        } else if (stmt->Kind == StmtKind::Block) {
             m_Output += fmt::format("BlockStmt\n");
             for (Stmt* stmt : stmt->Block.Stmts) {
                 DumpStmt(stmt, indentation + 4);
@@ -181,7 +193,7 @@ namespace Aria::Internal {
             return;
         } else if (stmt->Kind == StmtKind::For) {
             m_Output += "ForStmt\n";
-            DumpStmt(stmt->For.Prologue, indentation + 4);
+            DumpDecl(stmt->For.Prologue, indentation + 4);
             DumpExpr(stmt->For.Condition, indentation + 4);
             DumpExpr(stmt->For.Epilogue, indentation + 4);
             DumpStmt(stmt->For.Body, indentation + 4);

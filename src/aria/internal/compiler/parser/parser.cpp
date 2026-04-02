@@ -8,13 +8,13 @@
 
 #define BIND_PARSE_RULE(fn) [this](Expr* expr) -> Expr* { return fn(expr); }
 
-#define ASSIGN_OR_RET(varName, expr) do { \
+#define ASSIGN_OR_RET(varName, expr, what) do { \
         varName = expr; \
-        if (!varName) { return nullptr; } \
+        if (!varName) { return what; } \
     } while (false)
 
-#define CONSUME_OR_RET(kind) do { \
-        if (!TryConsume(TokenKind::kind, TokenKindToString(TokenKind::kind))) { return nullptr; } \
+#define CONSUME_OR_RET(kind, what) do { \
+        if (!TryConsume(TokenKind::kind, TokenKindToString(TokenKind::kind))) { return what; } \
     } while (false)
 
 static constexpr size_t PREC_NONE = 0;
@@ -30,6 +30,11 @@ namespace Aria::Internal {
     Parser::Parser(CompilationContext* ctx) {
         m_Context = ctx;
         m_Tokens = ctx->GetTokens();
+
+        // Setup error nodes
+        m_ErrorExpr = Expr::Create(m_Context, SourceLocation(), SourceRange(), ExprKind::Error, ExprValueKind::RValue, &ErrorType, ErrorExpr());
+        m_ErrorDecl = Decl::Create(m_Context, SourceLocation(), SourceRange(), DeclKind::Error, ErrorDecl());
+        m_ErrorStmt = Stmt::Create(m_Context, SourceLocation(), SourceRange(), StmtKind::Error, ErrorStmt());
 
         AddExprRules();
         ParseImpl();
@@ -50,11 +55,11 @@ namespace Aria::Internal {
         m_ExprRules[TokenKind::DoublePipe] =      { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
         m_ExprRules[TokenKind::UpArrow] =         { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
         m_ExprRules[TokenKind::EqEq] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::BangEq] =         { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::BangEq] =          { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
         m_ExprRules[TokenKind::Less] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::LessEq] =        { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::LessEq] =          { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
         m_ExprRules[TokenKind::Greater] =         { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::GreaterEq] =     { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::GreaterEq] =       { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
 
         m_ExprRules[TokenKind::Eq] =              { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_ASSIGNMENT };
         m_ExprRules[TokenKind::PlusEq] =          { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
@@ -135,12 +140,12 @@ namespace Aria::Internal {
     Expr* Parser::ParseGrouping(Expr* left) {
         ARIA_ASSERT(left == nullptr, "Parser::ParseGrouping() should not have a left side");
 
-        Token* lp = TryConsume(TokenKind::LeftParen, "'('");
+        Token* lp = TryConsume(TokenKind::LeftParen, "(");
         if (IsType()) { // Cast
             TypeInfo* type = ParseType();
-            if (!TryConsume(TokenKind::RightParen, "')'")) {
+            if (!TryConsume(TokenKind::RightParen, ")")) {
                 StabilizeParser();
-                return nullptr;
+                return m_ErrorExpr;
             }
 
             Expr* child = ParseExpression();
@@ -150,11 +155,11 @@ namespace Aria::Internal {
                 CastExpr(child, type));
         } else { // Grouping of expression
             Expr* child = ParseExpression();
-            Token* rp = TryConsume(TokenKind::RightParen, "')'");
+            Token* rp = TryConsume(TokenKind::RightParen, ")");
 
             if (!rp) {
                 StabilizeParser();
-                return nullptr;
+                return m_ErrorExpr;
             }
 
             return Expr::Create(m_Context, lp->Range.Start, SourceRange(lp->Range.Start, rp->Range.End), ExprKind::Paren, 
@@ -166,7 +171,7 @@ namespace Aria::Internal {
     Expr* Parser::ParseCall(Expr* left) {
         ARIA_ASSERT(left, "Parser::ParseCall() expects a left side");
 
-        Token* lp = TryConsume(TokenKind::LeftParen, "'('");
+        Token* lp = TryConsume(TokenKind::LeftParen, "(");
         TinyVector<Expr*> args;
 
         while (!Match(TokenKind::RightParen)) {
@@ -179,8 +184,8 @@ namespace Aria::Internal {
             args.Append(m_Context, val);
         }
     
-        Token* rp = TryConsume(TokenKind::RightParen, "')'");
-        if (!rp) { return nullptr; }
+        Token* rp = TryConsume(TokenKind::RightParen, ")");
+        if (!rp) { return m_ErrorExpr; }
     
         return Expr::Create(m_Context, lp->Range.Start, SourceRange(left->Range.Start, rp->Range.End), ExprKind::Call,
             ExprValueKind::RValue, nullptr, 
@@ -231,6 +236,8 @@ namespace Aria::Internal {
         Token op = Consume();
         Expr* expr = ParseExpression();
 
+        if (!ExprOk(expr)) { return m_ErrorExpr; }
+
         return Expr::Create(m_Context, op.Range.Start, SourceRange(op.Range.Start, expr->Range.End), ExprKind::UnaryOperator,
             ExprValueKind::RValue, expr->Type,
             UnaryOperatorExpr(expr, GetUnaryOperatorFromToken(&op)));
@@ -245,13 +252,13 @@ namespace Aria::Internal {
         if (op.Kind == TokenKind::Eq) { right = ParsePrecedence(PREC_ASSIGNMENT); }
         else { right = ParsePrecedence(m_ExprRules[op.Kind].Precedence + 1); }
 
-        if (right) {
+        if (ExprOk(right)) {
             return Expr::Create(m_Context, op.Range.Start, SourceRange(left->Range.Start, right->Range.End), ExprKind::BinaryOperator,
                 ExprValueKind::RValue, nullptr,
                 BinaryOperatorExpr(left, right, GetBinaryOperatorFromToken(&op)));
         }
         
-        return nullptr;
+        return m_ErrorExpr;
     }
 
     Expr* Parser::ParseCompoundAssignment(Expr* left) {
@@ -260,9 +267,13 @@ namespace Aria::Internal {
         Token op = Consume();
         Expr* right = ParsePrecedence(PREC_ASSIGNMENT);
 
-        return Expr::Create(m_Context, op.Range.Start, SourceRange(left->Range.Start, right->Range.End), ExprKind::CompoundAssign,
-            ExprValueKind::RValue, nullptr,
-            BinaryOperatorExpr(left, right, GetBinaryOperatorFromToken(&op)));
+        if (ExprOk(right)) {
+            return Expr::Create(m_Context, op.Range.Start, SourceRange(left->Range.Start, right->Range.End), ExprKind::CompoundAssign,
+                ExprValueKind::RValue, nullptr,
+                BinaryOperatorExpr(left, right, GetBinaryOperatorFromToken(&op)));
+        }
+        
+        return m_ErrorExpr;
     }
 
     Expr* Parser::ParseMember(Expr* left) { ARIA_ASSERT(false, "todo!"); }
@@ -274,44 +285,44 @@ namespace Aria::Internal {
         switch (t.Kind) {
             case TokenKind::False: {
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::BooleanConstant, 
-                    ExprValueKind::RValue, TypeInfo::Create(m_Context, PrimitiveType::Bool, false), 
+                    ExprValueKind::RValue, &BoolType, 
                     BooleanConstantExpr(false));
             }
 
             case TokenKind::True: {
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::BooleanConstant, 
-                    ExprValueKind::RValue, TypeInfo::Create(m_Context, PrimitiveType::Bool, false), 
+                    ExprValueKind::RValue, &BoolType, 
                     BooleanConstantExpr(true));
             }
 
             case TokenKind::CharLit: {
-                int8_t ch = static_cast<int8_t>(t.String.Data()[0]);
+                int8_t ch = static_cast<int8_t>(t.Integer);
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::CharacterConstant, 
-                    ExprValueKind::RValue, TypeInfo::Create(m_Context, PrimitiveType::Char, false), 
+                    ExprValueKind::RValue, &CharType, 
                     CharacterConstantExpr(ch));
             }
     
             case TokenKind::IntLit: {
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::IntegerConstant,
-                    ExprValueKind::RValue, TypeInfo::Create(m_Context, PrimitiveType::Long, false), 
+                    ExprValueKind::RValue, &LongType, 
                     IntegerConstantExpr(t.Integer));
             }
 
             case TokenKind::UintLit: {
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::IntegerConstant, 
-                    ExprValueKind::RValue, TypeInfo::Create(m_Context, PrimitiveType::ULong, false), 
+                    ExprValueKind::RValue, &ULongType, 
                     IntegerConstantExpr(t.Integer));
             }
     
             case TokenKind::NumLit: {
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::FloatingConstant,
-                    ExprValueKind::RValue, TypeInfo::Create(m_Context, PrimitiveType::Double, false), 
+                    ExprValueKind::RValue, &DoubleType, 
                     FloatingConstantExpr(t.Number));
             }
     
             case TokenKind::StrLit: {
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::StringConstant,
-                    ExprValueKind::RValue, TypeInfo::Create(m_Context, PrimitiveType::String, false), 
+                    ExprValueKind::RValue, &StringType, 
                     IntegerConstantExpr(t.Integer));
             }
 
@@ -321,7 +332,7 @@ namespace Aria::Internal {
                     DeclRefExpr(t.String));
             }
 
-            default: ARIA_UNREACHABLE();
+            default: return m_ErrorExpr;
         }
     }
 
@@ -330,6 +341,7 @@ namespace Aria::Internal {
 
         while (true) {
             Token* tok = Peek();
+            if (!tok) { break; }
             size_t tokPrecedence = m_ExprRules[tok->Kind].Precedence;
 
             if (precedence > tokPrecedence) { break; }
@@ -339,7 +351,7 @@ namespace Aria::Internal {
             if (!infixRule) {
                 StabilizeParser();
                 m_Context->ReportCompilerError(tok->Range.Start, tok->Range, fmt::format("'{}' cannot appear here, did you forget something before the operator?", TokenKindToString(tok->Kind)));
-                return nullptr;
+                return m_ErrorExpr;
             }
 
             left = infixRule(left);
@@ -355,11 +367,11 @@ namespace Aria::Internal {
         if (!prefixRule) {
             StabilizeParser();
             m_Context->ReportCompilerError(tok->Range.Start, tok->Range, "Expected an expression");
-            return nullptr;
+            return m_ErrorExpr;
         }
 
         Expr* left = prefixRule(nullptr);
-        if (!left) { return left; }
+        if (!ExprOk(left)) { return m_ErrorExpr; }
 
         return ParsePrecedenceWithLeft(left, precedence);
     }
@@ -502,26 +514,30 @@ namespace Aria::Internal {
     }
 
     Stmt* Parser::ParseFor() {
-        Token f = Consume(); // Consume "for"
-
-        if (!TryConsume(TokenKind::LeftParen, "'('")) {
-            StabilizeParser();
-            return nullptr;
-        }
-
-        Stmt* prologue = ParseStatement();
-        Expr* condition = ParseExpression();
-        TryConsume(TokenKind::Semi, "';'");
-        Expr* epilogue = ParseExpression();
-
-        if (!TryConsume(TokenKind::RightParen, "')'")) {
-            StabilizeParser();
-            return nullptr;
-        }
-        
-        Stmt* body = ParseBlockInline();
-        
-        return Stmt::Create(m_Context, f.Range.Start, SourceRange(f.Range.Start, Peek(-1)->Range.End), StmtKind::For, ForStmt(prologue, condition, epilogue, body));
+        ARIA_ASSERT(false, "todo!");
+        // Token f = Consume(); // Consume "for"
+        // 
+        // // We still try to keep parsing if we are missing a '('
+        // // It could be quite likely that the user just forgot it
+        // TryConsume(TokenKind::LeftParen, "(");
+        // 
+        // Decl* prologue = ParseVariableDecl();
+        // Expr* condition = ParseExpression();
+        // 
+        // // Check for commas as delimiters,
+        // // This is an easy to detect error that is relatively common
+        // if (Match(TokenKind::Comma)) {
+        //     Token& comma = Consume();
+        //     m_Context->ReportCompilerError(comma.Range.Start, comma.Range, "Expected ';' but got a ',' (Did you mean to use ';'?)");
+        // } else {
+        //     TryConsume(TokenKind::Semi, "';'");
+        // }
+        // Expr* epilogue = ParseExpression();
+        // 
+        // TryConsume(TokenKind::RightParen, "')'");
+        // Stmt* body = ParseBlockInline();
+        // 
+        // return Stmt::Create(m_Context, f.Range.Start, SourceRange(f.Range.Start, Peek(-1)->Range.End), StmtKind::For, ForStmt(prologue, condition, epilogue, body));
     }
 
     Stmt* Parser::ParseIf() {
@@ -556,26 +572,32 @@ namespace Aria::Internal {
 
     Stmt* Parser::ParseExpressionStatement() {
         Expr* expr = nullptr;
-        ASSIGN_OR_RET(expr, ParseExpression());
-        CONSUME_OR_RET(Semi);
+        ASSIGN_OR_RET(expr, ParseExpression(), m_ErrorStmt);
+        CONSUME_OR_RET(Semi, m_ErrorStmt);
         
         return Stmt::Create(m_Context, expr->Loc, SourceRange(expr->Range.Start, Peek(-1)->Range.End), StmtKind::Expr, expr);
     }
 
     Stmt* Parser::ParseDeclarationStatement() {
-        Decl* decl = nullptr;
-        ASSIGN_OR_RET(decl, ParseVariableDecl());
+        Decl* decl = ParseVariableDecl();
+
+        if (!DeclOk(decl)) {
+            StabilizeParser();
+            if (Match(TokenKind::Semi)) {
+                Consume();
+            }
+        }
 
         return Stmt::Create(m_Context, decl->Loc, SourceRange(decl->Range.Start, Peek(-1)->Range.End), StmtKind::Decl, decl);
     }
 
     Stmt* Parser::ParseDeclarationOrExpression() {
-        ARIA_ASSERT(Peek()->Kind == TokenKind::Identifier, "Invalid lex state in Parser::ParseDeclarationOrExpression()");
+        ARIA_ASSERT(Peek()->Kind == TokenKind::Identifier, "Invalid current token for Parser::ParseDeclarationOrExpression()");
 
         if (m_DeclaredTypes.contains(fmt::format("{}", Peek()->String))) {
             Decl* decl = nullptr;
-            ASSIGN_OR_RET(decl, ParseVariableDecl());
-            CONSUME_OR_RET(Semi);
+            ASSIGN_OR_RET(decl, ParseVariableDecl(), m_ErrorStmt);
+            CONSUME_OR_RET(Semi, m_ErrorStmt);
 
             return Stmt::Create(m_Context, decl->Loc, SourceRange(decl->Range.Start, Peek(-1)->Range.End), StmtKind::Decl, decl);
         }
@@ -603,8 +625,13 @@ namespace Aria::Internal {
             case TokenKind::StrLit:
                 return ParseExpressionStatement();
 
-            case TokenKind::Identifier:
-                return ParseDeclarationOrExpression();
+            case TokenKind::Identifier: {
+                if (IsType()) {
+                    return ParseDeclarationStatement();
+                } else {
+                    return ParseExpressionStatement();
+                }
+            }
 
             case TokenKind::LeftCurly:
                 return ParseBlock();
@@ -642,13 +669,13 @@ namespace Aria::Internal {
             case TokenKind::Fn: {
                 Token& tok = Consume();
                 m_Context->ReportCompilerError(tok.Range.Start, tok.Range, fmt::format("Function declaration is not allowed here"));
-                return nullptr;
+                return m_ErrorStmt;
             }
 
             case TokenKind::Struct: {
                 Token& tok = Consume();
                 m_Context->ReportCompilerError(tok.Range.Start, tok.Range, fmt::format("Structure declaration is not allowed here"));
-                return nullptr;
+                return m_ErrorStmt;
             }
 
             case TokenKind::Plus:
@@ -677,7 +704,7 @@ namespace Aria::Internal {
             case TokenKind::GreaterEq: {
                 Token& tok = Consume();
                 m_Context->ReportCompilerError(tok.Range.Start, tok.Range, fmt::format("Unexpected binary operator '{}' while looking for statement", TokenKindToString(tok.Kind)));
-                return nullptr;
+                return m_ErrorStmt;
             }
 
             case TokenKind::RightParen:
@@ -689,7 +716,7 @@ namespace Aria::Internal {
             case TokenKind::Dot: {
                 Token& tok = Consume();
                 m_Context->ReportCompilerError(tok.Range.Start, tok.Range, fmt::format("Unexpected token '{}' while looking for statement", TokenKindToString(tok.Kind)));
-                return nullptr;
+                return m_ErrorStmt;
             }
 
             case TokenKind::Break:
@@ -709,7 +736,7 @@ namespace Aria::Internal {
         TypeInfo* type = ParseType();
         Token* ident = nullptr;
         
-        ASSIGN_OR_RET(ident, TryConsume(TokenKind::Identifier, "identifier"));
+        ASSIGN_OR_RET(ident, TryConsume(TokenKind::Identifier, "identifier"), m_ErrorDecl);
         Expr* value = nullptr;
 
         if (Match(TokenKind::Eq)) {
@@ -717,7 +744,7 @@ namespace Aria::Internal {
             value = ParseExpression();
         }
 
-        CONSUME_OR_RET(Semi);
+        TryConsume(TokenKind::Semi, ";");
 
         return Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Var, VarDecl(ident->String, type, value));
     }
@@ -734,9 +761,9 @@ namespace Aria::Internal {
 
         TypeInfo* type = ParseType();
         Token* ident = nullptr;
-        ASSIGN_OR_RET(ident, TryConsume(TokenKind::Identifier, "identifier"));
+        ASSIGN_OR_RET(ident, TryConsume(TokenKind::Identifier, "identifier"), m_ErrorDecl);
 
-        CONSUME_OR_RET(LeftParen);
+        CONSUME_OR_RET(LeftParen, m_ErrorDecl);
 
         TinyVector<Decl*> params;
         TinyVector<TypeInfo*> paramTypes;
@@ -766,14 +793,14 @@ namespace Aria::Internal {
             m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "expected either ',' or ')'");
         }
 
-        CONSUME_OR_RET(RightParen);
+        CONSUME_OR_RET(RightParen, m_ErrorDecl);
 
         Stmt* body = nullptr;
 
         if (Match(TokenKind::LeftCurly)) {
             body = ParseBlock();
         } else {
-            CONSUME_OR_RET(Semi);
+            CONSUME_OR_RET(Semi, m_ErrorDecl);
         }
 
         FunctionDeclaration typeDecl;
@@ -855,19 +882,19 @@ namespace Aria::Internal {
 
                 m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, fmt::format("Expected the start of a global declaration", TokenKindToString(Peek()->Kind)));
                 StabilizeParser();
-                return nullptr;
+                return m_ErrorStmt;
             }
 
             case TokenKind::Fn: {
                 Decl* decl = nullptr;
-                ASSIGN_OR_RET(decl, ParseFunctionDecl());
+                ASSIGN_OR_RET(decl, ParseFunctionDecl(), m_ErrorStmt);
 
                 return Stmt::Create(m_Context, decl->Loc, decl->Range, StmtKind::Decl, decl);
             }
 
             case TokenKind::Struct: {
                 Decl* decl = nullptr;
-                ASSIGN_OR_RET(decl, ParseStructDecl());
+                ASSIGN_OR_RET(decl, ParseStructDecl(), m_ErrorStmt);
 
                 return Stmt::Create(m_Context, decl->Loc, decl->Range, StmtKind::Decl, decl);
             }
@@ -875,13 +902,13 @@ namespace Aria::Internal {
             case TokenKind::Semi: {
                 m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, fmt::format("Token ';' was unexpected, try removing it")); 
                 Consume(); 
-                return nullptr;
+                return m_ErrorStmt;
             }
 
             default: {
                 m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, fmt::format("Expected the start of a global declaration", TokenKindToString(Peek()->Kind)));
-                Consume();
-                return nullptr;
+                StabilizeParser();
+                return m_ErrorStmt;
             }
         }
     }
@@ -904,6 +931,20 @@ namespace Aria::Internal {
         } else {
             m_Context->ReportCompilerError(loc, range, fmt::format("Expected '{}' but got EOF", expect));
         }
+    }
+
+    bool Parser::ExprOk(Expr* expr) {
+        if (expr == nullptr) { return true; }
+        if (expr->Kind == ExprKind::Error) { return false; }
+
+        return true;
+    }
+
+    bool Parser::DeclOk(Decl* decl) {
+        if (decl == nullptr) { return true; }
+        if (decl->Kind == DeclKind::Error) { return false; }
+
+        return true;
     }
 
 } // namespace Aria::Internal

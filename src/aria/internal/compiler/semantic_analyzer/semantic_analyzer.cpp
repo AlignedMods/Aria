@@ -80,7 +80,8 @@ namespace Aria::Internal {
     void SemanticAnalyzer::HandleStructDecl(Decl* decl) {}
 
     void SemanticAnalyzer::HandleDecl(Decl* decl) {
-        if (decl->Kind == DeclKind::TranslationUnit) {
+        if (decl->Kind == DeclKind::Error) { return; }
+        else if (decl->Kind == DeclKind::TranslationUnit) {
             return HandleTranslationUnitDecl(decl);
         } else if (decl->Kind == DeclKind::Var) {
             return HandleVarDecl(decl);
@@ -130,7 +131,8 @@ namespace Aria::Internal {
     void SemanticAnalyzer::HandleReturnStmt(Stmt* stmt) {}
 
     void SemanticAnalyzer::HandleStmt(Stmt* stmt) {
-        if (stmt->Kind == StmtKind::Nop) { return; }
+        if (stmt->Kind == StmtKind::Error) { return; }
+        else if (stmt->Kind == StmtKind::Nop) { return; }
         else if (stmt->Kind == StmtKind::Block) {
             return HandleBlockStmt(stmt);
         } else if (stmt->Kind == StmtKind::While) {
