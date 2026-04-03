@@ -514,30 +514,47 @@ namespace Aria::Internal {
     }
 
     Stmt* Parser::ParseFor() {
-        ARIA_ASSERT(false, "todo!");
-        // Token f = Consume(); // Consume "for"
-        // 
-        // // We still try to keep parsing if we are missing a '('
-        // // It could be quite likely that the user just forgot it
-        // TryConsume(TokenKind::LeftParen, "(");
-        // 
-        // Decl* prologue = ParseVariableDecl();
-        // Expr* condition = ParseExpression();
-        // 
-        // // Check for commas as delimiters,
-        // // This is an easy to detect error that is relatively common
-        // if (Match(TokenKind::Comma)) {
-        //     Token& comma = Consume();
-        //     m_Context->ReportCompilerError(comma.Range.Start, comma.Range, "Expected ';' but got a ',' (Did you mean to use ';'?)");
-        // } else {
-        //     TryConsume(TokenKind::Semi, "';'");
-        // }
-        // Expr* epilogue = ParseExpression();
-        // 
-        // TryConsume(TokenKind::RightParen, "')'");
-        // Stmt* body = ParseBlockInline();
-        // 
-        // return Stmt::Create(m_Context, f.Range.Start, SourceRange(f.Range.Start, Peek(-1)->Range.End), StmtKind::For, ForStmt(prologue, condition, epilogue, body));
+        Token f = Consume(); // Consume "for"
+        
+        // We still try to keep parsing if we are missing a '('
+        // It could be quite likely that the user just forgot it
+        TryConsume(TokenKind::LeftParen, "(");
+        
+        Decl* prologue = nullptr;
+        Expr* condition = nullptr;
+        Expr* step = nullptr;
+        Stmt* body = nullptr;
+
+        if (Match(TokenKind::Semi)) {
+            Consume();
+        } else {
+            prologue = ParseVariableDecl();
+            if (!DeclOk(prologue)) {
+                StabilizeParser();
+
+                if (Match(TokenKind::Semi)) {
+                    Consume();
+                }
+            }
+        }
+
+        if (Match(TokenKind::Semi)) {
+            Consume();
+        } else {
+            condition = ParseExpression();
+            TryConsume(TokenKind::Semi, "';'");
+        }
+        
+        if (Match(TokenKind::RightParen)) {
+            Consume();
+        } else {
+            step = ParseExpression();
+            TryConsume(TokenKind::RightParen, "')'");
+        }
+        
+        body = ParseBlockInline();
+        
+        return Stmt::Create(m_Context, f.Range.Start, SourceRange(f.Range.Start, Peek(-1)->Range.End), StmtKind::For, ForStmt(prologue, condition, step, body));
     }
 
     Stmt* Parser::ParseIf() {
@@ -730,7 +747,10 @@ namespace Aria::Internal {
     }
 
     Decl* Parser::ParseVariableDecl() {
-        ARIA_ASSERT(IsType(), "Parser::ParseVariableDecl() expects the current token to be a type");
+        if (!IsType()) {
+            m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type");
+            return m_ErrorDecl;
+        }
 
         SourceLocation start = Peek()->Range.Start;
         TypeInfo* type = ParseType();

@@ -195,7 +195,7 @@ namespace Aria::Internal {
             m_Output += "ForStmt\n";
             DumpDecl(stmt->For.Prologue, indentation + 4);
             DumpExpr(stmt->For.Condition, indentation + 4);
-            DumpExpr(stmt->For.Epilogue, indentation + 4);
+            DumpExpr(stmt->For.Step, indentation + 4);
             DumpStmt(stmt->For.Body, indentation + 4);
             return;
         } else if (stmt->Kind == StmtKind::If) {

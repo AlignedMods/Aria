@@ -60,13 +60,13 @@ namespace Aria::Internal {
     };
     
     struct ForStmt {
-        ForStmt(Decl* prologue, Expr* condition, Expr* epilogue, Stmt* body)
-            : Prologue(prologue), Condition(condition), Epilogue(epilogue), Body(body) {}
+        ForStmt(Decl* prologue, Expr* condition, Expr* step, Stmt* body)
+            : Prologue(prologue), Condition(condition), Step(step), Body(body) {}
 
         Decl* Prologue = nullptr; // int i = 0;
         Expr* Condition = nullptr; // i < 5;
-        Expr* Epilogue = nullptr; // i += 1;
-        Stmt* Body = nullptr;
+        Expr* Step = nullptr; // i += 1;
+        Stmt* Body = nullptr; // { ... }
     };
     
     struct IfStmt {

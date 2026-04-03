@@ -421,7 +421,13 @@ namespace Aria::Internal {
 
         while (true) {
             switch (Peek()) {
-                case '\n': Consume(); return;
+                case '\n': {
+                    m_CurrentLine++;
+                    m_CurrentLineStart = m_Index;
+
+                    Consume(); 
+                    return;
+                }
                 case '\0': return;
 
                 default: Consume(); break;

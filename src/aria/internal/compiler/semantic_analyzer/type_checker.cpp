@@ -541,7 +541,7 @@ namespace Aria::Internal {
             }
         }
 
-        if (fs.Epilogue) { HandleExpr(fs.Epilogue); }
+        if (fs.Step) { HandleExpr(fs.Step); }
         HandleStmt(fs.Body);
         
         m_Declarations.pop_back();

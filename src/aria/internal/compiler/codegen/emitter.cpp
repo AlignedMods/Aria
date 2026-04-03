@@ -638,8 +638,8 @@ namespace Aria::Internal {
         
         EmitBlockStmt(fs.Body);
             
-        if (fs.Epilogue) {
-            EmitExpr(fs.Epilogue, fs.Epilogue->ValueKind);
+        if (fs.Step) {
+            EmitExpr(fs.Step, fs.Step->ValueKind);
             m_PendingOpCodes.emplace_back(OpCodeKind::Pop);
         }
         
