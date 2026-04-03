@@ -601,7 +601,7 @@ namespace Aria::Internal {
         m_PendingOpCodes.emplace_back(OpCodeKind::Label, loopStart);
         EmitExpr(wh.Condition, wh.Condition->ValueKind);
         m_PendingOpCodes.emplace_back(OpCodeKind::JfPop, loopEnd);
-        EmitStmt(wh.Body);
+        EmitBlockStmt(wh.Body);
         
         m_PendingOpCodes.emplace_back(OpCodeKind::Jmp, loopStart);
         m_PendingOpCodes.emplace_back(OpCodeKind::Label, loopEnd);
@@ -615,7 +615,7 @@ namespace Aria::Internal {
         m_LoopCounter++;
         
         m_PendingOpCodes.emplace_back(OpCodeKind::Label, loopStart);
-        EmitStmt(wh.Body);
+        EmitBlockStmt(wh.Body);
         
         EmitExpr(wh.Condition, wh.Condition->ValueKind);
         m_PendingOpCodes.emplace_back(OpCodeKind::JtPop, loopStart);
@@ -664,7 +664,7 @@ namespace Aria::Internal {
         m_PendingOpCodes.emplace_back(OpCodeKind::Jmp, ifEnd);
         
         m_PendingOpCodes.emplace_back(OpCodeKind::Label, ifBody);
-        EmitStmt(ifs.Body);
+        EmitBlockStmt(ifs.Body);
         m_PendingOpCodes.emplace_back(OpCodeKind::Label, ifEnd);
         
         m_IfCounter++;

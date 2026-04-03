@@ -108,14 +108,14 @@ namespace Aria::Internal {
         WhileStmt wh = stmt->While;
         
         HandleExpr(wh.Condition);
-        HandleStmt(wh.Body);
+        HandleBlockStmt(wh.Body);
     }
 
     void SemanticAnalyzer::HandleDoWhileStmt(Stmt* stmt) {
         DoWhileStmt wh = stmt->DoWhile;
         
         HandleExpr(wh.Condition);
-        HandleStmt(wh.Body);
+        HandleBlockStmt(wh.Body);
     }
 
     void SemanticAnalyzer::HandleForStmt(Stmt* stmt) {
@@ -124,7 +124,7 @@ namespace Aria::Internal {
         if (fs.Prologue) { HandleDecl(fs.Prologue); }
         if (fs.Condition) { HandleExpr(fs.Condition); }
         if (fs.Step) { HandleExpr(fs.Step); }
-        HandleStmt(fs.Body);
+        HandleBlockStmt(fs.Body);
     }
 
     void SemanticAnalyzer::HandleIfStmt(Stmt* stmt) {
@@ -132,7 +132,7 @@ namespace Aria::Internal {
 
         HandleExpr(ifs.Condition);
         HandleStmt(ifs.Body);
-        if (ifs.ElseBody) { HandleStmt(ifs.ElseBody); }
+        if (ifs.ElseBody) { HandleBlockStmt(ifs.ElseBody); }
     }
 
     void SemanticAnalyzer::HandleBreakStmt(Stmt* stmt) {}

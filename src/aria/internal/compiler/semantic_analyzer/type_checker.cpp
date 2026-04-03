@@ -395,22 +395,24 @@ namespace Aria::Internal {
     void TypeChecker::HandleFunctionDecl(Decl* decl) {
         FunctionDecl fnDecl = decl->Function;
         
-        m_ActiveReturnType = std::get<FunctionDeclaration>(fnDecl.Type->Data).ReturnType;
-        PushScope();
-        
-        for (Decl* p : fnDecl.Parameters) {
-            HandleParamDecl(p);
-        }
-        
         std::string ident = fmt::format("{}", fnDecl.Identifier);
-        m_Scopes.front().Declarations[ident] = { fnDecl.Type, decl, DeclRefKind::Function };
-        
+        m_Scopes.back().Declarations[ident] = { fnDecl.Type, decl, DeclRefKind::Function };
+
         if (fnDecl.Body) {
-            HandleStmt(fnDecl.Body);
+            m_ActiveReturnType = std::get<FunctionDeclaration>(fnDecl.Type->Data).ReturnType;
+            PushScope();
+            
+            for (Decl* p : fnDecl.Parameters) {
+                HandleParamDecl(p);
+            }
+            
+            if (fnDecl.Body) {
+                HandleBlockStmt(fnDecl.Body);
+            }
+            
+            PopScope();
+            m_ActiveReturnType = nullptr;
         }
-        
-        PopScope();
-        m_ActiveReturnType = nullptr;
     }
 
     void TypeChecker::HandleStructDecl(Decl* decl) {
@@ -511,7 +513,7 @@ namespace Aria::Internal {
             ARIA_ASSERT(false, "todo: add error");
         }
 
-        HandleStmt(wh.Body);
+        HandleBlockStmt(wh.Body);
 
         PopScope();
     }
@@ -528,7 +530,7 @@ namespace Aria::Internal {
             ARIA_ASSERT(false, "todo: add error");
         }
 
-        HandleStmt(wh.Body);
+        HandleBlockStmt(wh.Body);
 
         PopScope();
     }
@@ -550,7 +552,7 @@ namespace Aria::Internal {
         }
 
         if (fs.Step) { HandleExpr(fs.Step); }
-        HandleStmt(fs.Body);
+        HandleBlockStmt(fs.Body);
         
         PopScope();
     }
@@ -564,7 +566,7 @@ namespace Aria::Internal {
             ARIA_ASSERT(false, "todo: add error");
         }
 
-        HandleStmt(ifs.Body);
+        HandleBlockStmt(ifs.Body);
     }
 
     void TypeChecker::HandleBreakStmt(Stmt* stmt) {
