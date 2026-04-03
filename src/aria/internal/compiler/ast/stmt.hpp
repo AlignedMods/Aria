@@ -18,6 +18,8 @@ namespace Aria::Internal {
         DoWhile,
         For,
         If,
+        Break,
+        Continue,
         Return,
         Expr,
         Decl
@@ -77,6 +79,14 @@ namespace Aria::Internal {
         Stmt* Body = nullptr;
         Stmt* ElseBody = nullptr;
     };
+
+    struct BreakStmt {
+        BreakStmt() = default;
+    };
+
+    struct ContinueStmt {
+        ContinueStmt() = default;
+    };
     
     struct ReturnStmt {
         ReturnStmt(Expr* value)
@@ -102,6 +112,8 @@ namespace Aria::Internal {
             DoWhileStmt DoWhile;
             ForStmt For;
             IfStmt If;
+            BreakStmt Break;
+            ContinueStmt Continue;
             ReturnStmt Return;
             Expr* ExprStmt;
             Decl* DeclStmt;
@@ -127,6 +139,12 @@ namespace Aria::Internal {
 
         Stmt(StmtKind kind, SourceLocation loc, SourceRange range, IfStmt i)
             : Kind(kind), Loc(loc), Range(range), If(i) {}
+
+        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, BreakStmt brk)
+            : Kind(kind), Loc(loc), Range(range), Break(brk) {}
+
+        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, ContinueStmt cont)
+            : Kind(kind), Loc(loc), Range(range), Continue(cont) {}
 
         Stmt(StmtKind kind, SourceLocation loc, SourceRange range, ReturnStmt ret)
             : Kind(kind), Loc(loc), Range(range), Return(ret) {}

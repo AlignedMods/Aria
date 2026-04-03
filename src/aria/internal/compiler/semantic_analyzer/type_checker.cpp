@@ -12,7 +12,7 @@ namespace Aria::Internal {
         m_ErrorType = TypeInfo::Create(m_Context, PrimitiveType::Error, false);
 
         // We always want to have at least one map for declarations (global space)
-        m_Declarations.resize(1);
+        m_Scopes.resize(1);
 
         HandleStmt(m_RootASTNode);
     }
@@ -44,12 +44,12 @@ namespace Aria::Internal {
             }
         }
         
-        for (size_t i = m_Declarations.size(); i > 0; i--) {
-            auto& it = m_Declarations.at(i - 1);
+        for (size_t i = m_Scopes.size(); i > 0; i--) {
+            auto& it = m_Scopes.at(i - 1);
 
-            if (it.contains(ident)) {
-                ref.Kind = it.at(ident).DeclKind;
-                expr->Type = it.at(ident).ResolvedType;
+            if (it.Declarations.contains(ident)) {
+                ref.Kind = it.Declarations.at(ident).DeclKind;
+                expr->Type = it.Declarations.at(ident).ResolvedType;
                 return;
             }
         }
@@ -380,36 +380,36 @@ namespace Aria::Internal {
         HandleInitializer(varDecl.DefaultValue, varDecl.Type, false);
 
         DeclRefKind kind = DeclRefKind::LocalVar;
-        if (m_Declarations.size() == 1) {
+        if (m_Scopes.size() == 1) {
             kind = DeclRefKind::GlobalVar;
         }
         
-        m_Declarations.back()[fmt::format("{}", varDecl.Identifier)] = { varDecl.Type, decl, kind };
+        m_Scopes.back().Declarations[fmt::format("{}", varDecl.Identifier)] = { varDecl.Type, decl, kind };
     }
 
     void TypeChecker::HandleParamDecl(Decl* decl) {
         ParamDecl paramDecl = decl->Param;
-        m_Declarations.back()[fmt::format("{}", paramDecl.Identifier)] = { paramDecl.Type, decl, DeclRefKind::ParamVar };
+        m_Scopes.back().Declarations[fmt::format("{}", paramDecl.Identifier)] = { paramDecl.Type, decl, DeclRefKind::ParamVar };
     }
 
     void TypeChecker::HandleFunctionDecl(Decl* decl) {
         FunctionDecl fnDecl = decl->Function;
         
         m_ActiveReturnType = std::get<FunctionDeclaration>(fnDecl.Type->Data).ReturnType;
-        m_Declarations.emplace_back();
+        PushScope();
         
         for (Decl* p : fnDecl.Parameters) {
             HandleParamDecl(p);
         }
         
         std::string ident = fmt::format("{}", fnDecl.Identifier);
-        m_Declarations.front()[ident] = { fnDecl.Type, decl, DeclRefKind::Function };
+        m_Scopes.front().Declarations[ident] = { fnDecl.Type, decl, DeclRefKind::Function };
         
         if (fnDecl.Body) {
             HandleStmt(fnDecl.Body);
         }
         
-        m_Declarations.pop_back();
+        PopScope();
         m_ActiveReturnType = nullptr;
     }
 
@@ -502,6 +502,8 @@ namespace Aria::Internal {
     void TypeChecker::HandleWhileStmt(Stmt* stmt) {
         WhileStmt wh = stmt->While;
 
+        PushScope(true, true);
+
         HandleExpr(wh.Condition);
         RequireRValue(wh.Condition);
 
@@ -510,11 +512,15 @@ namespace Aria::Internal {
         }
 
         HandleStmt(wh.Body);
+
+        PopScope();
     }
 
     void TypeChecker::HandleDoWhileStmt(Stmt* stmt) {
         DoWhileStmt wh = stmt->DoWhile;
 
+        PushScope(true, true);
+
         HandleExpr(wh.Condition);
         RequireRValue(wh.Condition);
 
@@ -523,12 +529,14 @@ namespace Aria::Internal {
         }
 
         HandleStmt(wh.Body);
+
+        PopScope();
     }
 
     void TypeChecker::HandleForStmt(Stmt* stmt) {
         ForStmt fs = stmt->For;
 
-        m_Declarations.emplace_back();
+        PushScope(true, true);
         
         if (fs.Prologue) { HandleDecl(fs.Prologue); }
 
@@ -544,7 +552,7 @@ namespace Aria::Internal {
         if (fs.Step) { HandleExpr(fs.Step); }
         HandleStmt(fs.Body);
         
-        m_Declarations.pop_back();
+        PopScope();
     }
 
     void TypeChecker::HandleIfStmt(Stmt* stmt) {
@@ -557,6 +565,18 @@ namespace Aria::Internal {
         }
 
         HandleStmt(ifs.Body);
+    }
+
+    void TypeChecker::HandleBreakStmt(Stmt* stmt) {
+        if (!m_Scopes.back().AllowBreakStmt) {
+            m_Context->ReportCompilerError(stmt->Loc, stmt->Range, "Cannot use 'break' here");
+        }
+    }
+
+    void TypeChecker::HandleContinueStmt(Stmt* stmt) {
+        if (!m_Scopes.back().AllowContinueStmt) {
+            m_Context->ReportCompilerError(stmt->Loc, stmt->Range, "Cannot use 'continue' here");
+        }
     }
 
     void TypeChecker::HandleReturnStmt(Stmt* stmt) {
@@ -575,9 +595,9 @@ namespace Aria::Internal {
         if (stmt->Kind == StmtKind::Error) { return; }
         else if (stmt->Kind == StmtKind::Nop) { return; }
         else if (stmt->Kind == StmtKind::Block) {
-            m_Declarations.emplace_back();
+            PushScope();
             HandleBlockStmt(stmt);
-            m_Declarations.pop_back();
+            PopScope();
             return;
         } else if (stmt->Kind == StmtKind::While) {
             return HandleWhileStmt(stmt);
@@ -587,6 +607,10 @@ namespace Aria::Internal {
             return HandleForStmt(stmt);
         } else if (stmt->Kind == StmtKind::If) {
             return HandleIfStmt(stmt);
+        } else if (stmt->Kind == StmtKind::Break) {
+            return HandleBreakStmt(stmt);
+        } else if (stmt->Kind == StmtKind::Continue) {
+            return HandleContinueStmt(stmt);
         } else if (stmt->Kind == StmtKind::Return) {
             return HandleReturnStmt(stmt);
         } else if (stmt->Kind == StmtKind::Expr) {
@@ -641,6 +665,21 @@ namespace Aria::Internal {
                 }
             }
         }
+    }
+
+    void TypeChecker::PushScope(bool allowBreak, bool allowContinue) {
+        Scope s;
+        if (m_Scopes.back().AllowBreakStmt) { s.AllowBreakStmt = true; }
+        else { s.AllowBreakStmt = allowBreak; }
+
+        if (m_Scopes.back().AllowContinueStmt) { s.AllowContinueStmt = true; }
+        else { s.AllowContinueStmt = allowContinue; }
+
+        m_Scopes.push_back(s);
+    }
+
+    void TypeChecker::PopScope() {
+        m_Scopes.pop_back();
     }
 
     ConversionCost TypeChecker::GetConversionCost(TypeInfo* dst, TypeInfo* src, ExprValueKind srcType) {

@@ -30,14 +30,24 @@ fn bool DoWhile2() {
 
 // Should return 190
 fn int For() {
-    // int result = 0;
-    // 
-    // for (int i = 0; i < 20; i += 1) {
-    //     result += i;
-    // }
-    // 
-    // return result;
-    return 190;
+    int result = 0;
+    
+    for (int i = 0; i < 20; i += 1) {
+        result += i;
+    }
+    
+    return result;
+}
+
+// Should return 69
+fn int Break() {
+    for (int i = 0;; i += 1) {
+        if (i == 0) { break; }
+
+        return 67;
+    }
+
+    return 69;
 }
 
 fn bool If() {

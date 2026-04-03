@@ -54,6 +54,7 @@ namespace Aria::Internal {
         Do,
         For,
         Break,
+        Continue,
         Return,
         Self,
         Fn,
@@ -141,6 +142,7 @@ namespace Aria::Internal {
             case TokenKind::Do: return "do";
             case TokenKind::For: return "for";
             case TokenKind::Break: return "break";
+            case TokenKind::Continue: return "continue";
             case TokenKind::Return: return "return";
             case TokenKind::Self: return "self";
             case TokenKind::Fn: return "fn";

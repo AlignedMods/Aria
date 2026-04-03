@@ -39,6 +39,12 @@ namespace Aria::Internal {
             DeclRefKind DeclKind = DeclRefKind::LocalVar;
         };
 
+        struct Scope {
+            std::unordered_map<std::string, Declaration> Declarations;
+            bool AllowBreakStmt = false;
+            bool AllowContinueStmt = false;
+        };
+
     public:
         TypeChecker(CompilationContext* ctx);
 
@@ -75,11 +81,16 @@ namespace Aria::Internal {
         void HandleDoWhileStmt(Stmt* stmt);
         void HandleForStmt(Stmt* stmt);
         void HandleIfStmt(Stmt* stmt);
+        void HandleBreakStmt(Stmt* stmt);
+        void HandleContinueStmt(Stmt* stmt);
         void HandleReturnStmt(Stmt* stmt);
 
         void HandleStmt(Stmt* stmt);
 
         void HandleInitializer(Expr* initializer, TypeInfo* type, bool temporary);
+
+        void PushScope(bool allowBreak = false, bool allowContinue = false);
+        void PopScope();
 
         ConversionCost GetConversionCost(TypeInfo* dst, TypeInfo* src, ExprValueKind srcKind);
         void InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastKind castKind);
@@ -97,7 +108,7 @@ namespace Aria::Internal {
         // Type used for expressions when an error has occured
         TypeInfo* m_ErrorType = nullptr;
 
-        std::vector<std::unordered_map<std::string, Declaration>> m_Declarations;
+        std::vector<Scope> m_Scopes;
         TypeInfo* m_ActiveReturnType = nullptr;
         TypeInfo* m_ActiveStruct = nullptr;
 

@@ -48,12 +48,17 @@ namespace Aria::Internal {
         void HandleDoWhileStmt(Stmt* stmt);
         void HandleForStmt(Stmt* stmt);
         void HandleIfStmt(Stmt* stmt);
+        void HandleBreakStmt(Stmt* stmt);
+        void HandleContinueStmt(Stmt* stmt);
         void HandleReturnStmt(Stmt* stmt);
 
         void HandleStmt(Stmt* stmt);
 
     private:
         Stmt* m_RootASTNode = nullptr;
+
+        bool m_AllowBreakStmt = false;
+        bool m_AllowContinueStmt = false;
 
         TypeChecker m_TypeChecker;
         CompilationContext* m_Context = nullptr;

@@ -78,6 +78,8 @@ namespace Aria::Internal {
         void EmitDoWhileStmt(Stmt* stmt);
         void EmitForStmt(Stmt* stmt);
         void EmitIfStmt(Stmt* stmt);
+        void EmitBreakStmt(Stmt* stmt);
+        void EmitContinueStmt(Stmt* stmt);
         void EmitReturnStmt(Stmt* stmt);
 
         void EmitStmt(Stmt* stmt);
@@ -116,9 +118,7 @@ namespace Aria::Internal {
         // Counters
         size_t m_AndCounter = 0;
         size_t m_OrCounter = 0;
-        size_t m_WhileCounter = 0;
-        size_t m_DoWhileCounter = 0;
-        size_t m_ForCounter = 0;
+        size_t m_LoopCounter = 0;
         size_t m_IfCounter = 0;
 
         std::vector<Declaration> m_Temporaries;

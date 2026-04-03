@@ -204,6 +204,12 @@ namespace Aria::Internal {
             DumpStmt(stmt->If.Body, indentation + 4);
             if (stmt->If.ElseBody) DumpStmt(stmt->If.ElseBody, indentation + 4);
             return;
+        } else if (stmt->Kind == StmtKind::Break) {
+            m_Output += "BreakStmt\n";
+            return;
+        } else if (stmt->Kind == StmtKind::Continue) {
+            m_Output += "ContinueStmt\n";
+            return;
         } else if (stmt->Kind == StmtKind::Return) {
             m_Output += "ReturnStmt\n";
             DumpExpr(stmt->Return.Value, indentation + 4);

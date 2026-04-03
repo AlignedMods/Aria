@@ -394,6 +394,7 @@ namespace Aria::Internal {
         if (str == "do")       { AddToken(TokenKind::Do,     SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "do");     return; }
         if (str == "for")      { AddToken(TokenKind::For,    SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "for");    return; }
         if (str == "break")    { AddToken(TokenKind::Break,  SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "break");  return; }
+        if (str == "continue") { AddToken(TokenKind::Continue,  SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "continue");  return; }
         if (str == "return")   { AddToken(TokenKind::Return, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "return"); return; }
         if (str == "self")     { AddToken(TokenKind::Self,   SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "self");   return; }
         if (str == "fn")       { AddToken(TokenKind::Fn,     SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "fn");     return; }

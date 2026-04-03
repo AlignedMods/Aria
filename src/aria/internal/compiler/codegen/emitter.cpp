@@ -594,9 +594,9 @@ namespace Aria::Internal {
     void Emitter::EmitWhileStmt(Stmt* stmt) {
         WhileStmt wh = stmt->While;
         
-        std::string loopStart = fmt::format("while.start_{}", m_WhileCounter);
-        std::string loopEnd = fmt::format("while.end_{}", m_WhileCounter);
-        m_WhileCounter++;
+        std::string loopStart = fmt::format("loop.start_{}", m_LoopCounter);
+        std::string loopEnd = fmt::format("loop.end_{}", m_LoopCounter);
+        m_LoopCounter++;
         
         m_PendingOpCodes.emplace_back(OpCodeKind::Label, loopStart);
         EmitExpr(wh.Condition, wh.Condition->ValueKind);
@@ -610,22 +610,26 @@ namespace Aria::Internal {
     void Emitter::EmitDoWhileStmt(Stmt* stmt) {
         DoWhileStmt wh = stmt->DoWhile;
         
-        std::string loopStart = fmt::format("dowhile.start_{}", m_DoWhileCounter);
-        m_DoWhileCounter++;
+        std::string loopStart = fmt::format("loop.start_{}", m_LoopCounter);
+        std::string loopEnd = fmt::format("loop.end_{}", m_LoopCounter);
+        m_LoopCounter++;
         
         m_PendingOpCodes.emplace_back(OpCodeKind::Label, loopStart);
         EmitStmt(wh.Body);
         
         EmitExpr(wh.Condition, wh.Condition->ValueKind);
         m_PendingOpCodes.emplace_back(OpCodeKind::JtPop, loopStart);
+        m_PendingOpCodes.emplace_back(OpCodeKind::Jmp, loopEnd);
+
+        m_PendingOpCodes.emplace_back(OpCodeKind::Label, loopEnd);
     }
 
     void Emitter::EmitForStmt(Stmt* stmt) {
         ForStmt fs = stmt->For;
         
-        std::string loopStart = fmt::format("for.start_{}", m_ForCounter);
-        std::string loopEnd = fmt::format("for.end_{}", m_ForCounter);
-        m_ForCounter++;
+        std::string loopStart = fmt::format("loop.start_{}", m_LoopCounter);
+        std::string loopEnd = fmt::format("loop.end_{}", m_LoopCounter);
+        m_LoopCounter++;
         
         PushScope();
         if (fs.Prologue) { EmitDecl(fs.Prologue); }
@@ -666,6 +670,14 @@ namespace Aria::Internal {
         m_IfCounter++;
     }
 
+    void Emitter::EmitBreakStmt(Stmt* stmt) {
+        m_PendingOpCodes.emplace_back(OpCodeKind::Jmp, fmt::format("loop.end_{}", m_LoopCounter - 1));
+    }
+
+    void Emitter::EmitContinueStmt(Stmt* stmt) {
+        m_PendingOpCodes.emplace_back(OpCodeKind::Jmp, fmt::format("loop.start_{}", m_LoopCounter - 1));
+    }
+
     void Emitter::EmitReturnStmt(Stmt* stmt) {
         ReturnStmt ret = stmt->Return;
         if (ret.Value) {
@@ -693,6 +705,10 @@ namespace Aria::Internal {
             return EmitForStmt(stmt);
         } else if (stmt->Kind == StmtKind::If) {
             return EmitIfStmt(stmt);
+        } else if (stmt->Kind == StmtKind::Break) {
+            return EmitBreakStmt(stmt);
+        } else if (stmt->Kind == StmtKind::Continue) {
+            return EmitContinueStmt(stmt);
         } else if (stmt->Kind == StmtKind::Return) {
             return EmitReturnStmt(stmt);
         } else if (stmt->Kind == StmtKind::Expr) {
@@ -749,8 +765,7 @@ namespace Aria::Internal {
         // Reset counters
         m_AndCounter = 0;
         m_OrCounter = 0;
-        m_WhileCounter = 0;
-        m_DoWhileCounter = 0;
+        m_LoopCounter = 0;
         m_IfCounter = 0;
     }
 

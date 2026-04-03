@@ -567,17 +567,15 @@ namespace Aria::Internal {
     }
 
     Stmt* Parser::ParseBreak() {
-        ARIA_ASSERT(false, "todo: add break parsing");
-        // Token b = Consume(); // Consume "break"
-
-        // return Allocate<NodeStmt>(nullptr, b.Loc);
+        Token& b = Consume(); // Consume "break"
+        TryConsume(TokenKind::Semi, ";");
+        return Stmt::Create(m_Context, b.Range.Start, b.Range, StmtKind::Break, BreakStmt());
     }
 
     Stmt* Parser::ParseContinue() {
-        ARIA_ASSERT(false, "todo: add continue parsing");
-        // Token c = Consume(); // Consume "continue"
-
-        // return Allocate<NodeStmt>(nullptr, c.Loc);
+        Token& b = Consume(); // Consume "continue"
+        TryConsume(TokenKind::Semi, ";");
+        return Stmt::Create(m_Context, b.Range.Start, b.Range, StmtKind::Continue, BreakStmt());
     }
 
     Stmt* Parser::ParseReturn() {
@@ -665,6 +663,12 @@ namespace Aria::Internal {
             case TokenKind::For:
                 return ParseFor();
 
+            case TokenKind::Break:
+                return ParseBreak();
+
+            case TokenKind::Continue:
+                return ParseContinue();
+
             case TokenKind::Return:
                 return ParseReturn();
 
@@ -735,9 +739,6 @@ namespace Aria::Internal {
                 m_Context->ReportCompilerError(tok.Range.Start, tok.Range, fmt::format("Unexpected token '{}' while looking for statement", TokenKindToString(tok.Kind)));
                 return m_ErrorStmt;
             }
-
-            case TokenKind::Break:
-                Consume(); ARIA_ASSERT(false, "todo!"); return nullptr;
 
             case TokenKind::Last: ARIA_UNREACHABLE();
         }

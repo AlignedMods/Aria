@@ -100,6 +100,10 @@ TEST_CASE("Runtime Control Flow") {
     ctx.Call("For()", 0);
     REQUIRE(ctx.GetInt(-1) == 190);
     ctx.Pop(1);
+
+    ctx.Call("Break()", 0);
+    REQUIRE(ctx.GetInt(-1) == 69);
+    ctx.Pop(1);
     
     ctx.Call("If()", 0);
     REQUIRE(ctx.GetBool(-1) == false);

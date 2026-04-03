@@ -105,30 +105,43 @@ namespace Aria::Internal {
     }
 
     void SemanticAnalyzer::HandleWhileStmt(Stmt* stmt) {
-        // WhileStmt wh = stmt->While;
-        // 
-        // HandleExpr(wh.Condition);
-        // HandleStmt(wh.Body);
+        WhileStmt wh = stmt->While;
+        
+        HandleExpr(wh.Condition);
+        HandleStmt(wh.Body);
     }
 
     void SemanticAnalyzer::HandleDoWhileStmt(Stmt* stmt) {
-        // DoWhileStmt* wh = GetNode<DoWhileStmt>(stmt);
-        // 
-        // HandleExpr(wh->GetCondition());
-        // HandleStmt(wh->GetBody());
+        DoWhileStmt wh = stmt->DoWhile;
+        
+        HandleExpr(wh.Condition);
+        HandleStmt(wh.Body);
     }
 
     void SemanticAnalyzer::HandleForStmt(Stmt* stmt) {
-        // ForStmt* fs = GetNode<ForStmt>(stmt);
-        // 
-        // if (fs->GetPrologue()) { HandleStmt(fs->GetPrologue()); }
-        // if (fs->GetCondition()) { HandleExpr(fs->GetCondition()); }
-        // if (fs->GetEpilogue()) { HandleExpr(fs->GetEpilogue()); }
-        // HandleStmt(fs->GetBody());
+        ForStmt fs = stmt->For;
+        
+        if (fs.Prologue) { HandleDecl(fs.Prologue); }
+        if (fs.Condition) { HandleExpr(fs.Condition); }
+        if (fs.Step) { HandleExpr(fs.Step); }
+        HandleStmt(fs.Body);
     }
 
-    void SemanticAnalyzer::HandleIfStmt(Stmt* stmt) {}
-    void SemanticAnalyzer::HandleReturnStmt(Stmt* stmt) {}
+    void SemanticAnalyzer::HandleIfStmt(Stmt* stmt) {
+        IfStmt ifs = stmt->If;
+
+        HandleExpr(ifs.Condition);
+        HandleStmt(ifs.Body);
+        if (ifs.ElseBody) { HandleStmt(ifs.ElseBody); }
+    }
+
+    void SemanticAnalyzer::HandleBreakStmt(Stmt* stmt) {}
+    void SemanticAnalyzer::HandleContinueStmt(Stmt* stmt) {}
+
+    void SemanticAnalyzer::HandleReturnStmt(Stmt* stmt) {
+        ReturnStmt ret = stmt->Return;
+        if (ret.Value) { HandleExpr(ret.Value); }
+    }
 
     void SemanticAnalyzer::HandleStmt(Stmt* stmt) {
         if (stmt->Kind == StmtKind::Error) { return; }
@@ -143,6 +156,10 @@ namespace Aria::Internal {
             return HandleForStmt(stmt);
         } else if (stmt->Kind == StmtKind::If) {
             return HandleIfStmt(stmt);
+        } else if (stmt->Kind == StmtKind::Break) {
+            return HandleBreakStmt(stmt);
+        } else if (stmt->Kind == StmtKind::Continue) {
+            return HandleContinueStmt(stmt);
         } else if (stmt->Kind == StmtKind::Return) {
             return HandleReturnStmt(stmt);
         } else if (stmt->Kind == StmtKind::Expr) {
