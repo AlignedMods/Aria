@@ -20,6 +20,7 @@ namespace Aria::Internal {
         Comma,
         Colon,
         Dot,
+        Arrow,
         // ^^^ Punctuation ^^^ //
 
         // VVV Operators VVV //

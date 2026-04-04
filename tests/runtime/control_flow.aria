@@ -1,5 +1,5 @@
 // Should return 10
-fn int While() {
+fn While() -> int {
     int i = 0;
     while i < 10 {
         i = i + 1;
@@ -9,7 +9,7 @@ fn int While() {
 }
 
 // Should return 10
-fn int DoWhile1() {
+fn DoWhile1() -> int {
     int i = 0;
     do {
         i = i + 1;
@@ -20,7 +20,7 @@ fn int DoWhile1() {
 
 // Should return true
 // True means that the loop was ran before the condition was checked, which is the correct behavior
-fn bool DoWhile2() {
+fn DoWhile2() -> bool {
     do {
         return true;
     } while false;
@@ -29,7 +29,7 @@ fn bool DoWhile2() {
 }
 
 // Should return 190
-fn int For() {
+fn For() -> int {
     int result = 0;
     
     for (int i = 0; i < 20; i += 1) {
@@ -40,7 +40,7 @@ fn int For() {
 }
 
 // Should return 69
-fn int Break() {
+fn Break() -> int {
     for (int i = 0;; i += 1) {
         if (i == 0) { break; }
 
@@ -50,7 +50,7 @@ fn int Break() {
     return 69;
 }
 
-fn bool If() {
+fn If() -> bool {
     if 4 < 6 {
         return false;
     }

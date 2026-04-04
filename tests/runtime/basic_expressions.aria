@@ -1,4 +1,4 @@
-fn bool ShouldNeverBeCalled();
+fn ShouldNeverBeCalled() -> bool;
 
 int a = 5 + 5;
 int b = (a + 5) / -5;

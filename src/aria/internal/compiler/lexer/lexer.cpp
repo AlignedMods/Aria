@@ -59,6 +59,7 @@ namespace Aria::Internal {
                 }
                 case '-': {
                     if (TryConsume('=')) { AddToken(TokenKind::MinusEq, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "-="); break; }
+                    else if (TryConsume('>')) { AddToken(TokenKind::Arrow, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "->"); break; }
                     else { AddToken(TokenKind::Minus, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "-"); break; }
                 }
                 case '*': {

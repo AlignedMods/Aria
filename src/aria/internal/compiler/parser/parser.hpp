@@ -68,8 +68,8 @@ namespace Aria::Internal {
 
         Stmt* ParseGlobal();
 
-        // Consumes tokens until it finds the first semi colon, closing curly, comma or EOF
-        void StabilizeParser();
+        void SyncGlobal(); // Syncs the parser to a common sync point in a global context
+        void SyncLocal(); // Syncs the parser to a common sync point in a local (block) context
 
         void ErrorExpected(const std::string& expect, SourceLocation loc, SourceRange range);
 

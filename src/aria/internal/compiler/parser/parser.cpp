@@ -144,7 +144,7 @@ namespace Aria::Internal {
         if (IsType()) { // Cast
             TypeInfo* type = ParseType();
             if (!TryConsume(TokenKind::RightParen, ")")) {
-                StabilizeParser();
+                SyncLocal();
                 return m_ErrorExpr;
             }
 
@@ -158,7 +158,7 @@ namespace Aria::Internal {
             Token* rp = TryConsume(TokenKind::RightParen, ")");
 
             if (!rp) {
-                StabilizeParser();
+                SyncLocal();
                 return m_ErrorExpr;
             }
 
@@ -349,7 +349,7 @@ namespace Aria::Internal {
             ParseExprFn infixRule = m_ExprRules[tok->Kind].Infix;
 
             if (!infixRule) {
-                StabilizeParser();
+                SyncLocal();
                 m_Context->ReportCompilerError(tok->Range.Start, tok->Range, fmt::format("'{}' cannot appear here, did you forget something before the operator?", TokenKindToString(tok->Kind)));
                 return m_ErrorExpr;
             }
@@ -365,7 +365,7 @@ namespace Aria::Internal {
         ParseExprFn prefixRule = m_ExprRules[tok->Kind].Prefix;
 
         if (!prefixRule) {
-            StabilizeParser();
+            SyncLocal();
             m_Context->ReportCompilerError(tok->Range.Start, tok->Range, "Expected an expression");
             return m_ErrorExpr;
         }
@@ -530,7 +530,7 @@ namespace Aria::Internal {
         } else {
             prologue = ParseVariableDecl();
             if (!DeclOk(prologue)) {
-                StabilizeParser();
+                SyncLocal();
 
                 if (Match(TokenKind::Semi)) {
                     Consume();
@@ -597,7 +597,7 @@ namespace Aria::Internal {
         Decl* decl = ParseVariableDecl();
 
         if (!DeclOk(decl)) {
-            StabilizeParser();
+            SyncLocal();
             if (Match(TokenKind::Semi)) {
                 Consume();
             }
@@ -773,18 +773,20 @@ namespace Aria::Internal {
     Decl* Parser::ParseFunctionDecl() {
         SourceLocation start = Peek()->Range.Start;
         Token fn = Consume(); // Consume "fn"
+        TypeInfo* type = nullptr;
 
-        if (!IsType()) {
-            m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type");
-            StabilizeParser();
-            return nullptr;
+        if (IsType()) {
+            m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected an indentifier (NOTE: function declarations look like: fn name() -> type {...})");
+            type = ParseType();
         }
 
-        TypeInfo* type = ParseType();
-        Token* ident = nullptr;
-        ASSIGN_OR_RET(ident, TryConsume(TokenKind::Identifier, "identifier"), m_ErrorDecl);
+        Token* ident = TryConsume(TokenKind::Identifier, "identifier");
+        if (!ident) {
+            SyncLocal();
+            return m_ErrorDecl;
+        }
 
-        CONSUME_OR_RET(LeftParen, m_ErrorDecl);
+        TryConsume(TokenKind::LeftParen, "(");
 
         TinyVector<Decl*> params;
         TinyVector<TypeInfo*> paramTypes;
@@ -792,7 +794,7 @@ namespace Aria::Internal {
         while (!Match(TokenKind::RightParen)) {
             if (!IsType()) {
                 m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type");
-                StabilizeParser();
+                SyncLocal();
                 continue;
             }
 
@@ -800,7 +802,7 @@ namespace Aria::Internal {
             Token* paramIdent = TryConsume(TokenKind::Identifier, "identifier");
             
             if (!paramIdent) {
-                StabilizeParser();
+                SyncLocal();
                 continue;
             }
 
@@ -810,12 +812,21 @@ namespace Aria::Internal {
             if (Match(TokenKind::Comma)) { Consume(); continue; }
             if (Match(TokenKind::RightParen)) { break; }
 
-            StabilizeParser();
+            SyncLocal();
             m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "expected either ',' or ')'");
         }
 
-        CONSUME_OR_RET(RightParen, m_ErrorDecl);
+        TryConsume(TokenKind::RightParen, ")");
 
+        if (TryConsume(TokenKind::Arrow, "->")) {
+            if (!IsType()) {
+                m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type");
+                SyncLocal();
+            } else if (type == nullptr) {
+                type = ParseType();
+            }
+        }
+        
         Stmt* body = nullptr;
 
         if (Match(TokenKind::LeftCurly)) {
@@ -846,17 +857,17 @@ namespace Aria::Internal {
                 TypeInfo* type = ParseType();
         
                 Token* fieldName = TryConsume(TokenKind::Identifier, "identifier");
-                if (!fieldName) { StabilizeParser(); continue; }
+                if (!fieldName) { SyncLocal(); continue; }
 
                 if (!TryConsume(TokenKind::Semi, ";")) {
-                    StabilizeParser();
+                    SyncLocal();
                     if (Match(TokenKind::Semi)) { Consume(); }
                 }
         
                 fields.Append(m_Context, Decl::Create(m_Context, fieldName->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Field, FieldDecl(fieldName->String, type)));
             } else {
                 m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type or 'fn'");
-                StabilizeParser();
+                SyncLocal();
                 TryConsume(TokenKind::Semi, ";");
             }
         }
@@ -890,7 +901,7 @@ namespace Aria::Internal {
                 }
 
                 m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, fmt::format("Expected the start of a global declaration", TokenKindToString(Peek()->Kind)));
-                StabilizeParser();
+                SyncGlobal();
                 return m_ErrorStmt;
             }
 
@@ -916,17 +927,29 @@ namespace Aria::Internal {
 
             default: {
                 m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, fmt::format("Expected the start of a global declaration", TokenKindToString(Peek()->Kind)));
-                StabilizeParser();
+                SyncGlobal();
                 return m_ErrorStmt;
             }
         }
     }
 
-    void Parser::StabilizeParser() {
+    void Parser::SyncGlobal() {
+        while (Peek()) {
+            TokenKind kind = Peek()->Kind;
+
+            if (kind == TokenKind::Fn || kind == TokenKind::Struct || IsType()) {
+                return;
+            }
+
+            Consume();
+        }
+    }
+
+    void Parser::SyncLocal() {
         while (Peek()) {
             TokenKind type = Peek()->Kind;
 
-            if (type == TokenKind::Semi || type == TokenKind::LeftCurly || type == TokenKind::RightCurly || type == TokenKind::Comma) {
+            if (type == TokenKind::Semi || type == TokenKind::LeftCurly || type == TokenKind::Comma) {
                 return;
             }
 

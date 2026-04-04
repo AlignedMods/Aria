@@ -1,18 +1,18 @@
 int result = 0; // Expected to be 24
 
-fn void ExternalFunction(int a, int b, int c);
+fn ExternalFunction(int a, int b, int c) -> void;
 
-fn int add(int lhs, int rhs) {
+fn add(int lhs, int rhs) -> int {
     return lhs + rhs;
 }
 
-fn int sub(int lhs, int rhs) {
+fn sub(int lhs, int rhs) -> int {
     return lhs - rhs;
 }
 
 int otherResult = 0; // Expected to be 26
 
-fn void main() {
+fn main() -> void {
     result = add(5, 9);
     result = result + add(sub(6, 3), 7);
     otherResult = result + 2;
