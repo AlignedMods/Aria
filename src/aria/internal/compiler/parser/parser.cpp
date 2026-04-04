@@ -120,8 +120,8 @@ namespace Aria::Internal {
             return &t;
         }
 
-        Token* prev = Peek(-1);
-        ErrorExpected(expect, prev->Range.End, prev->Range);
+        Token* cur = Peek();
+        ErrorExpected(expect, cur->Range.Start, cur->Range);
         return nullptr;
     }
 

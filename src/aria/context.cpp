@@ -13,6 +13,18 @@
 
 namespace Aria {
 
+    inline static std::string GetLine(const std::string& str, size_t line) {
+        std::vector<std::string> lines;
+        std::stringstream ss(str);
+        std::string item;
+
+        while (std::getline(ss, item, '\n')) {
+            lines.push_back(item);
+        }
+
+        return lines.at(line - 1);
+    }
+
     struct Module {
         Module(Context* ctx, const std::string& sourceCode)
             : VM(ctx), CompilationContext(sourceCode) {}
@@ -59,6 +71,10 @@ namespace Aria {
             fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", module, error.Line, error.Column);
             fmt::print(fg(fmt::color::pale_violet_red), "error: ");
             fmt::print("{}\n", error.Error);
+
+            // fmt format strings from: https://hackingcpp.com/cpp/libs/fmt
+            fmt::print(" {:6} | {}\n", error.Line, GetLine(source, error.Line));
+            fmt::print("        | {:>{w}}\n", "^", fmt::arg("w", error.Column));
         }
 
         src->VM.AddExtern("bl__array__init__", Aria::Internal::bl__array__init__);
