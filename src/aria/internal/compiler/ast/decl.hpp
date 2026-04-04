@@ -75,11 +75,10 @@ namespace Aria::Internal {
     };
 
     struct FieldDecl {
-        FieldDecl(StringView identifier, StringView parsedType)
-            : Identifier(identifier), ParsedType(parsedType) {}
+        FieldDecl(StringView identifier, TypeInfo* type)
+            : Identifier(identifier), Type(type) {}
 
         StringView Identifier;
-        StringView ParsedType;
         TypeInfo* Type = nullptr;
     };
 

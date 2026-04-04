@@ -10,7 +10,7 @@ fn int sub(int lhs, int rhs) {
     return lhs - rhs;
 }
 
-int otherResult = 0; // This is here to confirm that you can have code in between function definitions
+int otherResult = 0; // Expected to be 26
 
 fn void main() {
     result = add(5, 9);

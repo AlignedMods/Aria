@@ -34,6 +34,9 @@ int main(int argc, char** argv) {
     fmt::print("{}", ctx.DumpAST());
     fmt::print("{}", ctx.Disassemble());
     ctx.Run();
+
+    ctx.GetGlobal("powered");
+    fmt::print("{}\n", ctx.GetLong(-1));
     
     ctx.FreeModule(fileName);
 }

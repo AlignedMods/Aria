@@ -85,6 +85,10 @@ namespace Aria::Internal {
             return IsIntegral() || IsFloatingPoint();
         }
 
+        bool IsFunction() const {
+            return Type == PrimitiveType::Function;
+        }
+
         bool IsStructure() const {
             return Type == PrimitiveType::Structure;
         }

@@ -835,48 +835,36 @@ namespace Aria::Internal {
 
     Decl* Parser::ParseStructDecl() {
         Token s = Consume(); // Consume "struct"
+        Token* ident = TryConsume(TokenKind::Identifier, "indentifier");
+        
+        TinyVector<Decl*> fields;
+        
+        TryConsume(TokenKind::LeftCurly, "{");
+        while (!Match(TokenKind::RightCurly)) {
+            if (IsType()) {
+                SourceLocation start = Peek()->Range.Start;
+                TypeInfo* type = ParseType();
+        
+                Token* fieldName = TryConsume(TokenKind::Identifier, "identifier");
+                if (!fieldName) { StabilizeParser(); continue; }
 
-        // Token* ident = TryConsume(TokenKind::Identifier, "indentifier");
-        // 
-        // if (!ident) { return nullptr; }
-        // m_DeclaredTypes[fmt::format("{}", ident->String)] = true;
-        // 
-        // TinyVector<Decl*> fields;
-        // 
-        // TryConsume(TokenKind::LeftCurly, "'{'");
-        // 
-        // while (!Match(TokenKind::RightCurly)) {
-        //     if (IsVariableType()) {
-        //         StringBuilder type = ParseVariableType();
-        // 
-        //         Token* fieldName = TryConsume(TokenKind::Identifier, "identifier");
-        //         if (!fieldName) { return nullptr; }
-        // 
-        //         if (Match(TokenKind::LeftParen)) {
-        //             Consume();
-        // 
-        //             TinyVector<ParamDecl*> params = ParseFunctionParameters();
-        //             TryConsume(TokenKind::RightParen, "')'");
-        // 
-        //             Stmt* body = ParseCompound();
-        //             fields.Append(m_Context, m_Context->Allocate<MethodDecl>(m_Context, fieldName->String, StringView(type.Data(), type.Size()), params, GetNode<CompoundStmt>(body)));
-        //         } else {
-        //             TryConsume(TokenKind::Semi, "';'");
-        // 
-        //             fields.Append(m_Context, m_Context->Allocate<FieldDecl>(m_Context, fieldName->String, StringView(type.Data(), type.Size())));
-        //         }
-        //     } else {
-        //         m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "expected a type name");
-        //         StabilizeParser();
-        //         TryConsume(TokenKind::Semi, "';'");
-        //     }
-        // }
-        // 
-        // TryConsume(TokenKind::RightCurly, "'}'");
-        // 
-        // m_NeedsSemi = false;
-        // return m_Context->Allocate<StructDecl>(m_Context, ident->String, fields);
-        ARIA_ASSERT(false, "todo!");
+                if (!TryConsume(TokenKind::Semi, ";")) {
+                    StabilizeParser();
+                    if (Match(TokenKind::Semi)) { Consume(); }
+                }
+        
+                fields.Append(m_Context, Decl::Create(m_Context, fieldName->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Field, FieldDecl(fieldName->String, type)));
+            } else {
+                m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type or 'fn'");
+                StabilizeParser();
+                TryConsume(TokenKind::Semi, ";");
+            }
+        }
+        TryConsume(TokenKind::RightCurly, "}");
+        
+        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(s.Range.Start, Peek(-1)->Range.End), DeclKind::Struct, StructDecl(ident->String, fields));
+        m_DeclaredTypes[fmt::format("{}", ident->String)] = decl;
+        return decl;
     }
 
     Stmt* Parser::ParseGlobal() {

@@ -376,6 +376,7 @@ namespace Aria::Internal {
 
     void TypeChecker::HandleVarDecl(Decl* decl) {
         VarDecl varDecl = decl->Var;
+        std::string ident = fmt::format("{}", varDecl.Identifier);
 
         HandleInitializer(varDecl.DefaultValue, varDecl.Type, false);
 
@@ -384,7 +385,11 @@ namespace Aria::Internal {
             kind = DeclRefKind::GlobalVar;
         }
         
-        m_Scopes.back().Declarations[fmt::format("{}", varDecl.Identifier)] = { varDecl.Type, decl, kind };
+        if (m_Scopes.back().Declarations.contains(ident)) {
+            m_Context->ReportCompilerError(decl->Loc, decl->Range, fmt::format("Redeclaring symbol '{}'", ident));
+        }
+
+        m_Scopes.back().Declarations[ident] = { varDecl.Type, decl, kind };
     }
 
     void TypeChecker::HandleParamDecl(Decl* decl) {
@@ -396,6 +401,21 @@ namespace Aria::Internal {
         FunctionDecl fnDecl = decl->Function;
         
         std::string ident = fmt::format("{}", fnDecl.Identifier);
+
+        if (m_Scopes.back().Declarations.contains(ident)) {
+            TypeInfo* type = m_Scopes.back().Declarations.at(ident).ResolvedType;
+            if (!TypeIsEqual(fnDecl.Type, type)) {
+                m_Context->ReportCompilerError(decl->Loc, decl->Range, fmt::format("Redeclaring function '{}' with different type '{}'", ident, TypeInfoToString(fnDecl.Type)));
+            } else {
+                Decl* prevDecl = m_Scopes.back().Declarations.at(ident).SourceDeclaration;
+                ARIA_ASSERT(prevDecl->Kind == DeclKind::Function, "Previous declaration of function must be a function declaration");
+
+                if (prevDecl->Function.Body != nullptr) {
+                    m_Context->ReportCompilerError(decl->Loc, decl->Range, fmt::format("Redefining function body of '{}'", ident));
+                }
+            }
+        }
+
         m_Scopes.back().Declarations[ident] = { fnDecl.Type, decl, DeclRefKind::Function };
 
         if (fnDecl.Body) {
@@ -416,28 +436,21 @@ namespace Aria::Internal {
     }
 
     void TypeChecker::HandleStructDecl(Decl* decl) {
-        // StructDecl* s = GetNode<StructDecl>(decl);
-        // 
-        // StructDeclaration d;
-        // d.Identifier = s->GetRawIdentifier();
-        // d.SourceDecl = s;
-        // 
-        // std::vector<MethodDecl*> methods;
-        // 
-        // TypeInfo* structType = TypeInfo::Create(m_Context, PrimitiveType::Structure, false, d);
-        // 
-        // for (Decl* field : s->GetFields()) {
-        //     if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
-        //         fd->SetResolvedType(GetTypeInfoFromString(fd->GetParsedType()));
-        //     } else if (MethodDecl* md = GetNode<MethodDecl>(field)) {
-        //         methods.push_back(md);
-        //     }
-        // }
-        // 
-        // m_DeclaredTypes[s->GetIdentifier()] = structType;
-        // 
-        // m_ActiveStruct = TypeInfo::Create(m_Context, structType->Type, true, structType->Data);
-        // 
+        StructDecl& s = decl->Struct;
+        
+        StructDeclaration d;
+        d.Identifier = s.Identifier;
+        d.SourceDecl = decl;
+        
+        TypeInfo* structType = TypeInfo::Create(m_Context, PrimitiveType::Structure, false, d);
+        
+        for (Decl* field : s.Fields) {
+            if (field->Kind == DeclKind::Field) {}
+        }
+        
+        m_DeclaredTypes[fmt::format("{}", s.Identifier)] = structType;
+        m_ActiveStruct = TypeInfo::Create(m_Context, structType->Type, true, structType->Data);
+        
         // for (MethodDecl* md : methods) {
         //     TypeInfo* returnType = GetTypeInfoFromString(md->GetParsedType());
         //     TinyVector<TypeInfo*> paramTypes;
@@ -470,10 +483,8 @@ namespace Aria::Internal {
         //     m_Declarations.pop_back();
         //     m_ActiveReturnType = nullptr;
         // }
-        // 
-        // m_ActiveStruct = nullptr;
-
-        ARIA_ASSERT(false, "todo!");
+        
+        m_ActiveStruct = nullptr;
     }
 
     void TypeChecker::HandleDecl(Decl* decl) {
@@ -837,6 +848,20 @@ namespace Aria::Internal {
         }
 
         if (lhs->IsString() && rhs->IsString()) {
+            return true;
+        }
+
+        if (lhs->IsFunction() && rhs->IsFunction()) {
+            FunctionDeclaration& fLhs = std::get<FunctionDeclaration>(lhs->Data);
+            FunctionDeclaration& fRhs = std::get<FunctionDeclaration>(rhs->Data);
+
+            if (!TypeIsEqual(fLhs.ReturnType, fRhs.ReturnType)) { return false; }
+            if (fLhs.ParamTypes.Size != fRhs.ParamTypes.Size) { return false; }
+
+            for (size_t i = 0; i < fLhs.ParamTypes.Size; i++) {
+                if (!TypeIsEqual(fLhs.ParamTypes.Items[i], fRhs.ParamTypes.Items[i])) { return false; }
+            }
+
             return true;
         }
 
