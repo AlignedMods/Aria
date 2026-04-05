@@ -21,6 +21,8 @@ namespace Aria::Internal {
         void ParseDecimalLiteral();
         void ParseStringLiteral();
 
+        void ParseHash();
+
         void ParseIdentifier();
 
         void ParseSingleLineComment();

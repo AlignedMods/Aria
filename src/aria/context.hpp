@@ -84,6 +84,7 @@ namespace Aria {
 
         void Pop(size_t count);
 
+        bool HasFunction(const std::string& str);
         void Call(const std::string& str, size_t argCount);
 
         void AddExternalFunction(const std::string& name, ExternFn fn);

@@ -316,7 +316,7 @@ namespace Aria::Internal {
     void Emitter::EmitImplicitCastExpr(Expr* expr, ExprValueKind valueKind) {
         ImplicitCastExpr cast = expr->ImplicitCast;
         
-        if (cast.CastKind == CastKind::LValueToRValue) {
+        if (cast.Kind == CastKind::LValueToRValue) {
             return EmitExpr(cast.Expression, ExprValueKind::RValue);
         } else {
             EmitExpr(cast.Expression, ExprValueKind::RValue);
@@ -330,7 +330,7 @@ namespace Aria::Internal {
     void Emitter::EmitCastExpr(Expr* expr, ExprValueKind valueKind) {
         CastExpr cast = expr->Cast;
         
-        if (cast.CastKind == CastKind::LValueToRValue) {
+        if (cast.Kind == CastKind::LValueToRValue) {
             return EmitExpr(cast.Expression, ExprValueKind::RValue);
         } else {
             EmitExpr(cast.Expression, ExprValueKind::RValue);

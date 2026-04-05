@@ -105,6 +105,12 @@ namespace Aria::Internal {
                     else { AddToken(TokenKind::Greater, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), ">"); break; }
                 }
 
+                case '#': {
+                    Backtrack();
+                    ParseHash();
+                    break;
+                }
+
                 // Literals and constants
                 case '\'': {
                     ParseCharLiteral();
@@ -128,6 +134,8 @@ namespace Aria::Internal {
                         ParseIdentifier();
                         break;
                     }
+
+                    fmt::print("Unknown character: {:x}\n", c);
 
                     ARIA_UNREACHABLE();
                     break;
@@ -373,6 +381,27 @@ namespace Aria::Internal {
         AddToken(TokenKind::StrLit, SourceRange(start, end), str);
     }
 
+    void Lexer::ParseHash() {
+        StringBuilder str;
+        SourceLocation start = SourceLocation(m_CurrentLine, GetColumn(m_Index));
+
+        str.Append(m_Context, '#');
+        Consume();
+
+        while (true) {
+            if (std::isalpha(Peek())) {
+                str.Append(m_Context, Peek());
+                Consume();
+            } else {
+                break;
+            }
+        }
+
+        if (str == "#extern") { AddToken(TokenKind::HashExtern, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "#extern"); return; }
+
+        m_Context->ReportCompilerError(start, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "Unknown flag starting with '#'");
+    }
+
     void Lexer::ParseIdentifier() {
         StringBuilder str;
         SourceLocation start = SourceLocation(m_CurrentLine, GetColumn(m_Index));
@@ -457,6 +486,7 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case '\r':
                 case ' ':
                 case '\t': {
                     Consume();

@@ -68,11 +68,11 @@ namespace Aria::Internal {
             DumpExpr(expr->Paren.Expression, indentation + 4);
             return;
         } else if (expr->Kind == ExprKind::Cast) {
-            m_Output += fmt::format("CastExpr '{}' <{}> {}\n", TypeInfoToString(expr->Type), CastKindToString(expr->Cast.CastKind), ExprValueKindToString(expr->ValueKind));
+            m_Output += fmt::format("CastExpr '{}' <{}> {}\n", TypeInfoToString(expr->Type), CastKindToString(expr->Cast.Kind), ExprValueKindToString(expr->ValueKind));
             DumpExpr(expr->Cast.Expression, indentation + 4);
             return;
         } else if (expr->Kind == ExprKind::ImplicitCast) {
-            m_Output += fmt::format("ImplicitCastExpr '{}' <{}> {}\n", TypeInfoToString(expr->Type), CastKindToString(expr->ImplicitCast.CastKind), ExprValueKindToString(expr->ValueKind));
+            m_Output += fmt::format("ImplicitCastExpr '{}' <{}> {}\n", TypeInfoToString(expr->Type), CastKindToString(expr->ImplicitCast.Kind), ExprValueKindToString(expr->ValueKind));
             DumpExpr(expr->ImplicitCast.Expression, indentation + 4);
             return;
         } else if (expr->Kind == ExprKind::UnaryOperator) {
@@ -122,7 +122,7 @@ namespace Aria::Internal {
             m_Output += fmt::format("ParamDecl '{}' '{}'\n", decl->Param.Identifier, TypeInfoToString(decl->Param.Type));
             return;
         } else if (decl->Kind == DeclKind::Function) {
-            m_Output += fmt::format("FunctionDecl '{}' '{}'\n", decl->Function.Identifier, TypeInfoToString(decl->Function.Type));
+            m_Output += fmt::format("FunctionDecl '{}' '{}' {}\n", decl->Function.Identifier, TypeInfoToString(decl->Function.Type), DumpFunctionFlags(decl->Function.Flags));
             for (Decl* p : decl->Function.Parameters) {
                 DumpDecl(p, indentation + 4);
             }
@@ -217,6 +217,16 @@ namespace Aria::Internal {
         } 
 
         ARIA_UNREACHABLE();
+    }
+
+    std::string ASTDumper::DumpFunctionFlags(int flags) {
+        std::string result;
+
+        if (flags & FUNC_EXTERN) {
+            result = "extern";
+        }
+
+        return result;
     }
 
 } // namespace Aria::Internal

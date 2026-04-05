@@ -19,6 +19,8 @@ namespace Aria::Internal {
         void DumpDecl(Decl* decl, size_t indentation);
         void DumpStmt(Stmt* stmt, size_t indentation);
 
+        std::string DumpFunctionFlags(int flags);
+
     private:
         Stmt* m_RootASTNode = nullptr;
 

@@ -169,7 +169,7 @@ namespace Aria::Internal {
 
         if (cost.CastNeeded) {
             if (cost.ExplicitCastPossible) {
-                cast.CastKind = cost.CaKind;
+                cast.Kind = cost.CaKind;
             } else {
                 ARIA_ASSERT(false, "todo: add error message");
             }
@@ -377,6 +377,10 @@ namespace Aria::Internal {
     void TypeChecker::HandleVarDecl(Decl* decl) {
         VarDecl varDecl = decl->Var;
         std::string ident = fmt::format("{}", varDecl.Identifier);
+
+        if (varDecl.Type->IsVoid()) {
+            m_Context->ReportCompilerError(decl->Loc, decl->Range, "Cannot declare variable of 'void' type");
+        }
 
         HandleInitializer(varDecl.DefaultValue, varDecl.Type, false);
 

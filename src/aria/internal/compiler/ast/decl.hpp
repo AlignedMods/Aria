@@ -23,6 +23,8 @@ namespace Aria::Internal {
         String
     };
 
+    constexpr int FUNC_EXTERN = 0x01;
+
     struct Expr;
     struct Stmt;
 
@@ -57,13 +59,14 @@ namespace Aria::Internal {
     };
 
     struct FunctionDecl {
-        FunctionDecl( StringView identifier, TypeInfo* type, TinyVector<Decl*> params, Stmt* body)
-            : Identifier(identifier), Type(type), Parameters(params), Body(body) {}
+        FunctionDecl( StringView identifier, TypeInfo* type, TinyVector<Decl*> params, Stmt* body, int flags)
+            : Identifier(identifier), Type(type), Parameters(params), Body(body), Flags(flags) {}
 
         StringView Identifier;
         TypeInfo* Type = nullptr;
         TinyVector<Decl*> Parameters;
         Stmt* Body = nullptr;
+        int Flags = 0;
     };
 
     struct StructDecl {

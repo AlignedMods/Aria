@@ -2,7 +2,9 @@
 
 void PrintHelp(const char* appName) {
     fmt::println("Help:");
-    fmt::println("  {} <file>", appName);
+    fmt::println("  {} <flags> <file>\n", appName);
+    fmt::println("  Flags:");
+    fmt::println("    -c      (Compile the file normally but do not run it)");
 }
 
 void PrintInt(Aria::Context* ctx) {
@@ -25,18 +27,27 @@ int main(int argc, char** argv) {
         PrintHelp(argv[0]);
         return 0;
     }
+
+    bool compileOnly = false;
+    const char* fileName = nullptr;
+
+    for (int i = 0; i < argc; i++) {
+        if (strcmp(argv[i], "-c") == 0) { compileOnly = true; }
+        else { fileName = argv[i]; }
+    }
     
-    std::string fileName = argv[1];
     Aria::Context ctx;
     ctx.CompileFile(fileName, fileName);
-    ctx.AddExternalFunction("PrintInt()", PrintInt);
-    ctx.AddExternalFunction("Print()", Print);
-    fmt::print("{}", ctx.DumpAST());
-    fmt::print("{}", ctx.Disassemble());
-    ctx.Run();
 
-    ctx.GetGlobal("powered");
-    fmt::print("{}\n", ctx.GetLong(-1));
+    if (!compileOnly) {
+        ctx.AddExternalFunction("PrintInt()", PrintInt);
+        ctx.AddExternalFunction("Print()", Print);
+        ctx.Run();
+
+        if (ctx.HasFunction("main()")) {
+            ctx.Call("main()", 0);
+        }
+    }
     
     ctx.FreeModule(fileName);
 }

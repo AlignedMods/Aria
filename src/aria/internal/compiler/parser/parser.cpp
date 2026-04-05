@@ -176,12 +176,20 @@ namespace Aria::Internal {
 
         while (!Match(TokenKind::RightParen)) {
             Expr* val = ParseExpression();
+
+            if (!ExprOk(val)) {
+                SyncLocal();
+                break;
+            }
+
+            args.Append(m_Context, val);
     
             if (Match(TokenKind::Comma)) {
                 Consume();
+                continue;
             }
-    
-            args.Append(m_Context, val);
+
+            break;
         }
     
         Token* rp = TryConsume(TokenKind::RightParen, ")");
@@ -355,6 +363,11 @@ namespace Aria::Internal {
             }
 
             left = infixRule(left);
+
+            if (!ExprOk(left)) {
+                SyncLocal();
+                return m_ErrorExpr;
+            }
         }
 
         return left;
@@ -362,6 +375,7 @@ namespace Aria::Internal {
 
     Expr* Parser::ParsePrecedence(size_t precedence) {
         Token* tok = Peek();
+        if (!tok) { return m_ErrorExpr; }
         ParseExprFn prefixRule = m_ExprRules[tok->Kind].Prefix;
 
         if (!prefixRule) {
@@ -581,6 +595,7 @@ namespace Aria::Internal {
     Stmt* Parser::ParseReturn() {
         Token r = Consume(); // Consume "return"
         Expr* value = ParseExpression();
+        TryConsume(TokenKind::Semi, ";");
         
         return Stmt::Create(m_Context, r.Range.Start, SourceRange(r.Range.Start, Peek(-1)->Range.End), StmtKind::Return, ReturnStmt(value));
     }
@@ -774,6 +789,7 @@ namespace Aria::Internal {
         SourceLocation start = Peek()->Range.Start;
         Token fn = Consume(); // Consume "fn"
         TypeInfo* type = nullptr;
+        int flags = 0;
 
         if (IsType()) {
             m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected an indentifier (NOTE: function declarations look like: fn name() -> type {...})");
@@ -825,6 +841,8 @@ namespace Aria::Internal {
             } else if (type == nullptr) {
                 type = ParseType();
             }
+
+            flags = ParseFunctionFlags();
         }
         
         Stmt* body = nullptr;
@@ -841,7 +859,7 @@ namespace Aria::Internal {
 
         TypeInfo* finalType = TypeInfo::Create(m_Context, PrimitiveType::Function, false, typeDecl);
 
-        return Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Function, FunctionDecl(ident->String, finalType, params, body));
+        return Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Function, FunctionDecl(ident->String, finalType, params, body, flags));
     }
 
     Decl* Parser::ParseStructDecl() {
@@ -876,6 +894,17 @@ namespace Aria::Internal {
         Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(s.Range.Start, Peek(-1)->Range.End), DeclKind::Struct, StructDecl(ident->String, fields));
         m_DeclaredTypes[fmt::format("{}", ident->String)] = decl;
         return decl;
+    }
+
+    int Parser::ParseFunctionFlags() {
+        int result = 0;
+
+        if (Match(TokenKind::HashExtern)) {
+            result |= FUNC_EXTERN;
+            Consume();
+        }
+
+        return result;
     }
 
     Stmt* Parser::ParseGlobal() {

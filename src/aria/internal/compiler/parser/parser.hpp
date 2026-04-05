@@ -66,6 +66,8 @@ namespace Aria::Internal {
         Decl* ParseFunctionDecl();
         Decl* ParseStructDecl();
 
+        int ParseFunctionFlags();
+
         Stmt* ParseGlobal();
 
         void SyncGlobal(); // Syncs the parser to a common sync point in a global context

@@ -60,6 +60,7 @@ namespace Aria::Internal {
         Self,
         Fn,
         Struct,
+        HashExtern, // #extern
         // ^^^ Keywords ^^^ //
 
         // VVV Types VVV //

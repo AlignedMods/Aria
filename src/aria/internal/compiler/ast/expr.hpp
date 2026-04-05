@@ -46,6 +46,8 @@ namespace Aria::Internal {
             case DeclRefKind::ParamVar:  return "ParamVar";
             case DeclRefKind::GlobalVar: return "GlobalVar";
             case DeclRefKind::Function:  return "Function";
+
+            default: ARIA_UNREACHABLE();
         }
     }
 
@@ -275,7 +277,7 @@ namespace Aria::Internal {
 
         Expr* Expression = nullptr;
         TypeInfo* Type = nullptr;
-        CastKind CastKind = CastKind::Invalid;
+        CastKind Kind = CastKind::Invalid;
     };
 
     // ImplicitCastExpr
@@ -283,10 +285,10 @@ namespace Aria::Internal {
     // eg. float a = 5; -> here "5" is implicitly converted to a float
     struct ImplicitCastExpr {
         ImplicitCastExpr(Expr* expr, CastKind castKind)
-            : Expression(expr), CastKind(castKind) {}
+            : Expression(expr), Kind(castKind) {}
 
         Expr* Expression = nullptr;
-        CastKind CastKind = CastKind::Invalid;
+        CastKind Kind = CastKind::Invalid;
     };
     
     struct UnaryOperatorExpr {

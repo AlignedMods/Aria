@@ -1,3 +1,4 @@
+#include "context.hpp"
 #include "aria/context.hpp"
 #include "aria/internal/compiler/compilation_context.hpp"
 #include "aria/internal/compiler/codegen/disassembler.hpp"
@@ -265,6 +266,11 @@ namespace Aria {
 
     void Context::AddExternalFunction(const std::string& name, ExternFn fn) {
         m_ActiveModule->VM.AddExtern(name, fn);
+    }
+
+    bool Context::HasFunction(const std::string& str) {
+        Internal::CompilerReflectionData& reflection = m_ActiveModule->CompilationContext.GetReflectionData();
+        return reflection.Declarations.contains(str) && reflection.Declarations.at(str).Kind == Internal::ReflectionKind::Function;
     }
 
     void Context::Call(const std::string& str, size_t argCount) {
