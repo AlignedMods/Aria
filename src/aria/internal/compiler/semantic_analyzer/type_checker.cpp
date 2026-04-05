@@ -10,6 +10,8 @@ namespace Aria::Internal {
 
     void TypeChecker::CheckImpl() {
         m_ErrorType = TypeInfo::Create(m_Context, PrimitiveType::Error, false);
+        m_BuiltInStringDestructor = Decl::Create(m_Context, SourceLocation(), SourceRange(), DeclKind::BuiltinDestructor, BuiltinDestructorDecl(BuiltinKind::String));
+        m_BuiltInStringCopyConstructor = Decl::Create(m_Context, SourceLocation(), SourceRange(), DeclKind::BuiltinCopyConstructor, BuiltinCopyConstructorDecl(BuiltinKind::String));
 
         // We always want to have at least one map for declarations (global space)
         m_Scopes.resize(1);
@@ -97,26 +99,29 @@ namespace Aria::Internal {
         HandleExpr(call.Callee);
         TypeInfo* calleeType = call.Callee->Type;
 
-        if (calleeType->Type != PrimitiveType::Function) {
+        if (calleeType->Type != PrimitiveType::Function && !calleeType->IsError()) {
             m_Context->ReportCompilerError(expr->Loc, expr->Range, "Cannot call an object of non-function type");
             expr->Type = m_ErrorType;
             return;
         }
-        FunctionDeclaration& fnDecl = std::get<FunctionDeclaration>(calleeType->Data);
 
-        if (fnDecl.ParamTypes.Size != call.Arguments.Size) {
-            m_Context->ReportCompilerError(expr->Loc, expr->Range, fmt::format("Mismatched argument count, function expects {} but got {}", fnDecl.ParamTypes.Size, call.Arguments.Size));
-            for (size_t i = 0; i < call.Arguments.Size; i++) {
-                call.Arguments.Items[i]->Type = m_ErrorType;
+        if (!calleeType->IsError()) {
+            FunctionDeclaration& fnDecl = std::get<FunctionDeclaration>(calleeType->Data);
+
+            if (fnDecl.ParamTypes.Size != call.Arguments.Size) {
+                m_Context->ReportCompilerError(expr->Loc, expr->Range, fmt::format("Mismatched argument count, function expects {} but got {}", fnDecl.ParamTypes.Size, call.Arguments.Size));
+                for (size_t i = 0; i < call.Arguments.Size; i++) {
+                    call.Arguments.Items[i]->Type = m_ErrorType;
+                }
+            } else {
+                for (size_t i = 0; i < fnDecl.ParamTypes.Size; i++) {
+                    HandleInitializer(call.Arguments.Items[i], fnDecl.ParamTypes.Items[i], true);
+                }
             }
-        } else {
-            for (size_t i = 0; i < fnDecl.ParamTypes.Size; i++) {
-                HandleInitializer(call.Arguments.Items[i], fnDecl.ParamTypes.Items[i], true);
-            }
+
+            expr->Type = fnDecl.ReturnType;
+            expr->ValueKind = (fnDecl.ReturnType->IsReference()) ? ExprValueKind::LValue : ExprValueKind::RValue;
         }
-
-        expr->Type = fnDecl.ReturnType;
-        expr->ValueKind = (fnDecl.ReturnType->IsReference()) ? ExprValueKind::LValue : ExprValueKind::RValue;
     }
 
     void TypeChecker::HandleMethodCallExpr(Expr* expr) {
@@ -657,10 +662,9 @@ namespace Aria::Internal {
 
             if (initializer->ValueKind == ExprValueKind::LValue) {
                 if (initType->Type == PrimitiveType::String) {
-                    ARIA_ASSERT(false, "todo!");
-                    // Expr* copyExpr = Expr::Create(m_Context, initializer->Loc, initializer->Range, ExprKind::, )
-                    // ReplaceExpr(initializer, )
-                    // finalExpr = m_Context->Allocate<CopyExpr>(m_Context, finalExpr->Loc, finalExpr->Range, finalExpr, valType, m_Context->Allocate<BuiltinCopyConstructorDecl>(m_Context, BuiltinCopyConstructorKind::String));
+                    ReplaceExpr(initializer, Expr::Create(m_Context, initializer->Loc, initializer->Range, 
+                        ExprKind::Copy, ExprValueKind::LValue, initializer->Type, 
+                        CopyExpr(Expr::Dup(m_Context, initializer), m_BuiltInStringCopyConstructor)));
                 }
             }
 
@@ -675,9 +679,9 @@ namespace Aria::Internal {
 
             if (temporary) {
                 if (initializer->Type->Type == PrimitiveType::String) {
-                    ARIA_ASSERT(false, "todo!");
-                    // finalExpr = m_Context->Allocate<TemporaryExpr>(m_Context, finalExpr->Loc, finalExpr->Range, finalExpr, finalExpr->GetResolvedType(), m_Context->Allocate<BuiltinDestructorDecl>(m_Context, BuiltinDestructorKind::String));
-                    // finalExpr->SetValueKind(ExprValueKind::RValue);
+                    ReplaceExpr(initializer, Expr::Create(m_Context, initializer->Loc, initializer->Range, 
+                        ExprKind::Temporary, ExprValueKind::RValue, initializer->Type, 
+                        TemporaryExpr(Expr::Dup(m_Context, initializer), m_BuiltInStringDestructor)));
                     m_TemporaryContext = true;
                 }
             }
@@ -768,7 +772,7 @@ namespace Aria::Internal {
     }
 
     void TypeChecker::InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastKind castKind) {
-        Expr* src = Expr::Copy(m_Context, srcExpr); // We must copy the original expression to avoid overwriting the same memory
+        Expr* src = Expr::Dup(m_Context, srcExpr); // We must copy the original expression to avoid overwriting the same memory
         Expr* implicitCast = Expr::Create(m_Context, src->Loc, src->Range, ExprKind::ImplicitCast, ExprValueKind::RValue, dstType, ImplicitCastExpr(src, castKind));
 
         ReplaceExpr(srcExpr, implicitCast);

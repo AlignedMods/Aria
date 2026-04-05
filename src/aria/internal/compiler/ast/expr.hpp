@@ -24,6 +24,7 @@ namespace Aria::Internal {
         Member,
         Self,
         Temporary,
+        Copy,
         Call,
         MethodCall,
         Paren,
@@ -222,10 +223,10 @@ namespace Aria::Internal {
 
     // TemporaryExpr
     // Represents a temporary expression
-    // eg. Print("Hello world");
+    // eg. print("Hello world");
     // Here "Hello world" will call a constructor that allocates memory and therefore its destructor needs to be called
     struct TemporaryExpr {
-        TemporaryExpr(Expr* expr, TypeInfo* type, Decl* destructor)
+        TemporaryExpr(Expr* expr, Decl* destructor)
             : Expression(expr), Destructor(destructor) {}
 
         Expr* Expression = nullptr;
@@ -233,7 +234,7 @@ namespace Aria::Internal {
     };
 
     struct CopyExpr {
-        CopyExpr(Expr* expr, TypeInfo* type, Decl* constructor)
+        CopyExpr(Expr* expr, Decl* constructor)
             : Expression(expr), Constructor(constructor) {}
 
         Expr* Expression = nullptr;
@@ -329,7 +330,7 @@ namespace Aria::Internal {
             ExprValueKind valueKind, TypeInfo* type, 
             T t) { return ctx->Allocate<Expr>(loc, range, kind, valueKind, type, t); }
 
-        static inline Expr* Copy(CompilationContext* ctx, Expr* other) {
+        static inline Expr* Dup(CompilationContext* ctx, Expr* other) {
             Expr* newExpr = ctx->Allocate<Expr>();
             memcpy(newExpr, other, sizeof(Expr));
             return newExpr;
@@ -355,6 +356,7 @@ namespace Aria::Internal {
             MemberExpr Member;
             SelfExpr Self;
             TemporaryExpr Temporary;
+            CopyExpr Copy;
             CallExpr Call;
             MethodCallExpr MethodCall;
             ParenExpr Paren;
@@ -397,6 +399,9 @@ namespace Aria::Internal {
 
         Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, TemporaryExpr temporary)
             : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Temporary(temporary) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, CopyExpr copy)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Copy(copy) {}
 
         Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, CallExpr call)
             : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Call(call) {}

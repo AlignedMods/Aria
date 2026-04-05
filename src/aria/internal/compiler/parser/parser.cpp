@@ -331,7 +331,7 @@ namespace Aria::Internal {
             case TokenKind::StrLit: {
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::StringConstant,
                     ExprValueKind::RValue, &StringType, 
-                    IntegerConstantExpr(t.Integer));
+                    StringConstantExpr(t.String));
             }
 
             case TokenKind::Identifier: {

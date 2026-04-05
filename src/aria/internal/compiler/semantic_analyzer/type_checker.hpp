@@ -108,6 +108,9 @@ namespace Aria::Internal {
         // Type used for expressions when an error has occured
         TypeInfo* m_ErrorType = nullptr;
 
+        Decl* m_BuiltInStringDestructor = nullptr;
+        Decl* m_BuiltInStringCopyConstructor = nullptr;
+
         std::vector<Scope> m_Scopes;
         TypeInfo* m_ActiveReturnType = nullptr;
         TypeInfo* m_ActiveStruct = nullptr;

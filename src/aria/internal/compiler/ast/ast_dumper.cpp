@@ -49,6 +49,10 @@ namespace Aria::Internal {
             m_Output += fmt::format("TemporaryExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
             DumpExpr(expr->Temporary.Expression, indentation + 4);
             return;
+        } else if (expr->Kind == ExprKind::Copy) {
+            m_Output += fmt::format("CopyExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
+            DumpExpr(expr->Copy.Expression, indentation + 4);
+            return;
         } else if (expr->Kind == ExprKind::Call) {
             m_Output += fmt::format("CallExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
             for (Expr* e : expr->Call.Arguments) {

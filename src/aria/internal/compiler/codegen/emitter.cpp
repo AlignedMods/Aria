@@ -209,37 +209,34 @@ namespace Aria::Internal {
     }
 
     void Emitter::EmitTemporaryExpr(Expr* expr, ExprValueKind valueKind) {
-        // TemporaryExpr* temp = GetNode<TemporaryExpr>(expr);
-        // 
-        // EmitExpr(temp->GetExpression(), valueKind);
-        // 
-        // // Create a new temporary
-        // m_PendingOpCodes.emplace_back(OpCodeKind::DeclareLocal, m_ActiveStackFrame.LocalCount);
-        // m_PendingOpCodes.emplace_back(OpCodeKind::LdLocal, m_ActiveStackFrame.LocalCount);
-        // 
-        // Declaration d;
-        // d.Type = temp->GetResolvedType();
-        // d.Data = m_ActiveStackFrame.LocalCount;
-        // d.Destructor = temp->GetDestructor();
-        // m_ActiveStackFrame.LocalCount++;
-        // 
-        // m_Temporaries.push_back(d);
-        ARIA_ASSERT(false, "todo!");
+        TemporaryExpr& temp = expr->Temporary;
+
+        EmitExpr(temp.Expression, valueKind);
+        
+        // Create a new temporary
+        m_PendingOpCodes.emplace_back(OpCodeKind::DeclareLocal, m_ActiveStackFrame.LocalCount);
+        m_PendingOpCodes.emplace_back(OpCodeKind::LdLocal, m_ActiveStackFrame.LocalCount);
+
+        Declaration d;
+        d.Type = temp.Expression->Type;
+        d.Data = m_ActiveStackFrame.LocalCount;
+        d.Destructor = temp.Destructor;
+        m_ActiveStackFrame.LocalCount++;
+        
+        m_Temporaries.push_back(d);
     }
 
     void Emitter::EmitCopyExpr(Expr* expr, ExprValueKind valueKind) {
-        // CopyExpr* copy = GetNode<CopyExpr>(expr);
-        // 
-        // EmitExpr(copy->GetExpression(), ExprValueKind::LValue);
-        // 
-        // if (BuiltinCopyConstructorDecl* builtin = GetNode<BuiltinCopyConstructorDecl>(copy->GetConstructor())) {
-        //     switch (builtin->GetKind()) {
-        //         case BuiltinCopyConstructorKind::String: m_PendingOpCodes.emplace_back(OpCodeKind::DupStr); break;
-        //         default: ARIA_UNREACHABLE();
-        //     }
-        // }
+        CopyExpr copy = expr->Copy;
 
-        ARIA_ASSERT(false, "todo!");
+        EmitExpr(copy.Expression, ExprValueKind::LValue);
+
+        if (copy.Constructor->Kind == DeclKind::BuiltinCopyConstructor) {
+            switch (copy.Constructor->BuiltinCopyConstructor.Kind) {
+                case BuiltinKind::String: m_PendingOpCodes.emplace_back(OpCodeKind::DupStr); break;
+                default: ARIA_UNREACHABLE();
+            }
+        }
     }
 
     void Emitter::EmitCallExpr(Expr* expr, ExprValueKind valueKind) {
@@ -461,6 +458,10 @@ namespace Aria::Internal {
             EmitDeclRefExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::Member) {
             EmitMemberExpr(expr, valueKind);
+        } else if (expr->Kind == ExprKind::Temporary) {
+            EmitTemporaryExpr(expr, valueKind);
+        } else if (expr->Kind == ExprKind::Copy) {
+            EmitCopyExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::Call) {
             EmitCallExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::MethodCall) {
@@ -480,6 +481,9 @@ namespace Aria::Internal {
         }
 
         if (expr->IsStmtExpr) {
+            EmitDestructors(m_Temporaries);
+            m_Temporaries.clear();
+
             if (!expr->Type->IsVoid()) {
                 m_PendingOpCodes.emplace_back(OpCodeKind::Pop);
             }
@@ -504,7 +508,7 @@ namespace Aria::Internal {
         d.Type = varDecl.Type;
         
         if (varDecl.Type->Type == PrimitiveType::String) {
-            ARIA_ASSERT(false, "todo!");
+            d.Destructor = Decl::Create(m_Context, SourceLocation(), SourceRange(), DeclKind::BuiltinDestructor, BuiltinDestructorDecl(BuiltinKind::String));
         }
 
         // We want to allocate the variables up front (at the start of the stack frame)
@@ -729,24 +733,24 @@ namespace Aria::Internal {
     }
 
     void Emitter::EmitDestructors(const std::vector<Declaration>& declarations) {
-        // for (auto it = declarations.rbegin(); it != declarations.rend(); it++) {
-        //     auto& decl = *it;
-        // 
-        //     if (decl.Destructor) {
-        //         if (std::holds_alternative<size_t>(decl.Data)) {
-        //             m_PendingOpCodes.emplace_back(OpCodeKind::LdPtrLocal, std::get<size_t>(decl.Data));
-        //         } else if (std::holds_alternative<std::string>(decl.Data)) {
-        //             m_PendingOpCodes.emplace_back(OpCodeKind::LdPtrGlobal, std::get<std::string>(decl.Data));
-        //         }
-        // 
-        //         if (BuiltinDestructorDecl* builtin = GetNode<BuiltinDestructorDecl>(decl.Destructor)) {
-        //             switch (builtin->GetKind()) {
-        //                 case BuiltinDestructorKind::String: m_PendingOpCodes.emplace_back(OpCodeKind::DestructStr); break;
-        //                 default: ARIA_UNREACHABLE();
-        //             }
-        //         }
-        //     }
-        // }
+        for (auto it = declarations.rbegin(); it != declarations.rend(); it++) {
+            auto& decl = *it;
+        
+            if (decl.Destructor) {
+                if (std::holds_alternative<size_t>(decl.Data)) {
+                    m_PendingOpCodes.emplace_back(OpCodeKind::LdPtrLocal, std::get<size_t>(decl.Data));
+                } else if (std::holds_alternative<std::string>(decl.Data)) {
+                    m_PendingOpCodes.emplace_back(OpCodeKind::LdPtrGlobal, std::get<std::string>(decl.Data));
+                }
+        
+                if (decl.Destructor->Kind == DeclKind::BuiltinDestructor) {
+                    switch (decl.Destructor->BuiltinDestructor.Kind) {
+                        case BuiltinKind::String: m_PendingOpCodes.emplace_back(OpCodeKind::DestructStr); break;
+                        default: ARIA_UNREACHABLE();
+                    }
+                }
+            }
+        }
     }
 
     void Emitter::PushStackFrame(const std::string& name) {

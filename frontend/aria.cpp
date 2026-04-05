@@ -29,10 +29,14 @@ int main(int argc, char** argv) {
     }
 
     bool compileOnly = false;
+    bool dumpAST = false;
+    bool dumpByteCode = false;
     const char* fileName = nullptr;
 
     for (int i = 0; i < argc; i++) {
         if (strcmp(argv[i], "-c") == 0) { compileOnly = true; }
+        else if (strcmp(argv[i], "-dump-ast") == 0) { dumpAST = true; }
+        else if (strcmp(argv[i], "-dump-bytecode") == 0) { dumpByteCode = true; }
         else { fileName = argv[i]; }
     }
     
@@ -44,9 +48,12 @@ int main(int argc, char** argv) {
     Aria::Context ctx;
     ctx.CompileFile(fileName, fileName);
 
+    if (dumpAST) { fmt::print("{}", ctx.DumpAST()); }
+    if (dumpByteCode) { fmt::print("{}", ctx.Disassemble()); }
+
     if (!compileOnly) {
-        ctx.AddExternalFunction("PrintInt()", PrintInt);
-        ctx.AddExternalFunction("Print()", Print);
+        ctx.AddExternalFunction("print_int()", PrintInt);
+        ctx.AddExternalFunction("print()", Print);
         ctx.Run();
 
         if (ctx.HasFunction("main()")) {

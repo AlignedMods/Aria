@@ -13,6 +13,7 @@ namespace Aria::Internal {
         struct Declaration {
             std::variant<size_t, std::string> Data;
             TypeInfo* Type = nullptr;
+            Decl* Destructor = nullptr;
         };
 
         struct RuntimeStructDeclaration {
