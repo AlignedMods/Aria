@@ -36,6 +36,11 @@ int main(int argc, char** argv) {
         else { fileName = argv[i]; }
     }
     
+    if (!fileName) {
+        fmt::print("No files to compile.");
+        return 1;
+    }
+
     Aria::Context ctx;
     ctx.CompileFile(fileName, fileName);
 
