@@ -115,8 +115,6 @@ namespace Aria::Internal {
         TypeInfo* m_ActiveReturnType = nullptr;
         TypeInfo* m_ActiveStruct = nullptr;
 
-        std::unordered_map<std::string, TypeInfo*> m_DeclaredTypes;
-
         bool m_TemporaryContext = false;
 
         CompilationContext* m_Context = nullptr;

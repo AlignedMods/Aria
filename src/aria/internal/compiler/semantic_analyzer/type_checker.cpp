@@ -13,9 +13,6 @@ namespace Aria::Internal {
         m_BuiltInStringDestructor = Decl::Create(m_Context, SourceLocation(), SourceRange(), DeclKind::BuiltinDestructor, BuiltinDestructorDecl(BuiltinKind::String));
         m_BuiltInStringCopyConstructor = Decl::Create(m_Context, SourceLocation(), SourceRange(), DeclKind::BuiltinCopyConstructor, BuiltinCopyConstructorDecl(BuiltinKind::String));
 
-        // We always want to have at least one map for declarations (global space)
-        m_Scopes.resize(1);
-
         HandleStmt(m_RootASTNode);
     }
 
@@ -52,6 +49,26 @@ namespace Aria::Internal {
             if (it.Declarations.contains(ident)) {
                 ref.Kind = it.Declarations.at(ident).DeclKind;
                 expr->Type = it.Declarations.at(ident).ResolvedType;
+                return;
+            }
+        }
+
+        for (Decl* global : m_Context->m_ActiveCompUnit->Globals) {
+            ARIA_ASSERT(global->Kind == DeclKind::Var, "Invalid global in Globals");
+
+            if (global->Var.Identifier == ref.Identifier) {
+                ref.Kind = DeclRefKind::GlobalVar;
+                expr->Type = global->Var.Type;
+                return;
+            }
+        }
+
+        for (Decl* func : m_Context->m_ActiveCompUnit->Funcs) {
+            ARIA_ASSERT(func->Kind == DeclKind::Function, "Invalid function in Funcs");
+
+            if (func->Function.Identifier == ref.Identifier) {
+                ref.Kind = DeclRefKind::Function;
+                expr->Type = func->Function.Type;
                 return;
             }
         }
@@ -389,16 +406,15 @@ namespace Aria::Internal {
 
         HandleInitializer(varDecl.DefaultValue, varDecl.Type, false);
 
-        DeclRefKind kind = DeclRefKind::LocalVar;
-        if (m_Scopes.size() == 1) {
-            kind = DeclRefKind::GlobalVar;
-        }
-        
-        if (m_Scopes.back().Declarations.contains(ident)) {
-            m_Context->ReportCompilerError(decl->Loc, decl->Range, fmt::format("Redeclaring symbol '{}'", ident));
-        }
+        if (m_Scopes.size() == 0) {
+            m_Context->m_ActiveCompUnit->Globals.push_back(decl);
+        } else {
+            if (m_Scopes.back().Declarations.contains(ident)) {
+                m_Context->ReportCompilerError(decl->Loc, decl->Range, fmt::format("Redeclaring symbol '{}'", ident));
+            }
 
-        m_Scopes.back().Declarations[ident] = { varDecl.Type, decl, kind };
+            m_Scopes.back().Declarations[ident] = { varDecl.Type, decl, DeclRefKind::LocalVar };
+        }
     }
 
     void TypeChecker::HandleParamDecl(Decl* decl) {
@@ -411,21 +427,25 @@ namespace Aria::Internal {
         
         std::string ident = fmt::format("{}", fnDecl.Identifier);
 
-        if (m_Scopes.back().Declarations.contains(ident)) {
-            TypeInfo* type = m_Scopes.back().Declarations.at(ident).ResolvedType;
+        FunctionDecl* prevDecl = nullptr;
+        for (Decl* func : m_Context->m_ActiveCompUnit->Funcs) {
+            ARIA_ASSERT(func->Kind == DeclKind::Function, "Invalid function in Funcs");
+
+            if (func->Function.Identifier == fnDecl.Identifier) { prevDecl = &func->Function; }
+        }
+
+        if (prevDecl) {
+            TypeInfo* type = prevDecl->Type;
             if (!TypeIsEqual(fnDecl.Type, type)) {
                 m_Context->ReportCompilerError(decl->Loc, decl->Range, fmt::format("Redeclaring function '{}' with different type '{}'", ident, TypeInfoToString(fnDecl.Type)));
             } else {
-                Decl* prevDecl = m_Scopes.back().Declarations.at(ident).SourceDeclaration;
-                ARIA_ASSERT(prevDecl->Kind == DeclKind::Function, "Previous declaration of function must be a function declaration");
-
-                if (prevDecl->Function.Body != nullptr) {
+                if (prevDecl->Body != nullptr) {
                     m_Context->ReportCompilerError(decl->Loc, decl->Range, fmt::format("Redefining function body of '{}'", ident));
                 }
             }
         }
 
-        m_Scopes.back().Declarations[ident] = { fnDecl.Type, decl, DeclRefKind::Function };
+        m_Context->m_ActiveCompUnit->Funcs.push_back(decl);
 
         if (fnDecl.Body) {
             m_ActiveReturnType = std::get<FunctionDeclaration>(fnDecl.Type->Data).ReturnType;
@@ -457,7 +477,7 @@ namespace Aria::Internal {
             if (field->Kind == DeclKind::Field) {}
         }
         
-        m_DeclaredTypes[fmt::format("{}", s.Identifier)] = structType;
+        m_Context->m_ActiveCompUnit->Structs.push_back(decl);
         m_ActiveStruct = TypeInfo::Create(m_Context, structType->Type, true, structType->Data);
         
         // for (MethodDecl* md : methods) {
@@ -500,6 +520,8 @@ namespace Aria::Internal {
         if(decl->Kind == DeclKind::Error) { return; }
         else if (decl->Kind == DeclKind::TranslationUnit) {
             return HandleTranslationUnitDecl(decl);
+        } else if (decl->Kind == DeclKind::Module) {
+            return;
         } else if (decl->Kind == DeclKind::Var) {
             return HandleVarDecl(decl);
         } else if (decl->Kind == DeclKind::Param) {
@@ -616,6 +638,9 @@ namespace Aria::Internal {
     void TypeChecker::HandleStmt(Stmt* stmt) {
         if (stmt->Kind == StmtKind::Error) { return; }
         else if (stmt->Kind == StmtKind::Nop) { return; }
+        else if (stmt->Kind == StmtKind::Import) {
+            return;
+        }
         else if (stmt->Kind == StmtKind::Block) {
             PushScope();
             HandleBlockStmt(stmt);
@@ -690,11 +715,17 @@ namespace Aria::Internal {
 
     void TypeChecker::PushScope(bool allowBreak, bool allowContinue) {
         Scope s;
-        if (m_Scopes.back().AllowBreakStmt) { s.AllowBreakStmt = true; }
-        else { s.AllowBreakStmt = allowBreak; }
 
-        if (m_Scopes.back().AllowContinueStmt) { s.AllowContinueStmt = true; }
-        else { s.AllowContinueStmt = allowContinue; }
+        if (m_Scopes.size() > 0) {
+            if (m_Scopes.back().AllowBreakStmt) { s.AllowBreakStmt = true; }
+            else { s.AllowBreakStmt = allowBreak; }
+
+            if (m_Scopes.back().AllowContinueStmt) { s.AllowContinueStmt = true; }
+            else { s.AllowContinueStmt = allowContinue; }
+        } else {
+            s.AllowBreakStmt = allowBreak;
+            s.AllowContinueStmt = allowContinue;
+        }
 
         m_Scopes.push_back(s);
     }

@@ -9,6 +9,7 @@ namespace Aria::Internal {
 
         Error,
         TranslationUnit,
+        Module,
         Var,
         Param,
         Function,
@@ -39,6 +40,13 @@ namespace Aria::Internal {
             : Stmts(stmts) {}
 
         TinyVector<Stmt*> Stmts;
+    };
+
+    struct ModuleDecl {
+        ModuleDecl(StringView name)
+            : Name(name) {}
+
+        StringView Name;
     };
 
     struct VarDecl {
@@ -122,6 +130,7 @@ namespace Aria::Internal {
         union {
             ErrorDecl Error;
             TranslationUnitDecl TranslationUnit;
+            ModuleDecl Module;
             VarDecl Var;
             ParamDecl Param;
             FunctionDecl Function;
@@ -137,6 +146,9 @@ namespace Aria::Internal {
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, TranslationUnitDecl translationUnit)
             : Loc(loc), Range(range), Kind(kind), TranslationUnit(translationUnit) {}
+
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, ModuleDecl module)
+            : Loc(loc), Range(range), Kind(kind), Module(module) {}
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, VarDecl var)
             : Loc(loc), Range(range), Kind(kind), Var(var) {}

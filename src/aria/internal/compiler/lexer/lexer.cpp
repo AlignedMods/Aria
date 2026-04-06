@@ -418,6 +418,8 @@ namespace Aria::Internal {
         if (str == "true")     { AddToken(TokenKind::True,   SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "true");   return; }
         if (str == "false")    { AddToken(TokenKind::False,  SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "false");  return; }
 
+        if (str == "module")   { AddToken(TokenKind::Module, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "module"); return; }
+        if (str == "import")   { AddToken(TokenKind::Import, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "import"); return; }
         if (str == "if")       { AddToken(TokenKind::If,     SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "if");     return; }
         if (str == "else")     { AddToken(TokenKind::Else,   SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "else");   return; }
         if (str == "while")    { AddToken(TokenKind::While,  SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "while");  return; }

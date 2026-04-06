@@ -13,6 +13,7 @@ namespace Aria::Internal {
 
         Error,
         Nop,
+        Import,
         Block,
         While,
         DoWhile,
@@ -35,6 +36,13 @@ namespace Aria::Internal {
 
     struct NopStmt {
         NopStmt() = default;
+    };
+
+    struct ImportStmt {
+        ImportStmt(StringView name)
+            : Name(name) {}
+
+        StringView Name;
     };
 
     struct BlockStmt {
@@ -107,6 +115,7 @@ namespace Aria::Internal {
         union {
             ErrorStmt Error;
             NopStmt Nop;
+            ImportStmt Import;
             BlockStmt Block;
             WhileStmt While;
             DoWhileStmt DoWhile;
@@ -124,6 +133,9 @@ namespace Aria::Internal {
 
         Stmt(StmtKind kind, SourceLocation loc, SourceRange range, NopStmt nop)
             : Kind(kind), Loc(loc), Range(range), Nop(nop) {}
+
+        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, ImportStmt import)
+            : Kind(kind), Loc(loc), Range(range), Import(import) {}
 
         Stmt(StmtKind kind, SourceLocation loc, SourceRange range, BlockStmt block)
             : Kind(kind), Loc(loc), Range(range), Block(block) {}

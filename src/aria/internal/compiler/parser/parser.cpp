@@ -762,6 +762,31 @@ namespace Aria::Internal {
         return nullptr;
     }
 
+    Decl* Parser::ParseModuleDecl() {
+        Token& mod = Consume(); // Consume "module"
+
+        Token* ident = TryConsume(TokenKind::Identifier, "identifier");
+        if (!ident) { return m_ErrorDecl; }
+
+        TryConsume(TokenKind::Semi, ";");
+
+        m_Context->GetCompilationUnit()->Name = fmt::format("{}", ident->String);
+        return Decl::Create(m_Context, ident->Range.Start, SourceRange(mod.Range.Start, Peek(-1)->Range.End), DeclKind::Module, ModuleDecl(ident->String));
+    }
+
+    Stmt* Parser::ParseImportStmt() {
+        Token& imp = Consume(); // Consume "import"
+
+        Token* ident = TryConsume(TokenKind::Identifier, "identifier");
+        if (!ident) { return m_ErrorStmt; }
+
+        TryConsume(TokenKind::Semi, ";");
+
+        Stmt* import = Stmt::Create(m_Context, ident->Range.Start, SourceRange(ident->Range.Start, Peek(-1)->Range.End), StmtKind::Import, ImportStmt(ident->String));
+        m_Context->GetCompilationUnit()->Imports.push_back(import);
+        return import;
+    }
+
     Decl* Parser::ParseVariableDecl() {
         if (!IsType()) {
             m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type");
@@ -909,6 +934,16 @@ namespace Aria::Internal {
 
     Stmt* Parser::ParseGlobal() {
         switch (Peek()->Kind) {
+            case TokenKind::Module: {
+                Decl* d = ParseModuleDecl();
+                if (!DeclOk(d)) { SyncGlobal(); return m_ErrorStmt; }
+
+                return Stmt::Create(m_Context, d->Loc, d->Range, StmtKind::Decl, d);
+            }
+
+            case TokenKind::Import:
+                return ParseImportStmt();
+
             case TokenKind::Void:
             case TokenKind::Bool:
             case TokenKind::Char:

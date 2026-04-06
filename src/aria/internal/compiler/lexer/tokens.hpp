@@ -49,6 +49,8 @@ namespace Aria::Internal {
         // ^^^ Literals and constants ^^^ //
 
         // VVV Keywords VVV //
+        Module,
+        Import,
         If,
         Else,
         While,
@@ -138,6 +140,8 @@ namespace Aria::Internal {
             // ^^^ Literals and constants ^^^ //
 
             // VVV Keywords VVV //
+            case TokenKind::Module: return "module";
+            case TokenKind::Import: return "import";
             case TokenKind::If: return "if";
             case TokenKind::Else: return "else";
             case TokenKind::While: return "while";

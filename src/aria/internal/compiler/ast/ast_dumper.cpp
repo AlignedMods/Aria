@@ -116,6 +116,9 @@ namespace Aria::Internal {
                 DumpStmt(stmt, indentation + 4);
             }
             return;
+        } else if (decl->Kind == DeclKind::Module) {
+            m_Output += fmt::format("ModuleDecl '{}'\n", decl->Module.Name);
+            return;
         } else if (decl->Kind == DeclKind::Var) {
             m_Output += fmt::format("VarDecl '{}' '{}'\n", decl->Var.Identifier, TypeInfoToString(decl->Var.Type));
             if (decl->Var.DefaultValue) {
@@ -178,6 +181,9 @@ namespace Aria::Internal {
         }
         else if (stmt->Kind == StmtKind::Nop) {
             m_Output += fmt::format("NopStmt\n");
+            return;
+        } else if (stmt->Kind == StmtKind::Import) {
+            m_Output += fmt::format("ImportStmt '{}'\n", stmt->Import.Name);
             return;
         } else if (stmt->Kind == StmtKind::Block) {
             m_Output += fmt::format("BlockStmt\n");

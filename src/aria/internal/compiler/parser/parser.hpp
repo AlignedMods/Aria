@@ -62,6 +62,8 @@ namespace Aria::Internal {
         Stmt* ParseStatement();
 
         // Declarations
+        Decl* ParseModuleDecl();
+        Stmt* ParseImportStmt();
         Decl* ParseVariableDecl();
         Decl* ParseFunctionDecl();
         Decl* ParseStructDecl();

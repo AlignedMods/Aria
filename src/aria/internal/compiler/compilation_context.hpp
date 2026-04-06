@@ -42,7 +42,10 @@ namespace Aria::Internal {
         std::vector<Decl*> Funcs;
         std::vector<Decl*> Structs;
 
+        std::vector<Stmt*> Imports;
+
         size_t Index = 0;
+        std::string Name;
     };
 
     class CompilationContext {

@@ -6,6 +6,28 @@ namespace Aria::Internal {
         m_Context = ctx;
         m_RootASTNode = ctx->GetRootASTNode();
 
+        for (Stmt* stmt : m_Context->m_ActiveCompUnit->Imports) {
+            ARIA_ASSERT(stmt->Kind == StmtKind::Import, "Invalid Stmt in imports");
+
+            CompilationUnit* unit = nullptr;
+
+            for (auto& compUnit : m_Context->m_CompilationUnits) {
+                if (compUnit.Name == stmt->Import.Name) {
+                    unit = &compUnit;
+                }
+            }
+
+            if (!unit) {
+                m_Context->ReportCompilerError(stmt->Loc, stmt->Range, fmt::format("Could not find module '{}'", stmt->Import.Name));
+            } else {
+                // Merge declarations
+                CompilationUnit* currentUnit = m_Context->m_ActiveCompUnit;
+                currentUnit->Globals.insert(currentUnit->Globals.end(), unit->Globals.begin(), unit->Globals.end());
+                currentUnit->Funcs.insert(currentUnit->Funcs.end(), unit->Funcs.begin(), unit->Funcs.end());
+                currentUnit->Structs.insert(currentUnit->Structs.end(), unit->Structs.begin(), unit->Structs.end());
+            }
+        }
+
         m_TypeChecker.CheckImpl();
         AnalyzeImpl();
     }
@@ -83,6 +105,8 @@ namespace Aria::Internal {
         if (decl->Kind == DeclKind::Error) { return; }
         else if (decl->Kind == DeclKind::TranslationUnit) {
             return HandleTranslationUnitDecl(decl);
+        } else if (decl->Kind == DeclKind::Module) {
+            return;
         } else if (decl->Kind == DeclKind::Var) {
             return HandleVarDecl(decl);
         } else if (decl->Kind == DeclKind::Param) {
@@ -146,6 +170,7 @@ namespace Aria::Internal {
     void SemanticAnalyzer::HandleStmt(Stmt* stmt) {
         if (stmt->Kind == StmtKind::Error) { return; }
         else if (stmt->Kind == StmtKind::Nop) { return; }
+        else if (stmt->Kind == StmtKind::Import) { return; }
         else if (stmt->Kind == StmtKind::Block) {
             return HandleBlockStmt(stmt);
         } else if (stmt->Kind == StmtKind::While) {

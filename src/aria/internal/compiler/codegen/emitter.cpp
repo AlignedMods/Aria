@@ -575,6 +575,8 @@ namespace Aria::Internal {
     void Emitter::EmitDecl(Decl* decl) {
         if (decl->Kind == DeclKind::TranslationUnit) {
             return EmitTranslationUnitDecl(decl);
+        } else if (decl->Kind == DeclKind::Module) {
+            return;
         } else if (decl->Kind == DeclKind::Var) {
             return EmitVarDecl(decl);
         } else if (decl->Kind == DeclKind::Param) {
@@ -697,6 +699,7 @@ namespace Aria::Internal {
 
     void Emitter::EmitStmt(Stmt* stmt) {
         if (stmt->Kind == StmtKind::Nop) { return; }
+        else if (stmt->Kind == StmtKind::Import) { return; }
         else if (stmt->Kind == StmtKind::Block) {
             PushScope();
             EmitBlockStmt(stmt);
