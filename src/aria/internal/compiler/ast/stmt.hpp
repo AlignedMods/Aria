@@ -30,6 +30,8 @@ namespace Aria::Internal {
     struct Decl;
     struct Stmt;
 
+    struct CompilationUnit;
+
     struct ErrorStmt {
         ErrorStmt() = default;
     };
@@ -43,6 +45,7 @@ namespace Aria::Internal {
             : Name(name) {}
 
         StringView Name;
+        CompilationUnit* Module = nullptr;
     };
 
     struct BlockStmt {

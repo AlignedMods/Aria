@@ -59,6 +59,7 @@ namespace Aria {
         m_ActiveModule = newModule;
 
         CompileFileRaw(contents, path);
+        m_ActiveModule->CompilationContext.FinishCompilation();
 
         m_Modules[path] = newModule;
     }
@@ -80,6 +81,22 @@ namespace Aria {
             ss.flush();
 
             CompileFileRaw(contents, path);
+        }
+
+        m_ActiveModule->CompilationContext.FinishCompilation();
+
+        for (size_t i = 0; i < paths.size(); i++) {
+            // Handle compiler errors
+            auto& unit = m_ActiveModule->CompilationContext.m_CompilationUnits[i];
+            for (auto& error : unit.Errors) {
+                fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", paths[i], error.Line, error.Column);
+                fmt::print(fg(fmt::color::pale_violet_red), "error: ");
+                fmt::print("{}\n", error.Error);
+
+                // fmt format strings from: https://hackingcpp.com/cpp/libs/fmt
+                fmt::print(" {:6} | {}\n", error.Line, GetLine(unit.Source, error.Line));
+                fmt::print("        | {:>{w}}\n", "^", fmt::arg("w", error.Column));
+            }
         }
 
         m_Modules[module] = src;
@@ -291,34 +308,7 @@ namespace Aria {
     }
 
     void Context::CompileFileRaw(const std::string& source, const std::string& filename) {
-        bool valid = true;
-
-        m_ActiveModule->CompilationContext.Compile(source);
-
-        // Handle compiler errors
-        auto& errors = m_ActiveModule->CompilationContext.GetCompilerErrors();
-        for (auto& error : errors) {
-            fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", filename, error.Line, error.Column);
-            fmt::print(fg(fmt::color::pale_violet_red), "error: ");
-            fmt::print("{}\n", error.Error);
-
-            // fmt format strings from: https://hackingcpp.com/cpp/libs/fmt
-            fmt::print(" {:6} | {}\n", error.Line, GetLine(source, error.Line));
-            fmt::print("        | {:>{w}}\n", "^", fmt::arg("w", error.Column));
-        }
-
-        m_ActiveModule->VM.AddExtern("bl__array__init__", Aria::Internal::bl__array__init__);
-        m_ActiveModule->VM.AddExtern("bl__array__destruct__", Aria::Internal::bl__array__destruct__);
-        m_ActiveModule->VM.AddExtern("bl__array__copy__", Aria::Internal::bl__array__copy__);
-
-        m_ActiveModule->VM.AddExtern("bl__array__append__", Aria::Internal::bl__array__append__);
-        m_ActiveModule->VM.AddExtern("bl__array__index__", Aria::Internal::bl__array__index__);
-
-        m_ActiveModule->VM.AddExtern("bl__string__construct__", Aria::Internal::bl__string__construct__);
-        m_ActiveModule->VM.AddExtern("bl__string__construct_from_literal__", Aria::Internal::bl__string__construct_from_literal__);
-
-        m_ActiveModule->VM.AddExtern("bl__string__copy__", Aria::Internal::bl__string__copy__);
-        m_ActiveModule->VM.AddExtern("bl__string__assign__", Aria::Internal::bl__string__assign__);
+        m_ActiveModule->CompilationContext.CompileFile(source);
     }
 
     void Context::ReportRuntimeError(const std::string& error) {

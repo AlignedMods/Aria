@@ -6,6 +6,10 @@
 #include "aria/internal/vm/op_codes.hpp"
 #include "aria/internal/compiler/reflection/compiler_reflection.hpp"
 
+namespace Aria {
+    struct Context;
+}
+
 namespace Aria::Internal {
 
     struct Stmt;
@@ -109,10 +113,12 @@ namespace Aria::Internal {
             m_ActiveCompUnit->Errors.push_back(e);
         }
     
-        void Compile(const std::string& source);
+        void CompileFile(const std::string& source);
+        void FinishCompilation();
 
         void Lex();
         void Parse();
+        void AnalyzeDependencies();
         void Analyze();
         void Emit();
         void Link();
@@ -120,6 +126,7 @@ namespace Aria::Internal {
     private:
         Allocator* m_Allocator = nullptr;
         std::vector<CompilationUnit> m_CompilationUnits;
+        std::vector<CompilationUnit*> m_OrderedCompilationUnits;
         CompilationUnit* m_ActiveCompUnit = nullptr;
 
         friend class Lexer;
@@ -128,6 +135,7 @@ namespace Aria::Internal {
         friend class SemanticAnalyzer;
         friend class Emitter;
         friend class Linker;
+        friend struct Aria::Context;
     };
 
 } // namespace Aria::Internal

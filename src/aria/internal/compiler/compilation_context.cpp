@@ -7,7 +7,7 @@
 
 namespace Aria::Internal {
 
-    void CompilationContext::Compile(const std::string& source) {
+    void CompilationContext::CompileFile(const std::string& source) {
         m_CompilationUnits.emplace_back(source);
         m_ActiveCompUnit = &m_CompilationUnits.back();
 
@@ -15,15 +15,27 @@ namespace Aria::Internal {
 
         Lex();
         Parse();
-        Analyze();
+    }
 
-        if (m_ActiveCompUnit->Errors.empty()) { Emit(); }
+    void CompilationContext::FinishCompilation() {
+        for (auto& unit : m_CompilationUnits) {
+            m_ActiveCompUnit = &unit;
+            AnalyzeDependencies();
+        }
+
+        for (CompilationUnit* unit : m_OrderedCompilationUnits) {
+            m_ActiveCompUnit = unit;
+            Analyze();
+            if (m_ActiveCompUnit->Errors.empty()) { Emit(); }
+        }
+
         if (m_ActiveCompUnit->Errors.empty()) { Link(); }
     }
 
     void CompilationContext::Lex() { Lexer l(this); }
     void CompilationContext::Parse() { Parser p(this); }
-    void CompilationContext::Analyze() { SemanticAnalyzer s(this); }
+    void CompilationContext::AnalyzeDependencies() { SemanticAnalyzer s(this); s.ResolveDependencies(); }
+    void CompilationContext::Analyze() { SemanticAnalyzer s(this); s.Analyze(); }
     void CompilationContext::Emit() { Emitter e(this); }
     void CompilationContext::Link() { Linker l(this); }
 
