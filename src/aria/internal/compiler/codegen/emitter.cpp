@@ -10,15 +10,16 @@ namespace Aria::Internal {
     }
 
     void Emitter::EmitImpl() {
+        const std::string& startSig = fmt::format("_start${}()", m_Context->GetCompilationUnit()->Index);
+        const std::string& endSig = fmt::format("_end${}()", m_Context->GetCompilationUnit()->Index);
+
         // VVV _start$() VVV //
-        m_OpCodes.emplace_back(OpCodeKind::Function, "_start$()");
-        m_OpCodes.emplace_back(OpCodeKind::Label,    "_entry$");
+        m_OpCodes.emplace_back(OpCodeKind::Function, startSig);
+        m_OpCodes.emplace_back(OpCodeKind::Label, "_entry$");
         m_OpCodes.emplace_back(OpCodeKind::PushSF);
-        PushStackFrame("_start$()");
+        PushStackFrame(startSig);
 
         EmitStmt(m_RootASTNode);
-
-        m_OpCodes.emplace_back(OpCodeKind::Comment, "^^^ End of allocations VVV");
 
         MergePendingOpCodes();
 
@@ -27,10 +28,10 @@ namespace Aria::Internal {
         // ^^^ _start$() ^^^ //
 
         // VVV _end$() VVV //
-        m_OpCodes.emplace_back(OpCodeKind::Function, "_end$()");
-        m_OpCodes.emplace_back(OpCodeKind::Label,    "_entry$");
+        m_OpCodes.emplace_back(OpCodeKind::Function, endSig);
+        m_OpCodes.emplace_back(OpCodeKind::Label, "_entry$");
         m_OpCodes.emplace_back(OpCodeKind::PushSF);
-        PushStackFrame("_end$()");
+        PushStackFrame(endSig);
 
         EmitDestructors(m_GlobalScope.DeclaredSymbols);
 

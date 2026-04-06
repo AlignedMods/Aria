@@ -51,14 +51,15 @@ namespace Aria::Internal {
     }
 
     VM::~VM() {
-        const std::string& signature = "_end$()";
+        // TODO: Add support for calling all _end$...() functions
+        const std::string& signature = "_end$0()";
 
         if (m_Functions.contains(signature)) {
             VMFunction& func = m_Functions.at(signature);
             m_ActiveFunction = &func;
 
             // Perform a jump to the function
-            ARIA_ASSERT(func.Labels.contains("_entry$"), "_end$() function doesn't contain a \"_entry$\" label");
+            ARIA_ASSERT(func.Labels.contains("_entry$"), "_end$0() function doesn't contain a \"_entry$\" label");
             m_ProgramCounter = func.Labels.at("_entry$");
             Run();
         }
@@ -348,14 +349,15 @@ namespace Aria::Internal {
 
         RunPrepass();
 
-        const std::string& signature = "_start$()";
+        // TODO: Add support for calling all _start$...() functions
+        const std::string& signature = "_start$0()";
 
-        ARIA_ASSERT(m_Functions.contains(signature), "Byte code does not contain _start$() function");
+        ARIA_ASSERT(m_Functions.contains(signature), "Byte code does not contain _start$0() function");
         VMFunction& func = m_Functions.at(signature);
         m_ActiveFunction = &func;
 
         // Perform a jump to the function
-        ARIA_ASSERT(func.Labels.contains("_entry$"), "_start$() function doesn't contain a \"_entry$\" label");
+        ARIA_ASSERT(func.Labels.contains("_entry$"), "_start$0() function doesn't contain a \"_entry$\" label");
         m_ProgramCounter = func.Labels.at("_entry$");
         Run();
     }

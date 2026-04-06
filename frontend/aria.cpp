@@ -31,22 +31,22 @@ int main(int argc, char** argv) {
     bool compileOnly = false;
     bool dumpAST = false;
     bool dumpByteCode = false;
-    const char* fileName = nullptr;
+    std::vector<std::string> files;
 
-    for (int i = 0; i < argc; i++) {
+    for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-c") == 0) { compileOnly = true; }
         else if (strcmp(argv[i], "-dump-ast") == 0) { dumpAST = true; }
         else if (strcmp(argv[i], "-dump-bytecode") == 0) { dumpByteCode = true; }
-        else { fileName = argv[i]; }
+        else { files.push_back(argv[i]); }
     }
     
-    if (!fileName) {
+    if (files.size() == 0) {
         fmt::print("No files to compile.");
         return 1;
     }
 
     Aria::Context ctx;
-    ctx.CompileFile(fileName, fileName);
+    ctx.CompileFiles(files, files.front());
 
     if (dumpAST) { fmt::print("{}", ctx.DumpAST()); }
     if (dumpByteCode) { fmt::print("{}", ctx.Disassemble()); }
@@ -61,5 +61,5 @@ int main(int argc, char** argv) {
         }
     }
     
-    ctx.FreeModule(fileName);
+    ctx.FreeModule(files.front());
 }

@@ -32,8 +32,8 @@ namespace Aria {
         Context();
         static Context Create();
 
-        void CompileFile(const std::string& path,     const std::string& module);
-        void CompileString(const std::string& source, const std::string& module);
+        void CompileFile(const std::string& path);
+        void CompileFiles(const std::vector<std::string>& paths, const std::string& module);
 
         // Sets up the current module which will be used up until the next
         // SetActiveModule call
@@ -93,6 +93,7 @@ namespace Aria {
         void SetCompilerErrorHandler(CompilerErrorHandlerFn fn);
 
     private:
+        void CompileFileRaw(const std::string& source, const std::string& filename);
         void ReportRuntimeError(const std::string& error);
 
         friend class Internal::VM;

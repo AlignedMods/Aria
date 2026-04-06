@@ -27,8 +27,8 @@ namespace Aria {
     }
 
     struct Module {
-        Module(Context* ctx, const std::string& sourceCode)
-            : VM(ctx), CompilationContext(sourceCode) {}
+        Module(Context* ctx)
+            : VM(ctx), CompilationContext() {}
 
         Internal::CompilationContext CompilationContext;
         std::string ModuleName;
@@ -43,7 +43,7 @@ namespace Aria {
         return ctx;
     }
 
-    void Context::CompileFile(const std::string& path, const std::string& module) {
+    void Context::CompileFile(const std::string& path) {
         std::ifstream file(path);
         if (!file.is_open()) {
             fmt::print(fmt::fg(fmt::color::pale_violet_red), "Failed to open file: {}!\n", path);
@@ -55,41 +55,32 @@ namespace Aria {
         std::string contents = ss.str();
         ss.flush();
 
-        CompileString(contents, module);
+        Module* newModule = new Module(this);
+        m_ActiveModule = newModule;
+
+        CompileFileRaw(contents, path);
+
+        m_Modules[path] = newModule;
     }
 
-    void Context::CompileString(const std::string& source, const std::string& module) {
-        bool valid = true;
-
-        Module* src = new Module(this, source);
+    void Context::CompileFiles(const std::vector<std::string>& paths, const std::string& module) {
+        Module* src = new Module(this);
         m_ActiveModule = src;
 
-        src->CompilationContext.Compile();
+        for (const auto& path : paths) {
+            std::ifstream file(path);
+            if (!file.is_open()) {
+                fmt::print(fmt::fg(fmt::color::pale_violet_red), "Failed to open file: {}!\n", path);
+                return;
+            }
 
-        // Handle compiler errors
-        auto& errors = src->CompilationContext.GetCompilerErrors();
-        for (auto& error : errors) {
-            fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", module, error.Line, error.Column);
-            fmt::print(fg(fmt::color::pale_violet_red), "error: ");
-            fmt::print("{}\n", error.Error);
+            std::stringstream ss;
+            ss << file.rdbuf();
+            std::string contents = ss.str();
+            ss.flush();
 
-            // fmt format strings from: https://hackingcpp.com/cpp/libs/fmt
-            fmt::print(" {:6} | {}\n", error.Line, GetLine(source, error.Line));
-            fmt::print("        | {:>{w}}\n", "^", fmt::arg("w", error.Column));
+            CompileFileRaw(contents, path);
         }
-
-        src->VM.AddExtern("bl__array__init__", Aria::Internal::bl__array__init__);
-        src->VM.AddExtern("bl__array__destruct__", Aria::Internal::bl__array__destruct__);
-        src->VM.AddExtern("bl__array__copy__", Aria::Internal::bl__array__copy__);
-
-        src->VM.AddExtern("bl__array__append__", Aria::Internal::bl__array__append__);
-        src->VM.AddExtern("bl__array__index__", Aria::Internal::bl__array__index__);
-
-        src->VM.AddExtern("bl__string__construct__", Aria::Internal::bl__string__construct__);
-        src->VM.AddExtern("bl__string__construct_from_literal__", Aria::Internal::bl__string__construct_from_literal__);
-
-        src->VM.AddExtern("bl__string__copy__", Aria::Internal::bl__string__copy__);
-        src->VM.AddExtern("bl__string__assign__", Aria::Internal::bl__string__assign__);
 
         m_Modules[module] = src;
     }
@@ -297,6 +288,37 @@ namespace Aria {
 
     void Context::SetCompilerErrorHandler(CompilerErrorHandlerFn fn) {
         m_CompilerErrorHandler = fn;
+    }
+
+    void Context::CompileFileRaw(const std::string& source, const std::string& filename) {
+        bool valid = true;
+
+        m_ActiveModule->CompilationContext.Compile(source);
+
+        // Handle compiler errors
+        auto& errors = m_ActiveModule->CompilationContext.GetCompilerErrors();
+        for (auto& error : errors) {
+            fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", filename, error.Line, error.Column);
+            fmt::print(fg(fmt::color::pale_violet_red), "error: ");
+            fmt::print("{}\n", error.Error);
+
+            // fmt format strings from: https://hackingcpp.com/cpp/libs/fmt
+            fmt::print(" {:6} | {}\n", error.Line, GetLine(source, error.Line));
+            fmt::print("        | {:>{w}}\n", "^", fmt::arg("w", error.Column));
+        }
+
+        m_ActiveModule->VM.AddExtern("bl__array__init__", Aria::Internal::bl__array__init__);
+        m_ActiveModule->VM.AddExtern("bl__array__destruct__", Aria::Internal::bl__array__destruct__);
+        m_ActiveModule->VM.AddExtern("bl__array__copy__", Aria::Internal::bl__array__copy__);
+
+        m_ActiveModule->VM.AddExtern("bl__array__append__", Aria::Internal::bl__array__append__);
+        m_ActiveModule->VM.AddExtern("bl__array__index__", Aria::Internal::bl__array__index__);
+
+        m_ActiveModule->VM.AddExtern("bl__string__construct__", Aria::Internal::bl__string__construct__);
+        m_ActiveModule->VM.AddExtern("bl__string__construct_from_literal__", Aria::Internal::bl__string__construct_from_literal__);
+
+        m_ActiveModule->VM.AddExtern("bl__string__copy__", Aria::Internal::bl__string__copy__);
+        m_ActiveModule->VM.AddExtern("bl__string__assign__", Aria::Internal::bl__string__assign__);
     }
 
     void Context::ReportRuntimeError(const std::string& error) {
