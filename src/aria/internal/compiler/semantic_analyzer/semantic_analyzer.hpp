@@ -46,10 +46,12 @@ namespace Aria::Internal {
         SemanticAnalyzer(CompilationContext* ctx);
 
         void ResolveDependencies();
-        void AddUnit(CompilationUnit* unit);
         void Analyze();
 
     private:
+        void AddUnit(CompilationUnit* unit);
+        void ResolveUnit(CompilationUnit* unit);
+
         void ResolveBooleanConstantExpr(Expr* expr);
         void ResolveCharacterConstantExpr(Expr* expr);
         void ResolveIntegerConstantExpr(Expr* expr);
@@ -103,10 +105,9 @@ namespace Aria::Internal {
         size_t TypeGetSize(TypeInfo* t); // NOTE: works only on trivial types
 
     private:
-        Stmt* m_RootASTNode = nullptr;
+        std::unordered_map<std::string, bool> m_ImportedModules;
 
-        // Type used for expressions when an error has occured
-        TypeInfo* m_ErrorType = nullptr;
+        Stmt* m_RootASTNode = nullptr;
 
         Decl* m_BuiltInStringDestructor = nullptr;
         Decl* m_BuiltInStringCopyConstructor = nullptr;

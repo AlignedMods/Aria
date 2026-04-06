@@ -6,6 +6,7 @@
 #include "aria/internal/compiler/reflection/compiler_reflection.hpp"
 #include "aria/internal/stdlib/array.hpp"
 #include "aria/internal/stdlib/string.hpp"
+#include "aria/internal/stdlib/io.hpp"
 #include "aria/internal/vm/vm.hpp"
 #include "aria/internal/vm/op_codes.hpp"
 
@@ -100,6 +101,12 @@ namespace Aria {
         }
 
         m_Modules[module] = src;
+    }
+
+    void Context::AddStandardLib() {
+        Internal::VM& vm = m_ActiveModule->VM;
+
+        vm.AddExtern("print()", Internal::__aria_print);
     }
 
     void Context::SetActiveModule(const std::string& module) {

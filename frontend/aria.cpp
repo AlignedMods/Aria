@@ -7,18 +7,6 @@ void PrintHelp(const char* appName) {
     fmt::println("    -c      (Compile the file normally but do not run it)");
 }
 
-void PrintInt(Aria::Context* ctx) {
-    ctx->GetArg(0);
-    fmt::print("{}\n", ctx->GetInt(-1));
-    ctx->Pop(1);
-}
-
-void Print(Aria::Context* ctx) {
-    ctx->GetArg(0);
-    fmt::print("{}\n", ctx->GetString(-1));
-    ctx->Pop(1);
-}
-
 int main(int argc, char** argv) {
     if (argc == 1) {
         PrintHelp(argv[0]);
@@ -52,8 +40,6 @@ int main(int argc, char** argv) {
     if (dumpByteCode) { fmt::print("{}", ctx.Disassemble()); }
 
     if (!compileOnly) {
-        ctx.AddExternalFunction("print_int()", PrintInt);
-        ctx.AddExternalFunction("print()", Print);
         ctx.Run();
 
         if (ctx.HasFunction("main()")) {

@@ -35,6 +35,8 @@ namespace Aria {
         void CompileFile(const std::string& path);
         void CompileFiles(const std::vector<std::string>& paths, const std::string& module);
 
+        void AddStandardLib();
+
         // Sets up the current module which will be used up until the next
         // SetActiveModule call
         void SetActiveModule(const std::string& module);

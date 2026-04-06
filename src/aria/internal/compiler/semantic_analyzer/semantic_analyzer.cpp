@@ -15,35 +15,7 @@ namespace Aria::Internal {
     }
 
     void SemanticAnalyzer::ResolveDependencies() {
-        // TODO: MAKE ACTUALLY WORK PROPERLY
-        CompilationUnit* unit = m_Context->m_ActiveCompUnit;
-
-        for (size_t i = 0; i < unit->Imports.size(); i++) {
-            Stmt* stmt = unit->Imports[i];
-            ARIA_ASSERT(stmt->Kind == StmtKind::Import, "Invalid stmt in Imports");
-
-            CompilationUnit* module = nullptr;
-
-            for (size_t i = 0; i < m_Context->m_CompilationUnits.size(); i++) {
-                CompilationUnit* comp = &m_Context->m_CompilationUnits[i];
-                if (comp->Name == stmt->Import.Name) {
-                    if (comp->Name == unit->Name) {
-                        m_Context->ReportCompilerError(stmt->Loc, stmt->Range, "Including self is not allowed");
-                        stmt->Kind = StmtKind::Error;
-                        return;
-                    }
-
-                    module = comp;
-                    AddUnit(module);
-                    break;
-                }
-            }
-
-            if (!module) { ARIA_ASSERT(false, "todo!"); }
-            stmt->Import.Module = module;
-        }
-
-        AddUnit(m_Context->m_ActiveCompUnit);
+        ResolveUnit(m_Context->m_ActiveCompUnit);
     }
 
     void SemanticAnalyzer::AddUnit(CompilationUnit* unit) {
@@ -54,6 +26,46 @@ namespace Aria::Internal {
         }
 
         m_Context->m_OrderedCompilationUnits.push_back(unit);
+    }
+
+    void SemanticAnalyzer::ResolveUnit(CompilationUnit* unit) {
+        m_ImportedModules[unit->Name] = true;
+
+        for (size_t i = 0; i < unit->Imports.size(); i++) {
+            Stmt* stmt = unit->Imports[i];
+
+            if (stmt->Kind == StmtKind::Error) { return; }
+            ARIA_ASSERT(stmt->Kind == StmtKind::Import, "Invalid stmt in Imports");
+
+            if (stmt->Import.Name == unit->Name) {
+                m_Context->ReportCompilerError(stmt->Loc, stmt->Range, "Including self is not allowed");
+                stmt->Kind = StmtKind::Error;
+                return;
+            }
+
+            if (m_ImportedModules.contains(fmt::format("{}", stmt->Import.Name))) {
+                m_Context->ReportCompilerError(stmt->Loc, stmt->Range, "Recursive imports are not allowed");
+                stmt->Kind = StmtKind::Error;
+                return;
+            }
+
+            CompilationUnit* resolvedUnit = nullptr;
+
+            for (size_t i = 0; i < m_Context->m_CompilationUnits.size(); i++) {
+                CompilationUnit* comp = &m_Context->m_CompilationUnits[i];
+
+                if (comp->Name == stmt->Import.Name) {
+                    ResolveUnit(comp);
+                    resolvedUnit = comp;
+                    break;
+                }
+            }
+
+            if (!resolvedUnit) { ARIA_ASSERT(false, "todo!"); }
+            stmt->Import.Module = resolvedUnit;
+        }
+
+        AddUnit(unit);
     }
 
     void SemanticAnalyzer::ResolveBooleanConstantExpr(Expr* expr)   {}
@@ -143,7 +155,7 @@ namespace Aria::Internal {
 
         if (!memberType) {
             m_Context->ReportCompilerError(expr->Loc, expr->Range, fmt::format("Unknown member \"{}\" in '{}'", mem.Member, TypeInfoToString(parentType)));
-            expr->Type = m_ErrorType;
+            expr->Type = &ErrorType;
             return;
         }
 
@@ -158,7 +170,7 @@ namespace Aria::Internal {
 
         if (calleeType->Type != PrimitiveType::Function && !calleeType->IsError()) {
             m_Context->ReportCompilerError(expr->Loc, expr->Range, "Cannot call an object of non-function type");
-            expr->Type = m_ErrorType;
+            expr->Type = &ErrorType;
             return;
         }
 
@@ -168,7 +180,7 @@ namespace Aria::Internal {
             if (fnDecl.ParamTypes.Size != call.Arguments.Size) {
                 m_Context->ReportCompilerError(expr->Loc, expr->Range, fmt::format("Mismatched argument count, function expects {} but got {}", fnDecl.ParamTypes.Size, call.Arguments.Size));
                 for (size_t i = 0; i < call.Arguments.Size; i++) {
-                    call.Arguments.Items[i]->Type = m_ErrorType;
+                    call.Arguments.Items[i]->Type = &ErrorType;
                 }
             } else {
                 for (size_t i = 0; i < fnDecl.ParamTypes.Size; i++) {
@@ -178,7 +190,11 @@ namespace Aria::Internal {
 
             expr->Type = fnDecl.ReturnType;
             expr->ValueKind = (fnDecl.ReturnType->IsReference()) ? ExprValueKind::LValue : ExprValueKind::RValue;
+
+            return;
         }
+
+        expr->Type = &ErrorType;
     }
 
     void SemanticAnalyzer::ResolveMethodCallExpr(Expr* expr) {
@@ -651,7 +667,7 @@ namespace Aria::Internal {
         
         if (m_ActiveReturnType == nullptr) {
             m_Context->ReportCompilerError(stmt->Loc, stmt->Range, "'return' statement out of function body is not allowed");
-            ret.Value->Type = m_ErrorType;
+            ret.Value->Type = &ErrorType;
             return;
         }
         
