@@ -364,13 +364,20 @@ namespace Aria::Internal {
             BINOP(Mul,         Mul)
             BINOP(Div,         Div)
             BINOP(Mod,         Mod)
+
+            BINOP(BitAnd,      And)
+            BINOP(BitOr,       Or)
+            BINOP(BitXor,      Xor)
+            BINOP(Shl,         Shl)
+            BINOP(Shr,         Shr)
+
             BINOP(Less,        Lt)
             BINOP(LessOrEq,    Lte)
             BINOP(Greater,     Gt)
             BINOP(GreaterOrEq, Lte)
             BINOP(IsEq,        Cmp)
             BINOP(IsNotEq,     Ncmp)
-        
+            
             case BinaryOperatorKind::LogAnd: {
                 std::string andEnd = fmt::format("logand.end_{}", m_AndCounter);
                 m_AndCounter++;
@@ -436,6 +443,8 @@ namespace Aria::Internal {
             BINOP(And, And)
             BINOP(Or, Or)
             BINOP(Xor, Xor)
+            BINOP(Shl, Shl)
+            BINOP(Shr, Shr)
         
             default: ARIA_UNREACHABLE();
         }
@@ -729,7 +738,7 @@ namespace Aria::Internal {
     }
 
     bool Emitter::IsStartStackFrame() {
-        return m_ActiveStackFrame.Name == "_start$()";
+        return m_ActiveStackFrame.Name == fmt::format("_start${}()", m_Context->m_ActiveCompUnit->Index);
     }
 
     bool Emitter::IsGlobalScope() {

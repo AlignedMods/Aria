@@ -270,6 +270,8 @@ namespace Aria::Internal {
             CASE_BINEXPR(And,  "and ");
             CASE_BINEXPR(Or,   "or  ");
             CASE_BINEXPR(Xor,  "xor ");
+            CASE_BINEXPR(Shl,  "shl ");
+            CASE_BINEXPR(Shr,  "shr ");
 
             CASE_BINEXPR(Cmp,  "cmp ");
             CASE_BINEXPR(Ncmp, "ncmp");

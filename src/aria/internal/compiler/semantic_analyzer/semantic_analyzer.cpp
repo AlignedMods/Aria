@@ -268,7 +268,7 @@ namespace Aria::Internal {
             case BinaryOperatorKind::GreaterOrEq:
             case BinaryOperatorKind::IsEq: 
             case BinaryOperatorKind::IsNotEq: {
-                if (!LHS->Type->IsError() && !RHS->Type->IsError()) {
+                if (!LHS->Type->IsError()) {
                     if (!LHS->Type->IsNumeric()) {
                         m_Context->ReportCompilerError(LHS->Loc, LHS->Range, fmt::format("Expression must be of a numeric type but is of type '{}'", TypeInfoToString(LHS->Type)));
                     }
@@ -287,8 +287,7 @@ namespace Aria::Internal {
                     binop.Operator == BinaryOperatorKind::IsEq ||
                     binop.Operator == BinaryOperatorKind::IsNotEq) 
                 {
-                    TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
-                    expr->Type = boolType;
+                    expr->Type = &BoolType;
                     expr->ValueKind = ExprValueKind::RValue;
                     return;
                 }
@@ -296,6 +295,28 @@ namespace Aria::Internal {
                 expr->Type = LHS->Type;
                 expr->ValueKind = ExprValueKind::RValue;
 
+                return;
+            }
+
+            case BinaryOperatorKind::BitAnd:
+            case BinaryOperatorKind::BitOr:
+            case BinaryOperatorKind::BitXor:
+            case BinaryOperatorKind::Shl:
+            case BinaryOperatorKind::Shr: {
+                if (!LHS->Type->IsError()) {
+                    if (!LHS->Type->IsIntegral() && !LHS->Type->IsString()) {
+                        m_Context->ReportCompilerError(LHS->Loc, LHS->Range, fmt::format("Expression must be of a integral type but is of type '{}'", TypeInfoToString(LHS->Type)));
+                    }
+
+                    if (!LHS->Type->IsIntegral()) {
+                        m_Context->ReportCompilerError(RHS->Loc, RHS->Range, fmt::format("Expression must be of a integral type but is of type '{}'", TypeInfoToString(RHS->Type)));
+                    }
+                }
+
+                InsertArithmeticPromotion(LHS, RHS);
+
+                expr->Type = LHS->Type;
+                expr->ValueKind = ExprValueKind::RValue;
                 return;
             }
 

@@ -43,45 +43,49 @@ namespace Aria::Internal {
     void Parser::AddExprRules() {
         m_ExprRules.reserve(static_cast<size_t>(TokenKind::Last));
 
-        m_ExprRules[TokenKind::LeftParen] =       { BIND_PARSE_RULE(ParseGrouping), BIND_PARSE_RULE(ParseCall), PREC_CALL };
-        m_ExprRules[TokenKind::Plus] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_ADDITIVE };
-        m_ExprRules[TokenKind::Minus] =           { BIND_PARSE_RULE(ParseUnary), BIND_PARSE_RULE(ParseBinary), PREC_ADDITIVE };
-        m_ExprRules[TokenKind::Star] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_MULTIPLICATIVE };
-        m_ExprRules[TokenKind::Slash] =           { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_MULTIPLICATIVE };
-        m_ExprRules[TokenKind::Percent] =         { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_MULTIPLICATIVE };
-        m_ExprRules[TokenKind::Ampersand] =       { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
-        m_ExprRules[TokenKind::DoubleAmpersand] = { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::Pipe] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
-        m_ExprRules[TokenKind::DoublePipe] =      { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::UpArrow] =         { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
-        m_ExprRules[TokenKind::EqEq] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::BangEq] =          { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::Less] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::LessEq] =          { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::Greater] =         { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::GreaterEq] =       { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::LeftParen] =         { BIND_PARSE_RULE(ParseGrouping), BIND_PARSE_RULE(ParseCall), PREC_CALL };
+        m_ExprRules[TokenKind::Plus] =              { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_ADDITIVE };
+        m_ExprRules[TokenKind::Minus] =             { BIND_PARSE_RULE(ParseUnary), BIND_PARSE_RULE(ParseBinary), PREC_ADDITIVE };
+        m_ExprRules[TokenKind::Star] =              { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_MULTIPLICATIVE };
+        m_ExprRules[TokenKind::Slash] =             { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_MULTIPLICATIVE };
+        m_ExprRules[TokenKind::Percent] =           { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_MULTIPLICATIVE };
+        m_ExprRules[TokenKind::Ampersand] =         { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
+        m_ExprRules[TokenKind::DoubleAmpersand] =   { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::Pipe] =              { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
+        m_ExprRules[TokenKind::DoublePipe] =        { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::UpArrow] =           { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
+        m_ExprRules[TokenKind::EqEq] =              { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::BangEq] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::Less] =              { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::LessEq] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::Greater] =           { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::GreaterEq] =         { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::LessLess] =          { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
+        m_ExprRules[TokenKind::GreaterGreater] =    { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
+                                                    
+        m_ExprRules[TokenKind::Eq] =                { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::PlusEq] =            { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::MinusEq] =           { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::StarEq] =            { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::SlashEq] =           { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::PercentEq] =         { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::AmpersandEq] =       { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::PipeEq] =            { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::UpArrowEq] =         { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::LessLessEq] =        { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::GreaterGreaterEq] =  { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
 
-        m_ExprRules[TokenKind::Eq] =              { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_ASSIGNMENT };
-        m_ExprRules[TokenKind::PlusEq] =          { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
-        m_ExprRules[TokenKind::MinusEq] =         { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
-        m_ExprRules[TokenKind::StarEq] =          { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
-        m_ExprRules[TokenKind::SlashEq] =         { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
-        m_ExprRules[TokenKind::PercentEq] =       { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
-        m_ExprRules[TokenKind::AmpersandEq] =     { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
-        m_ExprRules[TokenKind::PipeEq] =          { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
-        m_ExprRules[TokenKind::UpArrowEq] =       { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
-
-        m_ExprRules[TokenKind::Dot] =             { nullptr, BIND_PARSE_RULE(ParseMember), PREC_CALL };
-
-        m_ExprRules[TokenKind::Self] =            { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
-        m_ExprRules[TokenKind::True] =            { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
-        m_ExprRules[TokenKind::False] =           { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
-        m_ExprRules[TokenKind::CharLit] =         { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
-        m_ExprRules[TokenKind::IntLit] =          { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
-        m_ExprRules[TokenKind::UintLit] =         { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
-        m_ExprRules[TokenKind::NumLit] =          { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
-        m_ExprRules[TokenKind::StrLit] =          { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
-        m_ExprRules[TokenKind::Identifier] =      { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::Dot] =               { nullptr, BIND_PARSE_RULE(ParseMember), PREC_CALL };
+                                                    
+        m_ExprRules[TokenKind::Self] =              { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::True] =              { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::False] =             { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::CharLit] =           { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::IntLit] =            { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::UintLit] =           { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::NumLit] =            { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::StrLit] =            { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::Identifier] =        { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
     }
 
     void Parser::ParseImpl() {
@@ -231,6 +235,10 @@ namespace Aria::Internal {
             case TokenKind::LessEq: return BinaryOperatorKind::LessOrEq;
             case TokenKind::Greater: return BinaryOperatorKind::Greater;
             case TokenKind::GreaterEq: return BinaryOperatorKind::GreaterOrEq;
+            case TokenKind::LessLess: return BinaryOperatorKind::Shl;
+            case TokenKind::LessLessEq: return BinaryOperatorKind::CompoundShl;
+            case TokenKind::GreaterGreater: return BinaryOperatorKind::Shr;
+            case TokenKind::GreaterGreaterEq: return BinaryOperatorKind::CompoundShr;
             case TokenKind::Eq: return BinaryOperatorKind::Eq;
             case TokenKind::EqEq: return BinaryOperatorKind::IsEq;
             case TokenKind::BangEq: return BinaryOperatorKind::IsNotEq;

@@ -97,10 +97,20 @@ namespace Aria::Internal {
                     else { AddToken(TokenKind::Bang, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "!"); break; }
                 }
                 case '<': {
+                    if (TryConsume('<')) {
+                        if (TryConsume('=')) { AddToken(TokenKind::LessLessEq, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "<<="); break; }
+                        else { AddToken(TokenKind::LessLess, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "<<"); break; }
+                    }
+
                     if (TryConsume('=')) { AddToken(TokenKind::LessEq, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "<="); break; }
                     else { AddToken(TokenKind::Less, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "<"); break; }
                 }
                 case '>': {
+                    if (TryConsume('>')) {
+                        if (TryConsume('=')) { AddToken(TokenKind::GreaterGreaterEq, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), ">>="); break; }
+                        else { AddToken(TokenKind::GreaterGreater, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), ">>"); break; }
+                    }
+
                     if (TryConsume('=')) { AddToken(TokenKind::GreaterEq, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), ">="); break; }
                     else { AddToken(TokenKind::Greater, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), ">"); break; }
                 }

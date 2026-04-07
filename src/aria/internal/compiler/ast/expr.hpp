@@ -106,6 +106,8 @@ namespace Aria::Internal {
         BitAnd, CompoundAnd, LogAnd,
         BitOr,  CompoundOr,  LogOr,
         BitXor, CompoundXor,
+        Shl, CompoundShl,
+        Shr, CompoundShr,
     
         Eq,
         IsEq,
@@ -138,6 +140,10 @@ namespace Aria::Internal {
             case BinaryOperatorKind::LogOr: return "||";
             case BinaryOperatorKind::BitXor: return "^";
             case BinaryOperatorKind::CompoundXor: return "^=";
+            case BinaryOperatorKind::Shl: return "<<";
+            case BinaryOperatorKind::CompoundShl: return "<<=";
+            case BinaryOperatorKind::Shr: return ">>";
+            case BinaryOperatorKind::CompoundShr: return ">>=";
 
             case BinaryOperatorKind::Eq: return "=";
             case BinaryOperatorKind::IsEq: return "==";

@@ -32,6 +32,8 @@ namespace Aria::Internal {
         Ampersand, AmpersandEq, DoubleAmpersand,
         Pipe, PipeEq, DoublePipe,
         UpArrow, UpArrowEq,
+        LessLess, LessLessEq,
+        GreaterGreater, GreaterGreaterEq,
         Eq, EqEq,
         Bang, BangEq,
         Less, LessEq,
@@ -120,6 +122,10 @@ namespace Aria::Internal {
             case TokenKind::DoublePipe: return "||";
             case TokenKind::UpArrow: return "^";
             case TokenKind::UpArrowEq: return "^=";
+            case TokenKind::LessLess: return "<<";
+            case TokenKind::LessLessEq: return "<<=";
+            case TokenKind::GreaterGreater: return ">>";
+            case TokenKind::GreaterGreaterEq: return ">>=";
             case TokenKind::Eq: return "=";
             case TokenKind::EqEq: return "==";
             case TokenKind::Bang: return "!";

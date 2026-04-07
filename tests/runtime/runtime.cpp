@@ -5,7 +5,7 @@
 
 TEST_CASE("Runtime Variable Declaration") {
     Aria::Context ctx = Aria::Context::Create();
-    ctx.CompileFile("tests/runtime/variable_declaration.aria", "Runtime Variable Declaration");
+    ctx.CompileFile("tests/runtime/variable_declaration.aria");
     ctx.Run();
     
     ctx.GetGlobal("f");
@@ -20,7 +20,7 @@ TEST_CASE("Runtime Variable Declaration") {
 
 TEST_CASE("Runtime Basic Expressions") {
     Aria::Context ctx = Aria::Context::Create();
-    ctx.CompileFile("tests/runtime/basic_expressions.aria", "Runtime Basic Expressions");
+    ctx.CompileFile("tests/runtime/basic_expressions.aria");
     ctx.AddExternalFunction("ShouldNeverBeCalled()", [](Aria::Context* ctx) {
         throw std::runtime_error("function that shouldn't be called was called");
     });
@@ -51,6 +51,17 @@ TEST_CASE("Runtime Basic Expressions") {
     ctx.GetGlobal("k");
     REQUIRE(ctx.GetBool(-1) == true);
 
+    ctx.GetGlobal("l");
+    REQUIRE(ctx.GetInt(-1) == 32);
+    ctx.GetGlobal("m");
+    REQUIRE(ctx.GetInt(-1) == 1);
+    ctx.GetGlobal("n");
+    REQUIRE(ctx.GetInt(-1) == 0);
+    ctx.GetGlobal("o");
+    REQUIRE(ctx.GetInt(-1) == 4);
+    ctx.GetGlobal("p");
+    REQUIRE(ctx.GetInt(-1) == 20);
+
     ctx.GetGlobal("cc");
     REQUIRE(ctx.GetInt(-1) == 4);
     ctx.GetGlobal("dd");
@@ -59,7 +70,7 @@ TEST_CASE("Runtime Basic Expressions") {
 
 TEST_CASE("Runtime Functions") {
     Aria::Context ctx = Aria::Context::Create();
-    ctx.CompileFile("tests/runtime/functions.aria", "Runtime Functions");
+    ctx.CompileFile("tests/runtime/functions.aria");
     ctx.AddExternalFunction("ExternalFunction()", [](Aria::Context* ctx) {
         ctx->GetArg(0);
         ctx->GetArg(1);
@@ -82,7 +93,7 @@ TEST_CASE("Runtime Functions") {
 
 TEST_CASE("Runtime Control Flow") {
     Aria::Context ctx = Aria::Context::Create();
-    ctx.CompileFile("tests/runtime/control_flow.aria", "Runtime Control Flow");
+    ctx.CompileFile("tests/runtime/control_flow.aria");
     ctx.Run();
     
     ctx.Call("While()", 0);
@@ -112,7 +123,7 @@ TEST_CASE("Runtime Control Flow") {
 
 TEST_CASE("Runtime Recursion") {
     Aria::Context ctx = Aria::Context::Create();
-    ctx.CompileFile("tests/runtime/recursion.aria", "Runtime Recursion");
+    ctx.CompileFile("tests/runtime/recursion.aria");
     ctx.Run();
     
     ctx.PushInt(10);
@@ -128,7 +139,7 @@ TEST_CASE("Runtime Recursion") {
 
 TEST_CASE("Runtime Casts") {
     Aria::Context ctx = Aria::Context::Create();
-    ctx.CompileFile("tests/runtime/casts.aria", "Runtime Casts");
+    ctx.CompileFile("tests/runtime/casts.aria");
     ctx.Run();
 
     ctx.GetGlobal("a");

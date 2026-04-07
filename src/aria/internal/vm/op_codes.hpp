@@ -99,6 +99,9 @@ namespace Aria::Internal {
         Or,
         Xor,
 
+        Shl,
+        Shr,
+
         Cmp,
         Ncmp,
         Lt,

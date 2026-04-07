@@ -21,12 +21,17 @@ namespace Aria::Internal {
         return r;
     }
 
-    template <typename T>
+    template <std::integral T>
     T And(T lhs, T rhs) { return lhs & rhs; }
-    template <typename T>
+    template <std::integral T>
     T Or(T lhs, T rhs) { return lhs | rhs; }
-    template <typename T>
+    template <std::integral T>
     T Xor(T lhs, T rhs) { return lhs ^ rhs; }
+
+    template <std::integral T>
+    T Shl(T lhs, T rhs) { return lhs << rhs; }
+    template <std::integral T>
+    T Shr(T lhs, T rhs) { return lhs >> rhs; }
 
     template <typename T>
     bool Cmp(T lhs, T rhs) { return lhs == rhs; }
@@ -842,6 +847,9 @@ namespace Aria::Internal {
                 CASE_BINEXPR_INTEGRAL(And, And)
                 CASE_BINEXPR_INTEGRAL(Or, Or)
                 CASE_BINEXPR_INTEGRAL(Xor, Xor)
+
+                CASE_BINEXPR_INTEGRAL(Shl, Shl)
+                CASE_BINEXPR_INTEGRAL(Shr, Shr)
 
                 CASE_BINEXPR_BOOL(Cmp, Cmp)
                 CASE_BINEXPR_BOOL(Ncmp, Ncmp)

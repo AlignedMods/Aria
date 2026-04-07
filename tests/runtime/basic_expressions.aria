@@ -1,4 +1,4 @@
-fn ShouldNeverBeCalled() -> bool;
+fn ShouldNeverBeCalled() -> bool #extern;
 
 int a = 5 + 5;
 int b = (a + 5) / -5;
@@ -13,6 +13,12 @@ bool h = false || true; // Should be true
 bool i = true || true; // Should be true
 bool j = false || false; // Should be false
 bool k = j || (true && h); // Should be true
+
+int l = 2 << 4; // Should be 32
+int m = 128 >> (a - 3); // Should be 1
+int n = m ^ m; // Should be 0
+int o = 5 & 4; // Should be 4
+int p = o | o * o; // Should be 20
 
 // This next section validates that && and || don't execute code that is not neccesary
 bool aa = false && ShouldNeverBeCalled();
