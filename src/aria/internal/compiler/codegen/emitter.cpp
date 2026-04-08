@@ -4,14 +4,14 @@ namespace Aria::Internal {
 
     Emitter::Emitter(CompilationContext* ctx) {
         m_Context = ctx;
-        m_RootASTNode = ctx->GetRootASTNode();
+        m_RootASTNode = ctx->ActiveCompUnit->RootASTNode;
 
         EmitImpl();
     }
 
     void Emitter::EmitImpl() {
-        const std::string& startSig = fmt::format("_start${}()", m_Context->GetCompilationUnit()->Index);
-        const std::string& endSig = fmt::format("_end${}()", m_Context->GetCompilationUnit()->Index);
+        const std::string& startSig = fmt::format("_start${}()", m_Context->ActiveCompUnit->Index);
+        const std::string& endSig = fmt::format("_end${}()", m_Context->ActiveCompUnit->Index);
 
         // VVV _start$() VVV //
         m_OpCodes.emplace_back(OpCodeKind::Function, startSig);
@@ -42,8 +42,8 @@ namespace Aria::Internal {
 
         EmitDeclarations();
 
-        m_Context->SetOpCodes(m_OpCodes);
-        m_Context->SetReflectionData(m_ReflectionData);
+        m_Context->ActiveCompUnit->OpCodes = m_OpCodes;
+        m_Context->ActiveCompUnit->ReflectionData = m_ReflectionData;
     }
 
     void Emitter::EmitBooleanConstantExpr(Expr* expr, ExprValueKind valueKind) {
@@ -738,7 +738,7 @@ namespace Aria::Internal {
     }
 
     bool Emitter::IsStartStackFrame() {
-        return m_ActiveStackFrame.Name == fmt::format("_start${}()", m_Context->m_ActiveCompUnit->Index);
+        return m_ActiveStackFrame.Name == fmt::format("_start${}()", m_Context->ActiveCompUnit->Index);
     }
 
     bool Emitter::IsGlobalScope() {

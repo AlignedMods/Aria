@@ -10,12 +10,12 @@ namespace Aria {
     // The allocator which gets used internally
     // NOTE: This allocator WON'T call destructors, so NEVER store std::string, std::vector, etc in the compiler!
     // If you don't provide an allocator you must call Aria::SetupDefaultAllocator() to set up a default one
-    class Allocator {
+    class ArenaAllocator {
     public:
-        inline Allocator(size_t bytes)
+        inline ArenaAllocator(size_t bytes)
             : m_Capacity(bytes), m_Data(new uint8_t[bytes]) {}
 
-        inline ~Allocator() {
+        inline ~ArenaAllocator() {
             delete[] m_Data;
             m_Data = nullptr;
             m_Capacity = 0;
@@ -24,10 +24,10 @@ namespace Aria {
 
         // Copying/moving an allocator is not valid
         // The only way to pass around an allocator is by pointer
-        Allocator(const Allocator& other) = delete;
-        Allocator(Allocator&& other) = delete;
-        void operator=(const Allocator& other) = delete;
-        void operator=(Allocator&& other) = delete;
+        ArenaAllocator(const ArenaAllocator& other) = delete;
+        ArenaAllocator(ArenaAllocator&& other) = delete;
+        void operator=(const ArenaAllocator& other) = delete;
+        void operator=(ArenaAllocator&& other) = delete;
 
         [[nodiscard]] inline void* Allocate(size_t bytes) {
             ARIA_ASSERT(m_Index + bytes < m_Capacity, "Too much memory allocated!");

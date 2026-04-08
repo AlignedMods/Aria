@@ -56,7 +56,7 @@ namespace Aria::Internal {
         Stmt* ParseReturn();
 
         Stmt* ParseExpressionStatement();
-        Stmt* ParseDeclarationStatement();
+        Stmt* ParseDeclarationStatement(bool global);
         Stmt* ParseDeclarationOrExpression();
 
         Stmt* ParseStatement();
@@ -64,7 +64,7 @@ namespace Aria::Internal {
         // Declarations
         Decl* ParseModuleDecl();
         Stmt* ParseImportStmt();
-        Decl* ParseVariableDecl();
+        Decl* ParseVariableDecl(bool global);
         Decl* ParseFunctionDecl();
         Decl* ParseStructDecl();
 
@@ -83,6 +83,8 @@ namespace Aria::Internal {
     private:
         size_t m_Index = 0;
         Tokens m_Tokens;
+
+        bool m_DeclaredModule = false;
 
         Expr* m_ErrorExpr = nullptr;
         Decl* m_ErrorDecl = nullptr;

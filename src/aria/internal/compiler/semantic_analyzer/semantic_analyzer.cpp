@@ -4,32 +4,60 @@ namespace Aria::Internal {
 
     SemanticAnalyzer::SemanticAnalyzer(CompilationContext* ctx) {
         m_Context = ctx;
-        m_RootASTNode = ctx->GetRootASTNode();
 
         m_BuiltInStringDestructor = Decl::Create(m_Context, {}, {}, DeclKind::BuiltinDestructor, BuiltinDestructorDecl(BuiltinKind::String));
         m_BuiltInStringCopyConstructor = Decl::Create(m_Context, {}, {}, DeclKind::BuiltinCopyConstructor, BuiltinCopyConstructorDecl(BuiltinKind::String));
+
+        SemaImpl();
     }
 
-    void SemanticAnalyzer::Analyze() {
-        ResolveStmt(m_RootASTNode);
+    void SemanticAnalyzer::SemaImpl() {
+        PassImports();
+        PassDecls();
+        PassCode();
     }
 
-    void SemanticAnalyzer::ResolveDependencies() {
-        ResolveUnit(m_Context->m_ActiveCompUnit);
+    void SemanticAnalyzer::PassImports() {
+        for (CompilationUnit* unit : m_Context->CompilationUnits) {
+            m_Context->ActiveCompUnit = unit;
+            ResolveUnitImports(unit->Parent, unit);
+        }
     }
 
-    void SemanticAnalyzer::AddUnit(CompilationUnit* unit) {
-        for (CompilationUnit* comp : m_Context->m_OrderedCompilationUnits) {
+    void SemanticAnalyzer::PassDecls() {
+        for (Module* mod : m_Context->Modules) {
+            ResolveModuleDecls(mod);
+        }
+    }
+
+    void SemanticAnalyzer::PassCode() {
+        for (Module* mod : m_Context->Modules) {
+            ResolveModuleCode(mod);
+        }
+    }
+
+    void SemanticAnalyzer::AddUnitToModule(Module* module, CompilationUnit* unit) {
+        for (CompilationUnit* comp : module->Units) {
             if (comp == unit) {
                 return;
             }
         }
 
-        m_Context->m_OrderedCompilationUnits.push_back(unit);
+        module->Units.push_back(unit);
     }
 
-    void SemanticAnalyzer::ResolveUnit(CompilationUnit* unit) {
-        m_ImportedModules[unit->Name] = true;
+    void SemanticAnalyzer::ResolveModuleImports(Module* module) {
+        std::vector<CompilationUnit*> units = module->Units;
+
+        for (CompilationUnit* unit : units) {
+            ResolveUnitImports(module, unit);
+        }
+
+        m_ImportedModules.clear();
+    }
+
+    void SemanticAnalyzer::ResolveUnitImports(Module* module, CompilationUnit* unit) {
+        m_ImportedModules[module->Name] = true;
 
         for (size_t i = 0; i < unit->Imports.size(); i++) {
             Stmt* stmt = unit->Imports[i];
@@ -37,7 +65,7 @@ namespace Aria::Internal {
             if (stmt->Kind == StmtKind::Error) { return; }
             ARIA_ASSERT(stmt->Kind == StmtKind::Import, "Invalid stmt in Imports");
 
-            if (stmt->Import.Name == unit->Name) {
+            if (stmt->Import.Name == module->Name) {
                 m_Context->ReportCompilerError(stmt->Loc, stmt->Range, "Including self is not allowed");
                 stmt->Kind = StmtKind::Error;
                 return;
@@ -49,23 +77,72 @@ namespace Aria::Internal {
                 return;
             }
 
-            CompilationUnit* resolvedUnit = nullptr;
+            Module* resolvedModule = nullptr;
 
-            for (size_t i = 0; i < m_Context->m_CompilationUnits.size(); i++) {
-                CompilationUnit* comp = &m_Context->m_CompilationUnits[i];
+            for (size_t i = 0; i < m_Context->Modules.size(); i++) {
+                Module* mod = m_Context->Modules[i];
 
-                if (comp->Name == stmt->Import.Name) {
-                    ResolveUnit(comp);
-                    resolvedUnit = comp;
+                if (mod->Name == stmt->Import.Name) {
+                    ResolveModuleImports(mod);
+                    resolvedModule = mod;
                     break;
                 }
             }
 
-            if (!resolvedUnit) { ARIA_ASSERT(false, "todo!"); }
-            stmt->Import.Module = resolvedUnit;
+            if (!resolvedModule) { ARIA_ASSERT(false, "todo!"); }
+            stmt->Import.Module = resolvedModule;
         }
 
-        AddUnit(unit);
+        AddUnitToModule(module, unit);
+    }
+
+    void SemanticAnalyzer::ResolveModuleDecls(Module* module) {
+        for (CompilationUnit* unit : module->Units) {
+            ResolveUnitDecls(module, unit);
+        }
+    }
+
+    void SemanticAnalyzer::ResolveUnitDecls(Module* module, CompilationUnit* unit) {
+        for (Decl* global : unit->Globals) {
+            ARIA_ASSERT(global->Kind == DeclKind::Var, "Invalid global in globals");
+
+            VarDecl& var = global->Var;
+            std::string ident = fmt::format("{}", var.Identifier);
+
+            module->Symbols[ident] = global;
+            unit->LocalSymbols[ident] = global;
+        }
+
+        for (Decl* func : unit->Funcs) {
+            ARIA_ASSERT(func->Kind == DeclKind::Function, "Invalid func in funcs");
+
+            FunctionDecl& f = func->Function;
+            std::string ident = fmt::format("{}", f.Identifier);
+
+            module->Symbols[ident] = func;
+            unit->LocalSymbols[ident] = func;
+        }
+
+        for (Decl* struc : unit->Structs) {
+            ARIA_ASSERT(struc->Kind == DeclKind::Struct, "Invalid struct in structs");
+
+            StructDecl& s = struc->Struct;
+            std::string ident = fmt::format("{}", s.Identifier);
+
+            module->Symbols[ident] = struc;
+            unit->LocalSymbols[ident] = struc;
+        }
+    }
+
+    void SemanticAnalyzer::ResolveModuleCode(Module* module) {
+        for (CompilationUnit* unit : module->Units) {
+            ResolveUnitCode(module, unit);
+        }
+    }
+
+    void SemanticAnalyzer::ResolveUnitCode(Module* module, CompilationUnit* unit) {
+        m_Context->ActiveCompUnit = unit;
+        ResolveStmt(unit->RootASTNode);
     }
 
     void SemanticAnalyzer::ResolveBooleanConstantExpr(Expr* expr)   {}
@@ -105,24 +182,24 @@ namespace Aria::Internal {
             }
         }
 
-        for (Decl* global : m_Context->m_ActiveCompUnit->Globals) {
-            ARIA_ASSERT(global->Kind == DeclKind::Var, "Invalid global in Globals");
+        if (Decl* d = FindSymbolInUnit(m_Context->ActiveCompUnit, ref.Identifier)) {
+            switch (d->Kind) {
+                case DeclKind::Var: {
+                    ref.Kind = DeclRefKind::GlobalVar;
+                    expr->Type = d->Var.Type;
+                    break;
+                }
 
-            if (global->Var.Identifier == ref.Identifier) {
-                ref.Kind = DeclRefKind::GlobalVar;
-                expr->Type = global->Var.Type;
-                return;
+                case DeclKind::Function: {
+                    ref.Kind = DeclRefKind::Function;
+                    expr->Type = d->Function.Type;
+                    break;
+                }
+
+                default: ARIA_UNREACHABLE();
             }
-        }
 
-        for (Decl* func : m_Context->m_ActiveCompUnit->Funcs) {
-            ARIA_ASSERT(func->Kind == DeclKind::Function, "Invalid function in Funcs");
-
-            if (func->Function.Identifier == ref.Identifier) {
-                ref.Kind = DeclRefKind::Function;
-                expr->Type = func->Function.Type;
-                return;
-            }
+            return;
         }
 
         m_Context->ReportCompilerError(expr->Loc, expr->Range, fmt::format("Undeclared identifier \"{}\"", ref.Identifier));
@@ -457,9 +534,7 @@ namespace Aria::Internal {
 
         ResolveInitializer(varDecl.DefaultValue, varDecl.Type, false);
 
-        if (m_Scopes.size() == 0) {
-            m_Context->m_ActiveCompUnit->Globals.push_back(decl);
-        } else {
+        if (m_Scopes.size() > 0) {
             if (m_Scopes.back().Declarations.contains(ident)) {
                 m_Context->ReportCompilerError(decl->Loc, decl->Range, fmt::format("Redeclaring symbol '{}'", ident));
             }
@@ -479,24 +554,18 @@ namespace Aria::Internal {
         std::string ident = fmt::format("{}", fnDecl.Identifier);
 
         FunctionDecl* prevDecl = nullptr;
-        for (Decl* func : m_Context->m_ActiveCompUnit->Funcs) {
+        for (Decl* func : m_Context->ActiveCompUnit->Funcs) {
             ARIA_ASSERT(func->Kind == DeclKind::Function, "Invalid function in Funcs");
-
+        
             if (func->Function.Identifier == fnDecl.Identifier) { prevDecl = &func->Function; }
         }
-
+        
         if (prevDecl) {
             TypeInfo* type = prevDecl->Type;
             if (!TypeIsEqual(fnDecl.Type, type)) {
                 m_Context->ReportCompilerError(decl->Loc, decl->Range, fmt::format("Redeclaring function '{}' with different type '{}'", ident, TypeInfoToString(fnDecl.Type)));
-            } else {
-                if (prevDecl->Body != nullptr) {
-                    m_Context->ReportCompilerError(decl->Loc, decl->Range, fmt::format("Redefining function body of '{}'", ident));
-                }
             }
         }
-
-        m_Context->m_ActiveCompUnit->Funcs.push_back(decl);
 
         if (fnDecl.Body) {
             m_ActiveReturnType = std::get<FunctionDeclaration>(fnDecl.Type->Data).ReturnType;
@@ -517,7 +586,8 @@ namespace Aria::Internal {
 
     void SemanticAnalyzer::ResolveStructDecl(Decl* decl) {
         StructDecl& s = decl->Struct;
-        
+        std::string ident = fmt::format("{}", s.Identifier);
+
         StructDeclaration d;
         d.Identifier = s.Identifier;
         d.SourceDecl = decl;
@@ -527,8 +597,7 @@ namespace Aria::Internal {
         for (Decl* field : s.Fields) {
             if (field->Kind == DeclKind::Field) {}
         }
-        
-        m_Context->m_ActiveCompUnit->Structs.push_back(decl);
+
         m_ActiveStruct = TypeInfo::Create(m_Context, structType->Type, true, structType->Data);
         
         // for (MethodDecl* md : methods) {
@@ -587,12 +656,12 @@ namespace Aria::Internal {
     }
 
     void SemanticAnalyzer::ResolveImportStmt(Stmt* stmt) {
-        ImportStmt& imp = stmt->Import;
-        CompilationUnit* curr = m_Context->m_ActiveCompUnit;
-
-        curr->Globals.insert(curr->Globals.end(), imp.Module->Globals.begin(), imp.Module->Globals.end());
-        curr->Funcs.insert(curr->Funcs.end(), imp.Module->Funcs.begin(), imp.Module->Funcs.end());
-        curr->Structs.insert(curr->Structs.end(), imp.Module->Structs.begin(), imp.Module->Structs.end());
+        // ImportStmt& imp = stmt->Import;
+        // CompilationUnit* curr = m_Context->m_ActiveCompUnit;
+        // 
+        // curr->Globals.insert(curr->Globals.end(), imp.Module->Globals.begin(), imp.Module->Globals.end());
+        // curr->Funcs.insert(curr->Funcs.end(), imp.Module->Funcs.begin(), imp.Module->Funcs.end());
+        // curr->Structs.insert(curr->Structs.end(), imp.Module->Structs.begin(), imp.Module->Structs.end());
     }
 
     void SemanticAnalyzer::ResolveBlockStmt(Stmt* stmt) {

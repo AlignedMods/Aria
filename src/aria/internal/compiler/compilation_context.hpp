@@ -6,21 +6,10 @@
 #include "aria/internal/vm/op_codes.hpp"
 #include "aria/internal/compiler/reflection/compiler_reflection.hpp"
 
-namespace Aria {
-    struct Context;
-}
-
 namespace Aria::Internal {
 
     struct Stmt;
     struct Decl;
-
-    class Lexer;
-    class Parser;
-    class TypeChecker;
-    class SemanticAnalyzer;
-    class Emitter;
-    class Linker;
 
     struct CompilerError {
         size_t Line = 0; size_t Column = 0;
@@ -30,9 +19,19 @@ namespace Aria::Internal {
         std::string Error;
     };
 
+    struct CompilationUnit;
+
+    struct Module {
+        std::unordered_map<std::string, Decl*> Symbols;
+        std::vector<CompilationUnit*> Units;
+        std::string Name;
+    };
+
     struct CompilationUnit {
         inline CompilationUnit(const std::string& source)
             : Source(source) {}
+
+        size_t Index = 0;
 
         std::string Source;
         std::vector<Token> Tokens;
@@ -48,58 +47,39 @@ namespace Aria::Internal {
 
         std::vector<Stmt*> Imports;
 
-        size_t Index = 0;
-        std::string Name;
+        std::unordered_map<std::string, Decl*> LocalSymbols;
+
+        Module* Parent = nullptr;
     };
 
-    class CompilationContext {
-    public:
+    struct CompilationContext {
         inline CompilationContext()
-            : m_Allocator(new Allocator(10 * 1024 * 1024)) {}
+            : Arena(new ArenaAllocator(10 * 1024 * 1024)) {}
 
         inline CompilationContext(const CompilationContext& other) = delete; // Disallow copying
         inline CompilationContext(const CompilationContext&& other) = delete; // Disallow moving
 
-        inline ~CompilationContext() { delete m_Allocator; }
+        inline ~CompilationContext() {
+            delete Arena;
+
+            // Free all the modules and compilation units
+            for (CompilationUnit* unit : CompilationUnits) { delete unit; }
+            for (Module* mod : Modules) { delete mod; }
+        }
 
         template <typename T>
         inline T* Allocate() {
-            return m_Allocator->AllocateNamed<T>();
+            return Arena->AllocateNamed<T>();
         }
 
         template <typename T, typename... Args>
         inline T* Allocate(Args&&... args) {
-            return m_Allocator->AllocateNamed<T>(std::forward<Args>(args)...);
+            return Arena->AllocateNamed<T>(std::forward<Args>(args)...);
         }
 
         inline void* AllocateSized(size_t size) {
-            return m_Allocator->Allocate(size);
+            return Arena->Allocate(size);
         }
-
-        inline std::string& GetSourceCode() { return m_ActiveCompUnit->Source; }
-        inline const std::string& GetSourceCode() const {  return m_ActiveCompUnit->Source; }
-
-        inline Tokens& GetTokens() { return m_ActiveCompUnit->Tokens; }
-        inline const Tokens& GetTokens() const { return m_ActiveCompUnit->Tokens; }
-        inline void SetTokens(const Tokens& tokens) { m_ActiveCompUnit->Tokens = tokens; }
-
-        inline Stmt* GetRootASTNode() { return m_ActiveCompUnit->RootASTNode; }
-        inline const Stmt* GetRootASTNode() const { return m_ActiveCompUnit->RootASTNode; }
-        inline void SetRootASTNode(Stmt* node) { m_ActiveCompUnit->RootASTNode = node; }
-
-        inline std::vector<OpCode>& GetOpCodes() { return m_ActiveCompUnit->OpCodes; }
-        inline const std::vector<OpCode>& GetOpCodes() const { return m_ActiveCompUnit->OpCodes; }
-        inline void SetOpCodes(const std::vector<OpCode>& opcodes) { m_ActiveCompUnit->OpCodes = opcodes; }
-
-        inline CompilerReflectionData& GetReflectionData() { return m_ActiveCompUnit->ReflectionData; }
-        inline const CompilerReflectionData& GetReflectionData() const { return m_ActiveCompUnit->ReflectionData; }
-        inline void SetReflectionData(const CompilerReflectionData& data) { m_ActiveCompUnit->ReflectionData = data; }
-
-        inline std::vector<CompilerError>& GetCompilerErrors() { return m_ActiveCompUnit->Errors; }
-        inline const std::vector<CompilerError>& GetCompilerErrors() const { return m_ActiveCompUnit->Errors; }
-
-        inline CompilationUnit* GetCompilationUnit() { return m_ActiveCompUnit; }
-        inline const CompilationUnit* GetCompilationUnit() const { return m_ActiveCompUnit; }
 
         inline void ReportCompilerError(SourceLocation loc, SourceRange range, const std::string& error) {
             CompilerError e;
@@ -110,7 +90,9 @@ namespace Aria::Internal {
             e.EndLine = range.End.Line;
             e.EndColumn = range.End.Column;
             e.Error = error;
-            m_ActiveCompUnit->Errors.push_back(e);
+            ActiveCompUnit->Errors.push_back(e);
+
+            HasErrors = true;
         }
     
         void CompileFile(const std::string& source);
@@ -118,24 +100,22 @@ namespace Aria::Internal {
 
         void Lex();
         void Parse();
-        void AnalyzeDependencies();
         void Analyze();
         void Emit();
         void Link();
 
-    private:
-        Allocator* m_Allocator = nullptr;
-        std::vector<CompilationUnit> m_CompilationUnits;
-        std::vector<CompilationUnit*> m_OrderedCompilationUnits;
-        CompilationUnit* m_ActiveCompUnit = nullptr;
+        Module* FindOrCreateModule(const std::string& name);
 
-        friend class Lexer;
-        friend class Parser;
-        friend class TypeChecker;
-        friend class SemanticAnalyzer;
-        friend class Emitter;
-        friend class Linker;
-        friend struct Aria::Context;
+        ArenaAllocator* Arena = nullptr;
+
+        std::vector<CompilationUnit*> CompilationUnits;
+        CompilationUnit* ActiveCompUnit = nullptr;
+
+        std::vector<Module*> Modules;
+
+        std::vector<OpCode> OpCodes;
+        CompilerReflectionData ReflectionData;
+        bool HasErrors = false;
     };
 
 } // namespace Aria::Internal

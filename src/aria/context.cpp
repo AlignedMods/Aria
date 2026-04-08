@@ -85,17 +85,18 @@ namespace Aria {
         }
 
         m_ActiveModule->CompilationContext.FinishCompilation();
+        AddStandardLib();
 
         for (size_t i = 0; i < paths.size(); i++) {
             // Handle compiler errors
-            auto& unit = m_ActiveModule->CompilationContext.m_CompilationUnits[i];
-            for (auto& error : unit.Errors) {
+            auto& unit = m_ActiveModule->CompilationContext.CompilationUnits[i];
+            for (auto& error : unit->Errors) {
                 fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", paths[i], error.Line, error.Column);
                 fmt::print(fg(fmt::color::pale_violet_red), "error: ");
                 fmt::print("{}\n", error.Error);
 
                 // fmt format strings from: https://hackingcpp.com/cpp/libs/fmt
-                fmt::print(" {:6} | {}\n", error.Line, GetLine(unit.Source, error.Line));
+                fmt::print(" {:6} | {}\n", error.Line, GetLine(unit->Source, error.Line));
                 fmt::print("        | {:>{w}}\n", "^", fmt::arg("w", error.Column));
             }
         }
@@ -121,18 +122,18 @@ namespace Aria {
     }
 
     void Context::Run() {
-        if (m_ActiveModule->CompilationContext.GetCompilerErrors().empty()) {
-            m_ActiveModule->VM.RunByteCode(m_ActiveModule->CompilationContext.GetOpCodes().data(), m_ActiveModule->CompilationContext.GetOpCodes().size());
+        if (!m_ActiveModule->CompilationContext.HasErrors) {
+            m_ActiveModule->VM.RunByteCode(m_ActiveModule->CompilationContext.OpCodes.data(), m_ActiveModule->CompilationContext.OpCodes.size());
         }
     }
 
     std::string Context::DumpAST() {
-        Internal::ASTDumper d(m_ActiveModule->CompilationContext.GetRootASTNode());
+        Internal::ASTDumper d(m_ActiveModule->CompilationContext.ActiveCompUnit->RootASTNode);
         return d.GetOutput();
     }
 
     std::string Context::Disassemble() {
-        Internal::Disassembler d(&m_ActiveModule->CompilationContext.GetOpCodes(), false);
+        Internal::Disassembler d(&m_ActiveModule->CompilationContext.OpCodes, false);
         return d.GetDisassembly();
     }
 
@@ -284,12 +285,12 @@ namespace Aria {
     }
 
     bool Context::HasFunction(const std::string& str) {
-        Internal::CompilerReflectionData& reflection = m_ActiveModule->CompilationContext.GetReflectionData();
+        Internal::CompilerReflectionData& reflection = m_ActiveModule->CompilationContext.ReflectionData;
         return reflection.Declarations.contains(str) && reflection.Declarations.at(str).Kind == Internal::ReflectionKind::Function;
     }
 
     void Context::Call(const std::string& str, size_t argCount) {
-        Internal::CompilerReflectionData& reflection = m_ActiveModule->CompilationContext.GetReflectionData();
+        Internal::CompilerReflectionData& reflection = m_ActiveModule->CompilationContext.ReflectionData;
         ARIA_ASSERT(reflection.Declarations.contains(str), "Module does not contain function");
 
         // Push the function signature (NOTE: not actually used for anything, the VM just expects it to be there)

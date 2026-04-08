@@ -29,12 +29,17 @@ namespace Aria::Internal {
 
     Parser::Parser(CompilationContext* ctx) {
         m_Context = ctx;
-        m_Tokens = ctx->GetTokens();
+        m_Tokens = ctx->ActiveCompUnit->Tokens;
 
         // Setup error nodes
         m_ErrorExpr = Expr::Create(m_Context, SourceLocation(), SourceRange(), ExprKind::Error, ExprValueKind::RValue, &ErrorType, ErrorExpr());
         m_ErrorDecl = Decl::Create(m_Context, SourceLocation(), SourceRange(), DeclKind::Error, ErrorDecl());
         m_ErrorStmt = Stmt::Create(m_Context, SourceLocation(), SourceRange(), StmtKind::Error, ErrorStmt());
+
+        Module* defaultModule = new Module();
+        defaultModule->Name = fmt::format("#default_{}", ctx->ActiveCompUnit->Index);
+        ctx->ActiveCompUnit->Parent = defaultModule;
+        ctx->Modules.push_back(defaultModule);
 
         AddExprRules();
         ParseImpl();
@@ -99,7 +104,7 @@ namespace Aria::Internal {
 
         TranslationUnitDecl root(stmts);
         Decl* decl = Decl::Create(m_Context, SourceLocation(), SourceRange(), DeclKind::TranslationUnit, root);
-        m_Context->SetRootASTNode(Stmt::Create(m_Context, SourceLocation(), SourceRange(), StmtKind::Decl, decl));
+        m_Context->ActiveCompUnit->RootASTNode = Stmt::Create(m_Context, SourceLocation(), SourceRange(), StmtKind::Decl, decl);
     }
 
     Token* Parser::Peek(size_t count) {
@@ -550,7 +555,7 @@ namespace Aria::Internal {
         if (Match(TokenKind::Semi)) {
             Consume();
         } else {
-            prologue = ParseVariableDecl();
+            prologue = ParseVariableDecl(false);
             if (!DeclOk(prologue)) {
                 SyncLocal();
 
@@ -616,8 +621,8 @@ namespace Aria::Internal {
         return Stmt::Create(m_Context, expr->Loc, SourceRange(expr->Range.Start, Peek(-1)->Range.End), StmtKind::Expr, expr);
     }
 
-    Stmt* Parser::ParseDeclarationStatement() {
-        Decl* decl = ParseVariableDecl();
+    Stmt* Parser::ParseDeclarationStatement(bool global) {
+        Decl* decl = ParseVariableDecl(global);
 
         if (!DeclOk(decl)) {
             SyncLocal();
@@ -634,7 +639,7 @@ namespace Aria::Internal {
 
         if (m_DeclaredTypes.contains(fmt::format("{}", Peek()->String))) {
             Decl* decl = nullptr;
-            ASSIGN_OR_RET(decl, ParseVariableDecl(), m_ErrorStmt);
+            ASSIGN_OR_RET(decl, ParseVariableDecl(false), m_ErrorStmt);
             CONSUME_OR_RET(Semi, m_ErrorStmt);
 
             return Stmt::Create(m_Context, decl->Loc, SourceRange(decl->Range.Start, Peek(-1)->Range.End), StmtKind::Decl, decl);
@@ -665,7 +670,7 @@ namespace Aria::Internal {
 
             case TokenKind::Identifier: {
                 if (IsType()) {
-                    return ParseDeclarationStatement();
+                    return ParseDeclarationStatement(false);
                 } else {
                     return ParseExpressionStatement();
                 }
@@ -708,7 +713,7 @@ namespace Aria::Internal {
             case TokenKind::Float:
             case TokenKind::Double:
             case TokenKind::String:
-                return ParseDeclarationStatement();
+                return ParseDeclarationStatement(false);
 
             case TokenKind::Fn: {
                 Token& tok = Consume();
@@ -778,7 +783,16 @@ namespace Aria::Internal {
 
         TryConsume(TokenKind::Semi, ";");
 
-        m_Context->GetCompilationUnit()->Name = fmt::format("{}", ident->String);
+        if (m_DeclaredModule) {
+            m_Context->ReportCompilerError(ident->Range.Start, SourceRange(mod.Range.Start, Peek(-1)->Range.End), "Translation unit already declares a module");
+            return m_ErrorDecl;
+        }
+
+        m_DeclaredModule = true;
+
+        Module* module = m_Context->FindOrCreateModule(fmt::format("{}", ident->String));
+        m_Context->ActiveCompUnit->Parent = module;
+
         return Decl::Create(m_Context, ident->Range.Start, SourceRange(mod.Range.Start, Peek(-1)->Range.End), DeclKind::Module, ModuleDecl(ident->String));
     }
 
@@ -791,11 +805,11 @@ namespace Aria::Internal {
         TryConsume(TokenKind::Semi, ";");
 
         Stmt* import = Stmt::Create(m_Context, ident->Range.Start, SourceRange(ident->Range.Start, Peek(-1)->Range.End), StmtKind::Import, ImportStmt(ident->String));
-        m_Context->GetCompilationUnit()->Imports.push_back(import);
+        m_Context->ActiveCompUnit->Imports.push_back(import);
         return import;
     }
 
-    Decl* Parser::ParseVariableDecl() {
+    Decl* Parser::ParseVariableDecl(bool global) {
         if (!IsType()) {
             m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type");
             return m_ErrorDecl;
@@ -815,7 +829,13 @@ namespace Aria::Internal {
 
         TryConsume(TokenKind::Semi, ";");
 
-        return Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Var, VarDecl(ident->String, type, value));
+        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Var, VarDecl(ident->String, type, value));
+
+        if (global) {
+            m_Context->ActiveCompUnit->Globals.push_back(decl);
+        }
+
+        return decl;
     }
 
     Decl* Parser::ParseFunctionDecl() {
@@ -891,8 +911,10 @@ namespace Aria::Internal {
         typeDecl.ParamTypes = paramTypes;
 
         TypeInfo* finalType = TypeInfo::Create(m_Context, PrimitiveType::Function, false, typeDecl);
+        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Function, FunctionDecl(ident->String, finalType, params, body, flags));
 
-        return Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Function, FunctionDecl(ident->String, finalType, params, body, flags));
+        m_Context->ActiveCompUnit->Funcs.push_back(decl);
+        return decl;
     }
 
     Decl* Parser::ParseStructDecl() {
@@ -926,6 +948,7 @@ namespace Aria::Internal {
         
         Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(s.Range.Start, Peek(-1)->Range.End), DeclKind::Struct, StructDecl(ident->String, fields));
         m_DeclaredTypes[fmt::format("{}", ident->String)] = decl;
+        m_Context->ActiveCompUnit->Structs.push_back(decl);
         return decl;
     }
 
@@ -965,11 +988,11 @@ namespace Aria::Internal {
             case TokenKind::Float:
             case TokenKind::Double:
             case TokenKind::String:
-                return ParseDeclarationStatement();
+                return ParseDeclarationStatement(true);
 
             case TokenKind::Identifier: {
                 if (m_DeclaredTypes.contains(fmt::format("{}", Peek()->String))) {
-                    return ParseDeclarationStatement();
+                    return ParseDeclarationStatement(true);
                 }
 
                 m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, fmt::format("Expected the start of a global declaration", TokenKindToString(Peek()->Kind)));

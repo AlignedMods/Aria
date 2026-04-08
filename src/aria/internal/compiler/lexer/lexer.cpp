@@ -8,7 +8,7 @@ namespace Aria::Internal {
 
     Lexer::Lexer(CompilationContext* ctx) {
         m_Context = ctx;
-        m_Source = ctx->GetSourceCode();
+        m_Source = ctx->ActiveCompUnit->Source;
 
         LexImpl();
     }
@@ -21,7 +21,7 @@ namespace Aria::Internal {
             char c = Peek();
 
             if (c == '\0') {
-                m_Context->SetTokens(m_Tokens);
+                m_Context->ActiveCompUnit->Tokens = m_Tokens;
                 return;
             }
 

@@ -45,12 +45,26 @@ namespace Aria::Internal {
     public:
         SemanticAnalyzer(CompilationContext* ctx);
 
-        void ResolveDependencies();
-        void Analyze();
-
     private:
-        void AddUnit(CompilationUnit* unit);
-        void ResolveUnit(CompilationUnit* unit);
+        void SemaImpl();
+
+        // Passes
+        void PassImports();
+        void PassDecls();
+        void PassCode();
+
+        void AddUnitToModule(Module* module, CompilationUnit* unit);
+        void ResolveModuleImports(Module* module);
+        void ResolveUnitImports(Module* module, CompilationUnit* unit);
+
+        void ResolveModuleDecls(Module* module);
+        void ResolveUnitDecls(Module* module, CompilationUnit* unit);
+
+        void ResolveModuleCode(Module* module);
+        void ResolveUnitCode(Module* module, CompilationUnit* unit);
+
+        Decl* FindSymbolInModule(Module* mod, StringView identifier);
+        Decl* FindSymbolInUnit(CompilationUnit* unit, StringView identifier);
 
         void ResolveBooleanConstantExpr(Expr* expr);
         void ResolveCharacterConstantExpr(Expr* expr);
@@ -106,8 +120,6 @@ namespace Aria::Internal {
 
     private:
         std::unordered_map<std::string, bool> m_ImportedModules;
-
-        Stmt* m_RootASTNode = nullptr;
 
         Decl* m_BuiltInStringDestructor = nullptr;
         Decl* m_BuiltInStringCopyConstructor = nullptr;
