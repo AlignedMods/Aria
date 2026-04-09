@@ -1,4 +1,4 @@
-fn ShouldNeverBeCalled() -> bool #extern;
+fn should_never_be_called() -> bool #extern;
 
 int a = 5 + 5;
 int b = (a + 5) / -5;
@@ -21,8 +21,8 @@ int o = 5 & 4; // Should be 4
 int p = o | o * o; // Should be 20
 
 // This next section validates that && and || don't execute code that is not neccesary
-bool aa = false && ShouldNeverBeCalled();
-bool bb = true || ShouldNeverBeCalled();
+bool aa = false && should_never_be_called();
+bool bb = true || should_never_be_called();
 
 // This next section handles compound assignment
 int cc = 1;

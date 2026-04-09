@@ -83,7 +83,8 @@ namespace Aria::Internal {
         String,
         // ^^^ Types ^^^ //
 
-        Identifier,
+        Identifier, // foo/foo_bar/fooBar
+        TypeIdentifier, // Foo/Foo_Bar/FooBar
 
         Last
     };
@@ -178,6 +179,7 @@ namespace Aria::Internal {
             // ^^^ Types ^^^ //
 
             case TokenKind::Identifier: return "identifier";
+            case TokenKind::TypeIdentifier: return "type-identifier";
         }
 
         ARIA_ASSERT(false, "Unreachable!");

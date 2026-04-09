@@ -483,7 +483,8 @@ namespace Aria::Internal {
     }
 
     void SemanticAnalyzer::ResolveExpr(Expr* expr) {
-        if (expr->Kind == ExprKind::BooleanConstant) {
+        if (expr->Kind == ExprKind::Error) { return; }
+        else if (expr->Kind == ExprKind::BooleanConstant) {
             return ResolveBooleanConstantExpr(expr);
         } else if (expr->Kind == ExprKind::CharacterConstant) {
             return ResolveCharacterConstantExpr(expr);

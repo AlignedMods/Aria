@@ -62,6 +62,18 @@ namespace Aria {
         CompileFileRaw(contents, path);
         m_ActiveModule->CompilationContext.FinishCompilation();
 
+        // Handle compiler errors
+        auto& unit = m_ActiveModule->CompilationContext.CompilationUnits.at(0);
+        for (auto& error : unit->Errors) {
+            fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", path, error.Line, error.Column);
+            fmt::print(fg(fmt::color::pale_violet_red), "error: ");
+            fmt::print("{}\n", error.Error);
+
+            // fmt format strings from: https://hackingcpp.com/cpp/libs/fmt
+            fmt::print(" {:6} | {}\n", error.Line, GetLine(unit->Source, error.Line));
+            fmt::print("        | {:>{w}}\n", "^", fmt::arg("w", error.Column));
+        }
+
         m_Modules[path] = newModule;
     }
 

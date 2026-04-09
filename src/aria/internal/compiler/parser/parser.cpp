@@ -434,14 +434,7 @@ namespace Aria::Internal {
 
     bool Parser::IsType() {
         if (IsPrimitiveType()) { return true; }
-
-        if (Peek()->Kind == TokenKind::Identifier) {
-            if (m_DeclaredTypes.contains(fmt::format("{}", Peek()->String))) {
-                return true;
-            }
-
-            return false;
-        }
+        if (Peek()->Kind == TokenKind::TypeIdentifier) { return true; }
 
         return false;
     }
@@ -470,10 +463,10 @@ namespace Aria::Internal {
 
             case TokenKind::String:     type->Type = PrimitiveType::String; break;
 
-            case TokenKind::Identifier: {
+            case TokenKind::TypeIdentifier: {
                 StringView ident = Peek(-1)->String;
-                type->Type = PrimitiveType::Structure;
-                type->Data = StructDeclaration(ident, m_DeclaredTypes.at(fmt::format("{}", ident)));
+                type->Type = PrimitiveType::Unresolved;
+                type->Data = UnresolvedType(ident);
                 break;
             }
 
@@ -634,20 +627,6 @@ namespace Aria::Internal {
         return Stmt::Create(m_Context, decl->Loc, SourceRange(decl->Range.Start, Peek(-1)->Range.End), StmtKind::Decl, decl);
     }
 
-    Stmt* Parser::ParseDeclarationOrExpression() {
-        ARIA_ASSERT(Peek()->Kind == TokenKind::Identifier, "Invalid current token for Parser::ParseDeclarationOrExpression()");
-
-        if (m_DeclaredTypes.contains(fmt::format("{}", Peek()->String))) {
-            Decl* decl = nullptr;
-            ASSIGN_OR_RET(decl, ParseVariableDecl(false), m_ErrorStmt);
-            CONSUME_OR_RET(Semi, m_ErrorStmt);
-
-            return Stmt::Create(m_Context, decl->Loc, SourceRange(decl->Range.Start, Peek(-1)->Range.End), StmtKind::Decl, decl);
-        }
-
-        return ParseExpressionStatement();
-    }
-
     Stmt* Parser::ParseStatement() {
         switch (Peek()->Kind) {
             case TokenKind::Semi: {
@@ -666,15 +645,8 @@ namespace Aria::Internal {
             case TokenKind::UintLit:
             case TokenKind::NumLit:
             case TokenKind::StrLit:
+            case TokenKind::Identifier:
                 return ParseExpressionStatement();
-
-            case TokenKind::Identifier: {
-                if (IsType()) {
-                    return ParseDeclarationStatement(false);
-                } else {
-                    return ParseExpressionStatement();
-                }
-            }
 
             case TokenKind::LeftCurly:
                 return ParseBlock();
@@ -713,6 +685,7 @@ namespace Aria::Internal {
             case TokenKind::Float:
             case TokenKind::Double:
             case TokenKind::String:
+            case TokenKind::TypeIdentifier:
                 return ParseDeclarationStatement(false);
 
             case TokenKind::Fn: {
@@ -947,7 +920,6 @@ namespace Aria::Internal {
         TryConsume(TokenKind::RightCurly, "}");
         
         Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(s.Range.Start, Peek(-1)->Range.End), DeclKind::Struct, StructDecl(ident->String, fields));
-        m_DeclaredTypes[fmt::format("{}", ident->String)] = decl;
         m_Context->ActiveCompUnit->Structs.push_back(decl);
         return decl;
     }
@@ -988,17 +960,8 @@ namespace Aria::Internal {
             case TokenKind::Float:
             case TokenKind::Double:
             case TokenKind::String:
+            case TokenKind::TypeIdentifier:
                 return ParseDeclarationStatement(true);
-
-            case TokenKind::Identifier: {
-                if (m_DeclaredTypes.contains(fmt::format("{}", Peek()->String))) {
-                    return ParseDeclarationStatement(true);
-                }
-
-                m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, fmt::format("Expected the start of a global declaration", TokenKindToString(Peek()->Kind)));
-                SyncGlobal();
-                return m_ErrorStmt;
-            }
 
             case TokenKind::Fn: {
                 Decl* decl = nullptr;

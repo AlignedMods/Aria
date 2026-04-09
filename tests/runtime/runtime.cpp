@@ -21,7 +21,7 @@ TEST_CASE("Runtime Variable Declaration") {
 TEST_CASE("Runtime Basic Expressions") {
     Aria::Context ctx = Aria::Context::Create();
     ctx.CompileFile("tests/runtime/basic_expressions.aria");
-    ctx.AddExternalFunction("ShouldNeverBeCalled()", [](Aria::Context* ctx) {
+    ctx.AddExternalFunction("should_never_be_called()", [](Aria::Context* ctx) {
         throw std::runtime_error("function that shouldn't be called was called");
     });
     ctx.Run();
@@ -71,7 +71,7 @@ TEST_CASE("Runtime Basic Expressions") {
 TEST_CASE("Runtime Functions") {
     Aria::Context ctx = Aria::Context::Create();
     ctx.CompileFile("tests/runtime/functions.aria");
-    ctx.AddExternalFunction("ExternalFunction()", [](Aria::Context* ctx) {
+    ctx.AddExternalFunction("external_function()", [](Aria::Context* ctx) {
         ctx->GetArg(0);
         ctx->GetArg(1);
         ctx->GetArg(2);
@@ -96,27 +96,27 @@ TEST_CASE("Runtime Control Flow") {
     ctx.CompileFile("tests/runtime/control_flow.aria");
     ctx.Run();
     
-    ctx.Call("While()", 0);
+    ctx.Call("test_while()", 0);
     REQUIRE(ctx.GetInt(-1) == 10);
     ctx.Pop(1);
     
-    ctx.Call("DoWhile1()", 0);
+    ctx.Call("test_do_while1()", 0);
     REQUIRE(ctx.GetInt(-1) == 10);
     ctx.Pop(1);
     
-    ctx.Call("DoWhile2()", 0);
+    ctx.Call("test_do_while2()", 0);
     REQUIRE(ctx.GetBool(-1) == true);
     ctx.Pop(1);
     
-    ctx.Call("For()", 0);
+    ctx.Call("test_for()", 0);
     REQUIRE(ctx.GetInt(-1) == 190);
     ctx.Pop(1);
 
-    ctx.Call("Break()", 0);
+    ctx.Call("test_break()", 0);
     REQUIRE(ctx.GetInt(-1) == 69);
     ctx.Pop(1);
     
-    ctx.Call("If()", 0);
+    ctx.Call("test_if()", 0);
     REQUIRE(ctx.GetBool(-1) == false);
     ctx.Pop(1);
 }
@@ -127,12 +127,12 @@ TEST_CASE("Runtime Recursion") {
     ctx.Run();
     
     ctx.PushInt(10);
-    ctx.Call("Fib()", 1);
+    ctx.Call("fib()", 1);
     REQUIRE(ctx.GetInt(-1) == 55);
     ctx.Pop(1);
     
     ctx.PushInt(20);
-    ctx.Call("Fib()", 1);
+    ctx.Call("fib()", 1);
     REQUIRE(ctx.GetInt(-1) == 6765);
     ctx.Pop(1);
 }

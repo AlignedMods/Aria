@@ -416,14 +416,26 @@ namespace Aria::Internal {
         StringBuilder str;
         SourceLocation start = SourceLocation(m_CurrentLine, GetColumn(m_Index));
 
+        bool containsUpperCase = false;
+        bool containsLowerCase = false;
+        bool startsWithUpperCase = false;
+
         while (true) {
             if (std::isalnum(Peek()) || Peek() == '_') {
+                if (std::isupper(Peek())) {
+                    containsUpperCase = true;
+                } else if (std::islower(Peek())) {
+                    containsLowerCase = true;
+                }
+
                 str.Append(m_Context, Peek());
                 Consume();
             } else {
                 break;
             }
         }
+
+        if (str.Size() > 0 && std::isupper(str.Data()[0])) { startsWithUpperCase = true; } 
 
         if (str == "true")     { AddToken(TokenKind::True,   SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "true");   return; }
         if (str == "false")    { AddToken(TokenKind::False,  SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "false");  return; }
@@ -455,6 +467,11 @@ namespace Aria::Internal {
         if (str == "float")    { AddToken(TokenKind::Float,  SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "float");  return; }
         if (str == "double")   { AddToken(TokenKind::Double, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "double"); return; }
         if (str == "string")   { AddToken(TokenKind::String, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "string"); return; }
+
+        if (startsWithUpperCase) {
+            AddToken(TokenKind::TypeIdentifier, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), str);
+            return;
+        }
 
         AddToken(TokenKind::Identifier, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), str);
     }

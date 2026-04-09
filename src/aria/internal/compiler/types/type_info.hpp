@@ -30,7 +30,9 @@ namespace Aria::Internal {
 
         String,
         Array,
-        Structure
+        Structure,
+
+        Unresolved
     };
 
     struct TypeInfo;
@@ -49,9 +51,13 @@ namespace Aria::Internal {
         TypeInfo* Type = nullptr;
     };
 
+    struct UnresolvedType {
+        StringView Identifier;
+    };
+
     struct TypeInfo {
         PrimitiveType Type = PrimitiveType::Error;
-        std::variant<size_t, TypeInfo*, FunctionDeclaration, ArrayDeclaration, StructDeclaration> Data;
+        std::variant<size_t, TypeInfo*, FunctionDeclaration, ArrayDeclaration, StructDeclaration, UnresolvedType> Data;
         bool Reference = false;
 
         static TypeInfo* Create(CompilationContext* ctx, PrimitiveType type, bool isReference, decltype(TypeInfo::Data) data = {});

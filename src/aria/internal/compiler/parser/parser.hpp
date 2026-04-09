@@ -57,7 +57,6 @@ namespace Aria::Internal {
 
         Stmt* ParseExpressionStatement();
         Stmt* ParseDeclarationStatement(bool global);
-        Stmt* ParseDeclarationOrExpression();
 
         Stmt* ParseStatement();
 
@@ -98,7 +97,6 @@ namespace Aria::Internal {
         };
         std::unordered_map<TokenKind, ParseExprRule> m_ExprRules;
 
-        std::unordered_map<std::string, Decl*> m_DeclaredTypes;
         CompilationContext* m_Context = nullptr;
     };
 
