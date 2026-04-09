@@ -35,6 +35,7 @@ namespace Aria::Internal {
         Expr* ParseCompoundAssignment(Expr* left);
         Expr* ParseMember(Expr* left);
         Expr* ParsePrimary(Expr* left);
+        Expr* ParseIdentifier(Token t);
 
         Expr* ParsePrecedenceWithLeft(Expr* left, size_t precedence);
         Expr* ParsePrecedence(size_t precedence);

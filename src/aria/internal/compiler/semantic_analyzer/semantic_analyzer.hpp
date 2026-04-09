@@ -72,6 +72,7 @@ namespace Aria::Internal {
         void ResolveFloatingConstantExpr(Expr* expr);
         void ResolveStringConstantExpr(Expr* expr);
         void ResolveDeclRefExpr(Expr* expr);
+        void ResolveScopeExpr(Expr* expr);
         void ResolveMemberExpr(Expr* expr);
         void ResolveCallExpr(Expr* expr);
         void ResolveMethodCallExpr(Expr* expr);
@@ -130,6 +131,7 @@ namespace Aria::Internal {
         TypeInfo* m_ActiveStruct = nullptr;
 
         bool m_TemporaryContext = false;
+        Module* m_SearchModule = nullptr; // A module to search for declarations in a scope expr (foo::bar)
 
         CompilationContext* m_Context = nullptr;
     };

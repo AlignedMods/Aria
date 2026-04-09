@@ -354,15 +354,14 @@ namespace Aria::Internal {
 
         RunPrepass();
 
-        // TODO: Add support for calling all _start$...() functions
-        const std::string& signature = "_start$0()";
+        const std::string& signature = "_start$()";
 
-        ARIA_ASSERT(m_Functions.contains(signature), "Byte code does not contain _start$0() function");
+        ARIA_ASSERT(m_Functions.contains(signature), "Byte code does not contain _start$() function");
         VMFunction& func = m_Functions.at(signature);
         m_ActiveFunction = &func;
 
         // Perform a jump to the function
-        ARIA_ASSERT(func.Labels.contains("_entry$"), "_start$0() function doesn't contain a \"_entry$\" label");
+        ARIA_ASSERT(func.Labels.contains("_entry$"), "_start$() function doesn't contain a \"_entry$\" label");
         m_ProgramCounter = func.Labels.at("_entry$");
         Run();
     }

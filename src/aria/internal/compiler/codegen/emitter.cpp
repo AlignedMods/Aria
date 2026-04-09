@@ -4,46 +4,93 @@ namespace Aria::Internal {
 
     Emitter::Emitter(CompilationContext* ctx) {
         m_Context = ctx;
-        m_RootASTNode = ctx->ActiveCompUnit->RootASTNode;
 
         EmitImpl();
     }
 
     void Emitter::EmitImpl() {
-        const std::string& startSig = fmt::format("_start${}()", m_Context->ActiveCompUnit->Index);
-        const std::string& endSig = fmt::format("_end${}()", m_Context->ActiveCompUnit->Index);
+        for (Module* mod : m_Context->Modules) {
+            if (mod->Units.size() == 0) { continue; }
+            m_ActiveNamespace = mod->Name;
 
-        // VVV _start$() VVV //
-        m_OpCodes.emplace_back(OpCodeKind::Function, startSig);
+            for (CompilationUnit* unit : mod->Units) {
+                for (Decl* s : unit->Structs) {
+                    EmitDecl(s);
+                }
+
+                for (Decl* f : unit->Funcs) {
+                    EmitDecl(f);
+                }
+            }
+
+            std::string startSig = fmt::format("_start${}()", mod->Name);
+            std::string endSig = fmt::format("_end${}()", mod->Name);
+
+            m_OpCodes.emplace_back(OpCodeKind::Function, startSig);
+            m_OpCodes.emplace_back(OpCodeKind::Label, "_entry$");
+            m_OpCodes.emplace_back(OpCodeKind::PushSF);
+            PushStackFrame(startSig);
+
+            for (CompilationUnit* unit : mod->Units) {
+                for (Decl* g : unit->Globals) {
+                    EmitDecl(g);
+                    MergePendingOpCodes();
+                }
+            }
+
+            PopStackFrame();
+            m_OpCodes.emplace_back(OpCodeKind::PopSF);
+            m_OpCodes.emplace_back(OpCodeKind::Ret);
+
+            m_OpCodes.emplace_back(OpCodeKind::Function, endSig);
+            m_OpCodes.emplace_back(OpCodeKind::Label, "_entry$");
+            m_OpCodes.emplace_back(OpCodeKind::PushSF);
+            PushStackFrame(endSig);
+
+            EmitDestructors(m_GlobalScope.DeclaredSymbols);
+
+            PopStackFrame();
+            m_OpCodes.emplace_back(OpCodeKind::PopSF);
+            m_OpCodes.emplace_back(OpCodeKind::Ret);
+
+            mod->OpCodes = m_OpCodes;
+            mod->ReflectionData = m_ReflectionData;
+
+            m_OpCodes.clear();
+            m_ReflectionData.Declarations.clear();
+        }
+
+        m_OpCodes.emplace_back(OpCodeKind::Function, "_start$()");
         m_OpCodes.emplace_back(OpCodeKind::Label, "_entry$");
         m_OpCodes.emplace_back(OpCodeKind::PushSF);
-        PushStackFrame(startSig);
+        PushStackFrame("_start$()");
 
-        EmitStmt(m_RootASTNode);
-
-        MergePendingOpCodes();
+        for (Module* mod : m_Context->Modules) {
+            if (mod->Units.size() == 0) { continue; }
+            m_OpCodes.emplace_back(OpCodeKind::LdFunc, fmt::format("_start${}()", mod->Name));
+            m_OpCodes.emplace_back(OpCodeKind::Call, OpCodeCall(0, VMType(VMTypeKind::Void)));
+        }
 
         PopStackFrame();
         m_OpCodes.emplace_back(OpCodeKind::Ret);
-        // ^^^ _start$() ^^^ //
 
-        // VVV _end$() VVV //
-        m_OpCodes.emplace_back(OpCodeKind::Function, endSig);
+        m_OpCodes.emplace_back(OpCodeKind::Function, "_end$()");
         m_OpCodes.emplace_back(OpCodeKind::Label, "_entry$");
         m_OpCodes.emplace_back(OpCodeKind::PushSF);
-        PushStackFrame(endSig);
+        PushStackFrame("_end$()");
 
-        EmitDestructors(m_GlobalScope.DeclaredSymbols);
+        for (Module* mod : m_Context->Modules) {
+            if (mod->Units.size() == 0) { continue; }
+            m_OpCodes.emplace_back(OpCodeKind::LdFunc, fmt::format("_end${}()", mod->Name));
+            m_OpCodes.emplace_back(OpCodeKind::Call, OpCodeCall(0, VMType(VMTypeKind::Void)));
+        }
 
         PopStackFrame();
         m_OpCodes.emplace_back(OpCodeKind::PopSF);
         m_OpCodes.emplace_back(OpCodeKind::Ret);
-        // ^^^ _end$() ^^^ //
 
-        EmitDeclarations();
-
-        m_Context->ActiveCompUnit->OpCodes = m_OpCodes;
-        m_Context->ActiveCompUnit->ReflectionData = m_ReflectionData;
+        Module* mod = m_Context->FindOrCreateModule("#emit_output$$");
+        mod->OpCodes = m_OpCodes;
     }
 
     void Emitter::EmitBooleanConstantExpr(Expr* expr, ExprValueKind valueKind) {
@@ -87,7 +134,8 @@ namespace Aria::Internal {
     // rvalue + ref: (LdLocal, LdArg, LdGlobal) + deref
     void Emitter::EmitDeclRefExpr(Expr* expr, ExprValueKind valueKind) {
         DeclRefExpr declRef = expr->DeclRef;
-        std::string ident = fmt::format("{}", declRef.Identifier);
+        if (m_Namespace.empty()) { m_Namespace = m_ActiveNamespace; }
+        std::string ident = fmt::format("{}::{}", m_Namespace, declRef.Identifier);
 
         // VVV -LocalVar- VVV //
         if (declRef.Kind == DeclRefKind::LocalVar) {
@@ -165,12 +213,28 @@ namespace Aria::Internal {
         // VVV -Function- VVV //
         if (declRef.Kind == DeclRefKind::Function) {
             ARIA_ASSERT(valueKind != ExprValueKind::RValue, "Cannot load function as rvalue");
-            m_PendingOpCodes.emplace_back(OpCodeKind::LdFunc, fmt::format("{}()", ident));
+
+            ARIA_ASSERT(declRef.ReferencedDecl->Kind == DeclKind::Function, "Invalid referenced decl in DeclRefExpr");
+
+            if (declRef.ReferencedDecl->Function.Flags & FUNC_NOMANGLE) {
+                m_PendingOpCodes.emplace_back(OpCodeKind::LdFunc, fmt::format("{}()", declRef.Identifier));
+            } else {
+                m_PendingOpCodes.emplace_back(OpCodeKind::LdFunc, fmt::format("{}()", ident));
+            }
+
             return;
         }
         // ^^^ -Function- ^^^ //
 
         ARIA_UNREACHABLE();
+    }
+
+    void Emitter::EmitScopeExpr(Expr* expr, ExprValueKind valueKind) {
+        ScopeExpr& scope = expr->Scope;
+
+        m_Namespace = fmt::format("{}", scope.Parent);
+        EmitExpr(scope.Child, valueKind);
+        m_Namespace.clear();
     }
 
     void Emitter::EmitMemberExpr(Expr* expr, ExprValueKind valueKind) {
@@ -466,6 +530,8 @@ namespace Aria::Internal {
             EmitStringConstantExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::DeclRef) {
             EmitDeclRefExpr(expr, valueKind);
+        } else if (expr->Kind == ExprKind::Scope) {
+            EmitScopeExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::Member) {
             EmitMemberExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::Temporary) {
@@ -557,9 +623,37 @@ namespace Aria::Internal {
     }
 
     void Emitter::EmitFunctionDecl(Decl* decl) {
-        FunctionDecl fnDecl = decl->Function;
+        FunctionDecl& fnDecl = decl->Function;
+        std::string name = (fnDecl.Flags & FUNC_NOMANGLE) ? fmt::format("{}()", fnDecl.Identifier) : fmt::format("{}::{}()", m_ActiveNamespace, fnDecl.Identifier);
+
+        if (fnDecl.Body) {
+            m_OpCodes.emplace_back(OpCodeKind::Function, name);
+            m_OpCodes.emplace_back(OpCodeKind::Label, "_entry$");
+            m_OpCodes.emplace_back(OpCodeKind::PushSF);
+            PushStackFrame(name);
+            
+            size_t returnSlot = (std::get<FunctionDeclaration>(fnDecl.Type->Data).ReturnType->Type == PrimitiveType::Void) ? 0 : 1;
+            
+            for (Decl* p : fnDecl.Parameters) {
+                EmitParamDecl(p);
+            }
+            
+            EmitStmt(fnDecl.Body);
+            MergePendingOpCodes();
         
-        m_DeclarationsToDeclare.emplace_back(fmt::format("{}()", fnDecl.Identifier), decl);
+            if (m_OpCodes.back().Kind != OpCodeKind::Ret) {
+                m_OpCodes.emplace_back(OpCodeKind::PopSF);
+                m_OpCodes.emplace_back(OpCodeKind::Ret);
+            }
+        
+            PopStackFrame();
+        
+            CompilerReflectionDeclaration d;
+            d.Type = TypeInfoToVMType(std::get<FunctionDeclaration>(fnDecl.Type->Data).ReturnType);
+            d.Kind = ReflectionKind::Function;
+        
+            m_ReflectionData.Declarations[name] = d;
+        }
     }
 
     void Emitter::EmitStructDecl(Decl* decl) {
@@ -572,12 +666,21 @@ namespace Aria::Internal {
             if (field->Kind == DeclKind::Field) {
                 sd.FieldIndices[ident] = sd.FieldIndices.size();
             } else if (field->Kind == DeclKind::Method) {
-                m_DeclarationsToDeclare.emplace_back(fmt::format("{}::{}()", s.Identifier, field->Method.Identifier), field);
             }
         }
         
+        std::vector<VMType> fields;
+        fields.reserve(decl->Struct.Fields.Size);
+        
+        for (Decl* field : decl->Struct.Fields) {
+            if (field->Kind == DeclKind::Field) {
+                fields.push_back(TypeInfoToVMType(field->Field.Type));
+            }
+        }
+        
+        m_OpCodes.emplace_back(OpCodeKind::Struct, OpCodeStruct(fields, std::string_view(decl->Struct.Identifier.Data(), decl->Struct.Identifier.Size())));
+
         m_Structs[ident] = sd;
-        m_DeclarationsToDeclare.emplace_back(ident, decl);
     }
 
     void Emitter::EmitDecl(Decl* decl) {
@@ -798,81 +901,6 @@ namespace Aria::Internal {
         m_OpCodes.reserve(m_OpCodes.size() + m_PendingOpCodes.size());
         m_OpCodes.insert(m_OpCodes.end(), m_PendingOpCodes.begin(), m_PendingOpCodes.end());
         m_PendingOpCodes.clear();
-    }
-
-    void Emitter::EmitDeclarations() {
-        for (const auto&[name, decl] : m_DeclarationsToDeclare) {
-            if (decl->Kind == DeclKind::Function) {
-                FunctionDecl& fnDecl = decl->Function;
-                if (fnDecl.Body) {
-                    m_OpCodes.emplace_back(OpCodeKind::Function, name);
-                    m_OpCodes.emplace_back(OpCodeKind::Label, "_entry$");
-                    m_OpCodes.emplace_back(OpCodeKind::PushSF);
-                    PushStackFrame(name);
-                    
-                    size_t returnSlot = (std::get<FunctionDeclaration>(fnDecl.Type->Data).ReturnType->Type == PrimitiveType::Void) ? 0 : 1;
-                    
-                    for (Decl* p : fnDecl.Parameters) {
-                        EmitParamDecl(p);
-                    }
-                    
-                    EmitStmt(fnDecl.Body);
-                    MergePendingOpCodes();
-
-                    if (m_OpCodes.back().Kind != OpCodeKind::Ret) {
-                        m_OpCodes.emplace_back(OpCodeKind::PopSF);
-                        m_OpCodes.emplace_back(OpCodeKind::Ret);
-                    }
-        
-                    PopStackFrame();
-        
-                    CompilerReflectionDeclaration d;
-                    d.Type = TypeInfoToVMType(std::get<FunctionDeclaration>(fnDecl.Type->Data).ReturnType);
-                    d.Kind = ReflectionKind::Function;
-        
-                    m_ReflectionData.Declarations[name] = d;
-                }
-            } else if (decl->Kind == DeclKind::Method) {
-                // m_OpCodes.emplace_back(OpCodeKind::Function, name);
-                // m_OpCodes.emplace_back(OpCodeKind::Label, "_entry$");
-                // 
-                // m_OpCodes.emplace_back(OpCodeKind::PushSF);
-                // PushStackFrame(name);
-                // m_ActiveStackFrame.ParameterCount++; // Used for "self"
-                // 
-                // size_t returnSlot = (mDecl->GetResolvedType()->Type == PrimitiveType::Void) ? 0 : 1;
-                // 
-                // for (ParamDecl* p : mDecl->GetParameters()) {
-                //     EmitParamDecl(p);
-                // }
-                // 
-                // EmitCompoundStmt(mDecl->GetBody());
-                // 
-                // if (m_OpCodes.back().Kind != OpCodeKind::Ret) {
-                //     m_OpCodes.emplace_back(OpCodeKind::PopSF);
-                //     m_OpCodes.emplace_back(OpCodeKind::Ret);
-                // }
-                // 
-                // PopStackFrame();
-                // 
-                // CompilerReflectionDeclaration d;
-                // d.Type = TypeInfoToVMType(std::get<FunctionDeclaration>(mDecl->GetResolvedType()->Data).ReturnType);
-                // d.Kind = ReflectionKind::Function;
-                // 
-                // m_ReflectionData.Declarations[name] = d;
-            } else if (decl->Kind == DeclKind::Struct) {
-                std::vector<VMType> fields;
-                fields.reserve(decl->Struct.Fields.Size);
-                
-                for (Decl* field : decl->Struct.Fields) {
-                    if (field->Kind == DeclKind::Field) {
-                        fields.push_back(TypeInfoToVMType(field->Field.Type));
-                    }
-                }
-                
-                m_OpCodes.emplace_back(OpCodeKind::Struct, OpCodeStruct(fields, std::string_view(decl->Struct.Identifier.Data(), decl->Struct.Identifier.Size())));
-            }
-        }
     }
 
     VMType Emitter::TypeInfoToVMType(TypeInfo* t) {

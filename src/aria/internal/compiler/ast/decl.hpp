@@ -25,6 +25,7 @@ namespace Aria::Internal {
     };
 
     constexpr int FUNC_EXTERN = 0x01;
+    constexpr int FUNC_NOMANGLE = 0x02;
 
     struct Expr;
     struct Stmt;

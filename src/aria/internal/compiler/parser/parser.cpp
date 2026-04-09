@@ -348,13 +348,34 @@ namespace Aria::Internal {
             }
 
             case TokenKind::Identifier: {
-                return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::DeclRef,
-                    ExprValueKind::LValue, nullptr, 
-                    DeclRefExpr(t.String));
+                return ParseIdentifier(t);
             }
 
             default: return m_ErrorExpr;
         }
+    }
+
+    Expr* Parser::ParseIdentifier(Token t) {
+        if (Match(TokenKind::ColonColon)) {
+            Token& col = Consume();
+
+            Token* child = TryConsume(TokenKind::Identifier, "identifier");
+            if (!child) { return m_ErrorExpr; }
+
+            Expr* declRef = Expr::Create(m_Context, child->Range.Start, child->Range, ExprKind::DeclRef,
+                                ExprValueKind::LValue, nullptr,
+                                DeclRefExpr(child->String));
+
+            return Expr::Create(m_Context, col.Range.Start, SourceRange(t.Range.Start, child->Range.End), ExprKind::Scope,
+                        ExprValueKind::LValue, nullptr,
+                        ScopeExpr(t.String, declRef));
+        } else {
+            return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::DeclRef,
+                       ExprValueKind::LValue, nullptr, 
+                       DeclRefExpr(t.String));
+        }
+
+        ARIA_UNREACHABLE();
     }
 
     Expr* Parser::ParsePrecedenceWithLeft(Expr* left, size_t precedence) {
@@ -735,6 +756,7 @@ namespace Aria::Internal {
             case TokenKind::RightCurly:
             case TokenKind::Comma:
             case TokenKind::Colon:
+            case TokenKind::ColonColon:
             case TokenKind::Dot: {
                 Token& tok = Consume();
                 m_Context->ReportCompilerError(tok.Range.Start, tok.Range, fmt::format("Unexpected token '{}' while looking for statement", TokenKindToString(tok.Kind)));
@@ -927,9 +949,16 @@ namespace Aria::Internal {
     int Parser::ParseFunctionFlags() {
         int result = 0;
 
-        if (Match(TokenKind::HashExtern)) {
-            result |= FUNC_EXTERN;
-            Consume();
+        while (Peek()) {
+            if (Match(TokenKind::AtExtern)) {
+                result |= FUNC_EXTERN;
+                Consume();
+            } else if (Match(TokenKind::AtNoMangle)) {
+                result |= FUNC_NOMANGLE;
+                Consume();
+            } else {
+                break;
+            }
         }
 
         return result;

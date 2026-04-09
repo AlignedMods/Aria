@@ -25,6 +25,8 @@ namespace Aria::Internal {
         std::unordered_map<std::string, Decl*> Symbols;
         std::vector<CompilationUnit*> Units;
         std::string Name;
+        std::vector<OpCode> OpCodes;
+        CompilerReflectionData ReflectionData;
     };
 
     struct CompilationUnit {
@@ -36,9 +38,7 @@ namespace Aria::Internal {
         std::string Source;
         std::vector<Token> Tokens;
         Stmt* RootASTNode = nullptr;
-        std::vector<OpCode> OpCodes;
 
-        CompilerReflectionData ReflectionData;
         std::vector<CompilerError> Errors;
 
         std::vector<Decl*> Globals;

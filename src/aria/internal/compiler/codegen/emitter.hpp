@@ -51,6 +51,7 @@ namespace Aria::Internal {
         void EmitFloatingConstantExpr(Expr* expr,  ExprValueKind valueKind);
         void EmitStringConstantExpr(Expr* expr,    ExprValueKind valueKind);
         void EmitDeclRefExpr(Expr* expr,           ExprValueKind valueKind);
+        void EmitScopeExpr(Expr* expr,             ExprValueKind valueKind);
         void EmitMemberExpr(Expr* expr,            ExprValueKind valueKind);
         void EmitSelfExpr(Expr* expr,              ExprValueKind valueKind);
         void EmitTemporaryExpr(Expr* expr,         ExprValueKind valueKind);
@@ -85,8 +86,6 @@ namespace Aria::Internal {
 
         void EmitStmt(Stmt* stmt);
 
-        void EmitDeclarations(); // Emits all the user defined functions/structs/...
-
         bool IsStartStackFrame();
         bool IsGlobalScope();
 
@@ -107,14 +106,15 @@ namespace Aria::Internal {
         std::vector<OpCode> m_PendingOpCodes; // Op codes that will be appended to the main op codes after the function body has been fully generated
         CompilerReflectionData m_ReflectionData;
 
+        std::string m_Namespace;
+        std::string m_ActiveNamespace;
+
         Stmt* m_RootASTNode = nullptr;
 
         StackFrame m_ActiveStackFrame;
         Scope m_GlobalScope;
 
         std::unordered_map<std::string, RuntimeStructDeclaration> m_Structs;
-
-        std::vector<FutureDeclaration> m_DeclarationsToDeclare; // We do not immediately declare functions/structs/..., we actually do them last
 
         // Counters
         size_t m_AndCounter = 0;

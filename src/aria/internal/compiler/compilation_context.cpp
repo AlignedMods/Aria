@@ -22,14 +22,18 @@ namespace Aria::Internal {
     void CompilationContext::FinishCompilation() {
         Analyze();
 
+        bool hasErrors = false;
+
         for (Module* module : Modules) {
             for (CompilationUnit* unit : module->Units) {
-                ActiveCompUnit = unit;
-                if (ActiveCompUnit->Errors.empty()) { Emit(); }
+                if (unit->Errors.size() > 0) { hasErrors = true; break; }
             }
         }
 
-        if (ActiveCompUnit->Errors.empty()) { Link(); }
+        if (!hasErrors) {
+            Emit();
+            Link();
+        }
     }
 
     void CompilationContext::Lex() { Lexer l(this); }

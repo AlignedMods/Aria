@@ -19,6 +19,7 @@ namespace Aria::Internal {
         RightCurly,
         Comma,
         Colon,
+        ColonColon,
         Dot,
         Arrow,
         // ^^^ Punctuation ^^^ //
@@ -64,7 +65,8 @@ namespace Aria::Internal {
         Self,
         Fn,
         Struct,
-        HashExtern, // #extern
+        AtExtern, // @extern
+        AtNoMangle, // @nomangle
         // ^^^ Keywords ^^^ //
 
         // VVV Types VVV //
@@ -101,6 +103,7 @@ namespace Aria::Internal {
             case TokenKind::RightCurly: return "}";
             case TokenKind::Comma: return ",";
             case TokenKind::Colon: return ":";
+            case TokenKind::ColonColon: return "::";
             case TokenKind::Dot: return ".";
             // ^^^ Punctuation ^^^ //
 
@@ -160,6 +163,8 @@ namespace Aria::Internal {
             case TokenKind::Self: return "self";
             case TokenKind::Fn: return "fn";
             case TokenKind::Struct: return "struct";
+            case TokenKind::AtExtern: return "@extern";
+            case TokenKind::AtNoMangle: return "@nomangle";
             // ^^^ Keywords ^^^ //
             
             // VVV Types VVV //

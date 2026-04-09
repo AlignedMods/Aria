@@ -47,8 +47,10 @@ namespace Aria::Internal {
                           break;
                 case ',': AddToken(TokenKind::Comma, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), ",");
                           break;
-                case ':': AddToken(TokenKind::Colon, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), ":");
-                          break;
+                case ':': {
+                    if (TryConsume(':')) { AddToken(TokenKind::ColonColon, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "::"); break; }
+                    else { AddToken(TokenKind::Colon, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), ":"); break; }
+                }
                 case '.': AddToken(TokenKind::Dot, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), ".");
                           break;
 
@@ -115,9 +117,9 @@ namespace Aria::Internal {
                     else { AddToken(TokenKind::Greater, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), ">"); break; }
                 }
 
-                case '#': {
+                case '@': {
                     Backtrack();
-                    ParseHash();
+                    ParseAtSymbol();
                     break;
                 }
 
@@ -391,11 +393,11 @@ namespace Aria::Internal {
         AddToken(TokenKind::StrLit, SourceRange(start, end), str);
     }
 
-    void Lexer::ParseHash() {
+    void Lexer::ParseAtSymbol() {
         StringBuilder str;
         SourceLocation start = SourceLocation(m_CurrentLine, GetColumn(m_Index));
 
-        str.Append(m_Context, '#');
+        str.Append(m_Context, '@');
         Consume();
 
         while (true) {
@@ -407,9 +409,10 @@ namespace Aria::Internal {
             }
         }
 
-        if (str == "#extern") { AddToken(TokenKind::HashExtern, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "#extern"); return; }
+        if (str == "@extern") { AddToken(TokenKind::AtExtern, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "@extern"); return; }
+        else if (str == "@nomangle") { AddToken(TokenKind::AtNoMangle, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "@nomangle"); return; }
 
-        m_Context->ReportCompilerError(start, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "Unknown flag starting with '#'");
+        m_Context->ReportCompilerError(start, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "Unknown flag starting with '@'");
     }
 
     void Lexer::ParseIdentifier() {

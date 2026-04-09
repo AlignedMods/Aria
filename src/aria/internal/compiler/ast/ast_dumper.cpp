@@ -39,6 +39,10 @@ namespace Aria::Internal {
             m_Output += fmt::format("StringConstantExpr \"{}\" '{}' {}\n", expr->StringConstant.Value, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
         } else if (expr->Kind == ExprKind::DeclRef) {
             m_Output += fmt::format("DeclRefExpr '{}' '{}' {} {}\n", expr->DeclRef.Identifier, TypeInfoToString(expr->Type), DeclRefKindToString(expr->DeclRef.Kind), ExprValueKindToString(expr->ValueKind)); return;
+        } else if (expr->Kind == ExprKind::Scope) {
+            m_Output += fmt::format("ScopeExpr '{}' '{}' {}\n", expr->Scope.Parent, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
+            DumpExpr(expr->Scope.Child, indentation + 4);
+            return;
         } else if (expr->Kind == ExprKind::Member) {
             m_Output += fmt::format("MemberExpr '{}' '{}' {}\n", expr->Member.Member, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
             DumpExpr(expr->Member.Parent, indentation + 4);
