@@ -647,10 +647,16 @@ namespace Aria::Internal {
                     u8* base = reinterpret_cast<u8*>(GetPointer(-1, m_ExpressionStack));
                     Pop(1, m_ExpressionStack);
                     
-                    VMStruct s = m_Structs.at(fmt::format("{}", mem.StructType.Data));
+                    OpCode s = m_Structs.at(fmt::format("{}", mem.StructType.Data));
+                    auto& fields = std::get<OpCodeStruct>(s.Data).Fields;
+
+                    size_t offset = 0;
+                    for (size_t i = 0; i < mem.Index; i++) {
+                        offset += AlignToEight(GetVMTypeSize(fields[i]));
+                    }
 
                     Alloca(mem.MemberType, m_ExpressionStack);
-                    memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, base + s.FieldOffsets[mem.Index], GetVMTypeSize(mem.MemberType));
+                    memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, base + offset, GetVMTypeSize(mem.MemberType));
                     break;
                 }
 
@@ -689,10 +695,16 @@ namespace Aria::Internal {
                     u8* base = reinterpret_cast<u8*>(GetPointer(-1, m_ExpressionStack));
                     Pop(1, m_ExpressionStack);
 
-                    VMStruct s = m_Structs.at(fmt::format("{}", mem.StructType.Data));
+                    OpCode s = m_Structs.at(fmt::format("{}", mem.StructType.Data));
+                    auto& fields = std::get<OpCodeStruct>(s.Data).Fields;
+
+                    size_t offset = 0;
+                    for (size_t i = 0; i < mem.Index; i++) {
+                        offset += AlignToEight(GetVMTypeSize(fields[i]));
+                    }
 
                     Alloca(mem.MemberType, m_ExpressionStack);
-                    StorePointer(-1, base + s.FieldOffsets[mem.Index], m_ExpressionStack);
+                    StorePointer(-1, base + offset, m_ExpressionStack);
                     break;
                 }
 
@@ -965,7 +977,17 @@ namespace Aria::Internal {
 
             case VMTypeKind::String: return sizeof(VMString);
 
-            case VMTypeKind::Struct: return m_Structs.at(std::string(type.Data)).Size;
+            case VMTypeKind::Struct: {
+                if (m_CachedStructSizes.contains(type.Data)) { return m_CachedStructSizes.at(type.Data); }
+
+                size_t size = 0;
+
+                for (auto& field : std::get<OpCodeStruct>(m_Structs.at(type.Data).Data).Fields) {
+                    size += AlignToEight(GetVMTypeSize(field));
+                }
+
+                return size;
+            }
 
             default: ARIA_UNREACHABLE();
         }
@@ -1001,18 +1023,7 @@ namespace Aria::Internal {
                 m_Functions[ident] = func;
             } else if (op.Kind == OpCodeKind::Struct) {
                 const OpCodeStruct& s = std::get<OpCodeStruct>(op.Data);
-
-                VMStruct stru;
-                size_t offset = 0;
-                
-                for (const VMType& field : s.Fields) {
-                    size_t size = AlignToEight(GetVMTypeSize(field));
-                    stru.FieldOffsets.push_back(offset);
-                    stru.Size += size;
-                    offset += size;
-                }
-
-                m_Structs[std::string(s.Identifier)] = stru;
+                m_Structs[s.Identifier] = op;
             }
         }
 

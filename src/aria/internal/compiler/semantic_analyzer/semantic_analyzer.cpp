@@ -526,8 +526,10 @@ namespace Aria::Internal {
     }
 
     void SemanticAnalyzer::ResolveVarDecl(Decl* decl) {
-        VarDecl varDecl = decl->Var;
+        VarDecl& varDecl = decl->Var;
         std::string ident = fmt::format("{}", varDecl.Identifier);
+
+        ResolveType(decl->Loc, decl->Range, varDecl.Type);
 
         if (varDecl.Type->IsVoid()) {
             m_Context->ReportCompilerError(decl->Loc, decl->Range, "Cannot declare variable of 'void' type");
@@ -545,7 +547,8 @@ namespace Aria::Internal {
     }
 
     void SemanticAnalyzer::ResolveParamDecl(Decl* decl) {
-        ParamDecl paramDecl = decl->Param;
+        ParamDecl& paramDecl = decl->Param;
+        ResolveType(decl->Loc, decl->Range, paramDecl.Type);
         m_Scopes.back().Declarations[fmt::format("{}", paramDecl.Identifier)] = { paramDecl.Type, decl, DeclRefKind::ParamVar };
     }
 
@@ -553,6 +556,7 @@ namespace Aria::Internal {
         FunctionDecl fnDecl = decl->Function;
         
         std::string ident = fmt::format("{}", fnDecl.Identifier);
+        ResolveType(decl->Loc, decl->Range, fnDecl.Type);
 
         FunctionDecl* prevDecl = nullptr;
         for (Decl* func : m_Context->ActiveCompUnit->Funcs) {
@@ -594,9 +598,11 @@ namespace Aria::Internal {
         d.SourceDecl = decl;
         
         TypeInfo* structType = TypeInfo::Create(m_Context, PrimitiveType::Structure, false, d);
-        
+
         for (Decl* field : s.Fields) {
-            if (field->Kind == DeclKind::Field) {}
+            if (field->Kind == DeclKind::Field) {
+                ResolveType(field->Loc, field->Range, field->Field.Type);
+            }
         }
 
         m_ActiveStruct = TypeInfo::Create(m_Context, structType->Type, true, structType->Data);
@@ -793,6 +799,29 @@ namespace Aria::Internal {
         }
 
         ARIA_UNREACHABLE();
+    }
+
+    void SemanticAnalyzer::ResolveType(SourceLocation loc, SourceRange range, TypeInfo* type) {
+        if (type->Type == PrimitiveType::Unresolved) {
+            StringView ident = std::get<UnresolvedType>(type->Data).Identifier;
+            Decl* d = FindSymbolInUnit(m_Context->ActiveCompUnit, ident);
+
+            if (!d) {
+                m_Context->ReportCompilerError(loc, range, fmt::format("Could not find type '{}')", ident));
+                return;
+            }
+
+            type->Type = PrimitiveType::Structure;
+            type->Data = StructDeclaration(ident, d);
+        } else if (type->Type == PrimitiveType::Function) {
+            FunctionDeclaration& fn = std::get<FunctionDeclaration>(type->Data);
+
+            for (TypeInfo* param : fn.ParamTypes) {
+                ResolveType(loc, range, param);
+            }
+
+            ResolveType(loc, range, fn.ReturnType);
+        }
     }
 
     void SemanticAnalyzer::ResolveInitializer(Expr* initializer, TypeInfo* type, bool temporary) {
@@ -1056,7 +1085,7 @@ namespace Aria::Internal {
             case PrimitiveType::Float:  return 4;
             case PrimitiveType::Double: return 8;
 
-            default: ARIA_ASSERT(false, "TypeChecker::TypeGetSize() only supports trivial (non structure) types");
+            default: ARIA_ASSERT(false, "SemanticAnalyzer::TypeGetSize() only supports trivial (non structure) types");
         }
     }
 

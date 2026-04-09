@@ -34,11 +34,6 @@ namespace Aria::Internal {
         std::unordered_map<std::string, size_t> Labels;
     };
 
-    struct VMStruct {
-        std::vector<size_t> FieldOffsets;
-        size_t Size = 0;
-    };
-
     struct VMString {
         char* Data = nullptr;
         size_t Size = 0;
@@ -158,8 +153,10 @@ namespace Aria::Internal {
         size_t m_ProgramCounter = 0;
 
         std::unordered_map<std::string, VMFunction> m_Functions;
-        std::unordered_map<std::string, VMStruct> m_Structs;
+        std::unordered_map<std::string_view, OpCode> m_Structs;
         std::unordered_map<std::string, ExternFn> m_ExternalFunctions;
+
+        std::unordered_map<std::string_view, size_t> m_CachedStructSizes;
 
         size_t m_ReturnAddress = SIZE_MAX;
         VMFunction* m_ActiveFunction = nullptr;

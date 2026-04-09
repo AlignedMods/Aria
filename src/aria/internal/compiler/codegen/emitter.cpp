@@ -563,22 +563,21 @@ namespace Aria::Internal {
     }
 
     void Emitter::EmitStructDecl(Decl* decl) {
-        // StructDecl* s = GetNode<StructDecl>(decl);
-        // 
-        // RuntimeStructDeclaration sd;
-        // 
-        // for (Decl* field : s->GetFields()) {
-        //     if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
-        //         sd.FieldIndices[fd->GetIdentifier()] = sd.FieldIndices.size();
-        //     } else if (MethodDecl* md = GetNode<MethodDecl>(field)) {
-        //         m_DeclarationsToDeclare.emplace_back(fmt::format("{}::{}()", s->GetIdentifier(), md->GetIdentifier()), md);
-        //     }
-        // }
-        // 
-        // m_Structs[s->GetIdentifier()] = sd;
-        // m_DeclarationsToDeclare.emplace_back(s->GetIdentifier(), decl);
-
-        ARIA_ASSERT(false, "todo!");
+        StructDecl s = decl->Struct;
+        std::string ident = fmt::format("{}", s.Identifier);
+        
+        RuntimeStructDeclaration sd;
+        
+        for (Decl* field : s.Fields) {
+            if (field->Kind == DeclKind::Field) {
+                sd.FieldIndices[ident] = sd.FieldIndices.size();
+            } else if (field->Kind == DeclKind::Method) {
+                m_DeclarationsToDeclare.emplace_back(fmt::format("{}::{}()", s.Identifier, field->Method.Identifier), field);
+            }
+        }
+        
+        m_Structs[ident] = sd;
+        m_DeclarationsToDeclare.emplace_back(ident, decl);
     }
 
     void Emitter::EmitDecl(Decl* decl) {
@@ -862,16 +861,16 @@ namespace Aria::Internal {
                 // 
                 // m_ReflectionData.Declarations[name] = d;
             } else if (decl->Kind == DeclKind::Struct) {
-                // std::vector<VMType> fields;
-                // fields.reserve(stDecl->GetFields().Size);
-                // 
-                // for (Decl* field : stDecl->GetFields()) {
-                //     if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
-                //         fields.push_back(TypeInfoToVMType(fd->GetResolvedType()));
-                //     }
-                // }
-                // 
-                // m_OpCodes.emplace_back(OpCodeKind::Struct, OpCodeStruct(fields, std::string_view(stDecl->GetRawIdentifier().Data(), stDecl->GetRawIdentifier().Size())));
+                std::vector<VMType> fields;
+                fields.reserve(decl->Struct.Fields.Size);
+                
+                for (Decl* field : decl->Struct.Fields) {
+                    if (field->Kind == DeclKind::Field) {
+                        fields.push_back(TypeInfoToVMType(field->Field.Type));
+                    }
+                }
+                
+                m_OpCodes.emplace_back(OpCodeKind::Struct, OpCodeStruct(fields, std::string_view(decl->Struct.Identifier.Data(), decl->Struct.Identifier.Size())));
             }
         }
     }

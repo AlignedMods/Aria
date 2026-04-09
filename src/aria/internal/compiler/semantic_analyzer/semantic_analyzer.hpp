@@ -103,6 +103,7 @@ namespace Aria::Internal {
 
         void ResolveStmt(Stmt* stmt);
 
+        void ResolveType(SourceLocation loc, SourceRange range, TypeInfo* type);
         void ResolveInitializer(Expr* initializer, TypeInfo* type, bool temporary);
 
         void PushScope(bool allowBreak = false, bool allowContinue = false);
@@ -116,7 +117,7 @@ namespace Aria::Internal {
         void ReplaceExpr(Expr* src, Expr* newExpr);
 
         bool TypeIsEqual(TypeInfo* lhs, TypeInfo* rhs);
-        size_t TypeGetSize(TypeInfo* t); // NOTE: works only on trivial types
+        size_t TypeGetSize(TypeInfo* t);
 
     private:
         std::unordered_map<std::string, bool> m_ImportedModules;

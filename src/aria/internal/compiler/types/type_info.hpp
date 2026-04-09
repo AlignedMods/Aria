@@ -40,6 +40,7 @@ namespace Aria::Internal {
     struct StructDeclaration {
         StringView Identifier;
         Decl* SourceDecl = nullptr;
+        size_t Size = 0;
     };
 
     struct FunctionDeclaration {

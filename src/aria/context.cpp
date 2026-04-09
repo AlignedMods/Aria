@@ -140,8 +140,15 @@ namespace Aria {
     }
 
     std::string Context::DumpAST() {
-        Internal::ASTDumper d(m_ActiveModule->CompilationContext.ActiveCompUnit->RootASTNode);
-        return d.GetOutput();
+        std::string output;
+
+        for (Internal::CompilationUnit* unit : m_ActiveModule->CompilationContext.CompilationUnits) {
+            Internal::ASTDumper d(unit->RootASTNode);
+            output += d.GetOutput();
+            output += '\n';
+        }
+
+        return output;
     }
 
     std::string Context::Disassemble() {

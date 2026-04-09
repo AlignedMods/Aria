@@ -892,7 +892,7 @@ namespace Aria::Internal {
 
     Decl* Parser::ParseStructDecl() {
         Token s = Consume(); // Consume "struct"
-        Token* ident = TryConsume(TokenKind::Identifier, "indentifier");
+        Token* ident = TryConsume(TokenKind::TypeIdentifier, "type-indentifier");
         
         TinyVector<Decl*> fields;
         

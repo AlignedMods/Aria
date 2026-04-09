@@ -29,6 +29,7 @@ namespace Aria::Internal {
     struct VMType {
         VMTypeKind Kind = VMTypeKind::Invalid;
         std::string_view Data;
+        size_t Size = 0; // Size aligned to 8 bytes
 
         bool operator==(VMType& other) {
             if (Kind != VMTypeKind::Struct && other.Kind != VMTypeKind::Struct) {
