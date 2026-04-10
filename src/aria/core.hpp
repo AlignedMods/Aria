@@ -1,6 +1,5 @@
 #pragma once
 
-#define FMT_UNICODE 0
 #include "fmt/printf.h"
 #include "fmt/color.h"
 

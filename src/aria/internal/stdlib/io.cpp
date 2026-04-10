@@ -1,6 +1,5 @@
 #include "aria/internal/stdlib/io.hpp"
 
-#define FMT_UNICODE 0
 #include <fmt/printf.h>
 
 namespace Aria::Internal {
