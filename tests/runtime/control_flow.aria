@@ -1,3 +1,5 @@
+module control_flow;
+
 // Should return 10
 fn test_while() -> int {
     int i = 0;

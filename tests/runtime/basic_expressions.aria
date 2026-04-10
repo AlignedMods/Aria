@@ -1,4 +1,6 @@
-fn should_never_be_called() -> bool #extern;
+module basic_expressions;
+
+fn should_never_be_called() -> bool @extern;
 
 int a = 5 + 5;
 int b = (a + 5) / -5;

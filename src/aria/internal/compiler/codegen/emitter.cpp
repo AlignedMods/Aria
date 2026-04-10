@@ -9,6 +9,14 @@ namespace Aria::Internal {
     }
 
     void Emitter::EmitImpl() {
+        EmitDeclarations();
+        EmitStartEnd();
+
+        Module* mod = m_Context->FindOrCreateModule("#emit_output$$");
+        mod->OpCodes = m_OpCodes;
+    }
+
+    void Emitter::EmitDeclarations() {
         for (Module* mod : m_Context->Modules) {
             if (mod->Units.size() == 0) { continue; }
             m_ActiveNamespace = mod->Name;
@@ -23,6 +31,7 @@ namespace Aria::Internal {
                 }
             }
 
+            // Global variable initializion requires special functions
             std::string startSig = fmt::format("_start${}()", mod->Name);
             std::string endSig = fmt::format("_end${}()", mod->Name);
 
@@ -31,23 +40,27 @@ namespace Aria::Internal {
             m_OpCodes.emplace_back(OpCodeKind::PushSF);
             PushStackFrame(startSig);
 
+            m_IsGlobalScope = true;
             for (CompilationUnit* unit : mod->Units) {
                 for (Decl* g : unit->Globals) {
                     EmitDecl(g);
                     MergePendingOpCodes();
                 }
             }
+            m_IsGlobalScope = false;
 
             PopStackFrame();
             m_OpCodes.emplace_back(OpCodeKind::PopSF);
             m_OpCodes.emplace_back(OpCodeKind::Ret);
 
+            // Global variable destruction
             m_OpCodes.emplace_back(OpCodeKind::Function, endSig);
             m_OpCodes.emplace_back(OpCodeKind::Label, "_entry$");
             m_OpCodes.emplace_back(OpCodeKind::PushSF);
             PushStackFrame(endSig);
 
             EmitDestructors(m_GlobalScope.DeclaredSymbols);
+            MergePendingOpCodes();
 
             PopStackFrame();
             m_OpCodes.emplace_back(OpCodeKind::PopSF);
@@ -59,7 +72,9 @@ namespace Aria::Internal {
             m_OpCodes.clear();
             m_ReflectionData.Declarations.clear();
         }
+    }
 
+    void Emitter::EmitStartEnd() {
         m_OpCodes.emplace_back(OpCodeKind::Function, "_start$()");
         m_OpCodes.emplace_back(OpCodeKind::Label, "_entry$");
         m_OpCodes.emplace_back(OpCodeKind::PushSF);
@@ -88,9 +103,6 @@ namespace Aria::Internal {
         PopStackFrame();
         m_OpCodes.emplace_back(OpCodeKind::PopSF);
         m_OpCodes.emplace_back(OpCodeKind::Ret);
-
-        Module* mod = m_Context->FindOrCreateModule("#emit_output$$");
-        mod->OpCodes = m_OpCodes;
     }
 
     void Emitter::EmitBooleanConstantExpr(Expr* expr, ExprValueKind valueKind) {
@@ -576,7 +588,7 @@ namespace Aria::Internal {
 
     void Emitter::EmitVarDecl(Decl* decl) {
         VarDecl varDecl = decl->Var;
-        std::string ident = fmt::format("{}", varDecl.Identifier);
+        std::string ident = fmt::format("{}::{}", m_ActiveNamespace, varDecl.Identifier);
 
         m_OpCodes.emplace_back(OpCodeKind::Alloca, TypeInfoToVMType(varDecl.Type));
 
@@ -589,7 +601,7 @@ namespace Aria::Internal {
 
         // We want to allocate the variables up front (at the start of the stack frame)
         // This is why we use m_OpCodes instead of m_PendingOpCodes here
-        if (IsGlobalScope()) {
+        if (m_IsGlobalScope) {
             m_OpCodes.emplace_back(OpCodeKind::DeclareGlobal, ident);
             d.Data = ident;
         
@@ -606,7 +618,7 @@ namespace Aria::Internal {
         
         // For initializers we need to just store the value in the already declared variable
         if (varDecl.DefaultValue) {
-            if (IsGlobalScope()) {
+            if (m_IsGlobalScope) {
                 m_PendingOpCodes.emplace_back(OpCodeKind::LdPtrGlobal, ident);
             } else {
                 m_PendingOpCodes.emplace_back(OpCodeKind::LdPtrLocal, m_ActiveStackFrame.LocalCount - 1);
@@ -619,7 +631,7 @@ namespace Aria::Internal {
     
     void Emitter::EmitParamDecl(Decl* decl) {
         ParamDecl param = decl->Param;
-        m_ActiveStackFrame.Parameters[fmt::format("{}", param.Identifier)] = m_ActiveStackFrame.ParameterCount++;
+        m_ActiveStackFrame.Parameters[fmt::format("{}::{}", m_ActiveNamespace, param.Identifier)] = m_ActiveStackFrame.ParameterCount++;
     }
 
     void Emitter::EmitFunctionDecl(Decl* decl) {
@@ -831,20 +843,15 @@ namespace Aria::Internal {
         } else if (stmt->Kind == StmtKind::Return) {
             return EmitReturnStmt(stmt);
         } else if (stmt->Kind == StmtKind::Expr) {
-            return EmitExpr(stmt->ExprStmt, stmt->ExprStmt->ValueKind);
+            EmitExpr(stmt->ExprStmt, stmt->ExprStmt->ValueKind);
+            EmitDestructors(m_Temporaries);
+            m_Temporaries.clear();
+            return;
         } else if (stmt->Kind == StmtKind::Decl) {
             return EmitDecl(stmt->DeclStmt);
         }
 
         ARIA_UNREACHABLE();
-    }
-
-    bool Emitter::IsStartStackFrame() {
-        return m_ActiveStackFrame.Name == fmt::format("_start${}()", m_Context->ActiveCompUnit->Index);
-    }
-
-    bool Emitter::IsGlobalScope() {
-        return IsStartStackFrame() && m_ActiveStackFrame.Scopes.size() == 1;
     }
 
     void Emitter::EmitDestructors(const std::vector<Declaration>& declarations) {

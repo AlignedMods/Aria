@@ -220,7 +220,7 @@ namespace Aria::Internal {
         ScopeExpr& scope = expr->Scope;
 
         for (Stmt* import : m_Context->ActiveCompUnit->Imports) {
-            ARIA_ASSERT(import->Kind == StmtKind::Import, "invalid import");
+            ARIA_ASSERT(import->Kind == StmtKind::Import || import->Kind == StmtKind::Error, "invalid import");
             
             if (import->Import.Name == scope.Parent) {
                 m_SearchModule = import->Import.Module;

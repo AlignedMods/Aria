@@ -750,6 +750,13 @@ namespace Aria::Internal {
                 return m_ErrorStmt;
             }
 
+            case TokenKind::AtExtern:
+            case TokenKind::AtNoMangle: {
+                Token& tok = Consume();
+                m_Context->ReportCompilerError(tok.Range.Start, tok.Range, fmt::format("Unexpected attribute '{}' while looking for statement", TokenKindToString(tok.Kind)));
+                return m_ErrorStmt;
+            }
+
             case TokenKind::RightParen:
             case TokenKind::LeftBracket:
             case TokenKind::RightBracket:

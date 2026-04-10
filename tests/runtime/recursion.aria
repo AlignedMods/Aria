@@ -1,3 +1,5 @@
+module recursion;
+
 fn fib(int a) -> int {
     if (a <= 1) { return a; }
     return fib(a - 1) + fib(a - 2);

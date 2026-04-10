@@ -1,3 +1,5 @@
+module functions;
+
 int result = 0; // Expected to be 24
 
 fn external_function(int a, int b, int c) -> void;

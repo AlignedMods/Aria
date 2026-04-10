@@ -45,6 +45,9 @@ namespace Aria::Internal {
     private:
         void EmitImpl();
 
+        void EmitDeclarations();
+        void EmitStartEnd();
+
         void EmitBooleanConstantExpr(Expr* expr,   ExprValueKind valueKind);
         void EmitCharacterConstantExpr(Expr* expr, ExprValueKind valueKind);
         void EmitIntegerConstantExpr(Expr* expr,   ExprValueKind valueKind);
@@ -86,9 +89,6 @@ namespace Aria::Internal {
 
         void EmitStmt(Stmt* stmt);
 
-        bool IsStartStackFrame();
-        bool IsGlobalScope();
-
         void EmitDestructors(const std::vector<Declaration>& declarations);
 
         void PushStackFrame(const std::string& name);
@@ -113,6 +113,7 @@ namespace Aria::Internal {
 
         StackFrame m_ActiveStackFrame;
         Scope m_GlobalScope;
+        bool m_IsGlobalScope = false;
 
         std::unordered_map<std::string, RuntimeStructDeclaration> m_Structs;
 
