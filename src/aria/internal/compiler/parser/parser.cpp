@@ -738,6 +738,10 @@ namespace Aria::Internal {
             case TokenKind::DoublePipe:
             case TokenKind::UpArrow:
             case TokenKind::UpArrowEq:
+            case TokenKind::LessLess:
+            case TokenKind::LessLessEq:
+            case TokenKind::GreaterGreater:
+            case TokenKind::GreaterGreaterEq:
             case TokenKind::Eq:
             case TokenKind::EqEq:
             case TokenKind::BangEq:
@@ -757,6 +761,10 @@ namespace Aria::Internal {
                 return m_ErrorStmt;
             }
 
+            case TokenKind::Module:
+            case TokenKind::Import:
+            case TokenKind::Else:
+            case TokenKind::Arrow:
             case TokenKind::RightParen:
             case TokenKind::LeftBracket:
             case TokenKind::RightBracket:

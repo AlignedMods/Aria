@@ -399,6 +399,7 @@ namespace Aria::Internal {
                 CASE_UNARYEXPR_TYPE(builtinOp, U64, u64)  \
                 CASE_UNARYEXPR_TYPE(builtinOp, F32, f32)  \
                 CASE_UNARYEXPR_TYPE(builtinOp, F64, f64)  \
+                default: ARIA_UNREACHABLE();              \
             } \
             \
             break; \
@@ -443,6 +444,7 @@ namespace Aria::Internal {
                 CASE_BINEXPR_TYPE(builtinOp, U64, u64)  \
                 CASE_BINEXPR_TYPE(builtinOp, F32, f32)  \
                 CASE_BINEXPR_TYPE(builtinOp, F64, f64)  \
+                default: ARIA_UNREACHABLE();            \
             } \
             break; \
         }
@@ -459,6 +461,7 @@ namespace Aria::Internal {
                 CASE_BINEXPR_TYPE(builtinOp, U32, u32)  \
                 CASE_BINEXPR_TYPE(builtinOp, I64, i64)  \
                 CASE_BINEXPR_TYPE(builtinOp, U64, u64)  \
+                default: ARIA_UNREACHABLE();            \
             } \
             break; \
         }
@@ -477,6 +480,7 @@ namespace Aria::Internal {
                 CASE_BINEXPR_TYPE_BOOL(builtinOp, U64, u64)  \
                 CASE_BINEXPR_TYPE_BOOL(builtinOp, F32, f32)  \
                 CASE_BINEXPR_TYPE_BOOL(builtinOp, F64, f64)  \
+                default: ARIA_UNREACHABLE();                 \
             } \
             break; \
         }

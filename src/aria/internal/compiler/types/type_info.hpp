@@ -172,6 +172,8 @@ namespace Aria::Internal {
                 str = fmt::format("struct {}", decl.Identifier);
                 break;
             }
+
+            default: ARIA_UNREACHABLE();
         }
 
         if (type->IsReference()) {

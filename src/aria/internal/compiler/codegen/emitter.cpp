@@ -495,6 +495,8 @@ namespace Aria::Internal {
                 EmitExpr(binop.LHS, valueKind);
                 break;
             }
+
+            default: ARIA_UNREACHABLE();
         }
         
         #undef BINOP

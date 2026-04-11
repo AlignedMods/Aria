@@ -475,9 +475,9 @@ namespace Aria::Internal {
 
                 return;
             }
-        }
 
-        ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE();
+        }
     }
 
     void SemanticAnalyzer::ResolveCompoundAssignExpr(Expr* expr) {

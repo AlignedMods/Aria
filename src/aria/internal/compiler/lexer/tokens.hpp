@@ -185,9 +185,9 @@ namespace Aria::Internal {
 
             case TokenKind::Identifier: return "identifier";
             case TokenKind::TypeIdentifier: return "type-identifier";
-        }
 
-        ARIA_ASSERT(false, "Unreachable!");
+            default: ARIA_UNREACHABLE();
+        }
 
         return nullptr;
     }

@@ -348,7 +348,7 @@ namespace Aria::Internal {
 
         static inline Expr* Dup(CompilationContext* ctx, Expr* other) {
             Expr* newExpr = ctx->Allocate<Expr>();
-            memcpy(newExpr, other, sizeof(Expr));
+            memcpy(reinterpret_cast<void*>(newExpr), other, sizeof(Expr));
             return newExpr;
         }
 
