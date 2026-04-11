@@ -3,15 +3,8 @@
 #include "aria/context.hpp"
 
 namespace Aria::Internal {
-
-    void bl__string__construct__(Context* ctx);
-    void bl__string__construct_from_literal__(Context* ctx);
-
-    void bl__string__copy__(Context* ctx);
-    void bl__string__assign__(Context* ctx);
-    void bl__string__assign_literal__(Context* ctx);
-
-    void bl__string__destruct__(Context* ctx);
-
+    
+    void __aria_destruct_str(Context* ctx);
+    void __aria_copy_str(Context* ctx);
 
 } // namespace Aria::Internal

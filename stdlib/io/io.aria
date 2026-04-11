@@ -1,0 +1,5 @@
+module io;
+
+fn print(string s) -> void { __aria_raw_print_stdout(s); }
+
+fn __aria_raw_print_stdout(string s) -> void @extern @nomangle;

@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <unordered_map>
 #include <string>
+#include <vector>
 
 namespace Aria::Internal {
     class VM;
@@ -68,6 +69,7 @@ namespace Aria {
         void StoreFloat  (size_t index, float f);
         void StoreDouble (size_t index, double d);
         void StorePointer(size_t index, void* p);
+        void StoreString (size_t index, std::string_view str);
 
         void GetGlobal(const std::string& str);
         void GetGlobalPtr(const std::string& str);

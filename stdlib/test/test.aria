@@ -1,0 +1,8 @@
+module std_test;
+
+import io;
+
+fn main() -> void {
+    io::__aria_raw_print_stdout("Hello world RAW");
+    io::print("Hello world");
+}

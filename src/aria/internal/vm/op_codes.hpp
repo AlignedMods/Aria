@@ -47,7 +47,6 @@ namespace Aria::Internal {
         Pop,
         Store,
         Dup,
-        DupStr,
 
         PushSF,
         PopSF,
@@ -74,8 +73,6 @@ namespace Aria::Internal {
         LdPtrMember,
         LdPtrArg,
         LdPtrRet,
-
-        DestructStr,
 
         Function,
         Label,

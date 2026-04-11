@@ -1,6 +1,6 @@
 #include "aria/internal/vm/vm.hpp"
 #include "aria/context.hpp"
-#include "assert.h"
+#include "aria/internal/runtime/types.hpp"
 
 namespace Aria::Internal {
 
@@ -248,6 +248,15 @@ namespace Aria::Internal {
         memcpy(s.Memory, &p, sizeof(void*));
     }
 
+    void VM::StoreString(i32 slot, std::string_view str, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
+        ARIA_ASSERT(s.Type.Kind == VMTypeKind::String, "Cannot store a string in a slot with a non-string type");
+        
+        RuntimeString& string = *reinterpret_cast<RuntimeString*>(s.Memory);
+        string.RawData = str.data();
+        string.Size = str.size();
+    }
+
     bool VM::GetBool(i32 slot, Stack& stack) {
         VMSlice s = GetVMSlice(slot, stack);
 
@@ -342,10 +351,10 @@ namespace Aria::Internal {
         VMSlice s = GetVMSlice(slot, stack);
         ARIA_ASSERT(s.Type.Kind == VMTypeKind::String, "Invalid GetString() call!");
 
-        VMString str;
+        RuntimeString str;
         memcpy(&str, s.Memory, s.Size);
 
-        return { str.Data, str.Size };
+        return { str.RawData, str.Size };
     }
 
     void VM::RunByteCode(const OpCode* data, size_t count) {
@@ -504,22 +513,6 @@ namespace Aria::Internal {
                     break;
                 }
 
-                case OpCodeKind::DupStr: {
-                    void* mem = GetPointer(-1, m_ExpressionStack);
-                    Pop(1, m_ExpressionStack);
-
-                    VMString& str = *reinterpret_cast<VMString*>(mem);
-                    VMString newStr;
-                    newStr.Data = new char[str.Size];
-                    newStr.Size = str.Size;
-                    memcpy(newStr.Data, str.Data, str.Size);
-
-                    Alloca({ VMTypeKind::String }, m_ExpressionStack);
-                    memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &newStr, sizeof(newStr));
-
-                    break;
-                }
-
                 case OpCodeKind::PushSF: {
                     PushStackFrame();
                     break;
@@ -555,12 +548,12 @@ namespace Aria::Internal {
                 case OpCodeKind::LdStr: {
                     const std::string& str = std::get<std::string>(op.Data);
 
-                    VMString vmstr;
+                    RuntimeString vmstr;
                     // Allocate the string on the heap
                     char* newStr = new char[str.size()];
                     memcpy(newStr, str.data(), str.size());
 
-                    vmstr.Data = newStr;
+                    vmstr.RawData = newStr;
                     vmstr.Size = str.size();
 
                     Alloca({ VMTypeKind::String }, m_ExpressionStack);
@@ -719,17 +712,6 @@ namespace Aria::Internal {
                     VMSlice slice = GetVMSlice(-(static_cast<i32>(m_ExpressionStack.StackSlotPointer - m_ExpressionStack.StackSlotBasePointer) + 1), m_ExpressionStack);
                     Alloca({ VMTypeKind::Ptr }, m_ExpressionStack);
                     StorePointer(-1, slice.Memory, m_ExpressionStack);
-                    break;
-                }
-
-                case OpCodeKind::DestructStr: {
-                    void* mem = GetPointer(-1, m_ExpressionStack);
-                    Pop(1, m_ExpressionStack);
-
-                    VMString& str = *reinterpret_cast<VMString*>(mem);
-                    delete[] str.Data;
-                    str.Data = nullptr;
-                    str.Size = 0;
                     break;
                 }
 
@@ -974,7 +956,7 @@ namespace Aria::Internal {
                                      
             case VMTypeKind::Ptr:    return sizeof(void*);
 
-            case VMTypeKind::String: return sizeof(VMString);
+            case VMTypeKind::String: return sizeof(RuntimeString);
 
             case VMTypeKind::Struct: {
                 if (m_CachedStructSizes.contains(type.Data)) { return m_CachedStructSizes.at(type.Data); }

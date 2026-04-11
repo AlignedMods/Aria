@@ -45,7 +45,7 @@ namespace Aria::Internal {
             : Name(name) {}
 
         StringView Name;
-        Module* Module = nullptr;
+        Module* ResolvedModule = nullptr;
     };
 
     struct BlockStmt {

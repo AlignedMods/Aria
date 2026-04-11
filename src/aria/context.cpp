@@ -1,12 +1,10 @@
-#include "context.hpp"
 #include "aria/context.hpp"
 #include "aria/internal/compiler/compilation_context.hpp"
 #include "aria/internal/compiler/codegen/disassembler.hpp"
 #include "aria/internal/compiler/ast/ast_dumper.hpp"
 #include "aria/internal/compiler/reflection/compiler_reflection.hpp"
-#include "aria/internal/stdlib/array.hpp"
-#include "aria/internal/stdlib/string.hpp"
 #include "aria/internal/stdlib/io.hpp"
+#include "aria/internal/stdlib/string.hpp"
 #include "aria/internal/vm/vm.hpp"
 #include "aria/internal/vm/op_codes.hpp"
 
@@ -119,7 +117,9 @@ namespace Aria {
     void Context::AddStandardLib() {
         Internal::VM& vm = m_ActiveModule->VM;
 
-        vm.AddExtern("print()", Internal::__aria_print);
+        vm.AddExtern("__aria_raw_print_stdout()", Internal::__aria_print);
+        vm.AddExtern("__aria_destruct_str()", Internal::__aria_destruct_str);
+        vm.AddExtern("__aria_copy_str()", Internal::__aria_copy_str);
     }
 
     void Context::SetActiveModule(const std::string& module) {
@@ -226,6 +226,10 @@ namespace Aria {
 
     void Context::StorePointer(size_t index, void* p) {
         m_ActiveModule->VM.StorePointer(index, p, m_ActiveModule->VM.m_ExpressionStack);
+    }
+
+    void Context::StoreString(size_t index, std::string_view str) {
+        m_ActiveModule->VM.StoreString(index, str, m_ActiveModule->VM.m_ExpressionStack);
     }
 
     void Context::GetGlobal(const std::string& str) {

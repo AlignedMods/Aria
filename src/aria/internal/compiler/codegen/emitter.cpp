@@ -306,14 +306,17 @@ namespace Aria::Internal {
     void Emitter::EmitCopyExpr(Expr* expr, ExprValueKind valueKind) {
         CopyExpr copy = expr->Copy;
 
-        EmitExpr(copy.Expression, ExprValueKind::LValue);
-
         if (copy.Constructor->Kind == DeclKind::BuiltinCopyConstructor) {
             switch (copy.Constructor->BuiltinCopyConstructor.Kind) {
-                case BuiltinKind::String: m_PendingOpCodes.emplace_back(OpCodeKind::DupStr); break;
+                case BuiltinKind::String: m_PendingOpCodes.emplace_back(OpCodeKind::LdFunc, "__aria_copy_str()"); break;
                 default: ARIA_UNREACHABLE();
             }
         }
+
+        EmitExpr(copy.Expression, ExprValueKind::LValue);
+        m_PendingOpCodes.emplace_back(OpCodeKind::DeclareArg, static_cast<size_t>(0));
+        m_PendingOpCodes.emplace_back(OpCodeKind::Alloca, TypeInfoToVMType(copy.Expression->Type));
+        m_PendingOpCodes.emplace_back(OpCodeKind::Call, OpCodeCall(1, TypeInfoToVMType(copy.Expression->Type)));
     }
 
     void Emitter::EmitCallExpr(Expr* expr, ExprValueKind valueKind) {
@@ -859,18 +862,21 @@ namespace Aria::Internal {
             auto& decl = *it;
         
             if (decl.Destructor) {
+                if (decl.Destructor->Kind == DeclKind::BuiltinDestructor) {
+                    switch (decl.Destructor->BuiltinDestructor.Kind) {
+                        case BuiltinKind::String: m_PendingOpCodes.emplace_back(OpCodeKind::LdFunc, "__aria_destruct_str()"); break;
+                        default: ARIA_UNREACHABLE();
+                    }
+                }
+
                 if (std::holds_alternative<size_t>(decl.Data)) {
                     m_PendingOpCodes.emplace_back(OpCodeKind::LdPtrLocal, std::get<size_t>(decl.Data));
                 } else if (std::holds_alternative<std::string>(decl.Data)) {
                     m_PendingOpCodes.emplace_back(OpCodeKind::LdPtrGlobal, std::get<std::string>(decl.Data));
                 }
-        
-                if (decl.Destructor->Kind == DeclKind::BuiltinDestructor) {
-                    switch (decl.Destructor->BuiltinDestructor.Kind) {
-                        case BuiltinKind::String: m_PendingOpCodes.emplace_back(OpCodeKind::DestructStr); break;
-                        default: ARIA_UNREACHABLE();
-                    }
-                }
+
+                m_PendingOpCodes.emplace_back(OpCodeKind::DeclareArg, static_cast<size_t>(0));
+                m_PendingOpCodes.emplace_back(OpCodeKind::Call, OpCodeCall(1, {VMTypeKind::Void})); break;
             }
         }
     }

@@ -93,10 +93,11 @@ namespace Aria::Internal {
                 m_Context->ReportCompilerError(stmt->Loc, stmt->Range, fmt::format("Could not find module '{}'", stmt->Import.Name));
             }
 
-            stmt->Import.Module = resolvedModule;
+            stmt->Import.ResolvedModule = resolvedModule;
         }
 
         AddUnitToModule(module, unit);
+        m_ImportedModules.clear();
     }
 
     void SemanticAnalyzer::ResolveModuleDecls(Module* module) {
@@ -223,7 +224,7 @@ namespace Aria::Internal {
             ARIA_ASSERT(import->Kind == StmtKind::Import || import->Kind == StmtKind::Error, "invalid import");
             
             if (import->Import.Name == scope.Parent) {
-                m_SearchModule = import->Import.Module;
+                m_SearchModule = import->Import.ResolvedModule;
                 break;
             }
         }

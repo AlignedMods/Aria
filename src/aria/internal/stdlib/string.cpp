@@ -1,78 +1,32 @@
 #include "aria/internal/stdlib/string.hpp"
-#include "aria/core.hpp"
+#include "aria/internal/runtime/types.hpp"
+
+#include <cstring>
 
 namespace Aria::Internal {
 
-    struct String {
-        int8_t* DynamicBuffer = nullptr;
-        
-        int32_t Size = 0;
-        int32_t Capacity = 0;
-    };
+    void __aria_destruct_str(Context* ctx) {
+        ctx->GetArg(0);
+        void* mem = ctx->GetPointer(-1);
+        ctx->Pop(1);
 
-    void bl__string__construct__(Context* ctx) {
-        // String* str = new String();
-        // 
-        // str->Size = 0;
-        // str->Capacity = 1;
-        // str->DynamicBuffer = new int8_t[1];
-        // 
-        // ctx->StorePointer(-1, str);
-        ARIA_ASSERT(false, "TODO");
+        RuntimeString& str = *reinterpret_cast<RuntimeString*>(mem);
+        delete[] str.RawData;
+        str.RawData = nullptr;
+        str.Size = 0;
     }
 
-    void bl__string__construct_from_literal__(Context* ctx) {
-        // StackSlot s = ctx->GetVM().GetStackSlot(-2);
-        // 
-        // String* str = new String();
-        // str->Capacity = s.Size;
-        // str->DynamicBuffer = new int8_t[str->Capacity];
-        // 
-        // memcpy(str->DynamicBuffer, s.Memory, s.Size);
-        // 
-        // ctx->GetVM().StorePointer(-1, str);
-        ARIA_ASSERT(false, "TODO");
-    }
+    void __aria_copy_str(Context* ctx) {
+        ctx->GetArg(0);
+        void* mem = ctx->GetPointer(-1);
+        ctx->Pop(1);
 
-    void bl__string__copy__(Context* ctx) {
-        // String* str = reinterpret_cast<String*>(ctx->GetVM().GetPointer(-2));
-        // 
-        // String* newStr = new String();
-        // newStr->Capacity = str->Capacity;
-        // newStr->Size = str->Size;
-        // newStr->DynamicBuffer = new int8_t[newStr->Capacity];
-        // 
-        // memcpy(newStr->DynamicBuffer, str->DynamicBuffer, str->Size);
-        // 
-        // ctx->GetVM().StorePointer(-1, newStr);
-        ARIA_ASSERT(false, "TODO");
-    }
+        RuntimeString& str = *reinterpret_cast<RuntimeString*>(mem);
 
-    void bl__string__assign__(Context* ctx) {
-        // String* str = reinterpret_cast<String*>(ctx->GetVM().GetPointer(-3));
-        // String* other = reinterpret_cast<String*>(ctx->GetVM().GetPointer(-2));
-        // delete[] str->DynamicBuffer;
-        // 
-        // str->Capacity = other->Capacity;
-        // str->Size = other->Size;
-        // str->DynamicBuffer = new int8_t[str->Capacity];
-        // 
-        // memcpy(str->DynamicBuffer, other->DynamicBuffer, other->Size);
-        // 
-        // ctx->GetVM().StorePointer(-1, str);
-        ARIA_ASSERT(false, "TODO");
-    }
+        char* copiedData = new char[str.Size];
+        memcpy(copiedData, str.RawData, str.Size);
 
-    void bl__string__destruct__(Context* ctx) {
-        // String* str = reinterpret_cast<String*>(ctx->GetVM().GetPointer(-1));
-        // delete[] str->DynamicBuffer;
-        // 
-        // str->Size = 0;
-        // str->Capacity = 0;
-        // 
-        // delete str;
-        // ctx->GetVM().StorePointer(-1, nullptr);
-        ARIA_ASSERT(false, "TODO");
+        ctx->StoreString(-1, std::string_view(copiedData, str.Size));
     }
 
 } // namespace Aria::Internal

@@ -34,11 +34,6 @@ namespace Aria::Internal {
         std::unordered_map<std::string, size_t> Labels;
     };
 
-    struct VMString {
-        char* Data = nullptr;
-        size_t Size = 0;
-    };
-
     // A structure which has a linear block of memory (the stack)
     // And stack slots which can be used to access the raw stack memory
     struct Stack {
@@ -77,15 +72,16 @@ namespace Aria::Internal {
         void Call(const std::string& signature, size_t argCount);
         void CallExtern(const std::string& signature, size_t argCount);
         
-        void StoreBool   (i32 slot, bool b    , Stack& stack);
-        void StoreChar   (i32 slot, int8_t c  , Stack& stack);
-        void StoreShort  (i32 slot, int16_t ch, Stack& stack);
-        void StoreInt    (i32 slot, int32_t i , Stack& stack);
-        void StoreLong   (i32 slot, int64_t l , Stack& stack);
-        void StoreSize   (i32 slot, size_t sz , Stack& stack);
-        void StoreFloat  (i32 slot, float f   , Stack& stack);
-        void StoreDouble (i32 slot, double d  , Stack& stack);
-        void StorePointer(i32 slot, void* p   , Stack& stack);
+        void StoreBool   (i32 slot, bool b,                Stack& stack);
+        void StoreChar   (i32 slot, int8_t c,              Stack& stack);
+        void StoreShort  (i32 slot, int16_t ch,            Stack& stack);
+        void StoreInt    (i32 slot, int32_t i,             Stack& stack);
+        void StoreLong   (i32 slot, int64_t l,             Stack& stack);
+        void StoreSize   (i32 slot, size_t sz,             Stack& stack);
+        void StoreFloat  (i32 slot, float f,               Stack& stack);
+        void StoreDouble (i32 slot, double d,              Stack& stack);
+        void StorePointer(i32 slot, void* p,               Stack& stack);
+        void StoreString (i32 slot, std::string_view str,  Stack& stack);
 
         bool             GetBool   (i32 slot, Stack& stack);
         int8_t           GetChar   (i32 slot, Stack& stack);
