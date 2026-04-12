@@ -67,6 +67,7 @@ namespace Aria::Internal {
         Struct,
         AtExtern, // @extern
         AtNoMangle, // @nomangle
+        AtPrivate, // @private
         // ^^^ Keywords ^^^ //
 
         // VVV Types VVV //
@@ -165,6 +166,7 @@ namespace Aria::Internal {
             case TokenKind::Struct: return "struct";
             case TokenKind::AtExtern: return "@extern";
             case TokenKind::AtNoMangle: return "@nomangle";
+            case TokenKind::AtPrivate: return "@private";
             // ^^^ Keywords ^^^ //
             
             // VVV Types VVV //

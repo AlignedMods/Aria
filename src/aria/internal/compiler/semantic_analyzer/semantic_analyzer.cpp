@@ -5,8 +5,8 @@ namespace Aria::Internal {
     SemanticAnalyzer::SemanticAnalyzer(CompilationContext* ctx) {
         m_Context = ctx;
 
-        m_BuiltInStringDestructor = Decl::Create(m_Context, {}, {}, DeclKind::BuiltinDestructor, BuiltinDestructorDecl(BuiltinKind::String));
-        m_BuiltInStringCopyConstructor = Decl::Create(m_Context, {}, {}, DeclKind::BuiltinCopyConstructor, BuiltinCopyConstructorDecl(BuiltinKind::String));
+        m_BuiltInStringDestructor = Decl::Create(m_Context, {}, {}, DeclKind::BuiltinDestructor, 0, BuiltinDestructorDecl(BuiltinKind::String));
+        m_BuiltInStringCopyConstructor = Decl::Create(m_Context, {}, {}, DeclKind::BuiltinCopyConstructor, 0, BuiltinCopyConstructorDecl(BuiltinKind::String));
 
         SemaImpl();
     }
@@ -123,7 +123,7 @@ namespace Aria::Internal {
             FunctionDecl& f = func->Function;
 
             // do not mangle the main function
-            if (f.Identifier == "main") { f.Flags |= FUNC_NOMANGLE; }
+            if (f.Identifier == "main") { func->Flags |= DECL_FLAG_NOMANGLE; }
 
             std::string ident = fmt::format("{}", f.Identifier);
 
@@ -162,6 +162,64 @@ namespace Aria::Internal {
     void SemanticAnalyzer::ResolveDeclRefExpr(Expr* expr) {
         DeclRefExpr& ref = expr->DeclRef;
         std::string ident = fmt::format("{}", ref.Identifier);
+
+        if (ref.Specifier) {
+            ARIA_ASSERT(ref.Specifier->Kind == SpecifierKind::Scope, "Invalid specifier");
+
+            ScopeSpecifier& scope = ref.Specifier->Scope;
+
+            if (scope.Identifier == m_Context->ActiveCompUnit->Parent->Name) {
+                scope.ReferencedModule = m_Context->ActiveCompUnit->Parent;
+            } else {
+                for (Stmt* stmt : m_Context->ActiveCompUnit->Imports) {
+                    ARIA_ASSERT(stmt->Kind == StmtKind::Import, "Invalid import");
+                
+                    if (stmt->Import.Name == scope.Identifier) {
+                        scope.ReferencedModule = stmt->Import.ResolvedModule;
+                        break;
+                    }
+                }
+            }
+
+            if (scope.ReferencedModule) {
+                Decl* d = nullptr;
+                if (scope.ReferencedModule == m_Context->ActiveCompUnit->Parent) {
+                    d = FindSymbolInModule(scope.ReferencedModule, ref.Identifier, true); // Allow accessing private declarations if we are in the same module
+                } else {
+                    d = FindSymbolInModule(scope.ReferencedModule, ref.Identifier, false);
+                }
+
+                if (!d) {
+                    m_Context->ReportCompilerError(expr->Loc, expr->Range, fmt::format("Module '{}' does not contain '{}'", scope.Identifier, ref.Identifier));
+                    expr->Type = &ErrorType;
+                    return;
+                }
+
+                switch (d->Kind) {
+                    case DeclKind::Var: {
+                        ref.Kind = DeclRefKind::GlobalVar;
+                        ref.ReferencedDecl = d;
+                        expr->Type = d->Var.Type;
+                        break;
+                    }
+
+                    case DeclKind::Function: {
+                        ref.Kind = DeclRefKind::Function;
+                        ref.ReferencedDecl = d;
+                        expr->Type = d->Function.Type;
+                        break;
+                    }
+
+                    default: ARIA_UNREACHABLE();
+                }
+
+                return;
+            } else {
+                m_Context->ReportCompilerError(ref.Specifier->Loc, ref.Specifier->Range, fmt::format("Could not find module '{}'", scope.Identifier));
+                expr->Type = &ErrorType;
+                return;
+            }
+        }
 
         if (m_ActiveStruct) {
             StructDecl s = std::get<StructDeclaration>(m_ActiveStruct->Data).SourceDecl->Struct;
@@ -215,24 +273,6 @@ namespace Aria::Internal {
 
         m_Context->ReportCompilerError(expr->Loc, expr->Range, fmt::format("Undeclared identifier \"{}\"", ref.Identifier));
         expr->Type = &ErrorType;
-    }
-
-    void SemanticAnalyzer::ResolveScopeExpr(Expr* expr) {
-        ScopeExpr& scope = expr->Scope;
-
-        for (Stmt* import : m_Context->ActiveCompUnit->Imports) {
-            ARIA_ASSERT(import->Kind == StmtKind::Import || import->Kind == StmtKind::Error, "invalid import");
-            
-            if (import->Import.Name == scope.Parent) {
-                m_SearchModule = import->Import.ResolvedModule;
-                break;
-            }
-        }
-
-        ResolveExpr(scope.Child);
-        expr->Type = scope.Child->Type;
-
-        m_SearchModule = nullptr;
     }
 
     void SemanticAnalyzer::ResolveMemberExpr(Expr* expr) {
@@ -525,8 +565,6 @@ namespace Aria::Internal {
             return ResolveStringConstantExpr(expr);
         } else if (expr->Kind == ExprKind::DeclRef) {
             return ResolveDeclRefExpr(expr);
-        } else if (expr->Kind == ExprKind::Scope) {
-            return ResolveScopeExpr(expr);
         } else if (expr->Kind == ExprKind::Member) {
             return ResolveMemberExpr(expr);
         } else if (expr->Kind == ExprKind::Call) {
@@ -891,7 +929,6 @@ namespace Aria::Internal {
                     ReplaceExpr(initializer, Expr::Create(m_Context, initializer->Loc, initializer->Range, 
                         ExprKind::Temporary, ExprValueKind::RValue, initializer->Type, 
                         TemporaryExpr(Expr::Dup(m_Context, initializer), m_BuiltInStringDestructor)));
-                    m_TemporaryContext = true;
                 }
             }
         }

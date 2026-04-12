@@ -6,6 +6,7 @@
 #include "aria/internal/compiler/ast/expr.hpp"
 #include "aria/internal/compiler/ast/stmt.hpp"
 #include "aria/internal/compiler/ast/decl.hpp"
+#include "aria/internal/compiler/ast/specifier.hpp"
 
 #include <unordered_map>
 #include <functional>
@@ -68,7 +69,7 @@ namespace Aria::Internal {
         Decl* ParseFunctionDecl();
         Decl* ParseStructDecl();
 
-        int ParseFunctionFlags();
+        int ParseDeclarationFlags();
 
         Stmt* ParseGlobal();
 

@@ -3,6 +3,7 @@
 #include "aria/internal/compiler/ast/expr.hpp"
 #include "aria/internal/compiler/ast/decl.hpp"
 #include "aria/internal/compiler/ast/stmt.hpp"
+#include "aria/internal/compiler/ast/specifier.hpp"
 #include "aria/internal/compiler/compilation_context.hpp"
 
 #include <unordered_map>
@@ -63,7 +64,7 @@ namespace Aria::Internal {
         void ResolveModuleCode(Module* module);
         void ResolveUnitCode(Module* module, CompilationUnit* unit);
 
-        Decl* FindSymbolInModule(Module* mod, StringView identifier);
+        Decl* FindSymbolInModule(Module* mod, StringView identifier, bool allowPrivate);
         Decl* FindSymbolInUnit(CompilationUnit* unit, StringView identifier);
 
         void ResolveBooleanConstantExpr(Expr* expr);
@@ -72,7 +73,6 @@ namespace Aria::Internal {
         void ResolveFloatingConstantExpr(Expr* expr);
         void ResolveStringConstantExpr(Expr* expr);
         void ResolveDeclRefExpr(Expr* expr);
-        void ResolveScopeExpr(Expr* expr);
         void ResolveMemberExpr(Expr* expr);
         void ResolveCallExpr(Expr* expr);
         void ResolveMethodCallExpr(Expr* expr);
@@ -129,9 +129,6 @@ namespace Aria::Internal {
         std::vector<Scope> m_Scopes;
         TypeInfo* m_ActiveReturnType = nullptr;
         TypeInfo* m_ActiveStruct = nullptr;
-
-        bool m_TemporaryContext = false;
-        Module* m_SearchModule = nullptr; // A module to search for declarations in a scope expr (foo::bar)
 
         CompilationContext* m_Context = nullptr;
     };

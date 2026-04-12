@@ -3,6 +3,7 @@
 #include "aria/internal/compiler/ast/expr.hpp"
 #include "aria/internal/compiler/ast/stmt.hpp"
 #include "aria/internal/compiler/ast/decl.hpp"
+#include "aria/internal/compiler/ast/specifier.hpp"
 #include "aria/internal/vm/vm.hpp"
 #include "aria/internal/compiler/reflection/compiler_reflection.hpp"
 
@@ -54,7 +55,6 @@ namespace Aria::Internal {
         void EmitFloatingConstantExpr(Expr* expr,  ExprValueKind valueKind);
         void EmitStringConstantExpr(Expr* expr,    ExprValueKind valueKind);
         void EmitDeclRefExpr(Expr* expr,           ExprValueKind valueKind);
-        void EmitScopeExpr(Expr* expr,             ExprValueKind valueKind);
         void EmitMemberExpr(Expr* expr,            ExprValueKind valueKind);
         void EmitSelfExpr(Expr* expr,              ExprValueKind valueKind);
         void EmitTemporaryExpr(Expr* expr,         ExprValueKind valueKind);

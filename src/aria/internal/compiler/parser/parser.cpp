@@ -33,7 +33,7 @@ namespace Aria::Internal {
 
         // Setup error nodes
         m_ErrorExpr = Expr::Create(m_Context, SourceLocation(), SourceRange(), ExprKind::Error, ExprValueKind::RValue, &ErrorType, ErrorExpr());
-        m_ErrorDecl = Decl::Create(m_Context, SourceLocation(), SourceRange(), DeclKind::Error, ErrorDecl());
+        m_ErrorDecl = Decl::Create(m_Context, SourceLocation(), SourceRange(), DeclKind::Error, 0, ErrorDecl());
         m_ErrorStmt = Stmt::Create(m_Context, SourceLocation(), SourceRange(), StmtKind::Error, ErrorStmt());
 
         Module* defaultModule = new Module();
@@ -103,7 +103,7 @@ namespace Aria::Internal {
         }
 
         TranslationUnitDecl root(stmts);
-        Decl* decl = Decl::Create(m_Context, SourceLocation(), SourceRange(), DeclKind::TranslationUnit, root);
+        Decl* decl = Decl::Create(m_Context, SourceLocation(), SourceRange(), DeclKind::TranslationUnit, 0, root);
         m_Context->ActiveCompUnit->RootASTNode = Stmt::Create(m_Context, SourceLocation(), SourceRange(), StmtKind::Decl, decl);
     }
 
@@ -362,17 +362,17 @@ namespace Aria::Internal {
             Token* child = TryConsume(TokenKind::Identifier, "identifier");
             if (!child) { return m_ErrorExpr; }
 
+            Specifier* specifier = Specifier::Create(m_Context, col.Range.Start, SourceRange(t.Range.Start, col.Range.End), SpecifierKind::Scope, ScopeSpecifier(t.String));
+
             Expr* declRef = Expr::Create(m_Context, child->Range.Start, child->Range, ExprKind::DeclRef,
                                 ExprValueKind::LValue, nullptr,
-                                DeclRefExpr(child->String));
+                                DeclRefExpr(child->String, specifier));
 
-            return Expr::Create(m_Context, col.Range.Start, SourceRange(t.Range.Start, child->Range.End), ExprKind::Scope,
-                        ExprValueKind::LValue, nullptr,
-                        ScopeExpr(t.String, declRef));
+            return declRef;
         } else {
             return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::DeclRef,
                        ExprValueKind::LValue, nullptr, 
-                       DeclRefExpr(t.String));
+                       DeclRefExpr(t.String, nullptr));
         }
 
         ARIA_UNREACHABLE();
@@ -803,7 +803,7 @@ namespace Aria::Internal {
         Module* module = m_Context->FindOrCreateModule(fmt::format("{}", ident->String));
         m_Context->ActiveCompUnit->Parent = module;
 
-        return Decl::Create(m_Context, ident->Range.Start, SourceRange(mod.Range.Start, Peek(-1)->Range.End), DeclKind::Module, ModuleDecl(ident->String));
+        return Decl::Create(m_Context, ident->Range.Start, SourceRange(mod.Range.Start, Peek(-1)->Range.End), DeclKind::Module, 0, ModuleDecl(ident->String));
     }
 
     Stmt* Parser::ParseImportStmt() {
@@ -839,7 +839,7 @@ namespace Aria::Internal {
 
         TryConsume(TokenKind::Semi, ";");
 
-        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Var, VarDecl(ident->String, type, value));
+        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Var, 0, VarDecl(ident->String, type, value));
 
         if (global) {
             m_Context->ActiveCompUnit->Globals.push_back(decl);
@@ -885,7 +885,7 @@ namespace Aria::Internal {
                 continue;
             }
 
-            params.Append(m_Context, Decl::Create(m_Context, paramIdent->Range.Start, paramIdent->Range, DeclKind::Param, ParamDecl(paramIdent->String, paramType)));
+            params.Append(m_Context, Decl::Create(m_Context, paramIdent->Range.Start, paramIdent->Range, DeclKind::Param, 0, ParamDecl(paramIdent->String, paramType)));
             paramTypes.Append(m_Context, paramType);
 
             if (Match(TokenKind::Comma)) { Consume(); continue; }
@@ -905,7 +905,7 @@ namespace Aria::Internal {
                 type = ParseType();
             }
 
-            flags = ParseFunctionFlags();
+            flags = ParseDeclarationFlags();
         }
         
         Stmt* body = nullptr;
@@ -921,7 +921,7 @@ namespace Aria::Internal {
         typeDecl.ParamTypes = paramTypes;
 
         TypeInfo* finalType = TypeInfo::Create(m_Context, PrimitiveType::Function, false, typeDecl);
-        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Function, FunctionDecl(ident->String, finalType, params, body, flags));
+        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Function, flags, FunctionDecl(ident->String, finalType, params, body));
 
         m_Context->ActiveCompUnit->Funcs.push_back(decl);
         return decl;
@@ -947,7 +947,7 @@ namespace Aria::Internal {
                     if (Match(TokenKind::Semi)) { Consume(); }
                 }
         
-                fields.Append(m_Context, Decl::Create(m_Context, fieldName->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Field, FieldDecl(fieldName->String, type)));
+                fields.Append(m_Context, Decl::Create(m_Context, fieldName->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Field, 0, FieldDecl(fieldName->String, type)));
             } else {
                 m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type or 'fn'");
                 SyncLocal();
@@ -956,20 +956,23 @@ namespace Aria::Internal {
         }
         TryConsume(TokenKind::RightCurly, "}");
         
-        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(s.Range.Start, Peek(-1)->Range.End), DeclKind::Struct, StructDecl(ident->String, fields));
+        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(s.Range.Start, Peek(-1)->Range.End), DeclKind::Struct, 0, StructDecl(ident->String, fields));
         m_Context->ActiveCompUnit->Structs.push_back(decl);
         return decl;
     }
 
-    int Parser::ParseFunctionFlags() {
+    int Parser::ParseDeclarationFlags() {
         int result = 0;
 
         while (Peek()) {
             if (Match(TokenKind::AtExtern)) {
-                result |= FUNC_EXTERN;
+                result |= DECL_FLAG_EXTERN;
                 Consume();
             } else if (Match(TokenKind::AtNoMangle)) {
-                result |= FUNC_NOMANGLE;
+                result |= DECL_FLAG_NOMANGLE;
+                Consume();
+            } else if (Match(TokenKind::AtPrivate)) {
+                result |= DECL_FLAG_PRIVATE;
                 Consume();
             } else {
                 break;

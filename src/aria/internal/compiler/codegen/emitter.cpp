@@ -146,8 +146,13 @@ namespace Aria::Internal {
     // rvalue + ref: (LdLocal, LdArg, LdGlobal) + deref
     void Emitter::EmitDeclRefExpr(Expr* expr, ExprValueKind valueKind) {
         DeclRefExpr declRef = expr->DeclRef;
-        if (m_Namespace.empty()) { m_Namespace = m_ActiveNamespace; }
-        std::string ident = fmt::format("{}::{}", m_Namespace, declRef.Identifier);
+        std::string ident;
+
+        if (declRef.Specifier) {
+            ident = fmt::format("{}::{}", declRef.Specifier->Scope.Identifier, declRef.Identifier);
+        } else {
+            ident = fmt::format("{}::{}", m_ActiveNamespace, declRef.Identifier);
+        }
 
         // VVV -LocalVar- VVV //
         if (declRef.Kind == DeclRefKind::LocalVar) {
@@ -225,10 +230,9 @@ namespace Aria::Internal {
         // VVV -Function- VVV //
         if (declRef.Kind == DeclRefKind::Function) {
             ARIA_ASSERT(valueKind != ExprValueKind::RValue, "Cannot load function as rvalue");
-
             ARIA_ASSERT(declRef.ReferencedDecl->Kind == DeclKind::Function, "Invalid referenced decl in DeclRefExpr");
 
-            if (declRef.ReferencedDecl->Function.Flags & FUNC_NOMANGLE) {
+            if (declRef.ReferencedDecl->Flags & DECL_FLAG_NOMANGLE) {
                 m_PendingOpCodes.emplace_back(OpCodeKind::LdFunc, fmt::format("{}()", declRef.Identifier));
             } else {
                 m_PendingOpCodes.emplace_back(OpCodeKind::LdFunc, fmt::format("{}()", ident));
@@ -239,14 +243,6 @@ namespace Aria::Internal {
         // ^^^ -Function- ^^^ //
 
         ARIA_UNREACHABLE();
-    }
-
-    void Emitter::EmitScopeExpr(Expr* expr, ExprValueKind valueKind) {
-        ScopeExpr& scope = expr->Scope;
-
-        m_Namespace = fmt::format("{}", scope.Parent);
-        EmitExpr(scope.Child, valueKind);
-        m_Namespace.clear();
     }
 
     void Emitter::EmitMemberExpr(Expr* expr, ExprValueKind valueKind) {
@@ -547,8 +543,6 @@ namespace Aria::Internal {
             EmitStringConstantExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::DeclRef) {
             EmitDeclRefExpr(expr, valueKind);
-        } else if (expr->Kind == ExprKind::Scope) {
-            EmitScopeExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::Member) {
             EmitMemberExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::Temporary) {
@@ -601,7 +595,7 @@ namespace Aria::Internal {
         d.Type = varDecl.Type;
         
         if (varDecl.Type->Type == PrimitiveType::String) {
-            d.Destructor = Decl::Create(m_Context, SourceLocation(), SourceRange(), DeclKind::BuiltinDestructor, BuiltinDestructorDecl(BuiltinKind::String));
+            d.Destructor = Decl::Create(m_Context, SourceLocation(), SourceRange(), DeclKind::BuiltinDestructor, 0, BuiltinDestructorDecl(BuiltinKind::String));
         }
 
         // We want to allocate the variables up front (at the start of the stack frame)
@@ -641,7 +635,7 @@ namespace Aria::Internal {
 
     void Emitter::EmitFunctionDecl(Decl* decl) {
         FunctionDecl& fnDecl = decl->Function;
-        std::string name = (fnDecl.Flags & FUNC_NOMANGLE) ? fmt::format("{}()", fnDecl.Identifier) : fmt::format("{}::{}()", m_ActiveNamespace, fnDecl.Identifier);
+        std::string name = (decl->Flags & DECL_FLAG_NOMANGLE) ? fmt::format("{}()", fnDecl.Identifier) : fmt::format("{}::{}()", m_ActiveNamespace, fnDecl.Identifier);
 
         if (fnDecl.Body) {
             m_OpCodes.emplace_back(OpCodeKind::Function, name);

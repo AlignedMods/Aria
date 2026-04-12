@@ -38,10 +38,10 @@ namespace Aria::Internal {
         } else if (expr->Kind == ExprKind::StringConstant) {
             m_Output += fmt::format("StringConstantExpr \"{}\" '{}' {}\n", expr->StringConstant.Value, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
         } else if (expr->Kind == ExprKind::DeclRef) {
-            m_Output += fmt::format("DeclRefExpr '{}' '{}' {} {}\n", expr->DeclRef.Identifier, TypeInfoToString(expr->Type), DeclRefKindToString(expr->DeclRef.Kind), ExprValueKindToString(expr->ValueKind)); return;
-        } else if (expr->Kind == ExprKind::Scope) {
-            m_Output += fmt::format("ScopeExpr '{}' '{}' {}\n", expr->Scope.Parent, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
-            DumpExpr(expr->Scope.Child, indentation + 4);
+            m_Output += fmt::format("DeclRefExpr '{}' '{}' {} {} {}\n", expr->DeclRef.Identifier, TypeInfoToString(expr->Type), DeclRefKindToString(expr->DeclRef.Kind), ExprValueKindToString(expr->ValueKind), static_cast<void*>(expr->DeclRef.ReferencedDecl));
+            if (expr->DeclRef.Specifier) {
+                DumpSpecifier(expr->DeclRef.Specifier, indentation + 4);
+            }
             return;
         } else if (expr->Kind == ExprKind::Member) {
             m_Output += fmt::format("MemberExpr '{}' '{}' {}\n", expr->Member.Member, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
@@ -133,7 +133,7 @@ namespace Aria::Internal {
             m_Output += fmt::format("ParamDecl '{}' '{}'\n", decl->Param.Identifier, TypeInfoToString(decl->Param.Type));
             return;
         } else if (decl->Kind == DeclKind::Function) {
-            m_Output += fmt::format("FunctionDecl '{}' '{}' {}\n", decl->Function.Identifier, TypeInfoToString(decl->Function.Type), DumpFunctionFlags(decl->Function.Flags));
+            m_Output += fmt::format("FunctionDecl '{}' '{}' {}\n", decl->Function.Identifier, TypeInfoToString(decl->Function.Type), DumpDeclarationFlags(decl->Flags));
             for (Decl* p : decl->Function.Parameters) {
                 DumpDecl(p, indentation + 4);
             }
@@ -233,11 +233,34 @@ namespace Aria::Internal {
         ARIA_UNREACHABLE();
     }
 
-    std::string ASTDumper::DumpFunctionFlags(int flags) {
+    void ASTDumper::DumpSpecifier(Specifier* spec, size_t indentation) {
+        if (spec == nullptr) { m_Output += "<<NULL>>\n"; return; };
+
+        std::string ident;
+        ident.append(indentation, ' ');
+        m_Output += ident;
+
+        if (spec->Kind == SpecifierKind::Scope) {
+            m_Output += fmt::format("ScopeSpecifier '{}' {}\n", spec->Scope.Identifier, static_cast<void*>(spec->Scope.ReferencedModule));
+            return;
+        }
+
+        ARIA_UNREACHABLE();
+    }
+
+    std::string ASTDumper::DumpDeclarationFlags(int flags) {
         std::string result;
 
-        if (flags & FUNC_EXTERN) {
-            result = "extern";
+        if (flags & DECL_FLAG_EXTERN) {
+            result = "@extern ";
+        }
+
+        if (flags & DECL_FLAG_NOMANGLE) {
+            result += "@nomangle ";
+        }
+
+        if (flags & DECL_FLAG_PRIVATE) {
+            result += "@private ";
         }
 
         return result;

@@ -334,7 +334,7 @@ namespace Aria::Internal {
             u64 integer = 0;
 
             if (!errored) {
-                size_t base = 10;
+                int base = 10;
                 if (isHex) { base = 16; }
                 else if (isBinary) { base = 2; }
                 else if (isOctal) { base = 8; }
@@ -411,6 +411,7 @@ namespace Aria::Internal {
 
         if (str == "@extern") { AddToken(TokenKind::AtExtern, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "@extern"); return; }
         else if (str == "@nomangle") { AddToken(TokenKind::AtNoMangle, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "@nomangle"); return; }
+        else if (str == "@private") { AddToken(TokenKind::AtPrivate, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "@private"); return; }
 
         m_Context->ReportCompilerError(start, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "Unknown flag starting with '@'");
     }

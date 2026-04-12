@@ -196,39 +196,39 @@ namespace Aria {
         m_ActiveModule->VM.StorePointer(-1, p, m_ActiveModule->VM.m_ExpressionStack);
     }
 
-    void Context::StoreBool(size_t index, bool b) {
+    void Context::StoreBool(int32_t index, bool b) {
         m_ActiveModule->VM.StoreBool(index, b, m_ActiveModule->VM.m_ExpressionStack);
     }
 
-    void Context::StoreChar(size_t index, int8_t c) {
+    void Context::StoreChar(int32_t index, int8_t c) {
         m_ActiveModule->VM.StoreChar(index, c, m_ActiveModule->VM.m_ExpressionStack);
     }
 
-    void Context::StoreShort(size_t index, int16_t s) {
+    void Context::StoreShort(int32_t index, int16_t s) {
         m_ActiveModule->VM.StoreShort(index, s, m_ActiveModule->VM.m_ExpressionStack);
     }
 
-    void Context::StoreInt(size_t index, int32_t i) {
+    void Context::StoreInt(int32_t index, int32_t i) {
         m_ActiveModule->VM.StoreInt(index, i, m_ActiveModule->VM.m_ExpressionStack);
     }
 
-    void Context::StoreLong(size_t index, int64_t l) {
+    void Context::StoreLong(int32_t index, int64_t l) {
         m_ActiveModule->VM.StoreLong(index, l, m_ActiveModule->VM.m_ExpressionStack);
     }
 
-    void Context::StoreFloat(size_t index, float f) {
+    void Context::StoreFloat(int32_t index, float f) {
         m_ActiveModule->VM.StoreFloat(index, f, m_ActiveModule->VM.m_ExpressionStack);
     }
 
-    void Context::StoreDouble(size_t index, double d) {
+    void Context::StoreDouble(int32_t index, double d) {
         m_ActiveModule->VM.StoreDouble(index, d, m_ActiveModule->VM.m_ExpressionStack);
     }
 
-    void Context::StorePointer(size_t index, void* p) {
+    void Context::StorePointer(int32_t index, void* p) {
         m_ActiveModule->VM.StorePointer(index, p, m_ActiveModule->VM.m_ExpressionStack);
     }
 
-    void Context::StoreString(size_t index, std::string_view str) {
+    void Context::StoreString(int32_t index, std::string_view str) {
         m_ActiveModule->VM.StoreString(index, str, m_ActiveModule->VM.m_ExpressionStack);
     }
 
@@ -241,7 +241,7 @@ namespace Aria {
         PushPointer(slice.Memory);
     }
 
-    void Context::GetArg(size_t index) {
+    void Context::GetArg(int32_t index) {
         m_ActiveModule->VM.Dup(index + 1, m_ActiveModule->VM.m_ExpressionStack, m_ActiveModule->VM.m_FunctionStack);
     }
 

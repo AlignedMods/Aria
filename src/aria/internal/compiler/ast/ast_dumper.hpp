@@ -3,6 +3,7 @@
 #include "aria/internal/compiler/ast/expr.hpp"
 #include "aria/internal/compiler/ast/stmt.hpp"
 #include "aria/internal/compiler/ast/decl.hpp"
+#include "aria/internal/compiler/ast/specifier.hpp"
 
 namespace Aria::Internal {
 
@@ -18,8 +19,9 @@ namespace Aria::Internal {
         void DumpExpr(Expr* expr, size_t indentation);
         void DumpDecl(Decl* decl, size_t indentation);
         void DumpStmt(Stmt* stmt, size_t indentation);
+        void DumpSpecifier(Specifier* spec, size_t indentation);
 
-        std::string DumpFunctionFlags(int flags);
+        std::string DumpDeclarationFlags(int flags);
 
     private:
         Stmt* m_RootASTNode = nullptr;

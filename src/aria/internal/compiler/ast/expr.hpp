@@ -21,7 +21,6 @@ namespace Aria::Internal {
         FloatingConstant,
         StringConstant,
         DeclRef,
-        Scope,
         Member,
         Self,
         Temporary,
@@ -168,6 +167,7 @@ namespace Aria::Internal {
     }
 
     struct Decl;
+    struct Specifier;
 
     struct ErrorExpr {
         ErrorExpr() = default;
@@ -209,20 +209,13 @@ namespace Aria::Internal {
     };
 
     struct DeclRefExpr {
-        DeclRefExpr(StringView identifier)
-            : Identifier(identifier) {}
+        DeclRefExpr(StringView identifier, Specifier* specifier)
+            : Identifier(identifier), Specifier(specifier) {}
 
         StringView Identifier;
+        Specifier* Specifier;
         DeclRefKind Kind = DeclRefKind::LocalVar;
         Decl* ReferencedDecl = nullptr;
-    };
-
-    struct ScopeExpr {
-        ScopeExpr(StringView parent, Expr* child)
-            : Parent(parent), Child(child) {}
-
-        StringView Parent;
-        Expr* Child = nullptr;
     };
 
     struct MemberExpr {
@@ -369,7 +362,6 @@ namespace Aria::Internal {
             FloatingConstantExpr FloatingConstant;
             StringConstantExpr StringConstant;
             DeclRefExpr DeclRef;
-            ScopeExpr Scope;
             MemberExpr Member;
             SelfExpr Self;
             TemporaryExpr Temporary;
@@ -407,9 +399,6 @@ namespace Aria::Internal {
 
         Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, DeclRefExpr declRef)
             : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), DeclRef(declRef) {}
-
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, ScopeExpr scope)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Scope(scope) {}
 
         Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, MemberExpr member)
             : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Member(member) {}
