@@ -24,6 +24,7 @@ TEST_CASE("Runtime Basic Expressions") {
     ctx.AddExternalFunction("should_never_be_called()", [](Aria::Context* ctx) {
         throw std::runtime_error("function that shouldn't be called was called");
     });
+
     ctx.Run();
     
     ctx.GetGlobal("basic_expressions::a");

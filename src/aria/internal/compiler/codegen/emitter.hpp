@@ -46,6 +46,7 @@ namespace Aria::Internal {
     private:
         void EmitImpl();
 
+        void AddBasicTypes();
         void EmitDeclarations();
         void EmitStartEnd();
 
@@ -99,11 +100,11 @@ namespace Aria::Internal {
 
         void MergePendingOpCodes();
 
-        VMType TypeInfoToVMType(TypeInfo* t);
+        size_t TypeInfoToVMTypeIdx(TypeInfo* t);
 
     private:
-        std::vector<OpCode> m_OpCodes;
-        std::vector<OpCode> m_PendingOpCodes; // Op codes that will be appended to the main op codes after the function body has been fully generated
+        OpCodes m_OpCodes;
+        std::vector<OpCode> m_PendingOpCodes;
         CompilerReflectionData m_ReflectionData;
 
         std::string m_Namespace;
@@ -116,6 +117,7 @@ namespace Aria::Internal {
         bool m_IsGlobalScope = false;
 
         std::unordered_map<std::string, RuntimeStructDeclaration> m_Structs;
+        std::unordered_map<PrimitiveType, size_t> m_BasicTypes;
 
         // Counters
         size_t m_AndCounter = 0;

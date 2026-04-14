@@ -8,7 +8,7 @@ namespace Aria::Internal {
 
     class Disassembler {
     public:
-        Disassembler(const std::vector<OpCode>* opcodes, bool verbose);
+        Disassembler(const OpCodes& ops, bool verbose);
 
         std::string& GetDisassembly();
 
@@ -19,7 +19,7 @@ namespace Aria::Internal {
         std::string VMTypeToString(const VMType& type);
 
     private:
-        const std::vector<OpCode>* m_OpCodes;
+        const OpCodes* m_Program = nullptr;
         bool m_Verbose = false;
         size_t m_ProgramCounter = 0;
 

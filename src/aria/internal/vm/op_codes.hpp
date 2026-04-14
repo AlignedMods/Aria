@@ -1,17 +1,15 @@
 #pragma once
 
 #include "aria/internal/types.hpp"
-#include "aria/internal/compiler/core/string_view.hpp"
+#include "aria/core.hpp"
 
-#include <variant>
-#include <vector>
 #include <string_view>
+#include <array>
+#include <vector>
 
 namespace Aria::Internal {
 
-    struct TypeInfo;
-
-    enum class VMTypeKind {
+    enum class VMTypeKind : u8 {
         Invalid = 0,
         Void,
         I1,
@@ -35,12 +33,12 @@ namespace Aria::Internal {
             if (Kind != VMTypeKind::Struct && other.Kind != VMTypeKind::Struct) {
                 return Kind == other.Kind;
             }
-
+        
             return Data == other.Data;
         }
     };
 
-    enum class OpCodeKind {
+    enum class OpCodeKind : u16 {
         Nop,
 
         Alloca,
@@ -55,8 +53,6 @@ namespace Aria::Internal {
         LdStr,
 
         Deref,
-
-        Struct,
 
         DeclareGlobal,
         DeclareLocal,
@@ -75,6 +71,7 @@ namespace Aria::Internal {
         LdPtrRet,
 
         Function,
+        EndFunction,
         Label,
         Jmp,
         Jt,
@@ -112,32 +109,84 @@ namespace Aria::Internal {
         Comment // Used only for debugging
     };
 
-    #undef TYPED_OP
+    union OpCodeArg {
+        OpCodeArg()
+            : U64(0) {}
 
-    struct OpCodeLdc {
-        std::variant<bool, i8, u8, i16, u16, i32, u32, i64, u64, f32, f64> Data;
-        VMType Type;
-    };
+        OpCodeArg(bool b)
+            : Boolean(b) {}
 
-    struct OpCodeCall {
-        size_t ArgCount = 0;
-        VMType ReturnType;
-    };
+        OpCodeArg(i8 i)
+            : I8(i) {}
 
-    struct OpCodeStruct {
-        std::vector<VMType> Fields;
-        std::string_view Identifier;
-    };
+        OpCodeArg(i16 i)
+            : I16(i) {}
 
-    struct OpCodeMember {
-        size_t Index = 0;
-        VMType MemberType;
-        VMType StructType;
+        OpCodeArg(i32 i)
+            : I32(i) {}
+
+        OpCodeArg(i64 i)
+            : I64(i) {}
+
+        OpCodeArg(u8 u)
+            : U8(u) {}
+
+        OpCodeArg(u16 u)
+            : U16(u) {}
+
+        OpCodeArg(u32 u)
+            : U32(u) {}
+
+        OpCodeArg(u64 u)
+            : U64(u) {}
+
+        OpCodeArg(float f)
+            : Float(f) {}
+
+        OpCodeArg(double d)
+            : Double(d) {}
+
+        bool Boolean;
+        i8 I8;
+        u8 U8;
+        i16 I16;
+        u16 U16;
+        i32 I32;
+        u32 U32;
+        i64 I64;
+        u64 U64;
+
+        float Float;
+        double Double;
+
+        size_t Index; // Used for types and strings
     };
 
     struct OpCode {
-        OpCodeKind Kind = OpCodeKind::Nop;
-        std::variant<size_t, std::string, VMType, OpCodeLdc, OpCodeCall, OpCodeStruct, OpCodeMember> Data;
+        OpCode() {}
+
+        OpCode(OpCodeKind kind)
+            : Kind(kind) {}
+
+        OpCode(OpCodeKind kind, std::initializer_list<OpCodeArg> args) {
+            ARIA_ASSERT(args.size() <= 3, "Cannot initialize op code with more than 3 arguments");
+
+            for (size_t i = 0; i < args.size(); i++) {
+                Args[i] = *(args.begin() + i);
+            }
+
+            Kind = kind;
+        }
+
+        OpCodeKind Kind = OpCodeKind::Add;
+        std::array<OpCodeArg, 3> Args;
+    };
+
+    struct OpCodes {
+        std::vector<std::string> StringTable;
+        std::vector<VMType> TypeTable;
+
+        std::vector<OpCode> OpCodeTable;
     };
 
 } // namespace Aria::Internal

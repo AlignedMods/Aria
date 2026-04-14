@@ -13,7 +13,7 @@ namespace Aria::Internal {
     };
 
     struct CompilerReflectionDeclaration {
-        VMType Type;
+        size_t TypeIndex = 0;
         ReflectionKind Kind = ReflectionKind::Variable;
     };
 

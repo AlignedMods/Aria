@@ -31,7 +31,7 @@ namespace Aria::Internal {
 
     // A function that is not external, AKA implemented in the language itself
     struct VMFunction {
-        std::unordered_map<std::string, size_t> Labels;
+        std::unordered_map<std::string_view, size_t> Labels;
     };
 
     // A structure which has a linear block of memory (the stack)
@@ -57,7 +57,7 @@ namespace Aria::Internal {
         ~VM();
 
         // Allocates memory on a stack (local, function, global, ..)
-        void Alloca(VMType type, Stack& stack);
+        void Alloca(const VMType& type, Stack& stack);
         void Pop   (size_t count, Stack& stack);
         void Copy  (i32 dstSlot, i32 srcSlot, Stack& dst, Stack& src);
         void Dup   (i32 slot, Stack& dst, Stack& src);
@@ -67,7 +67,7 @@ namespace Aria::Internal {
         // Removes the current stack frame and goes back to the previous one (if there is one)
         void PopStackFrame();
 
-        void AddExtern(const std::string& signature, ExternFn fn);
+        void AddExtern(std::string_view signature, ExternFn fn);
 
         void Call(const std::string& signature, size_t argCount);
         void CallExtern(const std::string& signature, size_t argCount);
@@ -94,8 +94,7 @@ namespace Aria::Internal {
         void*            GetPointer(i32 slot, Stack& stack);
         std::string_view GetString (i32 slot, Stack& stack);
 
-        // Run an array of op codes in the VM
-        void RunByteCode(const OpCode* data, size_t count);
+        void RunByteCode(const OpCodes& ops);
         void Run();
 
         VMSlice GetVMSlice(i32 slot, Stack& stack);
@@ -104,16 +103,6 @@ namespace Aria::Internal {
         void StopExecution();
 
     private:
-        // Registers all the functions and labels before running any byte code
-        // This is neccessary because it is possible to jump to labels and call functions
-        // that have not been declared yet
-        // eg.
-        // _entry$:
-        //     jmp loop.end
-        //     ...
-        //
-        // loop.end:
-        //     ...
         void RunPrepass();
 
         size_t AlignToEight(size_t size);
@@ -124,7 +113,7 @@ namespace Aria::Internal {
         Stack m_FunctionStack; // Used to store data about function calls
         Stack m_GlobalStack; // Used for global variables
 
-        std::unordered_map<std::string, i32> m_GlobalMap;
+        std::unordered_map<std::string_view, i32> m_GlobalMap;
 
         struct StackFrame {
             size_t PESSBP = 0; // PreviousExpressionStackSlotBasePointer
@@ -144,15 +133,11 @@ namespace Aria::Internal {
 
         std::vector<StackFrame> m_StackFrames;
 
-        const OpCode* m_Program = nullptr;
-        size_t m_ProgramSize = 0;
+        const OpCodes* m_Program = nullptr;
         size_t m_ProgramCounter = 0;
 
-        std::unordered_map<std::string, VMFunction> m_Functions;
-        std::unordered_map<std::string_view, OpCode> m_Structs;
-        std::unordered_map<std::string, ExternFn> m_ExternalFunctions;
-
-        std::unordered_map<std::string_view, size_t> m_CachedStructSizes;
+        std::unordered_map<std::string_view, VMFunction> m_Functions;
+        std::unordered_map<std::string_view, ExternFn> m_ExternalFunctions;
 
         size_t m_ReturnAddress = SIZE_MAX;
         VMFunction* m_ActiveFunction = nullptr;

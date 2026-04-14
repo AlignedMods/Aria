@@ -2,10 +2,15 @@
 
 #include <string>
 
+#define PROG_SIZE() (m_Program->OpCodeTable.size())
+#define PROG_OP(idx) (m_Program->OpCodeTable.at(idx))
+#define GET_STR(idx) (std::string_view(m_Program->StringTable[idx]))
+#define GET_TYPE(idx) (m_Program->TypeTable[idx])
+
 namespace Aria::Internal {
 
-    Disassembler::Disassembler(const std::vector<OpCode>* opcodes, bool verbose) {
-        m_OpCodes = opcodes;
+    Disassembler::Disassembler(const OpCodes& ops, bool verbose) {
+        m_Program = &ops;
         m_Verbose = verbose;
 
         DisassembleImpl();
@@ -16,7 +21,7 @@ namespace Aria::Internal {
     }
 
     void Disassembler::DisassembleImpl() {
-        for (const auto& op : *m_OpCodes) {
+        for (const auto& op : m_Program->OpCodeTable) {
             m_Output += fmt::format("{:05d}: ", m_ProgramCounter);
 
             DisassembleOpCode(op);
@@ -26,25 +31,25 @@ namespace Aria::Internal {
 
     void Disassembler::DisassembleOpCode(const OpCode& op) {
         #define CASE_BINEXPR(_enum, str) case OpCodeKind::_enum: { \
-            const VMType& type = std::get<VMType>(op.Data); \
+            const VMType& type = GET_TYPE(op.Args[0].Index); \
             m_Output += fmt::format("    {}      {}\n", str, VMTypeToString(type)); \
             break; \
         }
 
         switch (op.Kind) {
             case OpCodeKind::Nop: m_Output += "    nop\n"; break;
-
+        
             case OpCodeKind::Alloca: {
-                const VMType& type = std::get<VMType>(op.Data);
+                const VMType& type = GET_TYPE(op.Args[0].Index);
                 m_Output += fmt::format("    alloca    {}\n", VMTypeToString(type));
                 break;
             }
-
+        
             case OpCodeKind::Pop: {
                 m_Output += "    pop\n";
                 break;
             }
-
+        
             case OpCodeKind::PushSF: {
                 m_Output += fmt::format("    pushsf\n");
                 break;
@@ -53,204 +58,187 @@ namespace Aria::Internal {
                 m_Output += fmt::format("    popsf\n");
                 break;
             }
-
+        
             case OpCodeKind::Store: {
                 m_Output += fmt::format("    store\n");
                 break;
             }
-
+        
             case OpCodeKind::Dup: {
                 m_Output += fmt::format("    dup\n");
                 break;
             }
-
+        
             case OpCodeKind::Ldc: {
-                const OpCodeLdc& ldc = std::get<OpCodeLdc>(op.Data);
-
-                switch (ldc.Type.Kind) {
-                    case VMTypeKind::I1:  m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<bool>(ldc.Data)); break;
-                    case VMTypeKind::I8:  m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<i8>(ldc.Data));  break;
-                    case VMTypeKind::U8:  m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<u8>(ldc.Data));  break;
-                    case VMTypeKind::I16: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<i16>(ldc.Data)); break;
-                    case VMTypeKind::U16: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<u16>(ldc.Data)); break;
-                    case VMTypeKind::I32: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<i32>(ldc.Data)); break;
-                    case VMTypeKind::U32: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<u32>(ldc.Data)); break;
-                    case VMTypeKind::I64: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<i64>(ldc.Data)); break;
-                    case VMTypeKind::U64: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<u64>(ldc.Data)); break;
-                    case VMTypeKind::F32: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<f32>(ldc.Data)); break;
-                    case VMTypeKind::F64: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(ldc.Type), std::get<f64>(ldc.Data)); break;
-                    default: ARIA_ASSERT(false, "Invalid \"ldc\" type");
+                const VMType& type = GET_TYPE(op.Args[0].Index);
+        
+                switch (type.Kind) {
+                    case VMTypeKind::I1:  m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(type), op.Args[1].Boolean); break;
+                    case VMTypeKind::I8:  m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(type), op.Args[1].I8);  break;
+                    case VMTypeKind::U8:  m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(type), op.Args[1].U8);  break;
+                    case VMTypeKind::I16: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(type), op.Args[1].I16); break;
+                    case VMTypeKind::U16: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(type), op.Args[1].U16); break;
+                    case VMTypeKind::I32: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(type), op.Args[1].I32); break;
+                    case VMTypeKind::U32: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(type), op.Args[1].U32); break;
+                    case VMTypeKind::I64: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(type), op.Args[1].I64); break;
+                    case VMTypeKind::U64: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(type), op.Args[1].U64); break;
+                    case VMTypeKind::F32: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(type), op.Args[1].Float); break;
+                    case VMTypeKind::F64: m_Output += fmt::format("    ld.c      {} {}\n", VMTypeToString(type), op.Args[1].Double); break;
+                    default: ARIA_ASSERT(false, "Invalid 'ldc' type");
                 }
-
+        
                 break;
             }
-
+        
             case OpCodeKind::LdStr: {
-                const std::string& str = std::get<std::string>(op.Data);
+                std::string_view str = GET_STR(op.Args[0].Index);
                 m_Output += fmt::format("    ldstr     \"{}\"\n", str);
-
                 break;
             }
-
+        
             case OpCodeKind::Deref: {
-                const VMType& type = std::get<VMType>(op.Data);
+                const VMType& type = GET_TYPE(op.Args[0].Index);
                 m_Output += fmt::format("    deref     {}\n", VMTypeToString(type));
                 break;
             }
-
-            case OpCodeKind::Struct: {
-                const OpCodeStruct& s = std::get<OpCodeStruct>(op.Data);
-                m_Output += fmt::format("struct %{} [ ", s.Identifier);
-
-                for (size_t i = 0; i < s.Fields.size(); i++) {
-                    m_Output += VMTypeToString(s.Fields[i]);
-                    if (i != s.Fields.size() - 1) { m_Output += ", "; }
-                }
-
-                m_Output += " ]\n";
-                break;
-            }
-
+        
             case OpCodeKind::DeclareGlobal: {
-                const std::string& global = std::get<std::string>(op.Data);
-                m_Output += fmt::format("    decl.g    {}\n", global);
+                std::string_view str = GET_STR(op.Args[0].Index);
+                m_Output += fmt::format("    decl.g    {}\n", str);
                 break;
             }
-
+        
             case OpCodeKind::DeclareLocal: {
-                size_t index = std::get<size_t>(op.Data);
+                size_t index = op.Args[0].Index;
                 m_Output += fmt::format("    decl.l    {}\n", index);
                 break;
             }
-
+        
             case OpCodeKind::DeclareArg: {
-                size_t index = std::get<size_t>(op.Data);
+                size_t index = op.Args[0].Index;
                 m_Output += fmt::format("    decl.arg  {}\n", index);
                 break;
             }
-
+        
             case OpCodeKind::LdGlobal: {
-                const std::string& global = std::get<std::string>(op.Data);
-                m_Output += fmt::format("    ld.g      {}\n", global);
+                std::string_view str = GET_STR(op.Args[0].Index);
+                m_Output += fmt::format("    ld.g      {}\n", str);
                 break;
             }
-
+        
             case OpCodeKind::LdLocal: {
-                size_t index = std::get<size_t>(op.Data);
+                size_t index = op.Args[0].Index;
                 m_Output += fmt::format("    ld.l      {}\n", index);
                 break;
             }
-
+        
             case OpCodeKind::LdMember: {
-                OpCodeMember mem = std::get<OpCodeMember>(op.Data);
-                m_Output += fmt::format("    ld.mem    {} {} {}\n", mem.Index, VMTypeToString(mem.MemberType), VMTypeToString(mem.StructType));
-                break;
+                ARIA_TODO("LdMember op code");
+                // OpCodeMember mem = std::get<OpCodeMember>(op.Data);
+                // m_Output += fmt::format("    ld.mem    {} {} {}\n", mem.Index, VMTypeToString(mem.MemberType), VMTypeToString(mem.StructType));
+                // break;
             }
-
+        
             case OpCodeKind::LdArg: {
-                size_t index = std::get<size_t>(op.Data);
+                size_t index = op.Args[0].Index;
                 m_Output += fmt::format("    ld.arg    {}\n", index);
                 break;
             }
-
+        
             case OpCodeKind::LdFunc: {
-                const std::string& func = std::get<std::string>(op.Data);
-                m_Output += fmt::format("    ld.fn     {}\n", func);
+                std::string_view str = GET_STR(op.Args[0].Index);
+                m_Output += fmt::format("    ld.fn     {}\n", str);
                 break;
             }
-
+        
             case OpCodeKind::LdPtrGlobal: {
-                const std::string& global = std::get<std::string>(op.Data);
-                m_Output += fmt::format("    ldptr.g   {}\n", global);
+                std::string_view str = GET_STR(op.Args[0].Index);
+                m_Output += fmt::format("    ldptr.g   {}\n", str);
                 break;
             }
-
+        
             case OpCodeKind::LdPtrLocal: {
-                size_t index = std::get<size_t>(op.Data);
+                size_t index = op.Args[0].Index;
                 m_Output += fmt::format("    ldptr.l   {}\n", index);
                 break;
             }
-
+        
             case OpCodeKind::LdPtrMember: {
-                OpCodeMember mem = std::get<OpCodeMember>(op.Data);
-                m_Output += fmt::format("    ldptr.mem {} {} {}\n", mem.Index, VMTypeToString(mem.MemberType), VMTypeToString(mem.StructType));
-                break;
+                ARIA_TODO("LdPtrMember op code");
+                // OpCodeMember mem = std::get<OpCodeMember>(op.Data);
+                // m_Output += fmt::format("    ldptr.mem {} {} {}\n", mem.Index, VMTypeToString(mem.MemberType), VMTypeToString(mem.StructType));
+                // break;
             }
-
+        
             case OpCodeKind::LdPtrArg: {
-                size_t index = std::get<size_t>(op.Data);
+                size_t index = op.Args[0].Index;
                 m_Output += fmt::format("    ldptr.arg {}\n", index);
                 break;
             }
-
+        
             case OpCodeKind::LdPtrRet: {
                 m_Output += "    ldptr.ret\n";
                 break;
             }
-
+        
             case OpCodeKind::Function: {
-                const std::string& name = std::get<std::string>(op.Data);
-                m_Output += fmt::format(".function {}:\n", name);
+                std::string_view str = GET_STR(op.Args[0].Index);
+                m_Output += fmt::format(".function {}:\n", str);
                 break;
             }
-
+        
             case OpCodeKind::Label: {
-                const std::string& name = std::get<std::string>(op.Data);
-
-                m_Output += fmt::format("{}:\n", name);
+                std::string_view str = GET_STR(op.Args[0].Index);
+                m_Output += fmt::format("{}:\n", str);
                 break;
             }
-
+        
             case OpCodeKind::Jmp: {
-                const std::string& name = std::get<std::string>(op.Data);
-
-                m_Output += fmt::format("    jmp       {}\n", name);
+                std::string_view str = GET_STR(op.Args[0].Index);
+                m_Output += fmt::format("    jmp       {}\n", str);
                 break;
             }
-
+        
             case OpCodeKind::Jt: {
-                const std::string& label = std::get<std::string>(op.Data);
-
-                m_Output += fmt::format("    jt        {}\n", label);
+                std::string_view str = GET_STR(op.Args[0].Index);
+                m_Output += fmt::format("    jt        {}\n", str);
                 break;
             }
-
+        
             case OpCodeKind::JtPop: {
-                const std::string& label = std::get<std::string>(op.Data);
-
-                m_Output += fmt::format("    jtpop     {}\n", label);
+                std::string_view str = GET_STR(op.Args[0].Index);
+                m_Output += fmt::format("    jtpop     {}\n", str);
                 break;
             }
-
+        
             case OpCodeKind::Jf: {
-                const std::string& label = std::get<std::string>(op.Data);
-
-                m_Output += fmt::format("    jf        {}\n", label);
+                std::string_view str = GET_STR(op.Args[0].Index);
+                m_Output += fmt::format("    jf        {}\n", str);
                 break;
             }
-
+        
             case OpCodeKind::JfPop: {
-                const std::string& label = std::get<std::string>(op.Data);
-
-                m_Output += fmt::format("    jfpop     {}\n", label);
+                std::string_view str = GET_STR(op.Args[0].Index);
+                m_Output += fmt::format("    jfpop     {}\n", str);
                 break;
             }
-
+        
             case OpCodeKind::Call: {
-                const OpCodeCall& call = std::get<OpCodeCall>(op.Data);
+                size_t argCount = op.Args[0].Index;
+                const VMType& type = GET_TYPE(op.Args[1].Index);
 
-                m_Output += fmt::format("    call      {} {}\n", VMTypeToString(call.ReturnType), call.ArgCount);
+                m_Output += fmt::format("    call      {} {}\n", VMTypeToString(type), argCount);
                 break;
             }
-
+        
             case OpCodeKind::Ret: m_Output += "    ret\n"; break;
-
+        
             case OpCodeKind::Neg: {
-                const VMType& type = std::get<VMType>(op.Data);
+                const VMType& type = GET_TYPE(op.Args[0].Index);
                 m_Output += fmt::format("    neg       {}\n", VMTypeToString(type));
                 break;
             }
-
+        
             CASE_BINEXPR(Add,  "add ");
             CASE_BINEXPR(Sub,  "sub ");
             CASE_BINEXPR(Mul,  "mul ");
@@ -262,24 +250,17 @@ namespace Aria::Internal {
             CASE_BINEXPR(Xor,  "xor ");
             CASE_BINEXPR(Shl,  "shl ");
             CASE_BINEXPR(Shr,  "shr ");
-
+        
             CASE_BINEXPR(Cmp,  "cmp ");
             CASE_BINEXPR(Ncmp, "ncmp");
             CASE_BINEXPR(Lt,   "lt  ");
             CASE_BINEXPR(Lte,  "lte ");
             CASE_BINEXPR(Gt,   "gt  ");
             CASE_BINEXPR(Gte,  "gte ");
-
+        
             case OpCodeKind::Cast: {
-                const VMType& type = std::get<VMType>(op.Data);
+                const VMType& type = GET_TYPE(op.Args[0].Index);
                 m_Output += fmt::format("    cast      {}\n", VMTypeToString(type));
-                break;
-            }
-
-            case OpCodeKind::Comment: {
-                const std::string& c = std::get<std::string>(op.Data);
-
-                m_Output += fmt::format("    // {}\n", c);
                 break;
             }
         }

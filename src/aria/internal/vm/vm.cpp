@@ -2,6 +2,11 @@
 #include "aria/context.hpp"
 #include "aria/internal/runtime/types.hpp"
 
+#define PROG_SIZE() (m_Program->OpCodeTable.size())
+#define PROG_OP(idx) (m_Program->OpCodeTable.at(idx))
+#define GET_STR(idx) (std::string_view(m_Program->StringTable[idx]))
+#define GET_TYPE(idx) (m_Program->TypeTable[idx])
+
 namespace Aria::Internal {
 
     template <typename T>
@@ -56,21 +61,19 @@ namespace Aria::Internal {
     }
 
     VM::~VM() {
-        // TODO: Add support for calling all _end$...() functions
-        const std::string& signature = "_end$0()";
+        const std::string& signature = "_end$()";
 
-        if (m_Functions.contains(signature)) {
-            VMFunction& func = m_Functions.at(signature);
-            m_ActiveFunction = &func;
+        ARIA_ASSERT(m_Functions.contains(signature), "No function named '_end$()' was found");
+        VMFunction& func = m_Functions.at(signature);
+        m_ActiveFunction = &func;
 
-            // Perform a jump to the function
-            ARIA_ASSERT(func.Labels.contains("_entry$"), "_end$0() function doesn't contain a \"_entry$\" label");
-            m_ProgramCounter = func.Labels.at("_entry$");
-            Run();
-        }
+        // Perform a jump to the function
+        ARIA_ASSERT(func.Labels.contains("_entry$"), "_end$() function doesn't contain a \"_entry$\" label");
+        m_ProgramCounter = func.Labels.at("_entry$");
+        Run();
     }
 
-    void VM::Alloca(VMType type, Stack& stack) {
+    void VM::Alloca(const VMType& type, Stack& stack) {
         size_t rawSize = GetVMTypeSize(type);
         size_t alignedSize = AlignToEight(rawSize);
         
@@ -148,7 +151,7 @@ namespace Aria::Internal {
         m_StackFrames.pop_back();
     }
 
-    void VM::AddExtern(const std::string& signature, ExternFn fn) {
+    void VM::AddExtern(std::string_view signature, ExternFn fn) {
         m_ExternalFunctions[signature] = fn;
     }
 
@@ -158,9 +161,9 @@ namespace Aria::Internal {
         
         // This function can only be called when the program is in a "halted" state AKA doing nothing
         // Therefore when we finish with execution we want to go back to that state
-        m_StackFrames.back().PreviousReturnAddress = m_ProgramSize;
+        m_StackFrames.back().PreviousReturnAddress = PROG_SIZE();
         m_StackFrames.back().PreviousFunction = nullptr;
-        m_ReturnAddress = m_ProgramSize;
+        m_ReturnAddress = PROG_SIZE();
 
         // Save function stack
         m_StackFrames.back().PFSSBP = m_FunctionStack.StackSlotBasePointer;
@@ -357,9 +360,9 @@ namespace Aria::Internal {
         return { str.RawData, str.Size };
     }
 
-    void VM::RunByteCode(const OpCode* data, size_t count) {
-        m_Program = data;
-        m_ProgramSize = count;
+    void VM::RunByteCode(const OpCodes& ops) {
+        m_Program = &ops;
+        m_ProgramCounter = 0;
 
         RunPrepass();
 
@@ -387,7 +390,7 @@ namespace Aria::Internal {
         }
 
         #define CASE_UNARYEXPR(_enum, builtinOp) case OpCodeKind::_enum: { \
-            const VMType& type = std::get<VMType>(op.Data); \
+            const VMType& type = GET_TYPE(op.Args[0].Index); \
             switch (type.Kind) { \
                 CASE_UNARYEXPR_TYPE(builtinOp, I8,  i8)   \
                 CASE_UNARYEXPR_TYPE(builtinOp, U8,  u8)   \
@@ -432,7 +435,7 @@ namespace Aria::Internal {
         }
 
         #define CASE_BINEXPR(_enum, builtinOp) case OpCodeKind::_enum: { \
-            VMType type = std::get<VMType>(op.Data); \
+            const VMType& type = GET_TYPE(op.Args[0].Index); \
             switch (type.Kind) { \
                 CASE_BINEXPR_TYPE(builtinOp, I8,  i8)   \
                 CASE_BINEXPR_TYPE(builtinOp, U8,  u8)   \
@@ -450,7 +453,7 @@ namespace Aria::Internal {
         }
 
         #define CASE_BINEXPR_INTEGRAL(_enum, builtinOp) case OpCodeKind::_enum: { \
-            VMType type = std::get<VMType>(op.Data); \
+            const VMType& type = GET_TYPE(op.Args[0].Index); \
             switch (type.Kind) { \
                 CASE_BINEXPR_TYPE(builtinOp, I1,  bool) \
                 CASE_BINEXPR_TYPE(builtinOp, I8,  i8)   \
@@ -467,7 +470,7 @@ namespace Aria::Internal {
         }
 
         #define CASE_BINEXPR_BOOL(_enum, builtinOp) case OpCodeKind::_enum: { \
-            VMType type = std::get<VMType>(op.Data); \
+            const VMType& type = GET_TYPE(op.Args[0].Index); \
             switch (type.Kind) { \
                 CASE_BINEXPR_TYPE_BOOL(builtinOp, I1,  bool) \
                 CASE_BINEXPR_TYPE_BOOL(builtinOp, I8,  i8)   \
@@ -485,14 +488,14 @@ namespace Aria::Internal {
             break; \
         }
 
-        for (; m_ProgramCounter < m_ProgramSize; m_ProgramCounter++) {
-            const OpCode& op = m_Program[m_ProgramCounter];
+        for (; m_ProgramCounter < PROG_SIZE(); m_ProgramCounter++) {
+            const OpCode& op = PROG_OP(m_ProgramCounter);
 
             switch (op.Kind) {
                 case OpCodeKind::Nop: { continue; }
 
                 case OpCodeKind::Alloca: {
-                    VMType type = std::get<VMType>(op.Data);
+                    const VMType& type = GET_TYPE(op.Args[0].Index);
 
                     Alloca(type, m_ExpressionStack);
                     break;
@@ -528,21 +531,21 @@ namespace Aria::Internal {
                 }
 
                 case OpCodeKind::Ldc: {
-                    const OpCodeLdc& ldc = std::get<OpCodeLdc>(op.Data);
-                    Alloca(ldc.Type, m_ExpressionStack);
+                    const VMType& type = GET_TYPE(op.Args[0].Index);
+                    Alloca(type, m_ExpressionStack);
                     
-                    switch (ldc.Type.Kind) {
-                        case VMTypeKind::I1:  memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<bool>(ldc.Data), GetVMTypeSize(ldc.Type)); break;
-                        case VMTypeKind::I8:  memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<i8>(ldc.Data),   GetVMTypeSize(ldc.Type)); break;
-                        case VMTypeKind::U8:  memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<u8>(ldc.Data),   GetVMTypeSize(ldc.Type)); break;
-                        case VMTypeKind::I16: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<i16>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
-                        case VMTypeKind::U16: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<u16>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
-                        case VMTypeKind::I32: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<i32>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
-                        case VMTypeKind::U32: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<u32>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
-                        case VMTypeKind::I64: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<i64>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
-                        case VMTypeKind::U64: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<u64>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
-                        case VMTypeKind::F32: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<f32>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
-                        case VMTypeKind::F64: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &std::get<f64>(ldc.Data),  GetVMTypeSize(ldc.Type)); break;
+                    switch (type.Kind) {
+                        case VMTypeKind::I1:  memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].Boolean, GetVMTypeSize(type)); break;
+                        case VMTypeKind::I8:  memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].I8,      GetVMTypeSize(type)); break;
+                        case VMTypeKind::U8:  memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].U8,      GetVMTypeSize(type)); break;
+                        case VMTypeKind::I16: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].I16,     GetVMTypeSize(type)); break;
+                        case VMTypeKind::U16: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].U16,     GetVMTypeSize(type)); break;
+                        case VMTypeKind::I32: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].I32,     GetVMTypeSize(type)); break;
+                        case VMTypeKind::U32: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].U32,     GetVMTypeSize(type)); break;
+                        case VMTypeKind::I64: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].I64,     GetVMTypeSize(type)); break;
+                        case VMTypeKind::U64: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].U64,     GetVMTypeSize(type)); break;
+                        case VMTypeKind::F32: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].Float,   GetVMTypeSize(type)); break;
+                        case VMTypeKind::F64: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].Double,  GetVMTypeSize(type)); break;
                         default: ARIA_ASSERT(false, "Invalid \"ldc\" type");
                     }
 
@@ -550,7 +553,7 @@ namespace Aria::Internal {
                 }
 
                 case OpCodeKind::LdStr: {
-                    const std::string& str = std::get<std::string>(op.Data);
+                    std::string_view str = GET_STR(op.Args[0].Index);
 
                     RuntimeString vmstr;
                     // Allocate the string on the heap
@@ -566,7 +569,7 @@ namespace Aria::Internal {
                 }
 
                 case OpCodeKind::Deref: {
-                    VMType type = std::get<VMType>(op.Data);
+                    const VMType& type = GET_TYPE(op.Args[0].Index);
 
                     void* ptr = GetPointer(-1, m_ExpressionStack);
                     Pop(1, m_ExpressionStack);
@@ -576,10 +579,8 @@ namespace Aria::Internal {
                     break;
                 }
 
-                case OpCodeKind::Struct: continue;
-
                 case OpCodeKind::DeclareGlobal: {
-                    const std::string& g = std::get<std::string>(op.Data);
+                    std::string_view g = GET_STR(op.Args[0].Index);
 
                     VMSlice src = GetVMSlice(-1, m_ExpressionStack);
 
@@ -594,7 +595,7 @@ namespace Aria::Internal {
                 };
 
                 case OpCodeKind::DeclareLocal: {
-                    size_t index = std::get<size_t>(op.Data);
+                    size_t index = op.Args[0].Index;
 
                     VMSlice src = GetVMSlice(-1, m_ExpressionStack);
                     VMSlice dst;
@@ -614,7 +615,7 @@ namespace Aria::Internal {
                 };
 
                 case OpCodeKind::DeclareArg: {
-                    size_t index = std::get<size_t>(op.Data);
+                    size_t index = op.Args[0].Index;
 
                     VMSlice src = GetVMSlice(-1, m_ExpressionStack);
 
@@ -627,51 +628,37 @@ namespace Aria::Internal {
                 };
 
                 case OpCodeKind::LdGlobal: {
-                    const std::string& g = std::get<std::string>(op.Data);
+                    std::string_view g = GET_STR(op.Args[0].Index);
                     Dup(m_GlobalMap.at(g), m_ExpressionStack, m_GlobalStack);
                     break;
                 }
 
                 case OpCodeKind::LdLocal: {
-                    size_t index = std::get<size_t>(op.Data);
+                    size_t index = op.Args[0].Index;
                     Dup(m_StackFrames.back().LocalMap.at(index), m_ExpressionStack, m_LocalStack);
                     break;
                 }
 
                 case OpCodeKind::LdMember: {
-                    OpCodeMember mem = std::get<OpCodeMember>(op.Data);
-                    u8* base = reinterpret_cast<u8*>(GetPointer(-1, m_ExpressionStack));
-                    Pop(1, m_ExpressionStack);
-                    
-                    OpCode s = m_Structs.at(fmt::format("{}", mem.StructType.Data));
-                    auto& fields = std::get<OpCodeStruct>(s.Data).Fields;
-
-                    size_t offset = 0;
-                    for (size_t i = 0; i < mem.Index; i++) {
-                        offset += AlignToEight(GetVMTypeSize(fields[i]));
-                    }
-
-                    Alloca(mem.MemberType, m_ExpressionStack);
-                    memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, base + offset, GetVMTypeSize(mem.MemberType));
-                    break;
+                    ARIA_TODO("LdMember op code");
                 }
 
                 case OpCodeKind::LdArg: {
-                    i32 index = static_cast<i32>(std::get<size_t>(op.Data));
+                    i32 index = static_cast<i32>(op.Args[0].Index);
                     Dup(index + 1, m_ExpressionStack, m_FunctionStack);
                     break;
                 }
 
                 case OpCodeKind::LdFunc: {
-                    const std::string& fn = std::get<std::string>(op.Data);
-                    
+                    std::string_view fn = GET_STR(op.Args[0].Index);
+  
                     Alloca({ VMTypeKind::Ptr }, m_FunctionStack);
-                    StorePointer(-1, const_cast<char*>(fn.c_str()), m_FunctionStack);
+                    StorePointer(-1, const_cast<char*>(fn.data()), m_FunctionStack);
                     break;
                 }
 
                 case OpCodeKind::LdPtrGlobal: {
-                    const std::string& g = std::get<std::string>(op.Data);
+                    std::string_view g = GET_STR(op.Args[0].Index);
                     VMSlice slice = GetVMSlice(m_GlobalMap.at(g), m_GlobalStack);
                     Alloca({ VMTypeKind::Ptr }, m_ExpressionStack);
                     StorePointer(-1, slice.Memory, m_ExpressionStack);
@@ -679,7 +666,7 @@ namespace Aria::Internal {
                 }
 
                 case OpCodeKind::LdPtrLocal: {
-                    size_t index = std::get<size_t>(op.Data);
+                    size_t index = op.Args[0].Index;
                     VMSlice slice = GetVMSlice(m_StackFrames.back().LocalMap.at(index), m_LocalStack);
                     Alloca({ VMTypeKind::Ptr }, m_ExpressionStack);
                     StorePointer(-1, slice.Memory, m_ExpressionStack);
@@ -687,25 +674,11 @@ namespace Aria::Internal {
                 }
 
                 case OpCodeKind::LdPtrMember: {
-                    OpCodeMember mem = std::get<OpCodeMember>(op.Data);
-                    u8* base = reinterpret_cast<u8*>(GetPointer(-1, m_ExpressionStack));
-                    Pop(1, m_ExpressionStack);
-
-                    OpCode s = m_Structs.at(fmt::format("{}", mem.StructType.Data));
-                    auto& fields = std::get<OpCodeStruct>(s.Data).Fields;
-
-                    size_t offset = 0;
-                    for (size_t i = 0; i < mem.Index; i++) {
-                        offset += AlignToEight(GetVMTypeSize(fields[i]));
-                    }
-
-                    Alloca(mem.MemberType, m_ExpressionStack);
-                    StorePointer(-1, base + offset, m_ExpressionStack);
-                    break;
+                    ARIA_TODO("LdPtrMember op code");
                 }
 
                 case OpCodeKind::LdPtrArg: {
-                    i32 index = static_cast<i32>(std::get<size_t>(op.Data));
+                    i32 index = static_cast<i32>(op.Args[0].Index);
                     VMSlice slice = GetVMSlice(index + 1, m_FunctionStack);
                     Alloca({ VMTypeKind::Ptr }, m_ExpressionStack);
                     StorePointer(-1, slice.Memory, m_ExpressionStack);
@@ -723,7 +696,7 @@ namespace Aria::Internal {
                 case OpCodeKind::Label: break; // We just keep going
 
                 case OpCodeKind::Jmp: {
-                    const std::string& label = std::get<std::string>(op.Data);
+                    std::string_view label = GET_STR(op.Args[0].Index);
 
                     ARIA_ASSERT(m_ActiveFunction->Labels.contains(label), "Trying to jump to an unknown label!");
                     m_ProgramCounter = m_ActiveFunction->Labels.at(label);
@@ -732,7 +705,7 @@ namespace Aria::Internal {
                 }
 
                 case OpCodeKind::Jt: {
-                    const std::string& label = std::get<std::string>(op.Data);
+                    std::string_view label = GET_STR(op.Args[0].Index);
 
                     if (GetBool(-1, m_ExpressionStack) == true) {
                         ARIA_ASSERT(m_ActiveFunction->Labels.contains(label), "Trying to jump to an unknown label!");
@@ -743,7 +716,7 @@ namespace Aria::Internal {
                 }
 
                 case OpCodeKind::JtPop: {
-                    const std::string& label = std::get<std::string>(op.Data);
+                    std::string_view label = GET_STR(op.Args[0].Index);
 
                     if (GetBool(-1, m_ExpressionStack) == true) {
                         ARIA_ASSERT(m_ActiveFunction->Labels.contains(label), "Trying to jump to an unknown label!");
@@ -755,7 +728,7 @@ namespace Aria::Internal {
                 }
 
                 case OpCodeKind::Jf: {
-                    const std::string& label = std::get<std::string>(op.Data);
+                    std::string_view label = GET_STR(op.Args[0].Index);
 
                     if (GetBool(-1, m_ExpressionStack) == false) {
                         ARIA_ASSERT(m_ActiveFunction->Labels.contains(label), "Trying to jump to an unknown label!");
@@ -766,7 +739,7 @@ namespace Aria::Internal {
                 }
 
                 case OpCodeKind::JfPop: {
-                    const std::string& label = std::get<std::string>(op.Data);
+                    std::string_view label = GET_STR(op.Args[0].Index);
 
                     if (GetBool(-1, m_ExpressionStack) == false) {
                         ARIA_ASSERT(m_ActiveFunction->Labels.contains(label), "Trying to jump to an unknown label!");
@@ -778,13 +751,14 @@ namespace Aria::Internal {
                 }
 
                 case OpCodeKind::Call: {
-                    const OpCodeCall& call = std::get<OpCodeCall>(op.Data);
-                    
-                    std::string sig = reinterpret_cast<char*>(GetPointer(-(static_cast<i32>(call.ArgCount) + 1), m_FunctionStack));
+                    size_t argCount = op.Args[0].Index;
+                    const VMType& retType = (m_Program->TypeTable[op.Args[1].Index]);
+
+                    std::string sig = reinterpret_cast<char*>(GetPointer(-(static_cast<i32>(argCount) + 1), m_FunctionStack));
                     
                     // Check if we have an external function
                     if (m_ExternalFunctions.contains(sig)) {
-                        CallExtern(sig, call.ArgCount);
+                        CallExtern(sig, argCount);
                         break;
                     }
                     
@@ -808,7 +782,7 @@ namespace Aria::Internal {
                     m_ActiveFunction = &func;
 
                     // Set up the function stack
-                    m_FunctionStack.StackSlotBasePointer = m_FunctionStack.StackSlotPointer - call.ArgCount - 1;
+                    m_FunctionStack.StackSlotBasePointer = m_FunctionStack.StackSlotPointer - argCount - 1;
                     m_FunctionStack.StackBasePointer = m_FunctionStack.StackSlots[m_FunctionStack.StackSlotBasePointer].Index;
 
                     break;
@@ -856,7 +830,7 @@ namespace Aria::Internal {
                 CASE_BINEXPR_BOOL(Gte, Gte)
 
                 case OpCodeKind::Cast: {
-                    VMType dstType = std::get<VMType>(op.Data);
+                    const VMType& dstType = GET_TYPE(op.Args[0].Index);
 
                     VMSlice slice = GetVMSlice(-1, m_ExpressionStack);
                     VMType srcType = slice.Type;
@@ -963,15 +937,16 @@ namespace Aria::Internal {
             case VMTypeKind::String: return sizeof(RuntimeString);
 
             case VMTypeKind::Struct: {
-                if (m_CachedStructSizes.contains(type.Data)) { return m_CachedStructSizes.at(type.Data); }
-
-                size_t size = 0;
-
-                for (auto& field : std::get<OpCodeStruct>(m_Structs.at(type.Data).Data).Fields) {
-                    size += AlignToEight(GetVMTypeSize(field));
-                }
-
-                return size;
+                ARIA_TODO("VM::GetVMTypeSize() struct type");
+                // if (m_CachedStructSizes.contains(type.Data)) { return m_CachedStructSizes.at(type.Data); }
+                // 
+                // size_t size = 0;
+                // 
+                // for (auto& field : std::get<OpCodeStruct>(m_Structs.at(type.Data).Data).Fields) {
+                //     size += AlignToEight(GetVMTypeSize(field));
+                // }
+                // 
+                // return size;
             }
 
             default: ARIA_UNREACHABLE();
@@ -979,25 +954,25 @@ namespace Aria::Internal {
     }
 
     void VM::StopExecution() {
-        m_ProgramCounter = m_ProgramSize;
+        m_ProgramCounter = m_Program->OpCodeTable.size();
     }
 
     void VM::RunPrepass() {
-        for (; m_ProgramCounter < m_ProgramSize; m_ProgramCounter++) {
-            const OpCode& op = m_Program[m_ProgramCounter];
+        for (; m_ProgramCounter < m_Program->OpCodeTable.size(); m_ProgramCounter++) {
+            const OpCode& op = m_Program->OpCodeTable[m_ProgramCounter];
 
             if (op.Kind == OpCodeKind::Function) {
                 size_t startPc = m_ProgramCounter;
                 m_ProgramCounter++;
-
-                const std::string& ident = std::get<std::string>(op.Data);
+                
+                std::string_view ident = GET_STR(op.Args[0].Index);
                 VMFunction func;
                 
-                for (; m_ProgramCounter < m_ProgramSize; m_ProgramCounter++) {
-                    const OpCode& op = m_Program[m_ProgramCounter];
+                for (; m_ProgramCounter < PROG_SIZE(); m_ProgramCounter++) {
+                    const OpCode& op = PROG_OP(m_ProgramCounter);
 
                     if (op.Kind == OpCodeKind::Label) {
-                        std::string label = std::get<std::string>(op.Data);
+                        std::string_view label = GET_STR(op.Args[0].Index);
                         func.Labels[label] = m_ProgramCounter;
                     } else if (op.Kind == OpCodeKind::Function) {
                         break;
@@ -1006,9 +981,6 @@ namespace Aria::Internal {
 
                 m_ProgramCounter = startPc;
                 m_Functions[ident] = func;
-            } else if (op.Kind == OpCodeKind::Struct) {
-                const OpCodeStruct& s = std::get<OpCodeStruct>(op.Data);
-                m_Structs[s.Identifier] = op;
             }
         }
 

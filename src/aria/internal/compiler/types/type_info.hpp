@@ -26,6 +26,8 @@ namespace Aria::Internal {
         Float,
         Double,
 
+        Ptr,
+
         Function,
 
         String,
@@ -66,7 +68,7 @@ namespace Aria::Internal {
         bool IsError() const { return Type == PrimitiveType::Error; }
 
         bool IsTrivial() const {
-            return IsVoid() || IsBoolean() || IsNumeric();
+            return IsVoid() || IsBoolean() || IsNumeric() || IsString();
         }
 
         bool IsVoid() const {

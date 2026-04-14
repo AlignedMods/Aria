@@ -71,8 +71,8 @@ namespace Aria {
         void StorePointer(int32_t index, void* p);
         void StoreString (int32_t index, std::string_view str);
 
-        void GetGlobal(const std::string& str);
-        void GetGlobalPtr(const std::string& str);
+        void GetGlobal(std::string_view str);
+        void GetGlobalPtr(std::string_view str);
         void GetArg(int32_t index);
         void GetField(int32_t index, const std::string& name);
 
@@ -91,7 +91,7 @@ namespace Aria {
         bool HasFunction(const std::string& str);
         void Call(const std::string& str, size_t argCount);
 
-        void AddExternalFunction(const std::string& name, ExternFn fn);
+        void AddExternalFunction(std::string_view name, ExternFn fn);
 
         void SetRuntimeErrorHandler(RuntimeErrorHandlerFn fn);
         void SetCompilerErrorHandler(CompilerErrorHandlerFn fn);

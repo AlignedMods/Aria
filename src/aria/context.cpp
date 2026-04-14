@@ -135,7 +135,7 @@ namespace Aria {
 
     void Context::Run() {
         if (!m_ActiveModule->CompilationContext.HasErrors) {
-            m_ActiveModule->VM.RunByteCode(m_ActiveModule->CompilationContext.OpCodes.data(), m_ActiveModule->CompilationContext.OpCodes.size());
+            m_ActiveModule->VM.RunByteCode(m_ActiveModule->CompilationContext.Ops);
         }
     }
 
@@ -152,7 +152,7 @@ namespace Aria {
     }
 
     std::string Context::Disassemble() {
-        Internal::Disassembler d(&m_ActiveModule->CompilationContext.OpCodes, false);
+        Internal::Disassembler d(m_ActiveModule->CompilationContext.Ops, false);
         return d.GetDisassembly();
     }
 
@@ -232,11 +232,13 @@ namespace Aria {
         m_ActiveModule->VM.StoreString(index, str, m_ActiveModule->VM.m_ExpressionStack);
     }
 
-    void Context::GetGlobal(const std::string& str) {
+    void Context::GetGlobal(std::string_view str) {
+        ARIA_ASSERT(m_ActiveModule->VM.m_GlobalMap.contains(str), "VM does not contain global variable");
         m_ActiveModule->VM.Dup(m_ActiveModule->VM.m_GlobalMap[str], m_ActiveModule->VM.m_ExpressionStack, m_ActiveModule->VM.m_GlobalStack);
     }
 
-    void Context::GetGlobalPtr(const std::string& str) {
+    void Context::GetGlobalPtr(std::string_view str) {
+        ARIA_ASSERT(m_ActiveModule->VM.m_GlobalMap.contains(str), "VM does not contain global variable");
         Internal::VMSlice slice = m_ActiveModule->VM.GetVMSlice(m_ActiveModule->VM.m_GlobalMap[str], m_ActiveModule->VM.m_GlobalStack);
         PushPointer(slice.Memory);
     }
@@ -303,7 +305,7 @@ namespace Aria {
         m_ActiveModule->VM.Pop(count, m_ActiveModule->VM.m_ExpressionStack);
     }
 
-    void Context::AddExternalFunction(const std::string& name, ExternFn fn) {
+    void Context::AddExternalFunction(std::string_view name, ExternFn fn) {
         m_ActiveModule->VM.AddExtern(name, fn);
     }
 
@@ -326,7 +328,7 @@ namespace Aria {
         m_ActiveModule->VM.Pop(argCount, m_ActiveModule->VM.m_ExpressionStack);
 
         // Allocate the return slot
-        m_ActiveModule->VM.Alloca(reflection.Declarations.at(str).Type, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.Alloca(m_ActiveModule->VM.m_Program->TypeTable[reflection.Declarations.at(str).TypeIndex], m_ActiveModule->VM.m_ExpressionStack);
         m_ActiveModule->VM.Call(str, argCount);
     }
 

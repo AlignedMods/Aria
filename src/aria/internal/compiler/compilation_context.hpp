@@ -25,7 +25,7 @@ namespace Aria::Internal {
         std::unordered_map<std::string, Decl*> Symbols;
         std::vector<CompilationUnit*> Units;
         std::string Name;
-        std::vector<OpCode> OpCodes;
+        OpCodes Ops;
         CompilerReflectionData ReflectionData;
     };
 
@@ -113,7 +113,7 @@ namespace Aria::Internal {
 
         std::vector<Module*> Modules;
 
-        std::vector<OpCode> OpCodes;
+        OpCodes Ops;
         CompilerReflectionData ReflectionData;
         bool HasErrors = false;
     };
