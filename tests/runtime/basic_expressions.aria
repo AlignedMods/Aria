@@ -2,32 +2,32 @@ module basic_expressions;
 
 fn should_never_be_called() -> bool @extern;
 
-int a = 5 + 5;
-int b = (a + 5) / -5;
-int c = 1 + (2 * 3) - b; // Should be 10
+let a: int = 5 + 5;
+let b: int = (a + 5) / -5;
+let c: int = 1 + (2 * 3) - b; // Should be 10
 
-bool d = false && false; // Should be false
-bool e = false && true; // Should be false
-bool f = true && true; // Should be true
-bool g = f && (true && false); // Should be false
+let d: bool = false && false; // Should be false
+let e: bool = false && true; // Should be false
+let f: bool = true && true; // Should be true
+let g: bool = f && (true && false); // Should be false
 
-bool h = false || true; // Should be true
-bool i = true || true; // Should be true
-bool j = false || false; // Should be false
-bool k = j || (true && h); // Should be true
+let h: bool = false || true; // Should be true
+let i: bool = true || true; // Should be true
+let j: bool = false || false; // Should be false
+let k: bool = j || (true && h); // Should be true
 
-int l = 2 << 4; // Should be 32
-int m = 128 >> (a - 3); // Should be 1
-int n = m ^ m; // Should be 0
-int o = 5 & 4; // Should be 4
-int p = o | o * o; // Should be 20
+let l: int = 2 << 4; // Should be 32
+let m: int = 128 >> (a - 3); // Should be 1
+let n: int = m ^ m; // Should be 0
+let o: int = 5 & 4; // Should be 4
+let p: int = o | o * o; // Should be 20
 
 // This next section validates that && and || don't execute code that is not neccesary
-bool aa = false && should_never_be_called();
-bool bb = true || should_never_be_called();
+let aa: bool = false && should_never_be_called();
+let bb: bool = true || should_never_be_called();
 
 // This next section handles compound assignment
-int cc = 1;
-int cca = cc += 3;
-int dd = 0x05;
-int dda = dd *= 0x05 + 0x05;
+let cc: int = 1;
+let cca: int = cc += 3;
+let dd: int = 0x05;
+let dda: int = dd *= 0x05 + 0x05;

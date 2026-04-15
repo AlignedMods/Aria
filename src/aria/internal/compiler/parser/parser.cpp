@@ -31,6 +31,8 @@ namespace Aria::Internal {
         m_Context = ctx;
         m_Tokens = ctx->ActiveCompUnit->Tokens;
 
+        if (g_ErrorExpr.Type == nullptr) { g_ErrorExpr.Type = &ErrorType; }
+
         Module* defaultModule = new Module();
         defaultModule->Name = fmt::format("#default_{}", ctx->ActiveCompUnit->Index);
         ctx->ActiveCompUnit->Parent = defaultModule;
@@ -56,7 +58,7 @@ namespace Aria::Internal {
         m_ExprRules[TokenKind::UpArrow] =           { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
         m_ExprRules[TokenKind::EqEq] =              { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
         m_ExprRules[TokenKind::BangEq] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::Less] =              { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::Less] =              { BIND_PARSE_RULE(ParseCast), BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
         m_ExprRules[TokenKind::LessEq] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
         m_ExprRules[TokenKind::Greater] =           { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
         m_ExprRules[TokenKind::GreaterEq] =         { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
@@ -145,31 +147,52 @@ namespace Aria::Internal {
         ARIA_ASSERT(left == nullptr, "Parser::ParseGrouping() should not have a left side");
 
         Token* lp = TryConsume(TokenKind::LeftParen, "(");
-        if (IsType()) { // Cast
-            TypeInfo* type = ParseType();
-            if (!TryConsume(TokenKind::RightParen, ")")) {
-                SyncLocal();
-                return &g_ErrorExpr;
-            }
 
-            Expr* child = ParseExpression();
+        if (IsPrimitiveType()) {
+            SourceLocation typeStart = Peek()->Range.Start;
+            ParseType();
+            m_Context->ReportCompilerError(typeStart, SourceRange(typeStart, Peek(-1)->Range.End), "Unexpected type found, did you mean to perform a cast? (<<type>> <expr>)");
+            SyncLocal();
 
-            return Expr::Create(m_Context, lp->Range.Start, SourceRange(lp->Range.Start, child->Range.End), ExprKind::Cast, 
-                ExprValueKind::RValue, type,
-                CastExpr(child, type));
-        } else { // Grouping of expression
-            Expr* child = ParseExpression();
-            Token* rp = TryConsume(TokenKind::RightParen, ")");
-
-            if (!rp) {
-                SyncLocal();
-                return &g_ErrorExpr;
-            }
-
-            return Expr::Create(m_Context, lp->Range.Start, SourceRange(lp->Range.Start, rp->Range.End), ExprKind::Paren, 
-                child->ValueKind, child->Type,
-                ParenExpr(child));
+            return &g_ErrorExpr;
         }
+
+        Expr* child = ParseExpression();
+        Token* rp = TryConsume(TokenKind::RightParen, ")");
+
+        if (!rp) {
+            SyncLocal();
+            return &g_ErrorExpr;
+        }
+
+        return Expr::Create(m_Context, lp->Range.Start, SourceRange(lp->Range.Start, rp->Range.End), ExprKind::Paren, 
+            child->ValueKind, child->Type,
+            ParenExpr(child));
+    }
+
+    Expr* Parser::ParseCast(Expr* left) {
+        ARIA_ASSERT(left == nullptr, "Parser::ParseCast() should not have a left side");
+
+        Token* lp = TryConsume(TokenKind::Less, "<");
+        TypeInfo* type = nullptr;
+
+        if (IsPrimitiveType() || Match(TokenKind::Identifier)) {
+            type = ParseType();
+        } else {
+            m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type");
+            type = &ErrorType;
+        }
+
+        if (!TryConsume(TokenKind::Greater, ">")) {
+            SyncLocal();
+            return &g_ErrorExpr;
+        }
+
+        Expr* child = ParseExpression();
+
+        return Expr::Create(m_Context, lp->Range.Start, SourceRange(lp->Range.Start, child->Range.End), ExprKind::Cast, 
+            ExprValueKind::RValue, type,
+            CastExpr(child, type));
     }
 
     Expr* Parser::ParseCall(Expr* left) {
@@ -448,15 +471,8 @@ namespace Aria::Internal {
         return false;
     }
 
-    bool Parser::IsType() {
-        if (IsPrimitiveType()) { return true; }
-        if (Peek()->Kind == TokenKind::TypeIdentifier) { return true; }
-
-        return false;
-    }
-
     TypeInfo* Parser::ParseType() {
-        ARIA_ASSERT(IsType(), "Cannot parse a type out of a non type");
+        ARIA_ASSERT(IsPrimitiveType() || Match(TokenKind::Identifier), "Cannot parse a type out of a non type");
 
         TypeInfo* type = TypeInfo::Create(m_Context, PrimitiveType::Error, false);
 
@@ -479,7 +495,7 @@ namespace Aria::Internal {
 
             case TokenKind::String:     type->Type = PrimitiveType::String; break;
 
-            case TokenKind::TypeIdentifier: {
+            case TokenKind::Identifier: {
                 StringView ident = Peek(-1)->String;
                 type->Type = PrimitiveType::Unresolved;
                 type->Data = UnresolvedType(ident);
@@ -688,20 +704,7 @@ namespace Aria::Internal {
             case TokenKind::Return:
                 return ParseReturn();
 
-            case TokenKind::Void:
-            case TokenKind::Bool:
-            case TokenKind::Char:
-            case TokenKind::UChar:
-            case TokenKind::Short:
-            case TokenKind::UShort:
-            case TokenKind::Int:
-            case TokenKind::UInt:
-            case TokenKind::Long:
-            case TokenKind::ULong:
-            case TokenKind::Float:
-            case TokenKind::Double:
-            case TokenKind::String:
-            case TokenKind::TypeIdentifier:
+            case TokenKind::Let:
                 return ParseDeclarationStatement(false);
 
             case TokenKind::Fn: {
@@ -753,6 +756,24 @@ namespace Aria::Internal {
             case TokenKind::AtNoMangle: {
                 Token& tok = Consume();
                 m_Context->ReportCompilerError(tok.Range.Start, tok.Range, fmt::format("Unexpected attribute '{}' while looking for statement", TokenKindToString(tok.Kind)));
+                return &g_ErrorStmt;
+            }
+
+            case TokenKind::Void:
+            case TokenKind::Bool:
+            case TokenKind::Char:
+            case TokenKind::UChar:
+            case TokenKind::Short:
+            case TokenKind::UShort:
+            case TokenKind::Int:
+            case TokenKind::UInt:
+            case TokenKind::Long:
+            case TokenKind::ULong:
+            case TokenKind::Float:
+            case TokenKind::Double:
+            case TokenKind::String: {
+                Token& tok = Consume();
+                m_Context->ReportCompilerError(tok.Range.Start, tok.Range, fmt::format("Unexpected type '{}', did you mean to declare a variable? (let <name>: <type>)", TokenKindToString(tok.Kind)));
                 return &g_ErrorStmt;
             }
 
@@ -815,17 +836,24 @@ namespace Aria::Internal {
     }
 
     Decl* Parser::ParseVariableDecl(bool global) {
-        if (!IsType()) {
-            m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type");
-            return &g_ErrorDecl;
-        }
-
         SourceLocation start = Peek()->Range.Start;
-        TypeInfo* type = ParseType();
+
+        Consume(); // Consume "let"
+
         Token* ident = nullptr;
+        TypeInfo* type = nullptr;
         
         ASSIGN_OR_RET(ident, TryConsume(TokenKind::Identifier, "identifier"), &g_ErrorDecl);
         Expr* value = nullptr;
+
+        TryConsume(TokenKind::Colon, ":");
+
+        if (IsPrimitiveType() || Match(TokenKind::Identifier)) {
+            type = ParseType();
+        } else {
+            m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type after ':'");
+            type = &ErrorType;
+        }
 
         if (Match(TokenKind::Eq)) {
             Consume();
@@ -849,8 +877,8 @@ namespace Aria::Internal {
         TypeInfo* type = nullptr;
         int flags = 0;
 
-        if (IsType()) {
-            m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected an indentifier (NOTE: function declarations look like: fn name() -> type {...})");
+        if (IsPrimitiveType()) {
+            m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected an indentifier but got a type (NOTE: function declarations look like: fn name() -> type {...})");
             type = ParseType();
         }
 
@@ -866,7 +894,7 @@ namespace Aria::Internal {
         TinyVector<TypeInfo*> paramTypes;
 
         while (!Match(TokenKind::RightParen)) {
-            if (!IsType()) {
+            if (!(IsPrimitiveType() || Match(TokenKind::Identifier))) {
                 m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type");
                 SyncLocal();
                 continue;
@@ -893,8 +921,8 @@ namespace Aria::Internal {
         TryConsume(TokenKind::RightParen, ")");
 
         if (TryConsume(TokenKind::Arrow, "->")) {
-            if (!IsType()) {
-                m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type");
+            if (!(IsPrimitiveType() || Match(TokenKind::Identifier))) {
+                m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type after '->'");
                 SyncLocal();
             } else if (type == nullptr) {
                 type = ParseType();
@@ -924,13 +952,13 @@ namespace Aria::Internal {
 
     Decl* Parser::ParseStructDecl() {
         Token s = Consume(); // Consume "struct"
-        Token* ident = TryConsume(TokenKind::TypeIdentifier, "type-indentifier");
+        Token* ident = TryConsume(TokenKind::Identifier, "indentifier");
         
         TinyVector<Decl*> fields;
         
         TryConsume(TokenKind::LeftCurly, "{");
         while (!Match(TokenKind::RightCurly)) {
-            if (IsType()) {
+            if (IsPrimitiveType() || Match(TokenKind::Identifier)) {
                 SourceLocation start = Peek()->Range.Start;
                 TypeInfo* type = ParseType();
         
@@ -989,20 +1017,7 @@ namespace Aria::Internal {
             case TokenKind::Import:
                 return ParseImportStmt();
 
-            case TokenKind::Void:
-            case TokenKind::Bool:
-            case TokenKind::Char:
-            case TokenKind::UChar:
-            case TokenKind::Short:
-            case TokenKind::UShort:
-            case TokenKind::Int:
-            case TokenKind::UInt:
-            case TokenKind::Long:
-            case TokenKind::ULong:
-            case TokenKind::Float:
-            case TokenKind::Double:
-            case TokenKind::String:
-            case TokenKind::TypeIdentifier:
+            case TokenKind::Let:
                 return ParseDeclarationStatement(true);
 
             case TokenKind::Fn: {
@@ -1025,6 +1040,24 @@ namespace Aria::Internal {
                 return &g_ErrorStmt;
             }
 
+            case TokenKind::Void:
+            case TokenKind::Bool:
+            case TokenKind::Char:
+            case TokenKind::UChar:
+            case TokenKind::Short:
+            case TokenKind::UShort:
+            case TokenKind::Int:
+            case TokenKind::UInt:
+            case TokenKind::Long:
+            case TokenKind::ULong:
+            case TokenKind::Float:
+            case TokenKind::Double:
+            case TokenKind::String:
+            case TokenKind::Identifier: {
+                Token& t = Consume();
+                m_Context->ReportCompilerError(t.Range.Start, t.Range, fmt::format("Unexpected type '{}', did you mean to declare a global variable? (let <name>: <type>)", TokenKindToString(t.Kind)));
+            }
+
             default: {
                 m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, fmt::format("Expected the start of a global declaration", TokenKindToString(Peek()->Kind)));
                 SyncGlobal();
@@ -1037,7 +1070,7 @@ namespace Aria::Internal {
         while (Peek()) {
             TokenKind kind = Peek()->Kind;
 
-            if (kind == TokenKind::Fn || kind == TokenKind::Struct || IsType()) {
+            if (kind == TokenKind::Fn || kind == TokenKind::Struct || IsPrimitiveType() || kind == TokenKind::Identifier) {
                 return;
             }
 

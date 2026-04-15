@@ -54,6 +54,7 @@ namespace Aria::Internal {
         // VVV Keywords VVV //
         Module,
         Import,
+        Let,
         If,
         Else,
         While,
@@ -86,8 +87,7 @@ namespace Aria::Internal {
         String,
         // ^^^ Types ^^^ //
 
-        Identifier, // foo/foo_bar/fooBar
-        TypeIdentifier, // Foo/Foo_Bar/FooBar
+        Identifier,
 
         Last
     };
@@ -153,6 +153,7 @@ namespace Aria::Internal {
             // VVV Keywords VVV //
             case TokenKind::Module: return "module";
             case TokenKind::Import: return "import";
+            case TokenKind::Let: return "let";
             case TokenKind::If: return "if";
             case TokenKind::Else: return "else";
             case TokenKind::While: return "while";
@@ -186,7 +187,6 @@ namespace Aria::Internal {
             // ^^^ Types ^^^ //
 
             case TokenKind::Identifier: return "identifier";
-            case TokenKind::TypeIdentifier: return "type-identifier";
 
             default: ARIA_UNREACHABLE();
         }

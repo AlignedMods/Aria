@@ -28,6 +28,7 @@ namespace Aria::Internal {
 
         // Expressions
         Expr* ParseGrouping(Expr* left);
+        Expr* ParseCast(Expr* left);
         Expr* ParseCall(Expr* left);
         UnaryOperatorKind GetUnaryOperatorFromToken(Token* token);
         BinaryOperatorKind GetBinaryOperatorFromToken(Token* token);
@@ -43,7 +44,6 @@ namespace Aria::Internal {
         Expr* ParseExpression();
 
         bool IsPrimitiveType();
-        bool IsType();
         TypeInfo* ParseType();
 
         Stmt* ParseBlock();

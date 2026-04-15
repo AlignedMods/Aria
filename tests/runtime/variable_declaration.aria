@@ -1,7 +1,7 @@
 module variable_declaration;
 
-bool f = false;
-bool t = true;
-int i = 99;
-int a;
-int b = i;
+let f: bool = false;
+let t: bool = true;
+let i: int = 99;
+let a: int;
+let b: int = i;

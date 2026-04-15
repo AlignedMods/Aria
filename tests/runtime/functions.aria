@@ -1,6 +1,6 @@
 module functions;
 
-int result = 0; // Expected to be 24
+let result: int = 0; // Expected to be 24
 
 fn external_function(int a, int b, int c) -> void;
 
@@ -12,7 +12,7 @@ fn sub(int lhs, int rhs) -> int {
     return lhs - rhs;
 }
 
-int otherResult = 0; // Expected to be 26
+let otherResult: int = 0; // Expected to be 26
 
 fn main() -> void {
     result = add(5, 9);
