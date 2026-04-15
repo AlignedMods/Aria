@@ -87,10 +87,6 @@ namespace Aria::Internal {
 
         bool m_DeclaredModule = false;
 
-        Expr* m_ErrorExpr = nullptr;
-        Decl* m_ErrorDecl = nullptr;
-        Stmt* m_ErrorStmt = nullptr;
-
         using ParseExprFn = std::function<Expr*(Expr*)>;
         struct ParseExprRule {
             ParseExprFn Prefix = nullptr;

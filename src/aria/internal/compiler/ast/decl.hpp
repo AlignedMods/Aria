@@ -177,4 +177,6 @@ namespace Aria::Internal {
             : Loc(loc), Range(range), Kind(kind), Flags(flags), BuiltinDestructor(builtinDestructor) {}
     };
 
+    inline Decl g_ErrorDecl = Decl(SourceLocation(), SourceRange(), DeclKind::Error, 0, ErrorDecl());
+
 } // namespace Aria::Internal

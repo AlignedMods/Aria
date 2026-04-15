@@ -171,4 +171,6 @@ namespace Aria::Internal {
             : Kind(kind), Loc(loc), Range(range), DeclStmt(decl) {}
     };
 
+    inline Stmt g_ErrorStmt = Stmt(StmtKind::Error, SourceLocation(), SourceRange(), ErrorStmt());
+
 } // namespace Aria::Internal

@@ -107,6 +107,8 @@ namespace Aria::Internal {
     }
 
     void SemanticAnalyzer::ResolveUnitDecls(Module* module, CompilationUnit* unit) {
+        m_Context->ActiveCompUnit = unit;
+
         for (Decl* global : unit->Globals) {
             ARIA_ASSERT(global->Kind == DeclKind::Var, "Invalid global in globals");
 
@@ -126,6 +128,19 @@ namespace Aria::Internal {
             if (f.Identifier == "main") { func->Flags |= DECL_FLAG_NOMANGLE; }
 
             std::string ident = fmt::format("{}", f.Identifier);
+
+            if (module->Symbols.contains(ident)) {
+                Decl* d = module->Symbols.at(ident);
+                
+                if (d->Kind == DeclKind::Function) { 
+                    m_Context->ReportCompilerError(func->Loc, func->Range, fmt::format("Redefining function '{}'", ident));
+                } else if (d->Kind == DeclKind::Var) {
+                    m_Context->ReportCompilerError(func->Loc, func->Range, fmt::format("Redefining global variable '{}' as function", ident));
+                }
+
+                func->Kind = DeclKind::Error;
+                return;
+            }
 
             module->Symbols[ident] = func;
             unit->LocalSymbols[ident] = func;
@@ -626,21 +641,7 @@ namespace Aria::Internal {
         
         std::string ident = fmt::format("{}", fnDecl.Identifier);
         ResolveType(decl->Loc, decl->Range, fnDecl.Type);
-
-        FunctionDecl* prevDecl = nullptr;
-        for (Decl* func : m_Context->ActiveCompUnit->Funcs) {
-            ARIA_ASSERT(func->Kind == DeclKind::Function, "Invalid function in Funcs");
         
-            if (func->Function.Identifier == fnDecl.Identifier) { prevDecl = &func->Function; }
-        }
-        
-        if (prevDecl) {
-            TypeInfo* type = prevDecl->Type;
-            if (!TypeIsEqual(fnDecl.Type, type)) {
-                m_Context->ReportCompilerError(decl->Loc, decl->Range, fmt::format("Redeclaring function '{}' with different type '{}'", ident, TypeInfoToString(fnDecl.Type)));
-            }
-        }
-
         if (fnDecl.Body) {
             m_ActiveReturnType = std::get<FunctionDeclaration>(fnDecl.Type->Data).ReturnType;
             PushScope();
@@ -1100,6 +1101,10 @@ namespace Aria::Internal {
 
     void SemanticAnalyzer::ReplaceExpr(Expr* src, Expr* newExpr) {
         *src = *newExpr;
+    }
+
+    void SemanticAnalyzer::ReplaceDecl(Decl* src, Decl* newDecl) {
+        *src = *newDecl;
     }
 
     bool SemanticAnalyzer::TypeIsEqual(TypeInfo* lhs, TypeInfo* rhs) {

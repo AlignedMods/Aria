@@ -437,4 +437,6 @@ namespace Aria::Internal {
             : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), CompoundAssign(compoundAssign) {}
     };
 
+    inline Expr g_ErrorExpr = Expr(SourceLocation(), SourceRange(), ExprKind::Error, ExprValueKind::RValue, nullptr, ErrorExpr());
+
 } // namespace Aria::Internal

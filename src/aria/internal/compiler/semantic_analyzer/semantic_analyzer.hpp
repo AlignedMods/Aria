@@ -116,6 +116,7 @@ namespace Aria::Internal {
         void InsertArithmeticPromotion(Expr* lhs, Expr* rhs);
 
         void ReplaceExpr(Expr* src, Expr* newExpr);
+        void ReplaceDecl(Decl* src, Decl* newDecl);
 
         bool TypeIsEqual(TypeInfo* lhs, TypeInfo* rhs);
         size_t TypeGetSize(TypeInfo* t);
