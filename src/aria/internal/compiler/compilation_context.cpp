@@ -22,15 +22,7 @@ namespace Aria::Internal {
     void CompilationContext::FinishCompilation() {
         Analyze();
 
-        bool hasErrors = false;
-
-        for (Module* module : Modules) {
-            for (CompilationUnit* unit : module->Units) {
-                if (unit->Errors.size() > 0) { hasErrors = true; break; }
-            }
-        }
-
-        if (!hasErrors) {
+        if (!HasErrors) {
             Emit();
             Link();
         }

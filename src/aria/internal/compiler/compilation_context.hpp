@@ -11,12 +11,19 @@ namespace Aria::Internal {
     struct Stmt;
     struct Decl;
 
-    struct CompilerError {
+    enum class CompilerDiagKind {
+        Warning,
+        Error
+    };
+
+    struct CompilerDiagnostic {
+        CompilerDiagKind Kind = CompilerDiagKind::Warning;
+
         size_t Line = 0; size_t Column = 0;
         size_t StartLine = 0; size_t StartColumn = 0;
 
         size_t EndLine = 0; size_t EndColumn = 0;
-        std::string Error;
+        std::string Message;
     };
 
     struct CompilationUnit;
@@ -39,7 +46,7 @@ namespace Aria::Internal {
         std::vector<Token> Tokens;
         Stmt* RootASTNode = nullptr;
 
-        std::vector<CompilerError> Errors;
+        std::vector<CompilerDiagnostic> Diagnostics;
 
         std::vector<Decl*> Globals;
         std::vector<Decl*> Funcs;
@@ -81,18 +88,21 @@ namespace Aria::Internal {
             return Arena->Allocate(size);
         }
 
-        inline void ReportCompilerError(SourceLocation loc, SourceRange range, const std::string& error) {
-            CompilerError e;
-            e.Line = loc.Line;
-            e.Column = loc.Column;
-            e.StartLine = range.Start.Line;
-            e.StartColumn = range.Start.Column;
-            e.EndLine = range.End.Line;
-            e.EndColumn = range.End.Column;
-            e.Error = error;
-            ActiveCompUnit->Errors.push_back(e);
+        inline void ReportCompilerDiagnostic(SourceLocation loc, SourceRange range, const std::string& error, CompilerDiagKind kind = CompilerDiagKind::Error) {
+            CompilerDiagnostic d;
+            d.Kind = kind;
+            d.Line = loc.Line;
+            d.Column = loc.Column;
+            d.StartLine = range.Start.Line;
+            d.StartColumn = range.Start.Column;
+            d.EndLine = range.End.Line;
+            d.EndColumn = range.End.Column;
+            d.Message = error;
+            ActiveCompUnit->Diagnostics.push_back(d);
 
-            HasErrors = true;
+            if (kind == CompilerDiagKind::Error) {
+                HasErrors = true;
+            }
         }
     
         void CompileFile(const std::string& source);

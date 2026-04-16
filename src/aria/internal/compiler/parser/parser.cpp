@@ -151,7 +151,7 @@ namespace Aria::Internal {
         if (IsPrimitiveType()) {
             SourceLocation typeStart = Peek()->Range.Start;
             ParseType();
-            m_Context->ReportCompilerError(typeStart, SourceRange(typeStart, Peek(-1)->Range.End), "Unexpected type found, did you mean to perform a cast? (<<type>> <expr>)");
+            m_Context->ReportCompilerDiagnostic(typeStart, SourceRange(typeStart, Peek(-1)->Range.End), "Unexpected type found, did you mean to perform a cast? (<<type>> <expr>)");
             SyncLocal();
 
             return &g_ErrorExpr;
@@ -179,7 +179,7 @@ namespace Aria::Internal {
         if (IsPrimitiveType() || Match(TokenKind::Identifier)) {
             type = ParseType();
         } else {
-            m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type");
+            m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected a type");
             type = &ErrorType;
         }
 
@@ -410,7 +410,7 @@ namespace Aria::Internal {
 
             if (!infixRule) {
                 SyncLocal();
-                m_Context->ReportCompilerError(tok->Range.Start, tok->Range, fmt::format("'{}' cannot appear here, did you forget something before the operator?", TokenKindToString(tok->Kind)));
+                m_Context->ReportCompilerDiagnostic(tok->Range.Start, tok->Range, fmt::format("'{}' cannot appear here, did you forget something before the operator?", TokenKindToString(tok->Kind)));
                 return &g_ErrorExpr;
             }
 
@@ -432,7 +432,7 @@ namespace Aria::Internal {
 
         if (!prefixRule) {
             SyncLocal();
-            m_Context->ReportCompilerError(tok->Range.Start, tok->Range, "Expected an expression");
+            m_Context->ReportCompilerDiagnostic(tok->Range.Start, tok->Range, "Expected an expression");
             return &g_ErrorExpr;
         }
 
@@ -594,6 +594,7 @@ namespace Aria::Internal {
             Consume();
         } else {
             condition = ParseExpression();
+
             TryConsume(TokenKind::Semi, "';'");
         }
         
@@ -601,6 +602,7 @@ namespace Aria::Internal {
             Consume();
         } else {
             step = ParseExpression();
+            if (step) { step->ResultDiscarded = true; }
             TryConsume(TokenKind::RightParen, "')'");
         }
         
@@ -642,6 +644,7 @@ namespace Aria::Internal {
         Expr* expr = nullptr;
         ASSIGN_OR_RET(expr, ParseExpression(), &g_ErrorStmt);
         CONSUME_OR_RET(Semi, &g_ErrorStmt);
+        expr->ResultDiscarded = true;
         
         return Stmt::Create(m_Context, expr->Loc, SourceRange(expr->Range.Start, Peek(-1)->Range.End), StmtKind::Expr, expr);
     }
@@ -709,13 +712,13 @@ namespace Aria::Internal {
 
             case TokenKind::Fn: {
                 Token& tok = Consume();
-                m_Context->ReportCompilerError(tok.Range.Start, tok.Range, fmt::format("Function declaration is not allowed here"));
+                m_Context->ReportCompilerDiagnostic(tok.Range.Start, tok.Range, fmt::format("Function declaration is not allowed here"));
                 return &g_ErrorStmt;
             }
 
             case TokenKind::Struct: {
                 Token& tok = Consume();
-                m_Context->ReportCompilerError(tok.Range.Start, tok.Range, fmt::format("Structure declaration is not allowed here"));
+                m_Context->ReportCompilerDiagnostic(tok.Range.Start, tok.Range, fmt::format("Structure declaration is not allowed here"));
                 return &g_ErrorStmt;
             }
 
@@ -748,14 +751,14 @@ namespace Aria::Internal {
             case TokenKind::Greater:
             case TokenKind::GreaterEq: {
                 Token& tok = Consume();
-                m_Context->ReportCompilerError(tok.Range.Start, tok.Range, fmt::format("Unexpected binary operator '{}' while looking for statement", TokenKindToString(tok.Kind)));
+                m_Context->ReportCompilerDiagnostic(tok.Range.Start, tok.Range, fmt::format("Unexpected binary operator '{}' while looking for statement", TokenKindToString(tok.Kind)));
                 return &g_ErrorStmt;
             }
 
             case TokenKind::AtExtern:
             case TokenKind::AtNoMangle: {
                 Token& tok = Consume();
-                m_Context->ReportCompilerError(tok.Range.Start, tok.Range, fmt::format("Unexpected attribute '{}' while looking for statement", TokenKindToString(tok.Kind)));
+                m_Context->ReportCompilerDiagnostic(tok.Range.Start, tok.Range, fmt::format("Unexpected attribute '{}' while looking for statement", TokenKindToString(tok.Kind)));
                 return &g_ErrorStmt;
             }
 
@@ -773,7 +776,7 @@ namespace Aria::Internal {
             case TokenKind::Double:
             case TokenKind::String: {
                 Token& tok = Consume();
-                m_Context->ReportCompilerError(tok.Range.Start, tok.Range, fmt::format("Unexpected type '{}', did you mean to declare a variable? (let <name>: <type>)", TokenKindToString(tok.Kind)));
+                m_Context->ReportCompilerDiagnostic(tok.Range.Start, tok.Range, fmt::format("Unexpected type '{}', did you mean to declare a variable? (let <name>: <type>)", TokenKindToString(tok.Kind)));
                 return &g_ErrorStmt;
             }
 
@@ -790,7 +793,7 @@ namespace Aria::Internal {
             case TokenKind::ColonColon:
             case TokenKind::Dot: {
                 Token& tok = Consume();
-                m_Context->ReportCompilerError(tok.Range.Start, tok.Range, fmt::format("Unexpected token '{}' while looking for statement", TokenKindToString(tok.Kind)));
+                m_Context->ReportCompilerDiagnostic(tok.Range.Start, tok.Range, fmt::format("Unexpected token '{}' while looking for statement", TokenKindToString(tok.Kind)));
                 return &g_ErrorStmt;
             }
 
@@ -810,7 +813,7 @@ namespace Aria::Internal {
         TryConsume(TokenKind::Semi, ";");
 
         if (m_DeclaredModule) {
-            m_Context->ReportCompilerError(ident->Range.Start, SourceRange(mod.Range.Start, Peek(-1)->Range.End), "Translation unit already declares a module");
+            m_Context->ReportCompilerDiagnostic(ident->Range.Start, SourceRange(mod.Range.Start, Peek(-1)->Range.End), "Translation unit already declares a module");
             return &g_ErrorDecl;
         }
 
@@ -851,7 +854,7 @@ namespace Aria::Internal {
         if (IsPrimitiveType() || Match(TokenKind::Identifier)) {
             type = ParseType();
         } else {
-            m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type after ':'");
+            m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected a type after ':'");
             type = &ErrorType;
         }
 
@@ -878,7 +881,7 @@ namespace Aria::Internal {
         int flags = 0;
 
         if (IsPrimitiveType()) {
-            m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected an indentifier but got a type (NOTE: function declarations look like: fn name() -> type {...})");
+            m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected an indentifier but got a type (NOTE: function declarations look like: fn name() -> type {...})");
             type = ParseType();
         }
 
@@ -895,7 +898,7 @@ namespace Aria::Internal {
 
         while (!Match(TokenKind::RightParen)) {
             if (!(IsPrimitiveType() || Match(TokenKind::Identifier))) {
-                m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type");
+                m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected a type");
                 SyncLocal();
                 continue;
             }
@@ -915,14 +918,14 @@ namespace Aria::Internal {
             if (Match(TokenKind::RightParen)) { break; }
 
             SyncLocal();
-            m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "expected either ',' or ')'");
+            m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "expected either ',' or ')'");
         }
 
         TryConsume(TokenKind::RightParen, ")");
 
         if (TryConsume(TokenKind::Arrow, "->")) {
             if (!(IsPrimitiveType() || Match(TokenKind::Identifier))) {
-                m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type after '->'");
+                m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected a type after '->'");
                 SyncLocal();
             } else if (type == nullptr) {
                 type = ParseType();
@@ -972,7 +975,7 @@ namespace Aria::Internal {
         
                 fields.Append(m_Context, Decl::Create(m_Context, fieldName->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Field, 0, FieldDecl(fieldName->String, type)));
             } else {
-                m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, "Expected a type or 'fn'");
+                m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected a type or 'fn'");
                 SyncLocal();
                 TryConsume(TokenKind::Semi, ";");
             }
@@ -1035,7 +1038,7 @@ namespace Aria::Internal {
             }
 
             case TokenKind::Semi: {
-                m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, fmt::format("Token ';' was unexpected, try removing it")); 
+                m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, fmt::format("Token ';' was unexpected, try removing it")); 
                 Consume(); 
                 return &g_ErrorStmt;
             }
@@ -1055,11 +1058,11 @@ namespace Aria::Internal {
             case TokenKind::String:
             case TokenKind::Identifier: {
                 Token& t = Consume();
-                m_Context->ReportCompilerError(t.Range.Start, t.Range, fmt::format("Unexpected type '{}', did you mean to declare a global variable? (let <name>: <type>)", TokenKindToString(t.Kind)));
+                m_Context->ReportCompilerDiagnostic(t.Range.Start, t.Range, fmt::format("Unexpected type '{}', did you mean to declare a global variable? (let <name>: <type>)", TokenKindToString(t.Kind)));
             }
 
             default: {
-                m_Context->ReportCompilerError(Peek()->Range.Start, Peek()->Range, fmt::format("Expected the start of a global declaration", TokenKindToString(Peek()->Kind)));
+                m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, fmt::format("Expected the start of a global declaration", TokenKindToString(Peek()->Kind)));
                 SyncGlobal();
                 return &g_ErrorStmt;
             }
@@ -1092,9 +1095,9 @@ namespace Aria::Internal {
 
     void Parser::ErrorExpected(const std::string& expect, SourceLocation loc, SourceRange range) {
         if (Peek()) {
-            m_Context->ReportCompilerError(loc, range, fmt::format("Expected '{}' but got '{}'", expect, TokenKindToString(Peek()->Kind)));
+            m_Context->ReportCompilerDiagnostic(loc, range, fmt::format("Expected '{}' but got '{}'", expect, TokenKindToString(Peek()->Kind)));
         } else {
-            m_Context->ReportCompilerError(loc, range, fmt::format("Expected '{}' but got EOF", expect));
+            m_Context->ReportCompilerDiagnostic(loc, range, fmt::format("Expected '{}' but got EOF", expect));
         }
     }
 

@@ -210,10 +210,10 @@ namespace Aria::Internal {
 
     struct DeclRefExpr {
         DeclRefExpr(StringView identifier, Specifier* specifier)
-            : Identifier(identifier), Specifier(specifier) {}
+            : Identifier(identifier), NameSpecifier(specifier) {}
 
         StringView Identifier;
-        Specifier* Specifier;
+        Specifier* NameSpecifier = nullptr;
         DeclRefKind Kind = DeclRefKind::LocalVar;
         Decl* ReferencedDecl = nullptr;
     };
@@ -349,7 +349,7 @@ namespace Aria::Internal {
         ExprValueKind ValueKind = ExprValueKind::RValue;
         TypeInfo* Type = nullptr;
 
-        bool IsStmtExpr = false;
+        bool ResultDiscarded = false;
 
         SourceLocation Loc;
         SourceRange Range;

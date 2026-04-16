@@ -66,13 +66,13 @@ namespace Aria::Internal {
             ARIA_ASSERT(stmt->Kind == StmtKind::Import, "Invalid stmt in Imports");
 
             if (stmt->Import.Name == module->Name) {
-                m_Context->ReportCompilerError(stmt->Loc, stmt->Range, "Including self is not allowed");
+                m_Context->ReportCompilerDiagnostic(stmt->Loc, stmt->Range, "Including self is not allowed");
                 stmt->Kind = StmtKind::Error;
                 return;
             }
 
             if (m_ImportedModules.contains(fmt::format("{}", stmt->Import.Name))) {
-                m_Context->ReportCompilerError(stmt->Loc, stmt->Range, "Recursive imports are not allowed");
+                m_Context->ReportCompilerDiagnostic(stmt->Loc, stmt->Range, "Recursive imports are not allowed");
                 stmt->Kind = StmtKind::Error;
                 return;
             }
@@ -90,7 +90,7 @@ namespace Aria::Internal {
             }
 
             if (!resolvedModule) {
-                m_Context->ReportCompilerError(stmt->Loc, stmt->Range, fmt::format("Could not find module '{}'", stmt->Import.Name));
+                m_Context->ReportCompilerDiagnostic(stmt->Loc, stmt->Range, fmt::format("Could not find module '{}'", stmt->Import.Name));
             }
 
             stmt->Import.ResolvedModule = resolvedModule;
@@ -133,9 +133,9 @@ namespace Aria::Internal {
                 Decl* d = module->Symbols.at(ident);
                 
                 if (d->Kind == DeclKind::Function) { 
-                    m_Context->ReportCompilerError(func->Loc, func->Range, fmt::format("Redefining function '{}'", ident));
+                    m_Context->ReportCompilerDiagnostic(func->Loc, func->Range, fmt::format("Redefining function '{}'", ident));
                 } else if (d->Kind == DeclKind::Var) {
-                    m_Context->ReportCompilerError(func->Loc, func->Range, fmt::format("Redefining global variable '{}' as function", ident));
+                    m_Context->ReportCompilerDiagnostic(func->Loc, func->Range, fmt::format("Redefining global variable '{}' as function", ident));
                 }
 
                 func->Kind = DeclKind::Error;
@@ -168,20 +168,44 @@ namespace Aria::Internal {
         ResolveStmt(unit->RootASTNode);
     }
 
-    void SemanticAnalyzer::ResolveBooleanConstantExpr(Expr* expr)   {}
-    void SemanticAnalyzer::ResolveCharacterConstantExpr(Expr* expr) {}
-    void SemanticAnalyzer::ResolveIntegerConstantExpr(Expr* expr)   {}
-    void SemanticAnalyzer::ResolveFloatingConstantExpr(Expr* expr)  {}
-    void SemanticAnalyzer::ResolveStringConstantExpr(Expr* expr)    {}
+    void SemanticAnalyzer::ResolveBooleanConstantExpr(Expr* expr) {
+        if (expr->ResultDiscarded) {
+            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of boolean literal", CompilerDiagKind::Warning);
+        }
+    }
+
+    void SemanticAnalyzer::ResolveCharacterConstantExpr(Expr* expr) {
+        if (expr->ResultDiscarded) {
+            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of character literal", CompilerDiagKind::Warning);
+        }
+    }
+
+    void SemanticAnalyzer::ResolveIntegerConstantExpr(Expr* expr) {
+        if (expr->ResultDiscarded) {
+            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of integer literal", CompilerDiagKind::Warning);
+        }
+    }
+
+    void SemanticAnalyzer::ResolveFloatingConstantExpr(Expr* expr) {
+        if (expr->ResultDiscarded) {
+            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of floating point literal", CompilerDiagKind::Warning);
+        }
+    }
+
+    void SemanticAnalyzer::ResolveStringConstantExpr(Expr* expr) {
+        if (expr->ResultDiscarded) {
+            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of string literal is not allowed");
+        }
+    }
 
     void SemanticAnalyzer::ResolveDeclRefExpr(Expr* expr) {
         DeclRefExpr& ref = expr->DeclRef;
         std::string ident = fmt::format("{}", ref.Identifier);
 
-        if (ref.Specifier) {
-            ARIA_ASSERT(ref.Specifier->Kind == SpecifierKind::Scope, "Invalid specifier");
+        if (ref.NameSpecifier) {
+            ARIA_ASSERT(ref.NameSpecifier->Kind == SpecifierKind::Scope, "Invalid specifier");
 
-            ScopeSpecifier& scope = ref.Specifier->Scope;
+            ScopeSpecifier& scope = ref.NameSpecifier->Scope;
 
             if (scope.Identifier == m_Context->ActiveCompUnit->Parent->Name) {
                 scope.ReferencedModule = m_Context->ActiveCompUnit->Parent;
@@ -205,7 +229,7 @@ namespace Aria::Internal {
                 }
 
                 if (!d) {
-                    m_Context->ReportCompilerError(expr->Loc, expr->Range, fmt::format("Module '{}' does not contain '{}'", scope.Identifier, ref.Identifier));
+                    m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, fmt::format("Module '{}' does not contain '{}'", scope.Identifier, ref.Identifier));
                     expr->Type = &ErrorType;
                     return;
                 }
@@ -230,7 +254,7 @@ namespace Aria::Internal {
 
                 return;
             } else {
-                m_Context->ReportCompilerError(ref.Specifier->Loc, ref.Specifier->Range, fmt::format("Could not find module '{}'", scope.Identifier));
+                m_Context->ReportCompilerDiagnostic(ref.NameSpecifier->Loc, ref.NameSpecifier->Range, fmt::format("Could not find module '{}'", scope.Identifier));
                 expr->Type = &ErrorType;
                 return;
             }
@@ -286,7 +310,7 @@ namespace Aria::Internal {
             return;
         }
 
-        m_Context->ReportCompilerError(expr->Loc, expr->Range, fmt::format("Undeclared identifier \"{}\"", ref.Identifier));
+        m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, fmt::format("Undeclared identifier \"{}\"", ref.Identifier));
         expr->Type = &ErrorType;
     }
 
@@ -315,7 +339,7 @@ namespace Aria::Internal {
         }
 
         if (!memberType) {
-            m_Context->ReportCompilerError(expr->Loc, expr->Range, fmt::format("Unknown member \"{}\" in '{}'", mem.Member, TypeInfoToString(parentType)));
+            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, fmt::format("Unknown member \"{}\" in '{}'", mem.Member, TypeInfoToString(parentType)));
             expr->Type = &ErrorType;
             return;
         }
@@ -330,7 +354,7 @@ namespace Aria::Internal {
         TypeInfo* calleeType = call.Callee->Type;
 
         if (calleeType->Type != PrimitiveType::Function && !calleeType->IsError()) {
-            m_Context->ReportCompilerError(expr->Loc, expr->Range, "Cannot call an object of non-function type");
+            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Cannot call an object of non-function type");
             expr->Type = &ErrorType;
             return;
         }
@@ -339,7 +363,7 @@ namespace Aria::Internal {
             FunctionDeclaration& fnDecl = std::get<FunctionDeclaration>(calleeType->Data);
 
             if (fnDecl.ParamTypes.Size != call.Arguments.Size) {
-                m_Context->ReportCompilerError(expr->Loc, expr->Range, fmt::format("Mismatched argument count, function expects {} but got {}", fnDecl.ParamTypes.Size, call.Arguments.Size));
+                m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, fmt::format("Mismatched argument count, function expects {} but got {}", fnDecl.ParamTypes.Size, call.Arguments.Size));
                 for (size_t i = 0; i < call.Arguments.Size; i++) {
                     call.Arguments.Items[i]->Type = &ErrorType;
                 }
@@ -431,11 +455,11 @@ namespace Aria::Internal {
             case BinaryOperatorKind::IsNotEq: {
                 if (!LHS->Type->IsError()) {
                     if (!LHS->Type->IsNumeric()) {
-                        m_Context->ReportCompilerError(LHS->Loc, LHS->Range, fmt::format("Expression must be of a numeric type but is of type '{}'", TypeInfoToString(LHS->Type)));
+                        m_Context->ReportCompilerDiagnostic(LHS->Loc, LHS->Range, fmt::format("Expression must be of a numeric type but is of type '{}'", TypeInfoToString(LHS->Type)));
                     }
 
                     if (!LHS->Type->IsNumeric()) {
-                        m_Context->ReportCompilerError(RHS->Loc, RHS->Range, fmt::format("Expression must be of a numeric type but is of type '{}'", TypeInfoToString(RHS->Type)));
+                        m_Context->ReportCompilerDiagnostic(RHS->Loc, RHS->Range, fmt::format("Expression must be of a numeric type but is of type '{}'", TypeInfoToString(RHS->Type)));
                     }
                 }
 
@@ -466,11 +490,11 @@ namespace Aria::Internal {
             case BinaryOperatorKind::Shr: {
                 if (!LHS->Type->IsError()) {
                     if (!LHS->Type->IsIntegral() && !LHS->Type->IsString()) {
-                        m_Context->ReportCompilerError(LHS->Loc, LHS->Range, fmt::format("Expression must be of a integral type but is of type '{}'", TypeInfoToString(LHS->Type)));
+                        m_Context->ReportCompilerDiagnostic(LHS->Loc, LHS->Range, fmt::format("Expression must be of a integral type but is of type '{}'", TypeInfoToString(LHS->Type)));
                     }
 
                     if (!LHS->Type->IsIntegral()) {
-                        m_Context->ReportCompilerError(RHS->Loc, RHS->Range, fmt::format("Expression must be of a integral type but is of type '{}'", TypeInfoToString(RHS->Type)));
+                        m_Context->ReportCompilerDiagnostic(RHS->Loc, RHS->Range, fmt::format("Expression must be of a integral type but is of type '{}'", TypeInfoToString(RHS->Type)));
                     }
                 }
 
@@ -483,7 +507,7 @@ namespace Aria::Internal {
 
             case BinaryOperatorKind::Eq: {
                 if (LHS->ValueKind != ExprValueKind::LValue) {
-                    m_Context->ReportCompilerError(LHS->Loc, LHS->Range, "Expression must be a modifiable lvalue");
+                    m_Context->ReportCompilerDiagnostic(LHS->Loc, LHS->Range, "Expression must be a modifiable lvalue");
                 }
 
                 ConversionCost cost = GetConversionCost(LHS->Type, RHS->Type, RHS->ValueKind);
@@ -492,7 +516,7 @@ namespace Aria::Internal {
                     if (cost.ImplicitCastPossible) {
                         InsertImplicitCast(LHS->Type, RHS->Type, RHS, cost.CaKind);
                     } else {
-                        m_Context->ReportCompilerError(expr->Loc, expr->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(RHS->Type), TypeInfoToString(LHS->Type)));
+                        m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(RHS->Type), TypeInfoToString(LHS->Type)));
                     }
                 }
 
@@ -513,7 +537,7 @@ namespace Aria::Internal {
                     if (costLHS.ImplicitCastPossible) {
                         InsertImplicitCast(boolType, LHS->Type, LHS, costLHS.CaKind);
                     } else {
-                        m_Context->ReportCompilerError(LHS->Loc, LHS->Range, fmt::format("Cannot implicitly convert from '{}' to 'bool'", TypeInfoToString(LHS->Type)));
+                        m_Context->ReportCompilerDiagnostic(LHS->Loc, LHS->Range, fmt::format("Cannot implicitly convert from '{}' to 'bool'", TypeInfoToString(LHS->Type)));
                     }
                 }
 
@@ -521,7 +545,7 @@ namespace Aria::Internal {
                     if (costRHS.ImplicitCastPossible) {
                         InsertImplicitCast(boolType, RHS->Type, RHS, costRHS.CaKind);
                     } else {
-                        m_Context->ReportCompilerError(LHS->Loc, LHS->Range, fmt::format("Cannot implicitly convert from '{}' to 'bool'", TypeInfoToString(RHS->Type)));
+                        m_Context->ReportCompilerDiagnostic(LHS->Loc, LHS->Range, fmt::format("Cannot implicitly convert from '{}' to 'bool'", TypeInfoToString(RHS->Type)));
                     }
                 }
 
@@ -548,7 +572,7 @@ namespace Aria::Internal {
         TypeInfo* RHSType = RHS->Type;
         
         if (LHS->ValueKind != ExprValueKind::LValue) {
-            m_Context->ReportCompilerError(compAss.LHS->Loc, compAss.LHS->Range, "Expression must be a modifiable lvalue");
+            m_Context->ReportCompilerDiagnostic(compAss.LHS->Loc, compAss.LHS->Range, "Expression must be a modifiable lvalue");
         }
         
         ConversionCost cost = GetConversionCost(LHSType, RHSType, compAss.RHS->ValueKind);
@@ -558,7 +582,7 @@ namespace Aria::Internal {
                 InsertImplicitCast(LHSType, RHSType, RHS, cost.CaKind);
                 RHSType = LHSType;
             } else {
-                m_Context->ReportCompilerError(compAss.RHS->Loc, compAss.RHS->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(RHSType), TypeInfoToString(LHSType)));
+                m_Context->ReportCompilerDiagnostic(compAss.RHS->Loc, compAss.RHS->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(RHSType), TypeInfoToString(LHSType)));
             }
         }
         
@@ -616,14 +640,14 @@ namespace Aria::Internal {
         ResolveType(decl->Loc, decl->Range, varDecl.Type);
 
         if (varDecl.Type->IsVoid()) {
-            m_Context->ReportCompilerError(decl->Loc, decl->Range, "Cannot declare variable of 'void' type");
+            m_Context->ReportCompilerDiagnostic(decl->Loc, decl->Range, "Cannot declare variable of 'void' type");
         }
 
         ResolveInitializer(varDecl.DefaultValue, varDecl.Type, false);
 
         if (m_Scopes.size() > 0) {
             if (m_Scopes.back().Declarations.contains(ident)) {
-                m_Context->ReportCompilerError(decl->Loc, decl->Range, fmt::format("Redeclaring symbol '{}'", ident));
+                m_Context->ReportCompilerDiagnostic(decl->Loc, decl->Range, fmt::format("Redeclaring symbol '{}'", ident));
             }
 
             m_Scopes.back().Declarations[ident] = { varDecl.Type, decl, DeclRefKind::LocalVar };
@@ -638,11 +662,12 @@ namespace Aria::Internal {
 
     void SemanticAnalyzer::ResolveFunctionDecl(Decl* decl) {
         FunctionDecl fnDecl = decl->Function;
-        
+
         std::string ident = fmt::format("{}", fnDecl.Identifier);
         ResolveType(decl->Loc, decl->Range, fnDecl.Type);
         
         if (fnDecl.Body) {
+            m_CanReachEndOfFunction = true;
             m_ActiveReturnType = std::get<FunctionDeclaration>(fnDecl.Type->Data).ReturnType;
             PushScope();
             
@@ -656,6 +681,10 @@ namespace Aria::Internal {
             
             PopScope();
             m_ActiveReturnType = nullptr;
+
+            if (m_CanReachEndOfFunction && !std::get<FunctionDeclaration>(fnDecl.Type->Data).ReturnType->IsVoid()) {
+                m_Context->ReportCompilerDiagnostic(decl->Loc, decl->Range, "Control flow reaches end of function with a non void return type");
+            }
         }
     }
 
@@ -795,7 +824,7 @@ namespace Aria::Internal {
             RequireRValue(fs.Condition);
 
             if (!fs.Condition->Type->IsBoolean() && !fs.Condition->Type->IsError()) {
-                m_Context->ReportCompilerError(fs.Condition->Loc, fs.Condition->Range, fmt::format("For loop condition must be of a boolean type but is '{}'", TypeInfoToString(fs.Condition->Type)));
+                m_Context->ReportCompilerDiagnostic(fs.Condition->Loc, fs.Condition->Range, fmt::format("For loop condition must be of a boolean type but is '{}'", TypeInfoToString(fs.Condition->Type)));
             }
         }
 
@@ -807,6 +836,8 @@ namespace Aria::Internal {
 
     void SemanticAnalyzer::ResolveIfStmt(Stmt* stmt) {
         IfStmt ifs = stmt->If;
+        PushScope();
+
         ResolveExpr(ifs.Condition);
         RequireRValue(ifs.Condition);
 
@@ -815,17 +846,19 @@ namespace Aria::Internal {
         }
 
         ResolveBlockStmt(ifs.Body);
+
+        PopScope();
     }
 
     void SemanticAnalyzer::ResolveBreakStmt(Stmt* stmt) {
         if (!m_Scopes.back().AllowBreakStmt) {
-            m_Context->ReportCompilerError(stmt->Loc, stmt->Range, "Cannot use 'break' here");
+            m_Context->ReportCompilerDiagnostic(stmt->Loc, stmt->Range, "Cannot use 'break' here");
         }
     }
 
     void SemanticAnalyzer::ResolveContinueStmt(Stmt* stmt) {
         if (!m_Scopes.back().AllowContinueStmt) {
-            m_Context->ReportCompilerError(stmt->Loc, stmt->Range, "Cannot use 'continue' here");
+            m_Context->ReportCompilerDiagnostic(stmt->Loc, stmt->Range, "Cannot use 'continue' here");
         }
     }
 
@@ -833,12 +866,16 @@ namespace Aria::Internal {
         ReturnStmt& ret = stmt->Return;
         
         if (m_ActiveReturnType == nullptr) {
-            m_Context->ReportCompilerError(stmt->Loc, stmt->Range, "'return' statement out of function body is not allowed");
+            m_Context->ReportCompilerDiagnostic(stmt->Loc, stmt->Range, "'return' statement out of function body is not allowed");
             ret.Value->Type = &ErrorType;
             return;
         }
         
         ResolveInitializer(ret.Value, m_ActiveReturnType, false);
+
+        if (m_Scopes.size() == 1) {
+            m_CanReachEndOfFunction = false;
+        }
     }
 
     void SemanticAnalyzer::ResolveStmt(Stmt* stmt) {
@@ -877,7 +914,7 @@ namespace Aria::Internal {
             Decl* d = FindSymbolInUnit(m_Context->ActiveCompUnit, ident);
 
             if (!d) {
-                m_Context->ReportCompilerError(loc, range, fmt::format("Could not find type '{}')", ident));
+                m_Context->ReportCompilerDiagnostic(loc, range, fmt::format("Could not find type '{}')", ident));
                 return;
             }
 
@@ -902,7 +939,7 @@ namespace Aria::Internal {
             TypeInfo* initType = initializer->Type;
 
             if (!TypeIsEqual(type, initType) || initializer->ValueKind != ExprValueKind::LValue) {
-                m_Context->ReportCompilerError(initializer->Loc, initializer->Range, "Initial value of reference must be an lvalue");
+                m_Context->ReportCompilerDiagnostic(initializer->Loc, initializer->Range, "Initial value of reference must be an lvalue");
             }
         } else if (initializer) {
             ResolveExpr(initializer);
@@ -921,7 +958,7 @@ namespace Aria::Internal {
                 if (cost.ImplicitCastPossible) {
                     InsertImplicitCast(type, initType, initializer, cost.CaKind);
                 } else {
-                    m_Context->ReportCompilerError(initializer->Loc, initializer->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(initType), TypeInfoToString(type)));
+                    m_Context->ReportCompilerDiagnostic(initializer->Loc, initializer->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(initType), TypeInfoToString(type)));
                 }
             }
 
@@ -1063,7 +1100,7 @@ namespace Aria::Internal {
                 RequireRValue(rhs);
             } else if (lSize == rSize) {
                 // We know that the types are not equal so we likely have a signed/unsigned mismatch
-                m_Context->ReportCompilerError(lhs->Loc, SourceRange(lhs->Range.Start, rhs->Range.End), fmt::format("Mismatched types '{}' and '{}' (implicit signedness conversions are not allowed here)", TypeInfoToString(lhsType), TypeInfoToString(rhsType)));
+                m_Context->ReportCompilerDiagnostic(lhs->Loc, SourceRange(lhs->Range.Start, rhs->Range.End), fmt::format("Mismatched types '{}' and '{}' (implicit signedness conversions are not allowed here)", TypeInfoToString(lhsType), TypeInfoToString(rhsType)));
             }
 
             return;

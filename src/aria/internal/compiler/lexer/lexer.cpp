@@ -188,7 +188,7 @@ namespace Aria::Internal {
 
         if (TryConsume('\'')) {
             SourceLocation loc = SourceLocation(m_CurrentLine, GetColumn(m_Index));
-            m_Context->ReportCompilerError(loc, SourceRange(start, loc), "Empty character literal");
+            m_Context->ReportCompilerDiagnostic(loc, SourceRange(start, loc), "Empty character literal");
             return;
         }
 
@@ -197,7 +197,7 @@ namespace Aria::Internal {
 
         if (!TryConsume('\'')) {
             SourceLocation loc = SourceLocation(m_CurrentLine, GetColumn(m_Index));
-            m_Context->ReportCompilerError(loc, SourceRange(start, loc), "Unterminated character literal");
+            m_Context->ReportCompilerDiagnostic(loc, SourceRange(start, loc), "Unterminated character literal");
             return;
         }
 
@@ -246,7 +246,7 @@ namespace Aria::Internal {
                         || std::tolower(Peek()) == 'c' || std::tolower(Peek()) == 'd'
                         || std::tolower(Peek()) == 'e' || std::tolower(Peek()) == 'f') {
                     SourceLocation loc = SourceLocation(m_CurrentLine, GetColumn(m_Index));
-                    m_Context->ReportCompilerError(loc, SourceRange(loc, loc), fmt::format("invalid hexadecimal digit '{}' in decimal literal", Peek()));
+                    m_Context->ReportCompilerDiagnostic(loc, SourceRange(loc, loc), fmt::format("invalid hexadecimal digit '{}' in decimal literal", Peek()));
                     Consume();
                     errored = true;
                 } else {
@@ -265,14 +265,14 @@ namespace Aria::Internal {
                     Consume();
                 } else if (Peek() == '9') {
                     SourceLocation loc = SourceLocation(m_CurrentLine, GetColumn(m_Index));
-                    m_Context->ReportCompilerError(loc, SourceRange(loc, loc), "invalid digit '9' in octal literal");
+                    m_Context->ReportCompilerDiagnostic(loc, SourceRange(loc, loc), "invalid digit '9' in octal literal");
                     Consume();
                     errored = true;
                 } else if (std::tolower(Peek()) == 'a' || std::tolower(Peek()) == 'b'
                         || std::tolower(Peek()) == 'c' || std::tolower(Peek()) == 'd'
                         || std::tolower(Peek()) == 'e' || std::tolower(Peek()) == 'f') {
                     SourceLocation loc = SourceLocation(m_CurrentLine, GetColumn(m_Index));
-                    m_Context->ReportCompilerError(loc, SourceRange(loc, loc), fmt::format("invalid hexadecimal digit '{}' in octal literal", Peek()));
+                    m_Context->ReportCompilerDiagnostic(loc, SourceRange(loc, loc), fmt::format("invalid hexadecimal digit '{}' in octal literal", Peek()));
                     Consume();
                     errored = true;
                 } else {
@@ -283,14 +283,14 @@ namespace Aria::Internal {
                     Consume();
                 } else if (std::isdigit(Peek())) {
                     SourceLocation loc = SourceLocation(m_CurrentLine, GetColumn(m_Index));
-                    m_Context->ReportCompilerError(loc, SourceRange(loc, loc), fmt::format("invalid digit '{}' in binary literal", Peek()));
+                    m_Context->ReportCompilerDiagnostic(loc, SourceRange(loc, loc), fmt::format("invalid digit '{}' in binary literal", Peek()));
                     Consume();
                     errored = true;
                 } else if (std::tolower(Peek()) == 'a' || std::tolower(Peek()) == 'b'
                         || std::tolower(Peek()) == 'c' || std::tolower(Peek()) == 'd'
                         || std::tolower(Peek()) == 'e' || std::tolower(Peek()) == 'f') {
                     SourceLocation loc = SourceLocation(m_CurrentLine, GetColumn(m_Index));
-                    m_Context->ReportCompilerError(loc, SourceRange(loc, loc), fmt::format("invalid hexadecimal digit '{}' in binary literal", Peek()));
+                    m_Context->ReportCompilerDiagnostic(loc, SourceRange(loc, loc), fmt::format("invalid hexadecimal digit '{}' in binary literal", Peek()));
                     Consume();
                     errored = true;
                 } else {
@@ -305,7 +305,7 @@ namespace Aria::Internal {
         if (Peek() && std::tolower(Peek()) == 'u') {
             if (encounteredPeriod) {
                 SourceLocation loc = SourceLocation(m_CurrentLine, GetColumn(m_Index));
-                m_Context->ReportCompilerError(loc, SourceRange(loc, loc), fmt::format("cannot use 'u' suffix in a floating-point literal"));
+                m_Context->ReportCompilerDiagnostic(loc, SourceRange(loc, loc), fmt::format("cannot use 'u' suffix in a floating-point literal"));
                 Consume();
                 errored = true;
             } else {
@@ -321,7 +321,7 @@ namespace Aria::Internal {
 
                 if (ec == std::errc::result_out_of_range) {
                     SourceLocation loc(m_CurrentLine, GetColumn(m_Index - buf.Size()));
-                    m_Context->ReportCompilerError(loc, SourceRange(loc, SourceLocation(m_CurrentLine, GetColumn(m_Index))), 
+                    m_Context->ReportCompilerDiagnostic(loc, SourceRange(loc, SourceLocation(m_CurrentLine, GetColumn(m_Index))), 
                                                    "magnitude of floating-point literal is too large, maximum is 1.7976931348623157E+308");
                     number = 0.0;
                 }
@@ -343,7 +343,7 @@ namespace Aria::Internal {
 
                 if (ec == std::errc::result_out_of_range) {
                     SourceLocation loc(m_CurrentLine, GetColumn(m_Index - buf.Size()));
-                    m_Context->ReportCompilerError(loc, SourceRange(loc, SourceLocation(m_CurrentLine, GetColumn(m_Index))), 
+                    m_Context->ReportCompilerDiagnostic(loc, SourceRange(loc, SourceLocation(m_CurrentLine, GetColumn(m_Index))), 
                                                    "integer literal is too large to fit into any integer type");
                     integer = 0;
                 }
@@ -378,7 +378,7 @@ namespace Aria::Internal {
                 case '\n':
                 case '\0': {
                     end = SourceLocation(m_CurrentLine, GetColumn(m_Index));
-                    m_Context->ReportCompilerError(start, SourceRange(start, end), "Unterminated string literal");
+                    m_Context->ReportCompilerDiagnostic(start, SourceRange(start, end), "Unterminated string literal");
                     return;
                 }
 
@@ -413,7 +413,7 @@ namespace Aria::Internal {
         else if (str == "@nomangle") { AddToken(TokenKind::AtNoMangle, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "@nomangle"); return; }
         else if (str == "@private") { AddToken(TokenKind::AtPrivate, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "@private"); return; }
 
-        m_Context->ReportCompilerError(start, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "Unknown flag starting with '@'");
+        m_Context->ReportCompilerDiagnostic(start, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "Unknown flag starting with '@'");
     }
 
     void Lexer::ParseIdentifier() {

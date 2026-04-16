@@ -124,6 +124,8 @@ namespace Aria::Internal {
     private:
         std::unordered_map<std::string, bool> m_ImportedModules;
 
+        bool m_CanReachEndOfFunction = true;
+
         Decl* m_BuiltInStringDestructor = nullptr;
         Decl* m_BuiltInStringCopyConstructor = nullptr;
 

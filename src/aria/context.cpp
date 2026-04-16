@@ -60,16 +60,22 @@ namespace Aria {
         CompileFileRaw(contents, path);
         m_ActiveModule->CompilationContext.FinishCompilation();
 
-        // Handle compiler errors
+        // Handle compiler diagnostics
         auto& unit = m_ActiveModule->CompilationContext.CompilationUnits.at(0);
-        for (auto& error : unit->Errors) {
-            fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", path, error.Line, error.Column);
-            fmt::print(fg(fmt::color::pale_violet_red), "error: ");
-            fmt::print("{}\n", error.Error);
+        for (auto& diag : unit->Diagnostics) {
+            fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", path, diag.Line, diag.Column);
+
+            if (diag.Kind == Internal::CompilerDiagKind::Error) {
+                fmt::print(fg(fmt::color::pale_violet_red), "error: ");
+            } else if (diag.Kind == Internal::CompilerDiagKind::Warning) {
+                fmt::print(fg(fmt::color::yellow), "warning: ");
+            }
+
+            fmt::print("{}\n", diag.Message);
 
             // fmt format strings from: https://hackingcpp.com/cpp/libs/fmt
-            fmt::print(" {:6} | {}\n", error.Line, GetLine(unit->Source, error.Line));
-            fmt::print("        | {:>{w}}\n", "^", fmt::arg("w", error.Column));
+            fmt::print(" {:6} | {}\n", diag.Line, GetLine(unit->Source, diag.Line));
+            fmt::print("        | {:>{w}}\n", "^", fmt::arg("w", diag.Column));
         }
 
         m_Modules[path] = newModule;
@@ -100,14 +106,20 @@ namespace Aria {
         for (size_t i = 0; i < paths.size(); i++) {
             // Handle compiler errors
             auto& unit = m_ActiveModule->CompilationContext.CompilationUnits[i];
-            for (auto& error : unit->Errors) {
-                fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", paths[i], error.Line, error.Column);
-                fmt::print(fg(fmt::color::pale_violet_red), "error: ");
-                fmt::print("{}\n", error.Error);
+            for (auto& diag : unit->Diagnostics) {
+                fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", paths[i], diag.Line, diag.Column);
+
+                if (diag.Kind == Internal::CompilerDiagKind::Error) {
+                    fmt::print(fg(fmt::color::pale_violet_red), "error: ");
+                } else if (diag.Kind == Internal::CompilerDiagKind::Warning) {
+                    fmt::print(fg(fmt::color::light_golden_rod_yellow), "warning: ");
+                }
+
+                fmt::print("{}\n", diag.Message);
 
                 // fmt format strings from: https://hackingcpp.com/cpp/libs/fmt
-                fmt::print(" {:6} | {}\n", error.Line, GetLine(unit->Source, error.Line));
-                fmt::print("        | {:>{w}}\n", "^", fmt::arg("w", error.Column));
+                fmt::print(" {:6} | {}\n", diag.Line, GetLine(unit->Source, diag.Line));
+                fmt::print("        | {:>{w}}\n", "^", fmt::arg("w", diag.Column));
             }
         }
 

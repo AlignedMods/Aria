@@ -182,8 +182,8 @@ namespace Aria::Internal {
         DeclRefExpr declRef = expr->DeclRef;
         std::string ident;
 
-        if (declRef.Specifier) {
-            ident = fmt::format("{}::{}", declRef.Specifier->Scope.Identifier, declRef.Identifier);
+        if (declRef.NameSpecifier) {
+            ident = fmt::format("{}::{}", declRef.NameSpecifier->Scope.Identifier, declRef.Identifier);
         } else {
             ident = fmt::format("{}::{}", m_ActiveNamespace, declRef.Identifier);
         }
@@ -609,7 +609,7 @@ namespace Aria::Internal {
             EmitCompoundAssignExpr(expr, valueKind);
         }
 
-        if (expr->IsStmtExpr) {
+        if (expr->ResultDiscarded) {
             EmitDestructors(m_Temporaries);
             m_Temporaries.clear();
 
