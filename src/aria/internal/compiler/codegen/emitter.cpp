@@ -825,7 +825,6 @@ namespace Aria::Internal {
             
         if (fs.Step) {
             EmitExpr(fs.Step, fs.Step->ValueKind);
-            PUSH_PENDING_OP(OpCodeKind::Pop);
         }
         
         PUSH_PENDING_OP(OpCodeKind::Jmp, { startIdx });
@@ -898,10 +897,7 @@ namespace Aria::Internal {
         } else if (stmt->Kind == StmtKind::Return) {
             return EmitReturnStmt(stmt);
         } else if (stmt->Kind == StmtKind::Expr) {
-            EmitExpr(stmt->ExprStmt, stmt->ExprStmt->ValueKind);
-            EmitDestructors(m_Temporaries);
-            m_Temporaries.clear();
-            return;
+            return EmitExpr(stmt->ExprStmt, stmt->ExprStmt->ValueKind);
         } else if (stmt->Kind == StmtKind::Decl) {
             return EmitDecl(stmt->DeclStmt);
         }

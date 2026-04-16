@@ -202,6 +202,10 @@ namespace Aria::Internal {
         DeclRefExpr& ref = expr->DeclRef;
         std::string ident = fmt::format("{}", ref.Identifier);
 
+        if (expr->ResultDiscarded) {
+            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of identifier", CompilerDiagKind::Warning);
+        }
+
         if (ref.NameSpecifier) {
             ARIA_ASSERT(ref.NameSpecifier->Kind == SpecifierKind::Scope, "Invalid specifier");
 
@@ -345,6 +349,10 @@ namespace Aria::Internal {
         }
 
         expr->Type = memberType;
+
+        if (expr->ResultDiscarded) {
+            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of member access", CompilerDiagKind::Warning);
+        }
     }
 
     void SemanticAnalyzer::ResolveCallExpr(Expr* expr) {
@@ -392,6 +400,10 @@ namespace Aria::Internal {
 
         expr->Type = paren.Expression->Type;
         expr->ValueKind = paren.Expression->ValueKind;
+
+        if (expr->ResultDiscarded) {
+            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of expression", CompilerDiagKind::Warning);
+        }
     }
 
     void SemanticAnalyzer::ResolveCastExpr(Expr* expr) {
@@ -411,6 +423,10 @@ namespace Aria::Internal {
             } else {
                 ARIA_ASSERT(false, "todo: add error message");
             }
+        }
+
+        if (expr->ResultDiscarded) {
+            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of explicit cast", CompilerDiagKind::Warning);
         }
     }
 
@@ -474,12 +490,19 @@ namespace Aria::Internal {
                 {
                     expr->Type = &BoolType;
                     expr->ValueKind = ExprValueKind::RValue;
+
+                    if (expr->ResultDiscarded) {
+                        m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of relational operator", CompilerDiagKind::Warning);
+                    }
                     return;
                 }
 
                 expr->Type = LHS->Type;
                 expr->ValueKind = ExprValueKind::RValue;
 
+                if (expr->ResultDiscarded) {
+                    m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of binary operator", CompilerDiagKind::Warning);
+                }
                 return;
             }
 
@@ -502,6 +525,10 @@ namespace Aria::Internal {
 
                 expr->Type = LHS->Type;
                 expr->ValueKind = ExprValueKind::RValue;
+
+                if (expr->ResultDiscarded) {
+                    m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of bitwise operator", CompilerDiagKind::Warning);
+                }
                 return;
             }
 
@@ -522,7 +549,6 @@ namespace Aria::Internal {
 
                 expr->Type = LHS->Type;
                 expr->ValueKind = ExprValueKind::LValue;
-
                 return;
             }
 
@@ -552,6 +578,9 @@ namespace Aria::Internal {
                 expr->Type = boolType;
                 expr->ValueKind = ExprValueKind::RValue;
 
+                if (expr->ResultDiscarded) {
+                    m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of logical operator", CompilerDiagKind::Warning);
+                }
                 return;
             }
 
