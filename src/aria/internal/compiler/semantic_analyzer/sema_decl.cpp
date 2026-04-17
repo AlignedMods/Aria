@@ -1,0 +1,145 @@
+#include "aria/internal/compiler/semantic_analyzer/semantic_analyzer.hpp"
+
+namespace Aria::Internal {
+
+    void SemanticAnalyzer::ResolveTranslationUnitDecl(Decl* decl) {
+        TranslationUnitDecl tu = decl->TranslationUnit;
+
+        for (Stmt* stmt : tu.Stmts) {
+            ResolveStmt(stmt);
+        }
+    }
+
+    void SemanticAnalyzer::ResolveVarDecl(Decl* decl) {
+        VarDecl& varDecl = decl->Var;
+        std::string ident = fmt::format("{}", varDecl.Identifier);
+
+        if (varDecl.Type) {
+            ResolveType(decl->Loc, decl->Range, varDecl.Type);
+
+            if (varDecl.Type->IsVoid()) {
+                m_Context->ReportCompilerDiagnostic(decl->Loc, decl->Range, "Cannot declare variable of 'void' type");
+            }
+        }
+
+        ResolveInitializer(&varDecl.DefaultValue, varDecl.Type, false);
+
+        if (!varDecl.Type) { varDecl.Type = varDecl.DefaultValue->Type; }
+
+        if (m_Scopes.size() > 0) {
+            if (m_Scopes.back().Declarations.contains(ident)) {
+                m_Context->ReportCompilerDiagnostic(decl->Loc, decl->Range, fmt::format("Redeclaring symbol '{}'", ident));
+            }
+
+            m_Scopes.back().Declarations[ident] = { varDecl.Type, decl, DeclRefKind::LocalVar };
+        }
+    }
+
+    void SemanticAnalyzer::ResolveParamDecl(Decl* decl) {
+        ParamDecl& paramDecl = decl->Param;
+        ResolveType(decl->Loc, decl->Range, paramDecl.Type);
+        m_Scopes.back().Declarations[fmt::format("{}", paramDecl.Identifier)] = { paramDecl.Type, decl, DeclRefKind::ParamVar };
+    }
+
+    void SemanticAnalyzer::ResolveFunctionDecl(Decl* decl) {
+        FunctionDecl fnDecl = decl->Function;
+
+        std::string ident = fmt::format("{}", fnDecl.Identifier);
+        ResolveType(decl->Loc, decl->Range, fnDecl.Type);
+        
+        if (fnDecl.Body) {
+            m_CanReachEndOfFunction = true;
+            m_ActiveReturnType = std::get<FunctionDeclaration>(fnDecl.Type->Data).ReturnType;
+            PushScope();
+            
+            for (Decl* p : fnDecl.Parameters) {
+                ResolveParamDecl(p);
+            }
+            
+            if (fnDecl.Body) {
+                ResolveBlockStmt(fnDecl.Body);
+            }
+            
+            PopScope();
+            m_ActiveReturnType = nullptr;
+
+            if (m_CanReachEndOfFunction && !std::get<FunctionDeclaration>(fnDecl.Type->Data).ReturnType->IsVoid()) {
+                m_Context->ReportCompilerDiagnostic(decl->Loc, decl->Range, "Control flow reaches end of function with a non void return type");
+            }
+        }
+    }
+
+    void SemanticAnalyzer::ResolveStructDecl(Decl* decl) {
+        StructDecl& s = decl->Struct;
+        std::string ident = fmt::format("{}", s.Identifier);
+
+        StructDeclaration d;
+        d.Identifier = s.Identifier;
+        d.SourceDecl = decl;
+        
+        TypeInfo* structType = TypeInfo::Create(m_Context, PrimitiveType::Structure, false, d);
+
+        for (Decl* field : s.Fields) {
+            if (field->Kind == DeclKind::Field) {
+                ResolveType(field->Loc, field->Range, field->Field.Type);
+            }
+        }
+
+        m_ActiveStruct = TypeInfo::Create(m_Context, structType->Type, true, structType->Data);
+        
+        // for (MethodDecl* md : methods) {
+        //     TypeInfo* returnType = GetTypeInfoFromString(md->GetParsedType());
+        //     TinyVector<TypeInfo*> paramTypes;
+        //     m_ActiveReturnType = returnType;
+        //     
+        // 
+        //     m_Declarations.emplace_back();
+        // 
+        //     for (ParamDecl* p : md->GetParameters()) {
+        //         HandleParamDecl(p);
+        //         TypeInfo* pType = p->GetResolvedType();
+        //         paramTypes.Append(m_Context, pType);
+        //     }
+        // 
+        //     // We make the function visible to itself by declaring it before the body
+        //     FunctionDeclaration fd;
+        //     fd.ParamTypes = paramTypes;
+        //     fd.ReturnType = returnType;
+        //     
+        //     TypeInfo* resolvedType = TypeInfo::Create(m_Context, PrimitiveType::Function, false, fd);
+        //     md->SetResolvedType(resolvedType);
+        // 
+        //     std::string ident = md->GetIdentifier();
+        //     m_Declarations.front()[ident] = { md->GetResolvedType(), decl, DeclRefKind::Function };
+        // 
+        //     if (md->GetBody()) {
+        //         HandleCompoundStmt(md->GetBody());
+        //     }
+        // 
+        //     m_Declarations.pop_back();
+        //     m_ActiveReturnType = nullptr;
+        // }
+        
+        m_ActiveStruct = nullptr;
+    }
+
+    void SemanticAnalyzer::ResolveDecl(Decl* decl) {
+        if (decl->Kind == DeclKind::Error) { return; }
+        else if (decl->Kind == DeclKind::TranslationUnit) {
+            return ResolveTranslationUnitDecl(decl);
+        } else if (decl->Kind == DeclKind::Module) {
+            return;
+        } else if (decl->Kind == DeclKind::Var) {
+            return ResolveVarDecl(decl);
+        } else if (decl->Kind == DeclKind::Param) {
+            return ResolveParamDecl(decl);
+        } else if (decl->Kind == DeclKind::Function) {
+            return ResolveFunctionDecl(decl);
+        } else if (decl->Kind == DeclKind::Struct) {
+            return ResolveStructDecl(decl);
+        }
+
+        ARIA_UNREACHABLE();
+    }
+
+} // namespace Aria::Internal

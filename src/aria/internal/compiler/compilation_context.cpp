@@ -3,7 +3,6 @@
 #include "aria/internal/compiler/parser/parser.hpp"
 #include "aria/internal/compiler/semantic_analyzer/semantic_analyzer.hpp"
 #include "aria/internal/compiler/codegen/emitter.hpp"
-#include "aria/internal/compiler/codegen/linker.hpp"
 
 namespace Aria::Internal {
 
@@ -24,7 +23,6 @@ namespace Aria::Internal {
 
         if (!HasErrors) {
             Emit();
-            Link();
         }
     }
 
@@ -32,7 +30,6 @@ namespace Aria::Internal {
     void CompilationContext::Parse() { Parser p(this); }
     void CompilationContext::Analyze() { SemanticAnalyzer s(this); }
     void CompilationContext::Emit() { Emitter e(this); }
-    void CompilationContext::Link() { Linker l(this); }
 
     Module* CompilationContext::FindOrCreateModule(const std::string& name) {
         for (Module* mod : Modules) {

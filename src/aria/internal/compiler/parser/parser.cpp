@@ -882,6 +882,8 @@ namespace Aria::Internal {
         } else if (!type) {
             m_Context->ReportCompilerDiagnostic(ident->Range.Start, SourceRange(start, Peek()->Range.End), "No initializer provided for type-inffered variable declaration");
             type = &ErrorType;
+
+            return &g_ErrorDecl;
         }
 
         TryConsume(TokenKind::Semi, ";");

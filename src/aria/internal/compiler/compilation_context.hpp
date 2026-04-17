@@ -112,7 +112,6 @@ namespace Aria::Internal {
         void Parse();
         void Analyze();
         void Emit();
-        void Link();
 
         Module* FindOrCreateModule(const std::string& name);
 

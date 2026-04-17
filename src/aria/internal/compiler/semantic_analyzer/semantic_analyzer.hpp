@@ -105,7 +105,9 @@ namespace Aria::Internal {
         void ResolveStmt(Stmt* stmt);
 
         void ResolveType(SourceLocation loc, SourceRange range, TypeInfo* type);
-        void ResolveInitializer(Expr* initializer, TypeInfo* type, bool temporary);
+
+        void ResolveInitializer(Expr** initializer, TypeInfo* type, bool temporary);
+        void CreateDefaultInitializer(Expr** initializer, TypeInfo* type);
 
         void PushScope(bool allowBreak = false, bool allowContinue = false);
         void PopScope();

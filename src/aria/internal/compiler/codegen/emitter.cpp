@@ -152,10 +152,12 @@ namespace Aria::Internal {
         IntegerConstantExpr ic = expr->IntegerConstant;
         
         switch (expr->Type->Type) {
-            case PrimitiveType::Int:   PUSH_PENDING_OP(OpCodeKind::Ldc, { TypeInfoToVMTypeIdx(expr->Type), static_cast<i32>(ic.Value) }); break;
-            case PrimitiveType::UInt:  PUSH_PENDING_OP(OpCodeKind::Ldc, { TypeInfoToVMTypeIdx(expr->Type), static_cast<u32>(ic.Value) }); break;
-            case PrimitiveType::Long:  PUSH_PENDING_OP(OpCodeKind::Ldc, { TypeInfoToVMTypeIdx(expr->Type), static_cast<i64>(ic.Value) }); break;
-            case PrimitiveType::ULong: PUSH_PENDING_OP(OpCodeKind::Ldc, { TypeInfoToVMTypeIdx(expr->Type), static_cast<u64>(ic.Value) }); break;
+            case PrimitiveType::Short:  PUSH_PENDING_OP(OpCodeKind::Ldc, { TypeInfoToVMTypeIdx(expr->Type), static_cast<i16>(ic.Value) }); break;
+            case PrimitiveType::UShort: PUSH_PENDING_OP(OpCodeKind::Ldc, { TypeInfoToVMTypeIdx(expr->Type), static_cast<u16>(ic.Value) }); break;
+            case PrimitiveType::Int:    PUSH_PENDING_OP(OpCodeKind::Ldc, { TypeInfoToVMTypeIdx(expr->Type), static_cast<i32>(ic.Value) }); break;
+            case PrimitiveType::UInt:   PUSH_PENDING_OP(OpCodeKind::Ldc, { TypeInfoToVMTypeIdx(expr->Type), static_cast<u32>(ic.Value) }); break;
+            case PrimitiveType::Long:   PUSH_PENDING_OP(OpCodeKind::Ldc, { TypeInfoToVMTypeIdx(expr->Type), static_cast<i64>(ic.Value) }); break;
+            case PrimitiveType::ULong:  PUSH_PENDING_OP(OpCodeKind::Ldc, { TypeInfoToVMTypeIdx(expr->Type), static_cast<u64>(ic.Value) }); break;
 
             default: ARIA_UNREACHABLE();
         }
@@ -163,7 +165,13 @@ namespace Aria::Internal {
 
     void Emitter::EmitFloatingConstantExpr(Expr* expr, ExprValueKind valueKind) {
         FloatingConstantExpr fc = expr->FloatingConstant;
-        PUSH_PENDING_OP(OpCodeKind::Ldc, { TypeInfoToVMTypeIdx(expr->Type), fc.Value });
+
+        switch (expr->Type->Type) {
+            case PrimitiveType::Float: PUSH_PENDING_OP(OpCodeKind::Ldc, { TypeInfoToVMTypeIdx(expr->Type), static_cast<f32>(fc.Value) }); break;
+            case PrimitiveType::Double: PUSH_PENDING_OP(OpCodeKind::Ldc, { TypeInfoToVMTypeIdx(expr->Type), static_cast<f64>(fc.Value) }); break;
+
+            default: ARIA_UNREACHABLE();
+        }
     }
 
     void Emitter::EmitStringConstantExpr(Expr* expr, ExprValueKind valueKind) {
