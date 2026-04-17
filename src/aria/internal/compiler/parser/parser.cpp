@@ -84,7 +84,9 @@ namespace Aria::Internal {
         m_ExprRules[TokenKind::False] =             { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
         m_ExprRules[TokenKind::CharLit] =           { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
         m_ExprRules[TokenKind::IntLit] =            { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
-        m_ExprRules[TokenKind::UintLit] =           { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::UIntLit] =           { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::LongLit] =           { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::ULongLit] =          { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
         m_ExprRules[TokenKind::NumLit] =            { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
         m_ExprRules[TokenKind::StrLit] =            { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
         m_ExprRules[TokenKind::Identifier] =        { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
@@ -343,11 +345,23 @@ namespace Aria::Internal {
     
             case TokenKind::IntLit: {
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::IntegerConstant,
+                    ExprValueKind::RValue, &IntType, 
+                    IntegerConstantExpr(t.Integer));
+            }
+
+            case TokenKind::UIntLit: {
+                return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::IntegerConstant, 
+                    ExprValueKind::RValue, &UIntType, 
+                    IntegerConstantExpr(t.Integer));
+            }
+
+            case TokenKind::LongLit: {
+                return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::IntegerConstant,
                     ExprValueKind::RValue, &LongType, 
                     IntegerConstantExpr(t.Integer));
             }
 
-            case TokenKind::UintLit: {
+            case TokenKind::ULongLit: {
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::IntegerConstant, 
                     ExprValueKind::RValue, &ULongType, 
                     IntegerConstantExpr(t.Integer));
@@ -677,7 +691,9 @@ namespace Aria::Internal {
             case TokenKind::False:
             case TokenKind::CharLit:
             case TokenKind::IntLit:
-            case TokenKind::UintLit:
+            case TokenKind::UIntLit:
+            case TokenKind::LongLit:
+            case TokenKind::ULongLit:
             case TokenKind::NumLit:
             case TokenKind::StrLit:
             case TokenKind::Identifier:
@@ -849,18 +865,23 @@ namespace Aria::Internal {
         ASSIGN_OR_RET(ident, TryConsume(TokenKind::Identifier, "identifier"), &g_ErrorDecl);
         Expr* value = nullptr;
 
-        TryConsume(TokenKind::Colon, ":");
+        if (Match(TokenKind::Colon)) {
+            TryConsume(TokenKind::Colon, ":");
 
-        if (IsPrimitiveType() || Match(TokenKind::Identifier)) {
-            type = ParseType();
-        } else {
-            m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected a type after ':'");
-            type = &ErrorType;
+            if (IsPrimitiveType() || Match(TokenKind::Identifier)) {
+                type = ParseType();
+            } else {
+                m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected a type after ':'");
+                type = &ErrorType;
+            }
         }
 
         if (Match(TokenKind::Eq)) {
             Consume();
             value = ParseExpression();
+        } else if (!type) {
+            m_Context->ReportCompilerDiagnostic(ident->Range.Start, SourceRange(start, Peek()->Range.End), "No initializer provided for type-inffered variable declaration");
+            type = &ErrorType;
         }
 
         TryConsume(TokenKind::Semi, ";");

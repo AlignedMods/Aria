@@ -666,13 +666,17 @@ namespace Aria::Internal {
         VarDecl& varDecl = decl->Var;
         std::string ident = fmt::format("{}", varDecl.Identifier);
 
-        ResolveType(decl->Loc, decl->Range, varDecl.Type);
+        if (varDecl.Type) {
+            ResolveType(decl->Loc, decl->Range, varDecl.Type);
 
-        if (varDecl.Type->IsVoid()) {
-            m_Context->ReportCompilerDiagnostic(decl->Loc, decl->Range, "Cannot declare variable of 'void' type");
+            if (varDecl.Type->IsVoid()) {
+                m_Context->ReportCompilerDiagnostic(decl->Loc, decl->Range, "Cannot declare variable of 'void' type");
+            }
         }
 
         ResolveInitializer(varDecl.DefaultValue, varDecl.Type, false);
+
+        if (!varDecl.Type) { varDecl.Type = varDecl.DefaultValue->Type; }
 
         if (m_Scopes.size() > 0) {
             if (m_Scopes.back().Declarations.contains(ident)) {
@@ -961,16 +965,19 @@ namespace Aria::Internal {
     }
 
     void SemanticAnalyzer::ResolveInitializer(Expr* initializer, TypeInfo* type, bool temporary) {
-        // If we are initializing a reference, the initializer must be of the same type and an lvalue
-        if (type->IsReference()) {
-            ARIA_ASSERT(initializer != nullptr, "initial value of a reference must be an lvalue");
-            ResolveExpr(initializer);
-            TypeInfo* initType = initializer->Type;
+        if (type) {
+            if (type->IsReference()) {
+                ARIA_ASSERT(initializer != nullptr, "initial value of a reference must be an lvalue");
+                ResolveExpr(initializer);
+                TypeInfo* initType = initializer->Type;
 
-            if (!TypeIsEqual(type, initType) || initializer->ValueKind != ExprValueKind::LValue) {
-                m_Context->ReportCompilerDiagnostic(initializer->Loc, initializer->Range, "Initial value of reference must be an lvalue");
+                if (!TypeIsEqual(type, initType) || initializer->ValueKind != ExprValueKind::LValue) {
+                    m_Context->ReportCompilerDiagnostic(initializer->Loc, initializer->Range, "Initial value of reference must be an lvalue");
+                }
             }
-        } else if (initializer) {
+        }
+
+        if (initializer) {
             ResolveExpr(initializer);
             TypeInfo* initType = initializer->Type;
 
@@ -981,6 +988,9 @@ namespace Aria::Internal {
                         CopyExpr(Expr::Dup(m_Context, initializer), m_BuiltInStringCopyConstructor)));
                 }
             }
+
+            // Do not keep going further if we do not have a type
+            if (!type) { return; }
 
             ConversionCost cost = GetConversionCost(type, initType, initializer->ValueKind);
             if (cost.CastNeeded) {

@@ -350,13 +350,25 @@ namespace Aria::Internal {
             }
 
             if (isUnsigned) {
-                AddTokenWithInteger(TokenKind::UintLit,
-                    SourceRange(m_CurrentLine, GetColumn(m_Index - buf.Size()), m_CurrentLine, GetColumn(m_Index)),
-                    integer);
+                if (integer <= UINT32_MAX) {
+                    AddTokenWithInteger(TokenKind::UIntLit,
+                        SourceRange(m_CurrentLine, GetColumn(m_Index - buf.Size()), m_CurrentLine, GetColumn(m_Index)),
+                        integer);
+                } else {
+                    AddTokenWithInteger(TokenKind::ULongLit,
+                        SourceRange(m_CurrentLine, GetColumn(m_Index - buf.Size()), m_CurrentLine, GetColumn(m_Index)),
+                        integer);
+                }
             } else {
-                AddTokenWithInteger(TokenKind::IntLit,
-                    SourceRange(m_CurrentLine, GetColumn(m_Index - buf.Size()), m_CurrentLine, GetColumn(m_Index)),
-                    integer);
+                if (integer <= INT32_MAX) {
+                    AddTokenWithInteger(TokenKind::IntLit,
+                        SourceRange(m_CurrentLine, GetColumn(m_Index - buf.Size()), m_CurrentLine, GetColumn(m_Index)),
+                        integer);
+                } else {
+                    AddTokenWithInteger(TokenKind::LongLit,
+                        SourceRange(m_CurrentLine, GetColumn(m_Index - buf.Size()), m_CurrentLine, GetColumn(m_Index)),
+                        integer);
+                }
             }
         }
     }

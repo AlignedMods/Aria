@@ -151,12 +151,13 @@ namespace Aria::Internal {
     void Emitter::EmitIntegerConstantExpr(Expr* expr,ExprValueKind valueKind) {
         IntegerConstantExpr ic = expr->IntegerConstant;
         
-        if (expr->Type->Type == PrimitiveType::Long) {
-            PUSH_PENDING_OP(OpCodeKind::Ldc, { TypeInfoToVMTypeIdx(expr->Type), static_cast<i64>(ic.Value) });
-        } else if (expr->Type->Type == PrimitiveType::ULong) {
-            PUSH_PENDING_OP(OpCodeKind::Ldc, { TypeInfoToVMTypeIdx(expr->Type), static_cast<u64>(ic.Value) });
-        } else {
-            ARIA_UNREACHABLE();
+        switch (expr->Type->Type) {
+            case PrimitiveType::Int:   PUSH_PENDING_OP(OpCodeKind::Ldc, { TypeInfoToVMTypeIdx(expr->Type), static_cast<i32>(ic.Value) }); break;
+            case PrimitiveType::UInt:  PUSH_PENDING_OP(OpCodeKind::Ldc, { TypeInfoToVMTypeIdx(expr->Type), static_cast<u32>(ic.Value) }); break;
+            case PrimitiveType::Long:  PUSH_PENDING_OP(OpCodeKind::Ldc, { TypeInfoToVMTypeIdx(expr->Type), static_cast<i64>(ic.Value) }); break;
+            case PrimitiveType::ULong: PUSH_PENDING_OP(OpCodeKind::Ldc, { TypeInfoToVMTypeIdx(expr->Type), static_cast<u64>(ic.Value) }); break;
+
+            default: ARIA_UNREACHABLE();
         }
     }
 

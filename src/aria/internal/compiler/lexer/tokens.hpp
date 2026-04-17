@@ -46,7 +46,9 @@ namespace Aria::Internal {
         False,
         CharLit,
         IntLit,
-        UintLit,
+        UIntLit,
+        LongLit,
+        ULongLit,
         NumLit,
         StrLit,
         // ^^^ Literals and constants ^^^ //
@@ -145,7 +147,10 @@ namespace Aria::Internal {
             case TokenKind::True: return "true";
             case TokenKind::False: return "false";
             case TokenKind::CharLit: return "character literal";
-            case TokenKind::IntLit: return "integer literal";
+            case TokenKind::IntLit: return "int literal";
+            case TokenKind::UIntLit: return "uint literal";
+            case TokenKind::LongLit: return "long literal";
+            case TokenKind::ULongLit: return "ulong literal";
             case TokenKind::NumLit: return "number literal";
             case TokenKind::StrLit: return "string literal";
             // ^^^ Literals and constants ^^^ //
