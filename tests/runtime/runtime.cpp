@@ -95,6 +95,7 @@ TEST_CASE("Runtime Functions") {
 TEST_CASE("Runtime Control Flow") {
     Aria::Context ctx = Aria::Context::Create();
     ctx.CompileFile("tests/runtime/control_flow.aria");
+    fmt::print("{}", ctx.DumpAST());
     ctx.Run();
     
     ctx.Call("control_flow::test_while()", 0);

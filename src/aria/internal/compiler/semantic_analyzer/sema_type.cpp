@@ -25,21 +25,14 @@ namespace Aria::Internal {
         }
     }
 
-    ConversionCost SemanticAnalyzer::GetConversionCost(TypeInfo* dst, TypeInfo* src, ExprValueKind srcType) {
+    ConversionCost SemanticAnalyzer::GetConversionCost(TypeInfo* dst, TypeInfo* src) {
         ConversionCost cost{};
         cost.CastNeeded = true;
         cost.ExplicitCastPossible = true;
         cost.ImplicitCastPossible = true;
 
         if (TypeIsEqual(src, dst)) {
-            if (srcType == ExprValueKind::LValue) {
-                cost.CastNeeded = true;
-                cost.CaKind = CastKind::LValueToRValue;
-                cost.CoKind = ConversionKind::LValueToRValue;
-            } else {
-                cost.CastNeeded = false;
-            }
-
+            cost.CastNeeded = false;
             return cost;
         }
 
@@ -67,6 +60,8 @@ namespace Aria::Internal {
             } else {
                 cost.ExplicitCastPossible = false;
             }
+
+            return cost;
         }
 
         if (src->IsFloatingPoint()) {
@@ -88,8 +83,12 @@ namespace Aria::Internal {
             } else {
                 cost.ExplicitCastPossible = false;
             }
+
+            return cost;
         }
 
+        cost.ExplicitCastPossible = false;
+        cost.ImplicitCastPossible = false;
         return cost;
     }
 

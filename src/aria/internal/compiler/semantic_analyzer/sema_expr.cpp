@@ -30,6 +30,12 @@ namespace Aria::Internal {
         if (expr->ResultDiscarded) {
             m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of string literal is not allowed");
         }
+
+        if (m_TemporaryContext) {
+            ReplaceExpr(expr, Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::Temporary,
+                ExprValueKind::RValue, expr->Type,
+                TemporaryExpr(Expr::Dup(m_Context, expr), m_BuiltInStringDestructor)));
+        }
     }
 
     void SemanticAnalyzer::ResolveDeclRefExpr(Expr* expr) {
@@ -211,12 +217,21 @@ namespace Aria::Internal {
                 }
             } else {
                 for (size_t i = 0; i < fnDecl.ParamTypes.Size; i++) {
-                    ResolveInitializer(&call.Arguments.Items[i], fnDecl.ParamTypes.Items[i], true);
+                    ResolveParamInitializer(fnDecl.ParamTypes.Items[i], call.Arguments.Items[i]);
                 }
             }
 
             expr->Type = fnDecl.ReturnType;
             expr->ValueKind = (fnDecl.ReturnType->IsReference()) ? ExprValueKind::LValue : ExprValueKind::RValue;
+
+            // We may need to create a temporary if a function returns a non-trivial type and it is discarded
+            if (expr->ResultDiscarded && !fnDecl.ReturnType->IsReference()) {
+                if (fnDecl.ReturnType->IsString()) {
+                    ReplaceExpr(expr, Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::Temporary,
+                        ExprValueKind::RValue, expr->Type,
+                        TemporaryExpr(Expr::Dup(m_Context, expr), m_BuiltInStringDestructor)));
+                }
+            }
 
             return;
         }
@@ -244,12 +259,13 @@ namespace Aria::Internal {
         CastExpr& cast = expr->Cast;
         
         ResolveExpr(cast.Expression);
+        RequireRValue(cast.Expression);
         expr->Type = cast.Type;
 
         TypeInfo* srcType = cast.Expression->Type;
         TypeInfo* dstType = cast.Type;
 
-        ConversionCost cost = GetConversionCost(dstType, srcType, cast.Expression->ValueKind);
+        ConversionCost cost = GetConversionCost(dstType, srcType);
 
         if (cost.CastNeeded) {
             if (cost.ExplicitCastPossible) {
@@ -371,7 +387,7 @@ namespace Aria::Internal {
                     m_Context->ReportCompilerDiagnostic(LHS->Loc, LHS->Range, "Expression must be a modifiable lvalue");
                 }
 
-                ConversionCost cost = GetConversionCost(LHS->Type, RHS->Type, RHS->ValueKind);
+                ConversionCost cost = GetConversionCost(LHS->Type, RHS->Type);
 
                 if (cost.CastNeeded) {
                     if (cost.ImplicitCastPossible) {
@@ -390,8 +406,11 @@ namespace Aria::Internal {
             case BinaryOperatorKind::LogOr: {
                 TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
 
-                ConversionCost costLHS = GetConversionCost(boolType, LHS->Type, LHS->ValueKind);
-                ConversionCost costRHS = GetConversionCost(boolType, RHS->Type, RHS->ValueKind);
+                RequireRValue(LHS);
+                RequireRValue(RHS);
+
+                ConversionCost costLHS = GetConversionCost(boolType, LHS->Type);
+                ConversionCost costRHS = GetConversionCost(boolType, RHS->Type);
 
                 if (costLHS.CastNeeded) {
                     if (costLHS.ImplicitCastPossible) {
@@ -427,6 +446,8 @@ namespace Aria::Internal {
         
         ResolveExpr(compAss.LHS);
         ResolveExpr(compAss.RHS);
+
+        RequireRValue(compAss.RHS);
         
         Expr* LHS = compAss.LHS;
         Expr* RHS = compAss.RHS;
@@ -438,7 +459,7 @@ namespace Aria::Internal {
             m_Context->ReportCompilerDiagnostic(compAss.LHS->Loc, compAss.LHS->Range, "Expression must be a modifiable lvalue");
         }
         
-        ConversionCost cost = GetConversionCost(LHSType, RHSType, compAss.RHS->ValueKind);
+        ConversionCost cost = GetConversionCost(LHSType, RHSType);
         
         if (cost.CastNeeded) {
             if (cost.ImplicitCastPossible) {
@@ -497,7 +518,13 @@ namespace Aria::Internal {
 
     void SemanticAnalyzer::RequireRValue(Expr* expr) {
         if (expr->ValueKind == ExprValueKind::LValue) {
-            InsertImplicitCast(expr->Type, expr->Type, expr, CastKind::LValueToRValue);
+            if (expr->Type->Type == PrimitiveType::String) {
+                ReplaceExpr(expr, Expr::Create(m_Context, expr->Loc, expr->Range, 
+                    ExprKind::Copy, ExprValueKind::RValue, expr->Type, 
+                    CopyExpr(Expr::Dup(m_Context, expr), m_BuiltInStringCopyConstructor)));
+            } else {
+                InsertImplicitCast(expr->Type, expr->Type, expr, CastKind::LValueToRValue);
+            }
         }
     }
 
@@ -509,9 +536,10 @@ namespace Aria::Internal {
             return;
         }
 
+        RequireRValue(lhs);
+        RequireRValue(rhs);
+
         if (TypeIsEqual(lhsType, rhsType)) {
-            RequireRValue(lhs);
-            RequireRValue(rhs);
             return;
         }
 
@@ -521,10 +549,8 @@ namespace Aria::Internal {
 
             if (lSize > rSize) {
                 InsertImplicitCast(lhsType, rhsType, rhs, CastKind::Integral);
-                RequireRValue(lhs);
             } else if (rSize > lSize) {
                 InsertImplicitCast(rhsType, lhsType, lhs, CastKind::Integral);
-                RequireRValue(rhs);
             } else if (lSize == rSize) {
                 // We know that the types are not equal so we likely have a signed/unsigned mismatch
                 m_Context->ReportCompilerDiagnostic(lhs->Loc, SourceRange(lhs->Range.Start, rhs->Range.End), fmt::format("Mismatched types '{}' and '{}' (implicit signedness conversions are not allowed here)", TypeInfoToString(lhsType), TypeInfoToString(rhsType)));
@@ -535,13 +561,11 @@ namespace Aria::Internal {
 
         if (lhsType->IsIntegral() && rhsType->IsFloatingPoint()) {
             InsertImplicitCast(rhsType, lhsType, lhs, CastKind::IntegralToFloating);
-            RequireRValue(rhs);
             return;
         }
 
         if (lhsType->IsFloatingPoint() && rhsType->IsIntegral()) {
             InsertImplicitCast(lhsType, rhsType, rhs, CastKind::IntegralToFloating);
-            RequireRValue(lhs);
             return;
         }
 
@@ -551,10 +575,8 @@ namespace Aria::Internal {
 
             if (lSize > rSize) {
                 InsertImplicitCast(lhsType, rhsType, rhs, CastKind::Floating);
-                RequireRValue(lhs);
             } else if (rSize > lSize) {
                 InsertImplicitCast(rhsType, lhsType, lhs, CastKind::Floating);
-                RequireRValue(rhs);
             }
 
             return;

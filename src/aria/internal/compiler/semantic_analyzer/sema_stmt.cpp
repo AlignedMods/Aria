@@ -105,7 +105,17 @@ namespace Aria::Internal {
             return;
         }
         
-        ResolveInitializer(&ret.Value, m_ActiveReturnType, false);
+        ResolveExpr(ret.Value);
+        RequireRValue(ret.Value);
+
+        ConversionCost cost = GetConversionCost(m_ActiveReturnType, ret.Value->Type);
+        if (cost.CastNeeded) {
+            if (cost.ImplicitCastPossible) {
+                InsertImplicitCast(m_ActiveReturnType, ret.Value->Type, ret.Value, cost.CaKind);
+            } else {
+                m_Context->ReportCompilerDiagnostic(ret.Value->Loc, ret.Value->Range, fmt::format("Cannot implicitly convert '{}' to return type '{}'", TypeInfoToString(ret.Value->Type), TypeInfoToString(m_ActiveReturnType)));
+            }
+        }
 
         if (m_Scopes.size() == 1) {
             m_CanReachEndOfFunction = false;

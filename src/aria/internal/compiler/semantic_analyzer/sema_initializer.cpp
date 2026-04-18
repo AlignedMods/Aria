@@ -2,60 +2,69 @@
 
 namespace Aria::Internal {
 
-    void SemanticAnalyzer::ResolveInitializer(Expr** initializer, TypeInfo* type, bool temporary) {
-        if (!*initializer) {
-            return CreateDefaultInitializer(initializer, type);
+    void SemanticAnalyzer::ResolveVarInitializer(Decl* decl) {
+        ARIA_ASSERT(decl->Kind == DeclKind::Var, "SemanticAnalyzer::ResolveVarInitializer() only supports a variable declaration");
+        VarDecl& var = decl->Var;
+
+        if (!var.Initializer) {
+            return CreateDefaultInitializer(decl);
         } else {
-            ResolveExpr(*initializer);
+            ResolveExpr(var.Initializer);
         }
 
-        TypeInfo* initType = (*initializer)->Type;
+        TypeInfo* initType = var.Initializer->Type;
+        RequireRValue(var.Initializer);
 
-        if ((*initializer)->ValueKind == ExprValueKind::LValue) {
-            if (initType->Type == PrimitiveType::String) {
-                ReplaceExpr(*initializer, Expr::Create(m_Context, (*initializer)->Loc, (*initializer)->Range, 
-                    ExprKind::Copy, ExprValueKind::LValue, (*initializer)->Type, 
-                    CopyExpr(Expr::Dup(m_Context, *initializer), m_BuiltInStringCopyConstructor)));
-            }
-        }
+        // Handle type inferrence here
+        if (!var.Type) { var.Type = initType; }
 
-        // Do not keep going further if we do not have a type
-        if (!type) { return; }
-
-        ConversionCost cost = GetConversionCost(type, initType, (*initializer)->ValueKind);
+        ConversionCost cost = GetConversionCost(var.Type, initType);
         if (cost.CastNeeded) {
             if (cost.ImplicitCastPossible) {
-                InsertImplicitCast(type, initType, (*initializer), cost.CaKind);
+                InsertImplicitCast(var.Type, initType, var.Initializer, cost.CaKind);
             } else {
-                m_Context->ReportCompilerDiagnostic((*initializer)->Loc, (*initializer)->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(initType), TypeInfoToString(type)));
-            }
-        }
-
-        if (temporary) {
-            if ((*initializer)->Type->Type == PrimitiveType::String) {
-                ReplaceExpr((*initializer), Expr::Create(m_Context, (*initializer)->Loc, (*initializer)->Range, 
-                    ExprKind::Temporary, ExprValueKind::RValue, (*initializer)->Type, 
-                    TemporaryExpr(Expr::Dup(m_Context, (*initializer)), m_BuiltInStringDestructor)));
+                m_Context->ReportCompilerDiagnostic(var.Initializer->Loc, var.Initializer->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(initType), TypeInfoToString(var.Type)));
             }
         }
     }
 
-    void SemanticAnalyzer::CreateDefaultInitializer(Expr** initializer, TypeInfo* type) {
-        switch (type->Type) {
-            case PrimitiveType::Bool:   *initializer = Expr::Create(m_Context, {}, {}, ExprKind::BooleanConstant,   ExprValueKind::RValue, type, BooleanConstantExpr(false)); break;
-            case PrimitiveType::Char:   *initializer = Expr::Create(m_Context, {}, {}, ExprKind::CharacterConstant, ExprValueKind::RValue, type, CharacterConstantExpr('\0')); break;
-            case PrimitiveType::UChar:  *initializer = Expr::Create(m_Context, {}, {}, ExprKind::CharacterConstant, ExprValueKind::RValue, type, CharacterConstantExpr('\0')); break;
-            case PrimitiveType::Short:  *initializer = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, type, IntegerConstantExpr(0)); break;
-            case PrimitiveType::UShort: *initializer = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, type, IntegerConstantExpr(0)); break;
-            case PrimitiveType::Int:    *initializer = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, type, IntegerConstantExpr(0)); break;
-            case PrimitiveType::UInt:   *initializer = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, type, IntegerConstantExpr(0)); break;
-            case PrimitiveType::Long:   *initializer = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, type, IntegerConstantExpr(0)); break;
-            case PrimitiveType::ULong:  *initializer = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, type, IntegerConstantExpr(0)); break;
+    void SemanticAnalyzer::ResolveParamInitializer(TypeInfo* paramType, Expr* arg) {
+        m_TemporaryContext = true;
+        ResolveExpr(arg);
+        m_TemporaryContext = false;
 
-            case PrimitiveType::Float:  *initializer = Expr::Create(m_Context, {}, {}, ExprKind::FloatingConstant,  ExprValueKind::RValue, type, FloatingConstantExpr(0.0)); break;
-            case PrimitiveType::Double: *initializer = Expr::Create(m_Context, {}, {}, ExprKind::FloatingConstant,  ExprValueKind::RValue, type, FloatingConstantExpr(0.0)); break;
+        TypeInfo* argType = arg->Type;
+        RequireRValue(arg);
 
-            case PrimitiveType::String: *initializer = Expr::Create(m_Context, {}, {}, ExprKind::StringConstant,    ExprValueKind::RValue, type, StringConstantExpr("")); break;
+        ConversionCost cost = GetConversionCost(paramType, argType);
+        if (cost.CastNeeded) {
+            if (cost.ImplicitCastPossible) {
+                InsertImplicitCast(paramType, argType, arg, cost.CaKind);
+            } else {
+                m_Context->ReportCompilerDiagnostic(arg->Loc, arg->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(argType), TypeInfoToString(paramType)));
+            }
+        }
+    }
+
+    void SemanticAnalyzer::CreateDefaultInitializer(Decl* decl) {
+        ARIA_ASSERT(decl->Kind == DeclKind::Var, "SemanticAnalyzer::CreateDefaultInitializer() only supports a variable declaration");
+        VarDecl& var = decl->Var;
+
+        switch (var.Type->Type) {
+            case PrimitiveType::Bool:   var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::BooleanConstant,   ExprValueKind::RValue, var.Type, BooleanConstantExpr(false)); break;
+            case PrimitiveType::Char:   var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::CharacterConstant, ExprValueKind::RValue, var.Type, CharacterConstantExpr('\0')); break;
+            case PrimitiveType::UChar:  var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::CharacterConstant, ExprValueKind::RValue, var.Type, CharacterConstantExpr('\0')); break;
+            case PrimitiveType::Short:  var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, var.Type, IntegerConstantExpr(0)); break;
+            case PrimitiveType::UShort: var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, var.Type, IntegerConstantExpr(0)); break;
+            case PrimitiveType::Int:    var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, var.Type, IntegerConstantExpr(0)); break;
+            case PrimitiveType::UInt:   var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, var.Type, IntegerConstantExpr(0)); break;
+            case PrimitiveType::Long:   var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, var.Type, IntegerConstantExpr(0)); break;
+            case PrimitiveType::ULong:  var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, var.Type, IntegerConstantExpr(0)); break;
+
+            case PrimitiveType::Float:  var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::FloatingConstant,  ExprValueKind::RValue, var.Type, FloatingConstantExpr(0.0)); break;
+            case PrimitiveType::Double: var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::FloatingConstant,  ExprValueKind::RValue, var.Type, FloatingConstantExpr(0.0)); break;
+
+            case PrimitiveType::String: var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::StringConstant,    ExprValueKind::RValue, var.Type, StringConstantExpr("")); break;
 
             default: ARIA_UNREACHABLE();
         }

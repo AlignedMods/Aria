@@ -22,9 +22,7 @@ namespace Aria::Internal {
             }
         }
 
-        ResolveInitializer(&varDecl.DefaultValue, varDecl.Type, false);
-
-        if (!varDecl.Type) { varDecl.Type = varDecl.DefaultValue->Type; }
+        ResolveVarInitializer(decl);
 
         if (m_Scopes.size() > 0) {
             if (m_Scopes.back().Declarations.contains(ident)) {

@@ -52,12 +52,12 @@ namespace Aria::Internal {
     };
 
     struct VarDecl {
-        VarDecl(StringView identifier, TypeInfo* type, Expr* defaultValue)
-            : Identifier(identifier), Type(type), DefaultValue(defaultValue) {}
+        VarDecl(StringView identifier, TypeInfo* type, Expr* initializer)
+            : Identifier(identifier), Type(type), Initializer(initializer) {}
 
         StringView Identifier;
         TypeInfo* Type = nullptr;
-        Expr* DefaultValue = nullptr;
+        Expr* Initializer = nullptr;
     };
 
     struct ParamDecl {

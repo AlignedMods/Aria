@@ -23,8 +23,6 @@ namespace Aria::Internal {
         CastKind CaKind = CastKind::Invalid;
 
         bool CastNeeded = false;
-        bool SignedMismatch = false;
-        bool LValueMismatch = false;
         bool ImplicitCastPossible = false;
         bool ExplicitCastPossible = false;
     };
@@ -106,13 +104,14 @@ namespace Aria::Internal {
 
         void ResolveType(SourceLocation loc, SourceRange range, TypeInfo* type);
 
-        void ResolveInitializer(Expr** initializer, TypeInfo* type, bool temporary);
-        void CreateDefaultInitializer(Expr** initializer, TypeInfo* type);
+        void ResolveVarInitializer(Decl* decl);
+        void ResolveParamInitializer(TypeInfo* paramType, Expr* arg);
+        void CreateDefaultInitializer(Decl* decl);
 
         void PushScope(bool allowBreak = false, bool allowContinue = false);
         void PopScope();
 
-        ConversionCost GetConversionCost(TypeInfo* dst, TypeInfo* src, ExprValueKind srcKind);
+        ConversionCost GetConversionCost(TypeInfo* dst, TypeInfo* src);
         void InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastKind castKind);
         void RequireRValue(Expr* expr);
         void InsertArithmeticPromotion(Expr* lhs, Expr* rhs);
@@ -125,6 +124,8 @@ namespace Aria::Internal {
 
     private:
         std::unordered_map<std::string, bool> m_ImportedModules;
+
+        bool m_TemporaryContext = false;
 
         bool m_CanReachEndOfFunction = true;
 

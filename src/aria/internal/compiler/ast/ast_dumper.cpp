@@ -125,8 +125,8 @@ namespace Aria::Internal {
             return;
         } else if (decl->Kind == DeclKind::Var) {
             m_Output += fmt::format("VarDecl '{}' '{}'\n", decl->Var.Identifier, TypeInfoToString(decl->Var.Type));
-            if (decl->Var.DefaultValue) {
-                DumpExpr(decl->Var.DefaultValue, indentation + 4);
+            if (decl->Var.Initializer) {
+                DumpExpr(decl->Var.Initializer, indentation + 4);
             }
             return;
         } else if (decl->Kind == DeclKind::Param) {

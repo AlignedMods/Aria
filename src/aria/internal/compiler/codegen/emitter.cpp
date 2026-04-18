@@ -441,7 +441,7 @@ namespace Aria::Internal {
         if (cast.Kind == CastKind::LValueToRValue) {
             return EmitExpr(cast.Expression, ExprValueKind::RValue);
         } else {
-            EmitExpr(cast.Expression, ExprValueKind::RValue);
+            EmitExpr(cast.Expression, cast.Expression->ValueKind);
             PUSH_PENDING_OP(OpCodeKind::Cast, { TypeInfoToVMTypeIdx(expr->Type) });
             return;
         }
@@ -452,15 +452,8 @@ namespace Aria::Internal {
     void Emitter::EmitCastExpr(Expr* expr, ExprValueKind valueKind) {
         CastExpr cast = expr->Cast;
         
-        if (cast.Kind == CastKind::LValueToRValue) {
-            return EmitExpr(cast.Expression, ExprValueKind::RValue);
-        } else {
-            EmitExpr(cast.Expression, ExprValueKind::RValue);
-            PUSH_PENDING_OP(OpCodeKind::Cast, { TypeInfoToVMTypeIdx(expr->Type) });
-            return;
-        }
-        
-        ARIA_UNREACHABLE();
+        EmitExpr(cast.Expression, cast.Expression->ValueKind);
+        PUSH_PENDING_OP(OpCodeKind::Cast, { TypeInfoToVMTypeIdx(expr->Type) });
     }
 
     void Emitter::EmitUnaryOperatorExpr(Expr* expr, ExprValueKind valueKind) {
@@ -668,7 +661,7 @@ namespace Aria::Internal {
         }
         
         // For initializers we need to just store the value in the already declared variable
-        if (varDecl.DefaultValue) {
+        if (varDecl. Initializer) {
             if (m_IsGlobalScope) {
                 ADD_STR(ident);
                 PUSH_PENDING_OP(OpCodeKind::LdPtrGlobal, { STR_IDX(-1) });
@@ -676,7 +669,7 @@ namespace Aria::Internal {
                 PUSH_PENDING_OP(OpCodeKind::LdPtrLocal, { m_ActiveStackFrame.LocalCount - 1 });
             }
 
-            EmitExpr(varDecl.DefaultValue, varDecl.DefaultValue->ValueKind);
+            EmitExpr(varDecl.Initializer, varDecl.Initializer->ValueKind);
             PUSH_PENDING_OP(OpCodeKind::Store);
         }
     }
