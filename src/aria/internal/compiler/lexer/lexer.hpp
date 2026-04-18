@@ -29,6 +29,8 @@ namespace Aria::Internal {
 
         void SkipWhitespace();
 
+        char ParseChar();
+
         void AddToken(TokenKind kind, const SourceRange& range, StringView string);
         void AddTokenWithInteger(TokenKind kind, const SourceRange& range, u64 integer);
         void AddTokenWithNumber(TokenKind kind, const SourceRange& range, f64 number);

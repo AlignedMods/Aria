@@ -192,8 +192,7 @@ namespace Aria::Internal {
             return;
         }
 
-        char c = Peek();
-        Consume();
+        char c = ParseChar();
 
         if (!TryConsume('\'')) {
             SourceLocation loc = SourceLocation(m_CurrentLine, GetColumn(m_Index));
@@ -395,8 +394,7 @@ namespace Aria::Internal {
                 }
 
                 default: {
-                    str.Append(m_Context, Peek());
-                    Consume();
+                    str.Append(m_Context, ParseChar());
                     break;
                 }
             }
@@ -525,6 +523,33 @@ namespace Aria::Internal {
                 default: return;
             }
         }
+    }
+
+    char Lexer::ParseChar() {
+        if (Peek() == '\\') {
+            Consume();
+            switch (Peek()) {
+                case '\\': Consume(); return '\\';
+                case '0': Consume(); return '\0';
+                case 'n': Consume(); return '\n';
+                case 't': Consume(); return '\t';
+                case 's': Consume(); return ' ';
+                case 'r': Consume(); return '\r';
+                case '"': Consume(); return '"';
+                case '\'': Consume(); return '\'';
+
+                default: {
+                    SourceLocation loc = SourceLocation(m_CurrentLine, GetColumn(m_Index));
+                    m_Context->ReportCompilerDiagnostic(loc, SourceRange(loc, loc), "Unknown escape sequence");
+                    return '\\';
+                }
+            }
+        } else {
+            Consume();
+            return Peek(-1);
+        }
+
+        ARIA_UNREACHABLE();
     }
 
     void Lexer::AddToken(TokenKind kind, const SourceRange& range, StringView string) {
