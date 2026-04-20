@@ -1,0 +1,6 @@
+module strings;
+
+let str = "Hello world!";
+let copyStr = str;
+
+let escaped = "\n\r\t\0\0\0Hello world";

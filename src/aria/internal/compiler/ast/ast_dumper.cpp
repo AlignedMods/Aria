@@ -64,6 +64,12 @@ namespace Aria::Internal {
             }
             DumpExpr(expr->Call.Callee, indentation + 4);
             return;
+        } else if (expr->Kind == ExprKind::Construct) {
+            m_Output += fmt::format("ConstructExpr '{}' {} {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind), reinterpret_cast<void*>(expr->Construct.Ctor));
+            for (Expr* e : expr->Construct.Arguments) {
+                DumpExpr(e, indentation + 4);
+            }
+            return;
         } else if (expr->Kind == ExprKind::MethodCall) {
             m_Output += fmt::format("MethodCallExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
             for (Expr* e : expr->MethodCall.Arguments) {
@@ -143,12 +149,27 @@ namespace Aria::Internal {
             return;
         } else if (decl->Kind == DeclKind::Struct) {
             m_Output += fmt::format("StructDecl '{}'\n", decl->Struct.Identifier);
+
             for (Decl* field : decl->Struct.Fields) {
                 DumpDecl(field, indentation + 4);
             }
             return;
         } else if (decl->Kind == DeclKind::Field) {
             m_Output += fmt::format("FieldDecl '{}' '{}'\n", decl->Field.Identifier, TypeInfoToString(decl->Field.Type));
+            return;
+        } else if (decl->Kind == DeclKind::Constructor) {
+            m_Output += "ConstructorDecl\n";
+
+            for (Decl* param : decl->Constructor.Parameters) {
+                DumpDecl(param, indentation + 4);
+            }
+
+            DumpStmt(decl->Constructor.Body, indentation + 4);
+            return;
+        } else if (decl->Kind == DeclKind::Destructor) {
+            m_Output += "DestructorDecl\n";
+
+            DumpStmt(decl->Destructor.Body, indentation + 4);
             return;
         } else if (decl->Kind == DeclKind::Method) {
             m_Output += fmt::format("MethodDecl '{}' '{}'\n", decl->Method.Identifier, TypeInfoToString(decl->Method.Type));

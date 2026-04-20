@@ -26,6 +26,7 @@ namespace Aria::Internal {
         Temporary,
         Copy,
         Call,
+        Construct,
         MethodCall,
         Paren,
         Cast,
@@ -167,6 +168,7 @@ namespace Aria::Internal {
     }
 
     struct Decl;
+    struct ConstructorDecl;
     struct Specifier;
 
     struct ErrorExpr {
@@ -255,6 +257,14 @@ namespace Aria::Internal {
             : Callee(callee), Arguments(args) {}
 
         Expr* Callee;
+        TinyVector<Expr*> Arguments;
+    };
+
+    struct ConstructExpr {
+        ConstructExpr(ConstructorDecl* ctor, TinyVector<Expr*> args)
+            : Ctor(ctor), Arguments(args) {}
+
+        ConstructorDecl* Ctor = nullptr;
         TinyVector<Expr*> Arguments;
     };
 
@@ -367,6 +377,7 @@ namespace Aria::Internal {
             TemporaryExpr Temporary;
             CopyExpr Copy;
             CallExpr Call;
+            ConstructExpr Construct;
             MethodCallExpr MethodCall;
             ParenExpr Paren;
             CastExpr Cast;
@@ -414,6 +425,9 @@ namespace Aria::Internal {
 
         Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, CallExpr call)
             : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Call(call) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, ConstructExpr construct)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Construct(construct) {}
 
         Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, MethodCallExpr methodCall)
             : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), MethodCall(methodCall) {}

@@ -5,10 +5,10 @@ namespace Aria::Internal {
     void SemanticAnalyzer::ResolveType(SourceLocation loc, SourceRange range, TypeInfo* type) {
         if (type->Type == PrimitiveType::Unresolved) {
             StringView ident = std::get<UnresolvedType>(type->Data).Identifier;
-            Decl* d = FindSymbolInUnit(m_Context->ActiveCompUnit, ident);
+            Decl* d = FindSymbolInImports(m_Context->ActiveCompUnit, ident);
 
             if (!d) {
-                m_Context->ReportCompilerDiagnostic(loc, range, fmt::format("Could not find type '{}')", ident));
+                m_Context->ReportCompilerDiagnostic(loc, range, fmt::format("Could not find type '{}'", ident));
                 return;
             }
 
@@ -144,6 +144,26 @@ namespace Aria::Internal {
             case PrimitiveType::Double: return 8;
 
             default: ARIA_ASSERT(false, "SemanticAnalyzer::TypeGetSize() only supports trivial (non structure) types");
+        }
+    }
+
+    bool SemanticAnalyzer::TypeIsTrivial(TypeInfo* t) {
+        switch (t->Type) {
+            case PrimitiveType::String:
+                return false;
+
+            case PrimitiveType::Structure: {
+                StructDeclaration& sDecl = std::get<StructDeclaration>(t->Data);
+
+                if (sDecl.SourceDecl) {
+                    ARIA_ASSERT(sDecl.SourceDecl->Kind == DeclKind::Struct, "Invalid source decl");
+                    return sDecl.SourceDecl->Struct.Definition.TrivialDtor;
+                }
+
+                return true;
+            }
+
+            default: return true;
         }
     }
 

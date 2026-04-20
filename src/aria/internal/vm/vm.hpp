@@ -136,6 +136,7 @@ namespace Aria::Internal {
         const OpCodes* m_Program = nullptr;
         size_t m_ProgramCounter = 0;
 
+        std::unordered_map<size_t, size_t> m_CachedStructSize;
         std::unordered_map<std::string_view, VMFunction> m_Functions;
         std::unordered_map<std::string_view, ExternFn> m_ExternalFunctions;
 

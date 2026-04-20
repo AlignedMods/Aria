@@ -15,6 +15,8 @@ namespace Aria::Internal {
         Function,
         Struct,
         Field,
+        Constructor,
+        Destructor,
         Method,
         BuiltinCopyConstructor,
         BuiltinDestructor
@@ -79,10 +81,19 @@ namespace Aria::Internal {
     };
 
     struct StructDecl {
-        StructDecl(StringView identifier, TinyVector<Decl*> fields)
-            : Identifier(identifier), Fields(fields) {}
+        struct DefinitionData {
+            bool HasDefaultCtor : 1;
+            bool HasUserDefaultCtor : 1;
+
+            bool HasUserDtor : 1;
+            bool TrivialDtor : 1;
+        };
+
+        StructDecl(StringView identifier, DefinitionData defd, TinyVector<Decl*> fields)
+            : Identifier(identifier), Definition(defd), Fields(fields) {}
 
         StringView Identifier;
+        DefinitionData Definition;
         TinyVector<Decl*> Fields;
     };
 
@@ -92,6 +103,21 @@ namespace Aria::Internal {
 
         StringView Identifier;
         TypeInfo* Type = nullptr;
+    };
+
+    struct ConstructorDecl {
+        ConstructorDecl(TinyVector<Decl*> parameters, Stmt* body)
+            : Parameters(parameters), Body(body) {}
+
+        TinyVector<Decl*> Parameters;
+        Stmt* Body = nullptr;
+    };
+
+    struct DestructorDecl {
+        DestructorDecl(Stmt* body)
+            : Body(body) {}
+
+        Stmt* Body = nullptr;
     };
 
     struct MethodDecl {
@@ -138,6 +164,8 @@ namespace Aria::Internal {
             FunctionDecl Function;
             StructDecl Struct;
             FieldDecl Field;
+            ConstructorDecl Constructor;
+            DestructorDecl Destructor;
             MethodDecl Method;
             BuiltinCopyConstructorDecl BuiltinCopyConstructor;
             BuiltinDestructorDecl BuiltinDestructor;
@@ -166,6 +194,12 @@ namespace Aria::Internal {
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, int flags, FieldDecl field)
             : Loc(loc), Range(range), Kind(kind), Flags(flags), Field(field) {}
+
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, int flags, ConstructorDecl ctor)
+            : Loc(loc), Range(range), Kind(kind), Flags(flags), Constructor(ctor) {}
+
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, int flags, DestructorDecl dtor)
+            : Loc(loc), Range(range), Kind(kind), Flags(flags), Destructor(dtor) {}
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, int flags, MethodDecl method)
             : Loc(loc), Range(range), Kind(kind), Flags(flags), Method(method) {}

@@ -95,7 +95,6 @@ TEST_CASE("Runtime Functions") {
 TEST_CASE("Runtime Control Flow") {
     Aria::Context ctx = Aria::Context::Create();
     ctx.CompileFile("tests/runtime/control_flow.aria");
-    fmt::print("{}", ctx.DumpAST());
     ctx.Run();
     
     ctx.Call("control_flow::test_while()", 0);
@@ -154,6 +153,21 @@ TEST_CASE("Runtime Casts") {
     REQUIRE((ctx.GetDouble(-1) > 9.9999999 && ctx.GetDouble(-1) < 10.000000001));
 
     ctx.Pop(4);
+}
+
+TEST_CASE("Runtime Strings") {
+    Aria::Context ctx = Aria::Context::Create();
+    ctx.CompileFile("tests/runtime/strings.aria");
+    ctx.Run();
+
+    ctx.GetGlobal("strings::str");
+    REQUIRE(ctx.GetString(-1) == "Hello world!");
+    ctx.GetGlobal("strings::copyStr");
+    REQUIRE(ctx.GetString(-1) == "Hello world!");
+    ctx.GetGlobal("strings::escaped");
+    REQUIRE(ctx.GetString(-1) == std::string_view("\n\r\t\0\0\0Hello world", 17));
+
+    ctx.Pop(3);
 }
 
 TEST_CASE("Runtime Structs") {

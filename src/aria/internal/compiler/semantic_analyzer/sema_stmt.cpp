@@ -144,6 +144,7 @@ namespace Aria::Internal {
         } else if (stmt->Kind == StmtKind::Return) {
             return ResolveReturnStmt(stmt);
         } else if (stmt->Kind == StmtKind::Expr) {
+            ARIA_ASSERT(stmt->ExprStmt->ResultDiscarded, "Result of expression-statement must be discarded");
             return ResolveExpr(stmt->ExprStmt);
         } else if (stmt->Kind == StmtKind::Decl) {
             return ResolveDecl(stmt->DeclStmt);

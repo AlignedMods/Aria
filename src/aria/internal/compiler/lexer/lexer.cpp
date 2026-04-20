@@ -45,6 +45,8 @@ namespace Aria::Internal {
                           break;
                 case '}': AddToken(TokenKind::RightCurly, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "}");
                           break;
+                case '~': AddToken(TokenKind::Squigly, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "~");
+                          break;
                 case ',': AddToken(TokenKind::Comma, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), ",");
                           break;
                 case ':': {
@@ -147,7 +149,7 @@ namespace Aria::Internal {
                         break;
                     }
 
-                    fmt::print("Unknown character: {:x}\n", c);
+                    fmt::print("Unknown character: {} ({:x})\n", c, c);
 
                     ARIA_UNREACHABLE();
                     break;

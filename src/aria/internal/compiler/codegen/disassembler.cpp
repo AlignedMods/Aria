@@ -287,7 +287,7 @@ namespace Aria::Internal {
 
             case VMTypeKind::String: return "str";
 
-            case VMTypeKind::Struct: return fmt::format("%{}", type.Data);
+            case VMTypeKind::Struct: return m_Program->StructTable[type.Data].Name;
 
             default: ARIA_UNREACHABLE();
         }

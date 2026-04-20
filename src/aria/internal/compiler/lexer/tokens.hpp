@@ -17,6 +17,7 @@ namespace Aria::Internal {
         RightBracket,
         LeftCurly,
         RightCurly,
+        Squigly,
         Comma,
         Colon,
         ColonColon,

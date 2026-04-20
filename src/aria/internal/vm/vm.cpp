@@ -937,16 +937,16 @@ namespace Aria::Internal {
             case VMTypeKind::String: return sizeof(RuntimeString);
 
             case VMTypeKind::Struct: {
-                ARIA_TODO("VM::GetVMTypeSize() struct type");
-                // if (m_CachedStructSizes.contains(type.Data)) { return m_CachedStructSizes.at(type.Data); }
-                // 
-                // size_t size = 0;
-                // 
-                // for (auto& field : std::get<OpCodeStruct>(m_Structs.at(type.Data).Data).Fields) {
-                //     size += AlignToEight(GetVMTypeSize(field));
-                // }
-                // 
-                // return size;
+                if (m_CachedStructSize.contains(type.Data)) { return m_CachedStructSize.at(type.Data); }
+
+                size_t size = 0;
+                const VMStruct& str = m_Program->StructTable[type.Data];
+                for (size_t field : str.Fields) {
+                    size += AlignToEight(GetVMTypeSize(GET_TYPE(field)));
+                }
+
+                m_CachedStructSize[type.Data] = size;
+                return size;
             }
 
             default: ARIA_UNREACHABLE();

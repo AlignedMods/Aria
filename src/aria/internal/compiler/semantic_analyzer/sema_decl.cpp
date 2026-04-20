@@ -76,10 +76,32 @@ namespace Aria::Internal {
         d.SourceDecl = decl;
         
         TypeInfo* structType = TypeInfo::Create(m_Context, PrimitiveType::Structure, false, d);
+        std::vector<Decl*> methods;
 
         for (Decl* field : s.Fields) {
             if (field->Kind == DeclKind::Field) {
                 ResolveType(field->Loc, field->Range, field->Field.Type);
+
+                if (!TypeIsTrivial(field->Field.Type)) {
+                    s.Definition.TrivialDtor = false;
+                }
+            } else if (field->Kind == DeclKind::Constructor) {
+                methods.push_back(field);
+            }
+        }
+
+        for (Decl* method : methods) {
+            if (method->Kind == DeclKind::Constructor) {
+                TinyVector<Stmt*> newBody;
+
+                for (Decl* field : s.Fields) {
+                    if (field->Kind == DeclKind::Field) {
+                        if (!TypeIsTrivial(field->Field.Type)) {
+                            ARIA_TODO("Propagating constructors");
+                        }
+                    }
+                }
+                ResolveStmt(method->Constructor.Body);
             }
         }
 

@@ -17,13 +17,14 @@ namespace Aria::Internal {
             Decl* Destructor = nullptr;
         };
 
-        struct RuntimeStructDeclaration {
-            std::unordered_map<std::string, size_t> FieldIndices;
-        };
-
         struct Scope {
             std::unordered_map<std::string, size_t> DeclaredSymbolMap;
             std::vector<Declaration> DeclaredSymbols;
+        };
+
+        struct RuntimeStructDeclaration {
+            std::unordered_map<std::string_view, size_t> FieldIndices;
+            size_t Index = 0;
         };
 
         struct StackFrame {
@@ -47,6 +48,7 @@ namespace Aria::Internal {
         void EmitImpl();
 
         void AddBasicTypes();
+        void AddUserDefinedTypes();
         void EmitDeclarations();
         void EmitStartEnd();
 
@@ -61,6 +63,7 @@ namespace Aria::Internal {
         void EmitTemporaryExpr(Expr* expr,         ExprValueKind valueKind);
         void EmitCopyExpr(Expr* expr,              ExprValueKind valueKind);
         void EmitCallExpr(Expr* expr,              ExprValueKind valueKind);
+        void EmitConstructExpr(Expr* expr,         ExprValueKind valueKind);
         void EmitMethodCallExpr(Expr* expr,        ExprValueKind valueKind);
         void EmitParenExpr(Expr* expr,             ExprValueKind valueKind);
         void EmitImplicitCastExpr(Expr* expr,      ExprValueKind valueKind);
@@ -116,8 +119,9 @@ namespace Aria::Internal {
         Scope m_GlobalScope;
         bool m_IsGlobalScope = false;
 
-        std::unordered_map<std::string, RuntimeStructDeclaration> m_Structs;
+        std::unordered_map<Decl*, RuntimeStructDeclaration> m_Structs;
         std::unordered_map<PrimitiveType, size_t> m_BasicTypes;
+        size_t m_StructIndex = 0;
 
         // Counters
         size_t m_AndCounter = 0;

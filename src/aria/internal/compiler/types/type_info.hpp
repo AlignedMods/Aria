@@ -42,7 +42,6 @@ namespace Aria::Internal {
     struct StructDeclaration {
         StringView Identifier;
         Decl* SourceDecl = nullptr;
-        size_t Size = 0;
     };
 
     struct FunctionDeclaration {
@@ -172,6 +171,11 @@ namespace Aria::Internal {
                 StructDeclaration decl = std::get<StructDeclaration>(type->Data);
 
                 str = fmt::format("struct {}", decl.Identifier);
+                break;
+            }
+
+            case PrimitiveType::Unresolved: {
+                str = "unresolved";
                 break;
             }
 

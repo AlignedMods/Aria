@@ -6,6 +6,7 @@
 #include <string_view>
 #include <array>
 #include <vector>
+#include <unordered_map>
 
 namespace Aria::Internal {
 
@@ -26,8 +27,7 @@ namespace Aria::Internal {
 
     struct VMType {
         VMTypeKind Kind = VMTypeKind::Invalid;
-        std::string_view Data;
-        size_t Size = 0; // Size aligned to 8 bytes
+        size_t Data = 0;
 
         bool operator==(VMType& other) {
             if (Kind != VMTypeKind::Struct && other.Kind != VMTypeKind::Struct) {
@@ -36,6 +36,11 @@ namespace Aria::Internal {
         
             return Data == other.Data;
         }
+    };
+
+    struct VMStruct {
+        std::vector<size_t> Fields;
+        std::string Name;
     };
 
     enum class OpCodeKind : u16 {
@@ -185,6 +190,7 @@ namespace Aria::Internal {
     struct OpCodes {
         std::vector<std::string> StringTable;
         std::vector<VMType> TypeTable;
+        std::vector<VMStruct> StructTable;
 
         std::vector<OpCode> OpCodeTable;
     };

@@ -62,6 +62,7 @@ namespace Aria::Internal {
         void ResolveModuleCode(Module* module);
         void ResolveUnitCode(Module* module, CompilationUnit* unit);
 
+        Decl* FindSymbolInImports(CompilationUnit* unit, StringView identifier);
         Decl* FindSymbolInModule(Module* mod, StringView identifier, bool allowPrivate);
         Decl* FindSymbolInUnit(CompilationUnit* unit, StringView identifier);
 
@@ -121,6 +122,7 @@ namespace Aria::Internal {
 
         bool TypeIsEqual(TypeInfo* lhs, TypeInfo* rhs);
         size_t TypeGetSize(TypeInfo* t);
+        bool TypeIsTrivial(TypeInfo* t);
 
     private:
         std::unordered_map<std::string, bool> m_ImportedModules;

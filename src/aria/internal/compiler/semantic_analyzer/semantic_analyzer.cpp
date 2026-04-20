@@ -39,7 +39,9 @@ namespace Aria::Internal {
     }
 
     void SemanticAnalyzer::ReplaceExpr(Expr* src, Expr* newExpr) {
+        bool resultDiscarded = src->ResultDiscarded;
         *src = *newExpr;
+        src->ResultDiscarded = resultDiscarded;
     }
 
     void SemanticAnalyzer::ReplaceDecl(Decl* src, Decl* newDecl) {

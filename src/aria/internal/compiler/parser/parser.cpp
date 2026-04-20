@@ -657,7 +657,7 @@ namespace Aria::Internal {
     Stmt* Parser::ParseExpressionStatement() {
         Expr* expr = nullptr;
         ASSIGN_OR_RET(expr, ParseExpression(), &g_ErrorStmt);
-        CONSUME_OR_RET(Semi, &g_ErrorStmt);
+        TryConsume(TokenKind::Semi, ";");
         expr->ResultDiscarded = true;
         
         return Stmt::Create(m_Context, expr->Loc, SourceRange(expr->Range.Start, Peek(-1)->Range.End), StmtKind::Expr, expr);
@@ -981,31 +981,65 @@ namespace Aria::Internal {
         Token* ident = TryConsume(TokenKind::Identifier, "indentifier");
         
         TinyVector<Decl*> fields;
+
+        StructDecl::DefinitionData def{};
         
         TryConsume(TokenKind::LeftCurly, "{");
         while (!Match(TokenKind::RightCurly)) {
-            if (IsPrimitiveType() || Match(TokenKind::Identifier)) {
-                SourceLocation start = Peek()->Range.Start;
-                TypeInfo* type = ParseType();
-        
-                Token* fieldName = TryConsume(TokenKind::Identifier, "identifier");
-                if (!fieldName) { SyncLocal(); continue; }
+            SourceLocation start = Peek()->Range.Start;
 
-                if (!TryConsume(TokenKind::Semi, ";")) {
-                    SyncLocal();
-                    if (Match(TokenKind::Semi)) { Consume(); }
+            if (Match(TokenKind::Identifier)) {
+                if (Peek()->String == ident->String) { // Check for constructor
+                    Consume();
+                    TryConsume(TokenKind::LeftParen, "(");
+                    TryConsume(TokenKind::RightParen, ")");
+                    
+                    Stmt* body = ParseBlock();
+
+                    def.HasDefaultCtor = true;
+                    def.HasUserDefaultCtor = true;
+
+                    fields.Append(m_Context, Decl::Create(m_Context, start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Constructor, 0, ConstructorDecl({}, body)));
+                } else {
+                    Token* fieldName = TryConsume(TokenKind::Identifier, "identifier");
+                    if (!fieldName) { SyncLocal(); continue; }
+
+                    TryConsume(TokenKind::Colon, ":");
+
+                    TypeInfo* type = ParseType();
+
+                    if (!TryConsume(TokenKind::Semi, ";")) {
+                        SyncLocal();
+                        if (Match(TokenKind::Semi)) { Consume(); }
+                    }
+
+                    fields.Append(m_Context, Decl::Create(m_Context, fieldName->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Field, 0, FieldDecl(fieldName->String, type)));
                 }
-        
-                fields.Append(m_Context, Decl::Create(m_Context, fieldName->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Field, 0, FieldDecl(fieldName->String, type)));
+            } else if (Match(TokenKind::Squigly)) {
+                Consume();
+
+                Token* dtor = TryConsume(TokenKind::Identifier, "identifier");
+                if (!dtor) { SyncLocal(); continue; }
+
+                if (dtor->String != ident->String) { m_Context->ReportCompilerDiagnostic(dtor->Range.Start, dtor->Range, "Name of destructor must match name of struct"); }
+
+                TryConsume(TokenKind::LeftParen, "(");
+                TryConsume(TokenKind::RightParen, ")");
+
+                Stmt* body = ParseBlock();
+
+                def.HasUserDtor = true;
+                def.TrivialDtor = false;
+
+                fields.Append(m_Context, Decl::Create(m_Context, start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Destructor, 0, DestructorDecl(body)));
             } else {
-                m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected a type or 'fn'");
+                m_Context->ReportCompilerDiagnostic(start, SourceRange(start, start), "Expected identifier or '~'");
                 SyncLocal();
-                TryConsume(TokenKind::Semi, ";");
             }
         }
         TryConsume(TokenKind::RightCurly, "}");
         
-        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(s.Range.Start, Peek(-1)->Range.End), DeclKind::Struct, 0, StructDecl(ident->String, fields));
+        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(s.Range.Start, Peek(-1)->Range.End), DeclKind::Struct, 0, StructDecl(ident->String, def, fields));
         m_Context->ActiveCompUnit->Structs.push_back(decl);
         return decl;
     }

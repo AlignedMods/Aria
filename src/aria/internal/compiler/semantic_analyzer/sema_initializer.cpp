@@ -66,7 +66,33 @@ namespace Aria::Internal {
 
             case PrimitiveType::String: var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::StringConstant,    ExprValueKind::RValue, var.Type, StringConstantExpr("")); break;
 
-            default: ARIA_UNREACHABLE();
+            case PrimitiveType::Structure: {
+                const StructDeclaration& sDecl = std::get<StructDeclaration>(var.Type->Data);
+
+                if (sDecl.SourceDecl) {
+                    ARIA_ASSERT(sDecl.SourceDecl->Kind == DeclKind::Struct, "Invalid source decl");
+                    if (sDecl.SourceDecl->Struct.Definition.HasDefaultCtor) {
+                        ConstructorDecl* ctor = nullptr;
+                        for (auto& field : sDecl.SourceDecl->Struct.Fields) {
+                            if (field->Kind == DeclKind::Constructor && field->Constructor.Parameters.Size == 0) {
+                                ctor = &field->Constructor;
+                            }
+                        }
+
+                        var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::Construct, ExprValueKind::RValue, var.Type, ConstructExpr(ctor, {}));
+                        break;
+                    } else {
+                        m_Context->ReportCompilerDiagnostic(decl->Loc, decl->Range, fmt::format("Cannot default initialize variable of type '{}'", TypeInfoToString(var.Type)));
+                        break;
+                    }
+                }
+
+                break;
+            }
+
+            case PrimitiveType::Unresolved: break;
+
+            default: m_Context->ReportCompilerDiagnostic(decl->Loc, decl->Range, fmt::format("Cannot default initialize variable of type '{}'", TypeInfoToString(var.Type)), CompilerDiagKind::Warning); break;
         }
     }
 

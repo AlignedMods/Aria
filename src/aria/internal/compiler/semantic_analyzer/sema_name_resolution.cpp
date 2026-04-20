@@ -2,6 +2,22 @@
 
 namespace Aria::Internal {
 
+    Decl* SemanticAnalyzer::FindSymbolInImports(CompilationUnit* unit, StringView identifier) {
+        Decl* symbol = nullptr;
+        symbol = FindSymbolInUnit(unit, identifier);
+
+        for (Stmt* import : unit->Imports) {
+            ARIA_ASSERT(import->Kind == StmtKind::Import, "Invalid import");
+            Decl* sy = FindSymbolInModule(import->Import.ResolvedModule, identifier, false);
+
+            if (symbol && sy) { return nullptr; }
+
+            symbol = sy;
+        }
+
+        return symbol;
+    }
+
     Decl* SemanticAnalyzer::FindSymbolInModule(Module* mod, StringView identifier, bool allowPrivate) {
         std::string ident = fmt::format("{}", identifier);
         if (mod->Symbols.contains(ident)) {

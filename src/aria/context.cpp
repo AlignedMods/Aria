@@ -59,6 +59,7 @@ namespace Aria {
 
         CompileFileRaw(contents, path);
         m_ActiveModule->CompilationContext.FinishCompilation();
+        AddStandardLib();
 
         // Handle compiler diagnostics
         auto& unit = m_ActiveModule->CompilationContext.CompilationUnits.at(0);
