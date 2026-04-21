@@ -93,6 +93,13 @@ namespace Aria::Internal {
                         break;
                     }
 
+                    case DeclKind::OverloadedFunction: {
+                        ref.Kind = DeclRefKind::OverloadedFunction;
+                        ref.ReferencedDecl = d;
+                        expr->Type = &ErrorType;
+                        break;
+                    }
+
                     default: ARIA_UNREACHABLE();
                 }
 
@@ -207,7 +214,9 @@ namespace Aria::Internal {
             return;
         }
 
-        if (!calleeType->IsError()) {
+        if (call.Callee->Kind == ExprKind::DeclRef && call.Callee->DeclRef.Kind == DeclRefKind::OverloadedFunction) { // Overloaded function
+            ARIA_TODO("Overloaded function calls");
+        } else if (!call.Callee->Type->IsError()) { // Normal function
             FunctionDeclaration& fnDecl = std::get<FunctionDeclaration>(calleeType->Data);
 
             if (fnDecl.ParamTypes.Size != call.Arguments.Size) {

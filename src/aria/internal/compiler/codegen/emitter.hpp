@@ -105,6 +105,8 @@ namespace Aria::Internal {
 
         size_t TypeInfoToVMTypeIdx(TypeInfo* t);
 
+        std::string MangleFunction(FunctionDecl* fn);
+
     private:
         OpCodes m_OpCodes;
         std::vector<OpCode> m_PendingOpCodes;

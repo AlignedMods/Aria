@@ -1,6 +1,6 @@
 module recursion;
 
-fn fib(int a) -> int {
+fn fib(a: int) -> int {
     if (a <= 1) { return a; }
     return fib(a - 1) + fib(a - 2);
 }

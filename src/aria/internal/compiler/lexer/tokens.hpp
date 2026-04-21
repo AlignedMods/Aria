@@ -109,6 +109,7 @@ namespace Aria::Internal {
             case TokenKind::Colon: return ":";
             case TokenKind::ColonColon: return "::";
             case TokenKind::Dot: return ".";
+            case TokenKind::Arrow: return "->";
             // ^^^ Punctuation ^^^ //
 
             // VVV Operators VVV //

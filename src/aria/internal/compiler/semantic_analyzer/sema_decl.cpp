@@ -155,11 +155,29 @@ namespace Aria::Internal {
             return ResolveParamDecl(decl);
         } else if (decl->Kind == DeclKind::Function) {
             return ResolveFunctionDecl(decl);
+        } else if (decl->Kind == DeclKind::OverloadedFunction) {
+            return;
         } else if (decl->Kind == DeclKind::Struct) {
             return ResolveStructDecl(decl);
         }
 
         ARIA_UNREACHABLE();
+    }
+
+    std::string SemanticAnalyzer::MangleFunction(FunctionDecl* fn) {
+        std::string ident = fmt::format("{}(", fn->Identifier);
+
+        for (size_t i = 0; i < fn->Parameters.Size; i++) {
+            ident += TypeInfoToString(fn->Parameters.Items[i]->Param.Type);
+
+            if (i != fn->Parameters.Size - 1) {
+                ident += ", ";
+            }
+        }
+
+        ident += ")";
+
+        return ident;
     }
 
 } // namespace Aria::Internal

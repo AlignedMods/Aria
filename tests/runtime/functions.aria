@@ -2,13 +2,13 @@ module functions;
 
 let result: int = 0; // Expected to be 24
 
-fn external_function(int a, int b, int c) -> void;
+fn external_function(a: int, b: int, c: int) -> void;
 
-fn add(int lhs, int rhs) -> int {
+fn add(lhs: int, rhs: int) -> int {
     return lhs + rhs;
 }
 
-fn sub(int lhs, int rhs) -> int {
+fn sub(lhs: int, rhs: int) -> int {
     return lhs - rhs;
 }
 

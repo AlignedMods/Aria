@@ -30,6 +30,7 @@ namespace Aria::Internal {
 
     struct Module {
         std::unordered_map<std::string, Decl*> Symbols;
+        std::unordered_map<std::string, std::vector<Decl*>> OverloadedFuncs;
         std::vector<CompilationUnit*> Units;
         std::string Name;
         OpCodes Ops;

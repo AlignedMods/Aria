@@ -13,6 +13,7 @@ namespace Aria::Internal {
         Var,
         Param,
         Function,
+        OverloadedFunction,
         Struct,
         Field,
         Constructor,
@@ -71,7 +72,7 @@ namespace Aria::Internal {
     };
 
     struct FunctionDecl {
-        FunctionDecl( StringView identifier, TypeInfo* type, TinyVector<Decl*> params, Stmt* body)
+        FunctionDecl(StringView identifier, TypeInfo* type, TinyVector<Decl*> params, Stmt* body)
             : Identifier(identifier), Type(type), Parameters(params), Body(body) {}
 
         StringView Identifier;
@@ -147,7 +148,7 @@ namespace Aria::Internal {
 
     struct Decl {
         template <typename T>
-        static inline Decl* Create(CompilationContext* ctx, SourceLocation loc, SourceRange range, DeclKind kind, int flags, T t) { return ctx->Allocate<Decl>(loc, range, kind, flags, t); }
+        static inline Decl* Create(CompilationContext* ctx, SourceLocation loc, SourceRange range, DeclKind kind, int flags, T t = ErrorDecl{}) { return ctx->Allocate<Decl>(loc, range, kind, flags, t); }
 
         DeclKind Kind = DeclKind::Invalid;
         int Flags = 0;

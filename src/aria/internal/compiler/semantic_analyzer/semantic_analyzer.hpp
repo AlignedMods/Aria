@@ -124,6 +124,8 @@ namespace Aria::Internal {
         size_t TypeGetSize(TypeInfo* t);
         bool TypeIsTrivial(TypeInfo* t);
 
+        std::string MangleFunction(FunctionDecl* fn);
+
     private:
         std::unordered_map<std::string, bool> m_ImportedModules;
 

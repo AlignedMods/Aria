@@ -293,7 +293,8 @@ namespace Aria::Internal {
                 ADD_STR(fmt::format("{}()", declRef.Identifier));
                 PUSH_PENDING_OP(OpCodeKind::LdFunc, { STR_IDX(-1) });
             } else {
-                ADD_STR(fmt::format("{}()", ident));
+                std::string ns = (declRef.NameSpecifier) ? fmt::format("{}", declRef.NameSpecifier->Scope.Identifier) : m_ActiveNamespace;
+                ADD_STR(fmt::format("{}::{}", ns, MangleFunction(&declRef.ReferencedDecl->Function)));
                 PUSH_PENDING_OP(OpCodeKind::LdFunc, { STR_IDX(-1) });
             }
 
@@ -727,7 +728,7 @@ namespace Aria::Internal {
 
     void Emitter::EmitFunctionDecl(Decl* decl) {
         FunctionDecl& fnDecl = decl->Function;
-        std::string name = (decl->Flags & DECL_FLAG_NOMANGLE) ? fmt::format("{}()", fnDecl.Identifier) : fmt::format("{}::{}()", m_ActiveNamespace, fnDecl.Identifier);
+        std::string name = (decl->Flags & DECL_FLAG_NOMANGLE) ? fmt::format("{}()", fnDecl.Identifier) : fmt::format("{}::{}", m_ActiveNamespace, MangleFunction(&fnDecl));
 
         if (fnDecl.Body) {
             ADD_STR(name);
@@ -1050,6 +1051,24 @@ namespace Aria::Internal {
         if (t->IsStructure()) {
             return m_Structs.at(std::get<StructDeclaration>(t->Data).SourceDecl).Index;
         }
+
+        ARIA_UNREACHABLE();
+    }
+
+    std::string Emitter::MangleFunction(FunctionDecl* fn) {
+        std::string ident = fmt::format("{}(", fn->Identifier);
+
+        for (size_t i = 0; i < fn->Parameters.Size; i++) {
+            ident += TypeInfoToString(fn->Parameters.Items[i]->Param.Type);
+
+            if (i != fn->Parameters.Size - 1) {
+                ident += ", ";
+            }
+        }
+
+        ident += ")";
+
+        return ident;
     }
 
 } // namespace Aria::Internal

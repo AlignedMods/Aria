@@ -111,14 +111,39 @@ namespace Aria::Internal {
 
             // do not mangle the main function
             if (f.Identifier == "main") { func->Flags |= DECL_FLAG_NOMANGLE; }
-
             std::string ident = fmt::format("{}", f.Identifier);
 
             if (module->Symbols.contains(ident)) {
                 Decl* d = module->Symbols.at(ident);
                 
-                if (d->Kind == DeclKind::Function) { 
-                    m_Context->ReportCompilerDiagnostic(func->Loc, func->Range, fmt::format("Redefining function '{}'", ident));
+                // Handle overloading the first non-overloaded function
+                if (d->Kind == DeclKind::Function) {
+                    module->Symbols[ident] = Decl::Create(m_Context, d->Loc, d->Range, DeclKind::OverloadedFunction, 0, ErrorDecl());
+
+                    std::string oldMangle = MangleFunction(&d->Function);
+                    std::string newMangle = MangleFunction(&f);
+
+                    if (oldMangle == newMangle) {
+                        m_Context->ReportCompilerDiagnostic(func->Loc, func->Range, fmt::format("Redefining function '{}'", ident));
+                        func->Kind = DeclKind::Error;
+                        continue;
+                    }
+
+                    module->OverloadedFuncs[ident].push_back(d);
+                    module->OverloadedFuncs[ident].push_back(func);
+                    continue;
+                } else if (d->Kind == DeclKind::OverloadedFunction) {
+                    std::string oldMangle = MangleFunction(&d->Function);
+                    std::string newMangle = MangleFunction(&f);
+
+                    if (oldMangle == newMangle) {
+                        m_Context->ReportCompilerDiagnostic(func->Loc, func->Range, fmt::format("Redefining overloaded function '{}'", ident));
+                        func->Kind = DeclKind::Error;
+                        continue;
+                    }
+
+                    module->OverloadedFuncs[ident].push_back(func);
+                    continue;
                 } else if (d->Kind == DeclKind::Var) {
                     m_Context->ReportCompilerDiagnostic(func->Loc, func->Range, fmt::format("Redefining global variable '{}' as function", ident));
                 }

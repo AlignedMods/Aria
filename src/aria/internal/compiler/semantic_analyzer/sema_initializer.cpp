@@ -16,7 +16,12 @@ namespace Aria::Internal {
         RequireRValue(var.Initializer);
 
         // Handle type inferrence here
-        if (!var.Type) { var.Type = initType; }
+        if (!var.Type) {
+            if (initType->IsVoid()) {
+                m_Context->ReportCompilerDiagnostic(decl->Loc, decl->Range, "Cannot create variable of void type");
+            }
+            var.Type = initType;
+        }
 
         ConversionCost cost = GetConversionCost(var.Type, initType);
         if (cost.CastNeeded) {

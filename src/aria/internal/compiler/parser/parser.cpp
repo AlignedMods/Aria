@@ -900,7 +900,7 @@ namespace Aria::Internal {
     Decl* Parser::ParseFunctionDecl() {
         SourceLocation start = Peek()->Range.Start;
         Token fn = Consume(); // Consume "fn"
-        TypeInfo* type = nullptr;
+        TypeInfo* type = &ErrorType;
         int flags = 0;
 
         if (IsPrimitiveType()) {
@@ -914,43 +914,13 @@ namespace Aria::Internal {
             return &g_ErrorDecl;
         }
 
-        TryConsume(TokenKind::LeftParen, "(");
-
-        TinyVector<Decl*> params;
-        TinyVector<TypeInfo*> paramTypes;
-
-        while (!Match(TokenKind::RightParen)) {
-            if (!(IsPrimitiveType() || Match(TokenKind::Identifier))) {
-                m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected a type");
-                SyncLocal();
-                continue;
-            }
-
-            TypeInfo* paramType = ParseType();
-            Token* paramIdent = TryConsume(TokenKind::Identifier, "identifier");
-            
-            if (!paramIdent) {
-                SyncLocal();
-                continue;
-            }
-
-            params.Append(m_Context, Decl::Create(m_Context, paramIdent->Range.Start, paramIdent->Range, DeclKind::Param, 0, ParamDecl(paramIdent->String, paramType)));
-            paramTypes.Append(m_Context, paramType);
-
-            if (Match(TokenKind::Comma)) { Consume(); continue; }
-            if (Match(TokenKind::RightParen)) { break; }
-
-            SyncLocal();
-            m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "expected either ',' or ')'");
-        }
-
-        TryConsume(TokenKind::RightParen, ")");
+        auto[params, paramTypes] = ParseFunctionParams();
 
         if (TryConsume(TokenKind::Arrow, "->")) {
             if (!(IsPrimitiveType() || Match(TokenKind::Identifier))) {
                 m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected a type after '->'");
                 SyncLocal();
-            } else if (type == nullptr) {
+            } else if (type->Type == PrimitiveType::Error) {
                 type = ParseType();
             }
 
@@ -974,6 +944,51 @@ namespace Aria::Internal {
 
         m_Context->ActiveCompUnit->Funcs.push_back(decl);
         return decl;
+    }
+
+    std::pair<TinyVector<Decl*>, TinyVector<TypeInfo*>> Parser::ParseFunctionParams() {
+        TinyVector<Decl*> params;
+        TinyVector<TypeInfo*> paramTypes;
+
+        TryConsume(TokenKind::LeftParen, "(");
+
+        while (!Match(TokenKind::RightParen)) {
+            if (IsPrimitiveType()) {
+                m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected an identifier but got a type (<name>: <type>)");
+                Consume();
+                continue;
+            }
+
+            Token* paramIdent = TryConsume(TokenKind::Identifier, "identifier");
+            
+            if (!paramIdent) {
+                Consume();
+                continue;
+            }
+
+            TryConsume(TokenKind::Colon, ":");
+
+            if (!(IsPrimitiveType() || Match(TokenKind::Identifier))) {
+                m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected a type");
+                Consume();
+                continue;
+            }
+
+            TypeInfo* paramType = ParseType();
+            
+            params.Append(m_Context, Decl::Create(m_Context, paramIdent->Range.Start, paramIdent->Range, DeclKind::Param, 0, ParamDecl(paramIdent->String, paramType)));
+            paramTypes.Append(m_Context, paramType);
+
+            if (Match(TokenKind::Comma)) { Consume(); continue; }
+            if (Match(TokenKind::RightParen)) { break; }
+
+            SyncLocal();
+            m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected either ',' or ')'");
+        }
+
+        TryConsume(TokenKind::RightParen, ")");
+
+        return { params, paramTypes };
     }
 
     Decl* Parser::ParseStructDecl() {
