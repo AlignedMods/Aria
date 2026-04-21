@@ -10,6 +10,7 @@
 
 namespace Aria::Internal {
 
+    struct Expr;
     struct Decl;
 
     enum class PrimitiveType {
@@ -54,7 +55,7 @@ namespace Aria::Internal {
     };
 
     struct UnresolvedType {
-        StringView Identifier;
+        Expr* Ident = nullptr;
     };
 
     struct TypeInfo {

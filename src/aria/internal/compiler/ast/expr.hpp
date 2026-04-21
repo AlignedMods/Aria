@@ -41,7 +41,8 @@ namespace Aria::Internal {
         ParamVar,
         GlobalVar,
         Function,
-        OverloadedFunction
+        OverloadedFunction,
+        Struct
     };
     inline const char* DeclRefKindToString(DeclRefKind kind) {
         switch (kind) {
@@ -50,6 +51,7 @@ namespace Aria::Internal {
             case DeclRefKind::GlobalVar: return "GlobalVar";
             case DeclRefKind::Function:  return "Function";
             case DeclRefKind::OverloadedFunction: return "OverloadedFunction";
+            case DeclRefKind::Struct: return "Struct";
 
             default: ARIA_UNREACHABLE();
         }

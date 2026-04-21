@@ -4,16 +4,21 @@ namespace Aria::Internal {
 
     void SemanticAnalyzer::ResolveType(SourceLocation loc, SourceRange range, TypeInfo* type) {
         if (type->Type == PrimitiveType::Unresolved) {
-            StringView ident = std::get<UnresolvedType>(type->Data).Identifier;
-            Decl* d = FindSymbolInImports(m_Context->ActiveCompUnit, ident);
+            UnresolvedType& t = std::get<UnresolvedType>(type->Data);
+            ResolveExpr(t.Ident);
 
-            if (!d) {
-                m_Context->ReportCompilerDiagnostic(loc, range, fmt::format("Could not find type '{}'", ident));
+            if (!t.Ident->DeclRef.ReferencedDecl) {
+                m_Context->ReportCompilerDiagnostic(loc, range, fmt::format("Could not find type '{}'", t.Ident->DeclRef.Identifier));
                 return;
             }
 
-            type->Type = PrimitiveType::Structure;
-            type->Data = StructDeclaration(ident, d);
+            if (t.Ident->DeclRef.Kind == DeclRefKind::Struct) {
+                type->Type = PrimitiveType::Structure;
+                type->Data = StructDeclaration(t.Ident->DeclRef.Identifier, t.Ident->DeclRef.ReferencedDecl);
+            } else {
+                m_Context->ReportCompilerDiagnostic(loc, range, fmt::format("'{}' is not a type", t.Ident->DeclRef.Identifier));
+                return;
+            }
         } else if (type->Type == PrimitiveType::Function) {
             FunctionDeclaration& fn = std::get<FunctionDeclaration>(type->Data);
 

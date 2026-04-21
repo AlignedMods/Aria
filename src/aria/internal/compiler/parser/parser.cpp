@@ -510,7 +510,7 @@ namespace Aria::Internal {
             case TokenKind::String:     type->Type = PrimitiveType::String; break;
 
             case TokenKind::Identifier: {
-                StringView ident = Peek(-1)->String;
+                Expr* ident = ParseIdentifier(*Peek(-1));
                 type->Type = PrimitiveType::Unresolved;
                 type->Data = UnresolvedType(ident);
                 break;

@@ -100,6 +100,13 @@ namespace Aria::Internal {
                         break;
                     }
 
+                    case DeclKind::Struct: {
+                        ref.Kind = DeclRefKind::Struct;
+                        ref.ReferencedDecl = d;
+                        expr->Type = &ErrorType;
+                        break;
+                    }
+
                     default: ARIA_UNREACHABLE();
                 }
 
@@ -155,9 +162,29 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case DeclKind::OverloadedFunction: {
+                    ref.Kind = DeclRefKind::OverloadedFunction;
+                    ref.ReferencedDecl = d;
+                    expr->Type = &ErrorType;
+                    break;
+                }
+
+                case DeclKind::Struct: {
+                    ref.Kind = DeclRefKind::Struct;
+                    ref.ReferencedDecl = d;
+                    expr->Type = &ErrorType;
+                    break;
+                }
+
                 default: ARIA_UNREACHABLE();
             }
 
+            return;
+        }
+
+        if (FindSymbolInImports(m_Context->ActiveCompUnit, ref.Identifier)) {
+            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Symbols from other modules must be prefixed with the module name");
+            expr->Type = &ErrorType;
             return;
         }
 
