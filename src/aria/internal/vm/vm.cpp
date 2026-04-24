@@ -20,11 +20,15 @@ namespace Aria::Internal {
 
         ARIA_ASSERT(m_Functions.contains(signature), "No function named '_end$()' was found");
         VMFunction& func = m_Functions.at(signature);
-        m_ActiveFunction = &func;
 
         // Perform a jump to the function
         ARIA_ASSERT(func.Labels.contains("_entry$"), "_end$() function doesn't contain a \"_entry$\" label");
         m_ProgramCounter = func.Labels.at("_entry$");
+
+        VMStackFrame sf;
+        sf.Function = &func;
+        sf.ReturnAddress = &m_OpCodes->Program.back() + 1;
+        m_StackFrames.push_back(sf);
         Run();
     }
 
@@ -36,6 +40,14 @@ namespace Aria::Internal {
         ARIA_ASSERT(stack.StackPointer + alignedSize < stack.Stack.max_size(), "Stack overflow, allocating an insane amount of memory!");
 
         stack.StackPointer += alignedSize;
+
+        if (stack.Stack.size() == 0) {
+            stack.Reserve(static_cast<size_t>(2) * 1024, 128);
+        }
+
+        while (stack.StackPointer >= stack.Stack.size()) {
+            stack.Stack.resize(stack.Stack.size() * 2);
+        }
 
         // Add more stack slots if needed
         if (stack.StackSlotPointer + 1 >= stack.StackSlots.size()) {
@@ -74,47 +86,17 @@ namespace Aria::Internal {
     }
 
     void VM::Call(const std::string& signature, size_t argCount) {
-        ARIA_TODO("VM::Call()");
+        ARIA_ASSERT(m_Functions.contains(signature), "Calling unknown function");
+        VMFunction& func = m_Functions.at(signature);
+        
+        ARIA_ASSERT(func.Labels.contains("_entry$"), "All functions must contain a \"_entry$\" label");
+        m_ProgramCounter = func.Labels.at("_entry$");
 
-        // ARIA_ASSERT(m_Functions.contains(signature), "Calling unknown function");
-        // VMFunction& func = m_Functions.at(signature);
-        // 
-        // // This function can only be called when the program is in a "halted" state AKA doing nothing
-        // // Therefore when we finish with execution we want to go back to that state
-        // m_StackFrames.back().PreviousReturnAddress = PROG_SIZE();
-        // m_StackFrames.back().PreviousFunction = nullptr;
-        // m_ReturnAddress = PROG_SIZE();
-        // 
-        // // Save function stack
-        // m_StackFrames.back().PFSSBP = m_FunctionStack.StackSlotBasePointer;
-        // m_StackFrames.back().PFSBP = m_FunctionStack.StackBasePointer;
-        // 
-        // // Perform a jump to the function
-        // ARIA_ASSERT(func.Labels.contains("_entry$"), "All functions must contain a \"_entry$\" label");
-        // m_ProgramCounter = func.Labels.at("_entry$");
-        // m_ActiveFunction = &func;
-        // 
-        // // Set up the function stack
-        // m_FunctionStack.StackSlotBasePointer = m_FunctionStack.StackSlotPointer - argCount - 1;
-        // m_FunctionStack.StackBasePointer = m_FunctionStack.StackSlots[m_FunctionStack.StackSlotBasePointer].Index;
-        // 
-        // Run();
-    }
-
-    void VM::CallExtern(const std::string& signature, size_t argCount) {
-        ARIA_TODO("VM::Call()");
-        // ARIA_ASSERT(m_ExternalFunctions.contains(signature), "Calling CallExtern() on a non-existent extern function!");
-        // 
-        // // Set up the function stack
-        // m_FunctionStack.StackSlotBasePointer = m_FunctionStack.StackSlotPointer - argCount - 1;
-        // m_FunctionStack.StackBasePointer = m_FunctionStack.StackSlots[m_FunctionStack.StackSlotBasePointer].Index;
-        // 
-        // // Do the call
-        // m_ExternalFunctions.at(signature)(m_Context);
-        // 
-        // // Cleanup the stack
-        // m_FunctionStack.StackSlotPointer = m_FunctionStack.StackSlotBasePointer;
-        // m_FunctionStack.StackPointer = m_FunctionStack.StackBasePointer;
+        VMStackFrame sf;
+        sf.Function = &func;
+        sf.ReturnAddress = &m_OpCodes->Program.back() + 1;
+        m_StackFrames.push_back(sf);
+        Run();
     }
 
     void VM::StoreBool(i32 slot, bool b, Stack& stack) {
@@ -303,16 +285,20 @@ namespace Aria::Internal {
 
         ARIA_ASSERT(m_Functions.contains(signature), "Byte code does not contain _start$() function");
         VMFunction& func = m_Functions.at(signature);
-        m_ActiveFunction = &func;
 
         // Perform a jump to the function
         ARIA_ASSERT(func.Labels.contains("_entry$"), "_start$() function doesn't contain a \"_entry$\" label");
         m_ProgramCounter = func.Labels.at("_entry$");
+
+        VMStackFrame sf;
+        sf.Function = &func;
+        sf.ReturnAddress = &m_OpCodes->Program.back() + 1;
+        m_StackFrames.push_back(sf);
         Run();
     }
 
     void VM::Run() {
-        for (; m_ProgramCounter < &m_OpCodes->Program.back(); m_ProgramCounter++) {
+        while (m_ProgramCounter < &m_OpCodes->Program.back()) {
             switch (*m_ProgramCounter) {
                 case OP_ALLOCA: {
                     auto& type = GET_TYPE();
@@ -322,23 +308,56 @@ namespace Aria::Internal {
 
                 case OP_LD_CONST: {
                     auto& type = GET_TYPE();
+                    size_t idx = static_cast<size_t>(*(++m_ProgramCounter));
                     Alloca(type, m_Stack);
                     VMSlice slice = GetVMSlice(-1, m_Stack);
 
                     switch (type.Kind) {
-                        case VMTypeKind::I1: memcpy(slice.Memory, ++m_ProgramCounter, sizeof(bool)); break;
+                        case VMTypeKind::I1: {
+                            bool val = static_cast<bool>(std::get<u64>(m_OpCodes->ConstantTable[idx]));
+                            memcpy(slice.Memory, &val, sizeof(bool));
+                            break;
+                        }
 
                         case VMTypeKind::I8:
-                        case VMTypeKind::U8: memcpy(slice.Memory, ++m_ProgramCounter, sizeof(u8)); break;
-                        case VMTypeKind::I16:
-                        case VMTypeKind::U16: memcpy(slice.Memory, ++m_ProgramCounter, sizeof(u16)); break;
-                        case VMTypeKind::I32:
-                        case VMTypeKind::U32: memcpy(slice.Memory, ++m_ProgramCounter, sizeof(u32)); m_ProgramCounter += 1; break;
-                        case VMTypeKind::I64:
-                        case VMTypeKind::U64: memcpy(slice.Memory, ++m_ProgramCounter, sizeof(u64)); m_ProgramCounter += 3; break;
+                        case VMTypeKind::U8: {
+                            u8 val = static_cast<u8>((std::get<u64>(m_OpCodes->ConstantTable[idx])));
+                            memcpy(slice.Memory, &val, sizeof(u8));
+                            break;
+                        }
 
-                        case VMTypeKind::Float: memcpy(slice.Memory, ++m_ProgramCounter, sizeof(float)); m_ProgramCounter += 1; break;
-                        case VMTypeKind::Double: memcpy(slice.Memory, ++m_ProgramCounter, sizeof(double)); m_ProgramCounter += 3; break;
+                        case VMTypeKind::I16:
+                        case VMTypeKind::U16: {
+                            u16 val = static_cast<u16>((std::get<u64>(m_OpCodes->ConstantTable[idx])));
+                            memcpy(slice.Memory, &val, sizeof(u16));
+                            break;
+                        }
+
+                        case VMTypeKind::I32:
+                        case VMTypeKind::U32: {
+                            u32 val = static_cast<u32>((std::get<u64>(m_OpCodes->ConstantTable[idx])));
+                            memcpy(slice.Memory, &val, sizeof(u32));
+                            break;
+                        }
+
+                        case VMTypeKind::I64:
+                        case VMTypeKind::U64: {
+                            u64 val = static_cast<u64>((std::get<u64>(m_OpCodes->ConstantTable[idx])));
+                            memcpy(slice.Memory, &val, sizeof(u64));
+                            break;
+                        }
+
+                        case VMTypeKind::Float: {
+                            float val = std::get<float>(m_OpCodes->ConstantTable[idx]);
+                            memcpy(slice.Memory, &val, sizeof(float));
+                            break;
+                        }
+
+                        case VMTypeKind::Double: {
+                            double val = std::get<double>(m_OpCodes->ConstantTable[idx]);
+                            memcpy(slice.Memory, &val, sizeof(double));
+                            break;
+                        }
 
                         default: ARIA_UNREACHABLE();
                     }
@@ -390,6 +409,26 @@ namespace Aria::Internal {
                     VMSlice slice = GetVMSlice(m_GlobalMap.at(g), m_Globals);
                     Alloca({ VMTypeKind::Ptr }, m_Stack);
                     StorePointer(-1, slice.Memory, m_Stack);
+                    break;
+                }
+
+                case OP_ST_LOCAL: {
+                    size_t index = static_cast<size_t>(*++m_ProgramCounter);
+                    VMSlice slice = GetVMSlice(-1, m_Stack);
+
+                    VMSlice dst = GetVMSlice(static_cast<i32>(index), m_StackFrames.back().Locals);
+                    ARIA_ASSERT(dst.Size == slice.Size, "Mismatched sizes");
+                    memcpy(dst.Memory, slice.Memory, dst.Size);
+
+                    break;
+                }
+
+                case OP_ST_ADDR: {
+                    void* mem = GetPointer(-2, m_Stack);
+                    VMSlice slice = GetVMSlice(-1, m_Stack);
+
+                    memcpy(mem, slice.Memory, slice.Size);
+                    Pop(2, m_Stack);
                     break;
                 }
 
@@ -2188,8 +2227,41 @@ namespace Aria::Internal {
                     break;
                 }
 
-                default: ARIA_UNREACHABLE();
+                case OP_CALL: {
+                    std::string_view sig = GET_STR();
+
+                    if (m_ExternalFunctions.contains(sig)) {
+                        ExternFn func = m_ExternalFunctions.at(sig);
+                        func(m_Context);
+                        break;
+                    }
+
+                    ARIA_ASSERT(m_Functions.contains(sig), "Calling unknown function");
+
+                    VMFunction& func = m_Functions.at(sig);
+                    
+                    VMStackFrame sf;
+                    sf.Function = &func;
+                    sf.ReturnAddress = m_ProgramCounter;
+                    
+                    m_StackFrames.push_back(sf);
+
+                    ARIA_ASSERT(func.Labels.contains("_entry$"), "No _entry$ label inside of function");
+                    m_ProgramCounter = func.Labels.at("_entry$") - 1;
+                    break;
+                }
+
+                case OP_RET: {
+                    VMStackFrame& sf = m_StackFrames.back();
+                    m_ProgramCounter = sf.ReturnAddress;
+                    m_StackFrames.pop_back();
+                    break;
+                }
+
+                default: ARIA_UNREACHABLE(); break;
             }
+
+            m_ProgramCounter++;
         }
     }
     
@@ -2253,18 +2325,24 @@ namespace Aria::Internal {
     }
 
     void VM::RunPrepass() {
-        for (; m_ProgramCounter < &m_OpCodes->Program.back(); m_ProgramCounter++) {
+        for (m_ProgramCounter = &m_OpCodes->Program.front(); m_ProgramCounter < &m_OpCodes->Program.back(); m_ProgramCounter++) {
             if (*m_ProgramCounter == OP_FUNCTION) {
                 const OpCode* startPc = m_ProgramCounter;
-                m_ProgramCounter++;
                 
-                std::string_view ident = GET_STR(op.Args[0].Index);
+                std::string_view ident = GET_STR();
                 VMFunction func;
+                func.Signature = ident;
+
+                for (char i : ident) {
+                    if (i == ',') { func.ParamCount++; }
+                }
+
+                func.ParamCount++;
                 
                 for (; m_ProgramCounter < &m_OpCodes->Program.back(); m_ProgramCounter++) {
                     if (*m_ProgramCounter == OP_LABEL) {
-                        std::string_view label = GET_STR(op.Args[0].Index);
-                        func.Labels[label] = m_ProgramCounter;
+                        std::string_view label = GET_STR();
+                        func.Labels[label] = ++m_ProgramCounter;
                     } else if (*m_ProgramCounter == OP_ENDFUNCTION) {
                         break;
                     }

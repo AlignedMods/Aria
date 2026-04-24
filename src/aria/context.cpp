@@ -170,94 +170,100 @@ namespace Aria {
     }
 
     void Context::PushBool(bool b) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I1 }, m_ActiveModule->VM.m_ExpressionStack);
-        m_ActiveModule->VM.StoreBool(-1 , b, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I1 }, m_ActiveModule->VM.m_Stack);
+        m_ActiveModule->VM.StoreBool(-1 , b, m_ActiveModule->VM.m_Stack);
     }
 
     void Context::PushChar(int8_t c) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I8 }, m_ActiveModule->VM.m_ExpressionStack);
-        m_ActiveModule->VM.StoreChar(-1, c, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I8 }, m_ActiveModule->VM.m_Stack);
+        m_ActiveModule->VM.StoreChar(-1, c, m_ActiveModule->VM.m_Stack);
     }
 
     void Context::PushShort(int16_t s) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I16 }, m_ActiveModule->VM.m_ExpressionStack);
-        m_ActiveModule->VM.StoreShort(-1, s, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I16 }, m_ActiveModule->VM.m_Stack);
+        m_ActiveModule->VM.StoreShort(-1, s, m_ActiveModule->VM.m_Stack);
     }
 
     void Context::PushInt(int32_t i) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I32 }, m_ActiveModule->VM.m_ExpressionStack);
-        m_ActiveModule->VM.StoreInt(-1, i, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I32 }, m_ActiveModule->VM.m_Stack);
+        m_ActiveModule->VM.StoreInt(-1, i, m_ActiveModule->VM.m_Stack);
     }
 
     void Context::PushLong(int64_t l) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I64 }, m_ActiveModule->VM.m_ExpressionStack);
-        m_ActiveModule->VM.StoreLong(-1, l, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I64 }, m_ActiveModule->VM.m_Stack);
+        m_ActiveModule->VM.StoreLong(-1, l, m_ActiveModule->VM.m_Stack);
     }
 
     void Context::PushFloat(float f) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::F32 }, m_ActiveModule->VM.m_ExpressionStack);
-        m_ActiveModule->VM.StoreFloat(-1, f, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::Float }, m_ActiveModule->VM.m_Stack);
+        m_ActiveModule->VM.StoreFloat(-1, f, m_ActiveModule->VM.m_Stack);
     }
 
     void Context::PushDouble(double d) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::F64 }, m_ActiveModule->VM.m_ExpressionStack);
-        m_ActiveModule->VM.StoreDouble(-1, d, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::Double }, m_ActiveModule->VM.m_Stack);
+        m_ActiveModule->VM.StoreDouble(-1, d, m_ActiveModule->VM.m_Stack);
     }
 
     void Context::PushPointer(void* p) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::Ptr }, m_ActiveModule->VM.m_ExpressionStack);
-        m_ActiveModule->VM.StorePointer(-1, p, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::Ptr }, m_ActiveModule->VM.m_Stack);
+        m_ActiveModule->VM.StorePointer(-1, p, m_ActiveModule->VM.m_Stack);
+    }
+
+    void Context::PushString(std::string_view s) {
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::String }, m_ActiveModule->VM.m_Stack);
+        m_ActiveModule->VM.StoreString(-1, s, m_ActiveModule->VM.m_Stack);
     }
 
     void Context::StoreBool(int32_t index, bool b) {
-        m_ActiveModule->VM.StoreBool(index, b, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.StoreBool(index, b, m_ActiveModule->VM.m_Stack);
     }
 
     void Context::StoreChar(int32_t index, int8_t c) {
-        m_ActiveModule->VM.StoreChar(index, c, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.StoreChar(index, c, m_ActiveModule->VM.m_Stack);
     }
 
     void Context::StoreShort(int32_t index, int16_t s) {
-        m_ActiveModule->VM.StoreShort(index, s, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.StoreShort(index, s, m_ActiveModule->VM.m_Stack);
     }
 
     void Context::StoreInt(int32_t index, int32_t i) {
-        m_ActiveModule->VM.StoreInt(index, i, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.StoreInt(index, i, m_ActiveModule->VM.m_Stack);
     }
 
     void Context::StoreLong(int32_t index, int64_t l) {
-        m_ActiveModule->VM.StoreLong(index, l, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.StoreLong(index, l, m_ActiveModule->VM.m_Stack);
     }
 
     void Context::StoreFloat(int32_t index, float f) {
-        m_ActiveModule->VM.StoreFloat(index, f, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.StoreFloat(index, f, m_ActiveModule->VM.m_Stack);
     }
 
     void Context::StoreDouble(int32_t index, double d) {
-        m_ActiveModule->VM.StoreDouble(index, d, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.StoreDouble(index, d, m_ActiveModule->VM.m_Stack);
     }
 
     void Context::StorePointer(int32_t index, void* p) {
-        m_ActiveModule->VM.StorePointer(index, p, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.StorePointer(index, p, m_ActiveModule->VM.m_Stack);
     }
 
     void Context::StoreString(int32_t index, std::string_view str) {
-        m_ActiveModule->VM.StoreString(index, str, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.StoreString(index, str, m_ActiveModule->VM.m_Stack);
     }
 
     void Context::GetGlobal(std::string_view str) {
         ARIA_ASSERT(m_ActiveModule->VM.m_GlobalMap.contains(str), "VM does not contain global variable");
-        m_ActiveModule->VM.Dup(m_ActiveModule->VM.m_GlobalMap[str], m_ActiveModule->VM.m_ExpressionStack, m_ActiveModule->VM.m_GlobalStack);
+        m_ActiveModule->VM.Dup(m_ActiveModule->VM.m_GlobalMap[str], m_ActiveModule->VM.m_Stack, m_ActiveModule->VM.m_Globals);
     }
 
     void Context::GetGlobalPtr(std::string_view str) {
         ARIA_ASSERT(m_ActiveModule->VM.m_GlobalMap.contains(str), "VM does not contain global variable");
-        Internal::VMSlice slice = m_ActiveModule->VM.GetVMSlice(m_ActiveModule->VM.m_GlobalMap[str], m_ActiveModule->VM.m_GlobalStack);
+        Internal::VMSlice slice = m_ActiveModule->VM.GetVMSlice(m_ActiveModule->VM.m_GlobalMap[str], m_ActiveModule->VM.m_Globals);
         PushPointer(slice.Memory);
     }
 
     void Context::GetArg(int32_t index) {
-        m_ActiveModule->VM.Dup(index + 1, m_ActiveModule->VM.m_ExpressionStack, m_ActiveModule->VM.m_FunctionStack);
+        ARIA_TODO("Context::GetArg()");
+        // m_ActiveModule->VM.Dup(index + 1, m_ActiveModule->VM.m_Stack, m_ActiveModule->VM.m_FunctionStack);
     }
 
     void Context::GetField(int32_t index, const std::string& name) {
@@ -279,43 +285,43 @@ namespace Aria {
     }
 
     bool Context::GetBool(int32_t index) {
-        return m_ActiveModule->VM.GetBool(index, m_ActiveModule->VM.m_ExpressionStack);
+        return m_ActiveModule->VM.GetBool(index, m_ActiveModule->VM.m_Stack);
     }
 
     int8_t Context::GetChar(int32_t index) {
-        return m_ActiveModule->VM.GetChar(index, m_ActiveModule->VM.m_ExpressionStack);
+        return m_ActiveModule->VM.GetChar(index, m_ActiveModule->VM.m_Stack);
     }
 
     int16_t Context::GetShort(int32_t index) {
-        return m_ActiveModule->VM.GetShort(index, m_ActiveModule->VM.m_ExpressionStack);
+        return m_ActiveModule->VM.GetShort(index, m_ActiveModule->VM.m_Stack);
     }
 
     int32_t Context::GetInt(int32_t index) {
-        return m_ActiveModule->VM.GetInt(index, m_ActiveModule->VM.m_ExpressionStack);
+        return m_ActiveModule->VM.GetInt(index, m_ActiveModule->VM.m_Stack);
     }
 
     int64_t Context::GetLong(int32_t index) {
-        return m_ActiveModule->VM.GetLong(index, m_ActiveModule->VM.m_ExpressionStack);
+        return m_ActiveModule->VM.GetLong(index, m_ActiveModule->VM.m_Stack);
     }
 
     float Context::GetFloat(int32_t index) {
-        return m_ActiveModule->VM.GetFloat(index, m_ActiveModule->VM.m_ExpressionStack);
+        return m_ActiveModule->VM.GetFloat(index, m_ActiveModule->VM.m_Stack);
     }
 
     double Context::GetDouble(int32_t index) {
-        return m_ActiveModule->VM.GetDouble(index, m_ActiveModule->VM.m_ExpressionStack);
+        return m_ActiveModule->VM.GetDouble(index, m_ActiveModule->VM.m_Stack);
     }
 
     void* Context::GetPointer(int32_t index) {
-        return m_ActiveModule->VM.GetPointer(index, m_ActiveModule->VM.m_ExpressionStack);
+        return m_ActiveModule->VM.GetPointer(index, m_ActiveModule->VM.m_Stack);
     }
 
     std::string_view Context::GetString(int32_t index) {
-        return m_ActiveModule->VM.GetString(index, m_ActiveModule->VM.m_ExpressionStack);
+        return m_ActiveModule->VM.GetString(index, m_ActiveModule->VM.m_Stack);
     }
 
     void Context::Pop(size_t count) {
-        m_ActiveModule->VM.Pop(count, m_ActiveModule->VM.m_ExpressionStack);
+        m_ActiveModule->VM.Pop(count, m_ActiveModule->VM.m_Stack);
     }
 
     void Context::AddExternalFunction(std::string_view name, ExternFn fn) {
@@ -331,17 +337,6 @@ namespace Aria {
         Internal::CompilerReflectionData& reflection = m_ActiveModule->CompilationContext.ReflectionData;
         ARIA_ASSERT(reflection.Declarations.contains(str), "Module does not contain function");
 
-        // Push the function signature (NOTE: not actually used for anything, the VM just expects it to be there)
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::Ptr }, m_ActiveModule->VM.m_FunctionStack);
-
-        // Move arguments onto the function stack
-        for (size_t i = 0; i < argCount; i++) {
-            m_ActiveModule->VM.Dup(-static_cast<Internal::i32>(i + 1), m_ActiveModule->VM.m_FunctionStack, m_ActiveModule->VM.m_ExpressionStack);
-        }
-        m_ActiveModule->VM.Pop(argCount, m_ActiveModule->VM.m_ExpressionStack);
-
-        // Allocate the return slot
-        m_ActiveModule->VM.Alloca(m_ActiveModule->VM.m_Program->TypeTable[reflection.Declarations.at(str).TypeIndex], m_ActiveModule->VM.m_ExpressionStack);
         m_ActiveModule->VM.Call(str, argCount);
     }
 

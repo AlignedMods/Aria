@@ -243,7 +243,7 @@ namespace Aria::Internal {
 
         if (cost.CastNeeded) {
             if (cost.ExplicitCastPossible) {
-                cast.Kind = cost.CaKind;
+                InsertImplicitCast(dstType, srcType, cast.Expression, cost.CaKind);
             } else {
                 ARIA_ASSERT(false, "todo: add error message");
             }
@@ -496,6 +496,12 @@ namespace Aria::Internal {
                 ReplaceExpr(expr, Expr::Create(m_Context, expr->Loc, expr->Range, 
                     ExprKind::Copy, ExprValueKind::RValue, expr->Type, 
                     CopyExpr(Expr::Dup(m_Context, expr), m_BuiltInStringCopyConstructor)));
+
+                if (m_TemporaryContext) {
+                    ReplaceExpr(expr, Expr::Create(m_Context, expr->Loc, expr->Range,
+                        ExprKind::Temporary, ExprValueKind::RValue, expr->Type,
+                        TemporaryExpr(Expr::Dup(m_Context, expr), m_BuiltInStringDestructor)));
+                }
             } else {
                 InsertImplicitCast(expr->Type, expr->Type, expr, CastKind::LValueToRValue);
             }

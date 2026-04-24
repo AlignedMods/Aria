@@ -32,6 +32,7 @@ namespace Aria::Internal {
     // A function that is not external, AKA implemented in the language itself
     struct VMFunction {
         std::string_view Signature;
+        size_t ParamCount = 0;
         std::unordered_map<std::string_view, const OpCode*> Labels;
     };
 
@@ -53,6 +54,7 @@ namespace Aria::Internal {
     struct VMStackFrame {
         VMFunction* Function = nullptr;
         Stack Locals;
+        const OpCode* ReturnAddress = nullptr;
     };
 
     class VM {
@@ -69,7 +71,6 @@ namespace Aria::Internal {
         void AddExtern(std::string_view signature, ExternFn fn);
 
         void Call(const std::string& signature, size_t argCount);
-        void CallExtern(const std::string& signature, size_t argCount);
         
         void StoreBool   (i32 slot, bool b,                Stack& stack);
         void StoreChar   (i32 slot, int8_t c,              Stack& stack);
@@ -122,9 +123,6 @@ namespace Aria::Internal {
         std::unordered_map<size_t, size_t> m_CachedStructSize;
         std::unordered_map<std::string_view, VMFunction> m_Functions;
         std::unordered_map<std::string_view, ExternFn> m_ExternalFunctions;
-
-        size_t m_ReturnAddress = SIZE_MAX;
-        VMFunction* m_ActiveFunction = nullptr;
 
         Context* m_Context = nullptr;
 

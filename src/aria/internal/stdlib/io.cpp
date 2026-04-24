@@ -5,7 +5,6 @@
 namespace Aria::Internal {
 
     void __aria_print(Context* ctx) {
-        ctx->GetArg(0);
         fmt::println("{}", ctx->GetString(-1));
         ctx->Pop(1);
     }

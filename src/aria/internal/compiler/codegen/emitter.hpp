@@ -24,7 +24,7 @@ namespace Aria::Internal {
 
         struct RuntimeStructDeclaration {
             std::unordered_map<std::string_view, size_t> FieldIndices;
-            size_t Index = 0;
+            u16 Index = 0;
         };
 
         struct StackFrame {
@@ -33,7 +33,6 @@ namespace Aria::Internal {
             std::string Name;
 
             std::unordered_map<std::string, size_t> Parameters;
-            size_t ParameterCount = 0;
         };
 
         struct FutureDeclaration {
@@ -103,7 +102,7 @@ namespace Aria::Internal {
 
         void MergePendingOpCodes();
 
-        size_t TypeInfoToVMTypeIdx(TypeInfo* t);
+        OpCode TypeInfoToVMTypeIdx(TypeInfo* t);
 
         std::string MangleFunction(FunctionDecl* fn);
 
@@ -122,8 +121,8 @@ namespace Aria::Internal {
         StackFrame m_ActiveStackFrame;
 
         std::unordered_map<Decl*, RuntimeStructDeclaration> m_Structs;
-        std::unordered_map<PrimitiveType, size_t> m_BasicTypes;
-        size_t m_StructIndex = 0;
+        std::unordered_map<PrimitiveType, u16> m_BasicTypes;
+        u16 m_StructIndex = 0;
 
         // Counters
         size_t m_AndCounter = 0;

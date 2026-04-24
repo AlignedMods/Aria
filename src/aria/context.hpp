@@ -60,6 +60,7 @@ namespace Aria {
         void PushFloat  (float f);
         void PushDouble (double f);
         void PushPointer(void* p);
+        void PushString (std::string_view s);
 
         void StoreBool   (int32_t index, bool b);
         void StoreChar   (int32_t index, int8_t c);

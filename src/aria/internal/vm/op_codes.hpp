@@ -27,7 +27,6 @@ namespace Aria::Internal {
 
         String,
         Struct,
-
     };
 
     struct VMStruct {
@@ -50,7 +49,8 @@ namespace Aria::Internal {
         OP_LD_PTR_LOCAL,
         OP_LD_PTR_GLOBAL,
 
-        OP_STADDR,
+        OP_ST_LOCAL,
+        OP_ST_ADDR,
 
         OP_POP,
 
@@ -76,6 +76,9 @@ namespace Aria::Internal {
         OP_CMPI,
         OP_CMPU,
         OP_CMPF,
+        OP_NCMPI,
+        OP_NCMPU,
+        OP_NCMPF,
         OP_LTI,
         OP_LTU,
         OP_LTF,
@@ -110,7 +113,15 @@ namespace Aria::Internal {
         OP_JT_POP,
         OP_JF_POP,
 
+        OP_CONV_ITOI,
+        OP_CONV_FTOF,
+        OP_CONV_ITOF,
+        OP_CONV_FTOI,
+
         OP_CALL,
+
+        OP_RET,
+        OP_RET_VAL,
 
         OP_FUNCTION,
         OP_ENDFUNCTION,
@@ -120,6 +131,7 @@ namespace Aria::Internal {
     struct OpCodes {
         std::vector<std::string> StringTable;
         std::vector<VMType> TypeTable;
+        std::vector<std::variant<u64, float, double>> ConstantTable;
         std::vector<OpCode> Program;
     };
 

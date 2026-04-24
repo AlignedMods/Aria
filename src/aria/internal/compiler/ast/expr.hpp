@@ -279,7 +279,6 @@ namespace Aria::Internal {
 
         Expr* Expression = nullptr;
         TypeInfo* Type = nullptr;
-        CastKind Kind = CastKind::Invalid;
     };
 
     // ImplicitCastExpr

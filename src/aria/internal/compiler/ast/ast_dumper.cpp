@@ -82,7 +82,7 @@ namespace Aria::Internal {
             DumpExpr(expr->Paren.Expression, indentation + 4);
             return;
         } else if (expr->Kind == ExprKind::Cast) {
-            m_Output += fmt::format("CastExpr '{}' <{}> {}\n", TypeInfoToString(expr->Type), CastKindToString(expr->Cast.Kind), ExprValueKindToString(expr->ValueKind));
+            m_Output += fmt::format("CastExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
             DumpExpr(expr->Cast.Expression, indentation + 4);
             return;
         } else if (expr->Kind == ExprKind::ImplicitCast) {

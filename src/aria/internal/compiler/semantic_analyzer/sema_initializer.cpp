@@ -36,10 +36,10 @@ namespace Aria::Internal {
     void SemanticAnalyzer::ResolveParamInitializer(TypeInfo* paramType, Expr* arg) {
         m_TemporaryContext = true;
         ResolveExpr(arg);
-        m_TemporaryContext = false;
 
         TypeInfo* argType = arg->Type;
         RequireRValue(arg);
+        m_TemporaryContext = false;
 
         ConversionCost cost = GetConversionCost(paramType, argType);
         if (cost.CastNeeded) {

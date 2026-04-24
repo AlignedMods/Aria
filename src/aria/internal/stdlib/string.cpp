@@ -6,7 +6,6 @@
 namespace Aria::Internal {
 
     void __aria_destruct_str(Context* ctx) {
-        ctx->GetArg(0);
         void* mem = ctx->GetPointer(-1);
         ctx->Pop(1);
 
@@ -17,7 +16,6 @@ namespace Aria::Internal {
     }
 
     void __aria_copy_str(Context* ctx) {
-        ctx->GetArg(0);
         void* mem = ctx->GetPointer(-1);
         ctx->Pop(1);
 
@@ -26,7 +24,7 @@ namespace Aria::Internal {
         char* copiedData = new char[str.Size];
         memcpy(copiedData, str.RawData, str.Size);
 
-        ctx->StoreString(-1, std::string_view(copiedData, str.Size));
+        ctx->PushString(std::string_view(copiedData, str.Size));
     }
 
 } // namespace Aria::Internal
