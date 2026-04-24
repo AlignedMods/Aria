@@ -888,7 +888,7 @@ namespace Aria::Internal {
 
         TryConsume(TokenKind::Semi, ";");
 
-        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Var, 0, VarDecl(ident->String, type, value));
+        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Var, 0, VarDecl(ident->String, type, value, global));
 
         if (global) {
             m_Context->ActiveCompUnit->Globals.push_back(decl);

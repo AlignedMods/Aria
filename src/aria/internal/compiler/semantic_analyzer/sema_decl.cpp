@@ -29,14 +29,14 @@ namespace Aria::Internal {
                 m_Context->ReportCompilerDiagnostic(decl->Loc, decl->Range, fmt::format("Redeclaring symbol '{}'", ident));
             }
 
-            m_Scopes.back().Declarations[ident] = { varDecl.Type, decl, DeclRefKind::LocalVar };
+            m_Scopes.back().Declarations[ident] = { varDecl.Type, decl, DeclKind::Var };
         }
     }
 
     void SemanticAnalyzer::ResolveParamDecl(Decl* decl) {
         ParamDecl& paramDecl = decl->Param;
         ResolveType(decl->Loc, decl->Range, paramDecl.Type);
-        m_Scopes.back().Declarations[fmt::format("{}", paramDecl.Identifier)] = { paramDecl.Type, decl, DeclRefKind::ParamVar };
+        m_Scopes.back().Declarations[fmt::format("{}", paramDecl.Identifier)] = { paramDecl.Type, decl, DeclKind::Param };
     }
 
     void SemanticAnalyzer::ResolveFunctionDecl(Decl* decl) {

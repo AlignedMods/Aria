@@ -117,9 +117,9 @@ namespace Aria::Internal {
 
         Stmt* m_RootASTNode = nullptr;
 
-        StackFrame m_ActiveStackFrame;
         Scope m_GlobalScope;
-        bool m_IsGlobalScope = false;
+
+        StackFrame m_ActiveStackFrame;
 
         std::unordered_map<Decl*, RuntimeStructDeclaration> m_Structs;
         std::unordered_map<PrimitiveType, size_t> m_BasicTypes;

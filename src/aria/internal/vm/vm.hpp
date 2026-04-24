@@ -31,7 +31,8 @@ namespace Aria::Internal {
 
     // A function that is not external, AKA implemented in the language itself
     struct VMFunction {
-        std::unordered_map<std::string_view, size_t> Labels;
+        std::string_view Signature;
+        std::unordered_map<std::string_view, const OpCode*> Labels;
     };
 
     // A structure which has a linear block of memory (the stack)
@@ -40,15 +41,18 @@ namespace Aria::Internal {
         // The raw stack memory
         std::vector<u8> Stack;
         size_t StackPointer = 0;
-        size_t StackBasePointer = 0;
 
         // Stack slots are essentially an abstraction over raw stack memory
         // They store basic things like an index into stack memory and the size of the slot
         std::vector<StackSlot> StackSlots;
         size_t StackSlotPointer = 0;
-        size_t StackSlotBasePointer = 0;
 
         inline void Reserve(size_t size, size_t slotCount) { Stack.resize(size); StackSlots.resize(slotCount); }
+    };
+
+    struct VMStackFrame {
+        VMFunction* Function = nullptr;
+        Stack Locals;
     };
 
     class VM {
@@ -62,11 +66,6 @@ namespace Aria::Internal {
         void Copy  (i32 dstSlot, i32 srcSlot, Stack& dst, Stack& src);
         void Dup   (i32 slot, Stack& dst, Stack& src);
 
-        // Creates a new stack frame
-        void PushStackFrame();
-        // Removes the current stack frame and goes back to the previous one (if there is one)
-        void PopStackFrame();
-
         void AddExtern(std::string_view signature, ExternFn fn);
 
         void Call(const std::string& signature, size_t argCount);
@@ -76,7 +75,9 @@ namespace Aria::Internal {
         void StoreChar   (i32 slot, int8_t c,              Stack& stack);
         void StoreShort  (i32 slot, int16_t ch,            Stack& stack);
         void StoreInt    (i32 slot, int32_t i,             Stack& stack);
-        void StoreLong   (i32 slot, int64_t l,             Stack& stack);
+        void StoreUInt   (i32 slot, uint32_t i,            Stack& stack);
+        void StoreLong   (i32 slot, int64_t l,            Stack& stack);
+        void StoreULong  (i32 slot, uint64_t l,            Stack& stack);
         void StoreSize   (i32 slot, size_t sz,             Stack& stack);
         void StoreFloat  (i32 slot, float f,               Stack& stack);
         void StoreDouble (i32 slot, double d,              Stack& stack);
@@ -108,33 +109,15 @@ namespace Aria::Internal {
         size_t AlignToEight(size_t size);
         
     private:
-        Stack m_ExpressionStack; // Used for expressions
-        Stack m_LocalStack; // Used for locals and temporaries
-        Stack m_FunctionStack; // Used to store data about function calls
-        Stack m_GlobalStack; // Used for global variables
+        Stack m_Stack;
+        Stack m_Globals;
 
         std::unordered_map<std::string_view, i32> m_GlobalMap;
 
-        struct StackFrame {
-            size_t PESSBP = 0; // PreviousExpressionStackSlotBasePointer
-            size_t PESBP = 0;  // PreviousExpressionStackBasePointer
+        const OpCodes* m_OpCodes = nullptr;
+        const OpCode* m_ProgramCounter = nullptr;
 
-            size_t PLSSBP = 0; // PreviousLocalStackSlotBasePointer
-            size_t PLSBP = 0;  // PreviousLocalStackBasePointer
-
-            size_t PFSSBP = 0; // PreviousFunctionStackSlotBasePointer
-            size_t PFSBP = 0; // PreviousFunctionStackBasePointer
-
-            std::unordered_map<size_t, i32> LocalMap;
-
-            size_t PreviousReturnAddress = SIZE_MAX;
-            VMFunction* PreviousFunction = nullptr;
-        };
-
-        std::vector<StackFrame> m_StackFrames;
-
-        const OpCodes* m_Program = nullptr;
-        size_t m_ProgramCounter = 0;
+        std::vector<VMStackFrame> m_StackFrames;
 
         std::unordered_map<size_t, size_t> m_CachedStructSize;
         std::unordered_map<std::string_view, VMFunction> m_Functions;

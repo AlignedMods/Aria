@@ -32,7 +32,7 @@ namespace Aria::Internal {
         struct Declaration {
             TypeInfo* ResolvedType = nullptr;
             Decl* SourceDeclaration = nullptr;
-            DeclRefKind DeclKind = DeclRefKind::LocalVar;
+            DeclKind Kind = DeclKind::Var;
         };
 
         struct Scope {
@@ -61,10 +61,6 @@ namespace Aria::Internal {
 
         void ResolveModuleCode(Module* module);
         void ResolveUnitCode(Module* module, CompilationUnit* unit);
-
-        Decl* FindSymbolInImports(CompilationUnit* unit, StringView identifier);
-        Decl* FindSymbolInModule(Module* mod, StringView identifier, bool allowPrivate);
-        Decl* FindSymbolInUnit(CompilationUnit* unit, StringView identifier);
 
         void ResolveBooleanConstantExpr(Expr* expr);
         void ResolveCharacterConstantExpr(Expr* expr);

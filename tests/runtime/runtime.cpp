@@ -72,7 +72,7 @@ TEST_CASE("Runtime Basic Expressions") {
 TEST_CASE("Runtime Functions") {
     Aria::Context ctx = Aria::Context::Create();
     ctx.CompileFile("tests/runtime/functions.aria");
-    ctx.AddExternalFunction("functions::external_function()", [](Aria::Context* ctx) {
+    ctx.AddExternalFunction("functions::external_function(int, int, int)", [](Aria::Context* ctx) {
         ctx->GetArg(0);
         ctx->GetArg(1);
         ctx->GetArg(2);
@@ -128,12 +128,12 @@ TEST_CASE("Runtime Recursion") {
     ctx.Run();
     
     ctx.PushInt(10);
-    ctx.Call("recursion::fib()", 1);
+    ctx.Call("recursion::fib(int)", 1);
     REQUIRE(ctx.GetInt(-1) == 55);
     ctx.Pop(1);
     
     ctx.PushInt(20);
-    ctx.Call("recursion::fib()", 1);
+    ctx.Call("recursion::fib(int)", 1);
     REQUIRE(ctx.GetInt(-1) == 6765);
     ctx.Pop(1);
 }

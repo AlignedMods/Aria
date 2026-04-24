@@ -8,11 +8,10 @@ namespace Aria::Internal {
             ResolveExpr(t.Ident);
 
             if (!t.Ident->DeclRef.ReferencedDecl) {
-                m_Context->ReportCompilerDiagnostic(loc, range, fmt::format("Could not find type '{}'", t.Ident->DeclRef.Identifier));
                 return;
             }
 
-            if (t.Ident->DeclRef.Kind == DeclRefKind::Struct) {
+            if (t.Ident->DeclRef.ReferencedDecl->Kind == DeclKind::Struct) {
                 type->Type = PrimitiveType::Structure;
                 type->Data = StructDeclaration(t.Ident->DeclRef.Identifier, t.Ident->DeclRef.ReferencedDecl);
             } else {

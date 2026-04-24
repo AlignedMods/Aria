@@ -36,27 +36,6 @@ namespace Aria::Internal {
         CompoundAssign
     };
 
-    enum class DeclRefKind {
-        LocalVar,
-        ParamVar,
-        GlobalVar,
-        Function,
-        OverloadedFunction,
-        Struct
-    };
-    inline const char* DeclRefKindToString(DeclRefKind kind) {
-        switch (kind) {
-            case DeclRefKind::LocalVar:  return "LocalVar";
-            case DeclRefKind::ParamVar:  return "ParamVar";
-            case DeclRefKind::GlobalVar: return "GlobalVar";
-            case DeclRefKind::Function:  return "Function";
-            case DeclRefKind::OverloadedFunction: return "OverloadedFunction";
-            case DeclRefKind::Struct: return "Struct";
-
-            default: ARIA_UNREACHABLE();
-        }
-    }
-
     enum class CastKind {
         Invalid,
         Integral,
@@ -220,7 +199,6 @@ namespace Aria::Internal {
 
         StringView Identifier;
         Specifier* NameSpecifier = nullptr;
-        DeclRefKind Kind = DeclRefKind::LocalVar;
         Decl* ReferencedDecl = nullptr;
     };
 

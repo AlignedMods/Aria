@@ -38,7 +38,7 @@ namespace Aria::Internal {
         } else if (expr->Kind == ExprKind::StringConstant) {
             m_Output += fmt::format("StringConstantExpr {:?} '{}' {}\n", expr->StringConstant.Value, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
         } else if (expr->Kind == ExprKind::DeclRef) {
-            m_Output += fmt::format("DeclRefExpr '{}' '{}' {} {} {}\n", expr->DeclRef.Identifier, TypeInfoToString(expr->Type), DeclRefKindToString(expr->DeclRef.Kind), ExprValueKindToString(expr->ValueKind), static_cast<void*>(expr->DeclRef.ReferencedDecl));
+            m_Output += fmt::format("DeclRefExpr '{}' '{}' {} {} {}\n", expr->DeclRef.Identifier, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind), DeclKindToString(expr->DeclRef.ReferencedDecl->Kind), static_cast<void*>(expr->DeclRef.ReferencedDecl));
             if (expr->DeclRef.NameSpecifier) {
                 DumpSpecifier(expr->DeclRef.NameSpecifier, indentation + 4);
             }

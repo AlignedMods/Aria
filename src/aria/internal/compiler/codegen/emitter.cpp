@@ -80,14 +80,12 @@ namespace Aria::Internal {
             PUSH_OP(OpCodeKind::PushSF);
             PushStackFrame(startSig);
 
-            m_IsGlobalScope = true;
             for (CompilationUnit* unit : mod->Units) {
                 for (Decl* g : unit->Globals) {
                     EmitDecl(g);
                     MergePendingOpCodes();
                 }
             }
-            m_IsGlobalScope = false;
 
             PopStackFrame();
             PUSH_OP(OpCodeKind::PopSF);
@@ -209,8 +207,31 @@ namespace Aria::Internal {
             ident = fmt::format("{}::{}", m_ActiveNamespace, declRef.Identifier);
         }
 
-        // VVV -LocalVar- VVV //
-        if (declRef.Kind == DeclRefKind::LocalVar) {
+        // VVV -Var- VVV //
+        if (declRef.ReferencedDecl->Kind == DeclKind::Var) {
+            // Check for global variables
+            if (declRef.ReferencedDecl->Var.GlobalVar) {
+                ADD_STR(ident);
+
+                if (valueKind == ExprValueKind::LValue) {
+                    if (expr->Type->IsReference()) {
+                        PUSH_PENDING_OP(OpCodeKind::LdGlobal, { STR_IDX(-1) });
+                    } else {
+                        PUSH_PENDING_OP(OpCodeKind::LdPtrGlobal, { STR_IDX(-1) });
+                    }
+                } else if (valueKind == ExprValueKind::RValue) {
+                    PUSH_PENDING_OP(OpCodeKind::LdGlobal, { STR_IDX(-1) });
+        
+                    if (expr->Type->IsReference()) {
+                        expr->Type->Reference = false;
+                        PUSH_PENDING_OP(OpCodeKind::Deref, { TypeInfoToVMTypeIdx(expr->Type) });
+                        expr->Type->Reference = true;
+                    }
+                }
+
+                return;
+            }
+
             for (size_t i = m_ActiveStackFrame.Scopes.size(); i > 0; i--) {
                 Scope& s = m_ActiveStackFrame.Scopes[i - 1];
                 if (s.DeclaredSymbolMap.contains(ident)) {
@@ -236,10 +257,10 @@ namespace Aria::Internal {
 
             return;
         }
-        // ^^^ -LocalVar- ^^^ //
+        // ^^^ -Var- ^^^ //
         
-        // VVV -ParamVar- VVV //
-        if (declRef.Kind == DeclRefKind::ParamVar) {
+        // VVV -Param- VVV //
+        if (declRef.ReferencedDecl->Kind == DeclKind::Param) {
             if (valueKind == ExprValueKind::LValue) {
                 if (expr->Type->IsReference()) {
                     PUSH_PENDING_OP(OpCodeKind::LdArg, { m_ActiveStackFrame.Parameters.at(ident) });
@@ -258,34 +279,10 @@ namespace Aria::Internal {
 
             return;
         }
-        // ^^^ -ParamVar- ^^^ //
-        
-        // VVV -GlobalVar- VVV //
-        if (declRef.Kind == DeclRefKind::GlobalVar) {
-            ADD_STR(ident);
-
-            if (valueKind == ExprValueKind::LValue) {
-                if (expr->Type->IsReference()) {
-                    PUSH_PENDING_OP(OpCodeKind::LdGlobal, { STR_IDX(-1) });
-                } else {
-                    PUSH_PENDING_OP(OpCodeKind::LdPtrGlobal, { STR_IDX(-1) });
-                }
-            } else if (valueKind == ExprValueKind::RValue) {
-                PUSH_PENDING_OP(OpCodeKind::LdGlobal, { STR_IDX(-1) });
-        
-                if (expr->Type->IsReference()) {
-                    expr->Type->Reference = false;
-                    PUSH_PENDING_OP(OpCodeKind::Deref, { TypeInfoToVMTypeIdx(expr->Type) });
-                    expr->Type->Reference = true;
-                }
-            }
-
-            return;
-        }
-        // ^^^ -GlobalVar- ^^^ //
+        // ^^^ -Param- ^^^ //
         
         // VVV -Function- VVV //
-        if (declRef.Kind == DeclRefKind::Function) {
+        if (declRef.ReferencedDecl->Kind == DeclKind::Function) {
             ARIA_ASSERT(valueKind != ExprValueKind::RValue, "Cannot load function as rvalue");
             ARIA_ASSERT(declRef.ReferencedDecl->Kind == DeclKind::Function, "Invalid referenced decl in DeclRefExpr");
 
@@ -691,13 +688,12 @@ namespace Aria::Internal {
 
         // We want to allocate the variables up front (at the start of the stack frame)
         // This is why we use m_OpCodes instead of m_PendingOpCodes here
-        if (m_IsGlobalScope) {
+        if (varDecl.GlobalVar) {
             ADD_STR(ident);
             PUSH_OP(OpCodeKind::DeclareGlobal, { STR_IDX(-1) });
+
             d.Data = ident;
-        
             m_GlobalScope.DeclaredSymbols.push_back(d);
-            m_GlobalScope.DeclaredSymbolMap[ident] = m_GlobalScope.DeclaredSymbols.size() - 1;
         } else {
             PUSH_OP(OpCodeKind::DeclareLocal, { m_ActiveStackFrame.LocalCount });
             d.Data = m_ActiveStackFrame.LocalCount;
@@ -709,7 +705,7 @@ namespace Aria::Internal {
         
         // For initializers we need to just store the value in the already declared variable
         if (varDecl.Initializer) {
-            if (m_IsGlobalScope) {
+            if (varDecl.GlobalVar) {
                 ADD_STR(ident);
                 PUSH_PENDING_OP(OpCodeKind::LdPtrGlobal, { STR_IDX(-1) });
             } else {

@@ -7,192 +7,120 @@
 #include <array>
 #include <vector>
 #include <unordered_map>
+#include <variant>
 
 namespace Aria::Internal {
 
-    enum class VMTypeKind : u8 {
-        Invalid = 0,
+    enum class VMTypeKind {
         Void,
         I1,
+
         I8, U8,
         I16, U16,
         I32, U32,
         I64, U64,
-        F32, F64,
+
+        Float,
+        Double,
+
         Ptr,
 
         String,
-        Struct
-    };
+        Struct,
 
-    struct VMType {
-        VMTypeKind Kind = VMTypeKind::Invalid;
-        size_t Data = 0;
-
-        bool operator==(VMType& other) {
-            if (Kind != VMTypeKind::Struct && other.Kind != VMTypeKind::Struct) {
-                return Kind == other.Kind;
-            }
-        
-            return Data == other.Data;
-        }
     };
 
     struct VMStruct {
         std::vector<size_t> Fields;
-        std::string Name;
     };
 
-    enum class OpCodeKind : u16 {
-        Nop,
-
-        Alloca,
-        Pop,
-        Store,
-        Dup,
-
-        PushSF,
-        PopSF,
-
-        Ldc,
-        LdStr,
-
-        Deref,
-
-        DeclareGlobal,
-        DeclareLocal,
-        DeclareArg,
-
-        LdGlobal,
-        LdLocal,
-        LdMember,
-        LdArg,
-        LdFunc,
-
-        LdPtrGlobal,
-        LdPtrLocal,
-        LdPtrMember,
-        LdPtrArg,
-        LdPtrRet,
-
-        Function,
-        EndFunction,
-        Label,
-        Jmp,
-        Jt,
-        JtPop,
-        Jf,
-        JfPop,
-
-        Call,
-        Ret,
-
-        Neg,
-
-        Add,
-        Sub,
-        Mul,
-        Div,
-        Mod,
-
-        And,
-        Or,
-        Xor,
-
-        Shl,
-        Shr,
-
-        Cmp,
-        Ncmp,
-        Lt,
-        Lte,
-        Gt,
-        Gte,
-
-        Cast,
-
-        Comment // Used only for debugging
+    struct VMType {
+        VMTypeKind Kind = VMTypeKind::Void;
+        std::variant<VMStruct> Data;
     };
 
-    union OpCodeArg {
-        OpCodeArg()
-            : U64(0) {}
+    enum OpCode : u16 {
+        OP_ALLOCA,
 
-        OpCodeArg(bool b)
-            : Boolean(b) {}
+        OP_LD_CONST,
+        OP_LD_STR,
+        OP_LD_LOCAL,
+        OP_LD_GLOBAL,
 
-        OpCodeArg(i8 i)
-            : I8(i) {}
+        OP_LD_PTR_LOCAL,
+        OP_LD_PTR_GLOBAL,
 
-        OpCodeArg(i16 i)
-            : I16(i) {}
+        OP_STADDR,
 
-        OpCodeArg(i32 i)
-            : I32(i) {}
+        OP_POP,
 
-        OpCodeArg(i64 i)
-            : I64(i) {}
+        OP_DECL_LOCAL,
+        OP_DECL_GLOBAL,
 
-        OpCodeArg(u8 u)
-            : U8(u) {}
+        OP_ADDI,
+        OP_ADDU,
+        OP_ADDF,
+        OP_SUBI,
+        OP_SUBU,
+        OP_SUBF,
+        OP_MULI,
+        OP_MULU,
+        OP_MULF,
+        OP_DIVI,
+        OP_DIVU,
+        OP_DIVF,
+        OP_MODI,
+        OP_MODU,
+        OP_MODF,
 
-        OpCodeArg(u16 u)
-            : U16(u) {}
+        OP_CMPI,
+        OP_CMPU,
+        OP_CMPF,
+        OP_LTI,
+        OP_LTU,
+        OP_LTF,
+        OP_LTEI,
+        OP_LTEU,
+        OP_LTEF,
+        OP_GTI,
+        OP_GTU,
+        OP_GTF,
+        OP_GTEI,
+        OP_GTEU,
+        OP_GTEF,
 
-        OpCodeArg(u32 u)
-            : U32(u) {}
+        OP_SHLI,
+        OP_SHLU,
+        OP_SHRI,
+        OP_SHRU,
+        OP_ANDI,
+        OP_ANDU,
+        OP_ORI,
+        OP_ORU,
+        OP_XORI,
+        OP_XORU,
 
-        OpCodeArg(u64 u)
-            : U64(u) {}
+        OP_LOGAND,
+        OP_LOGOR,
+        OP_LOGNOT,
 
-        OpCodeArg(float f)
-            : Float(f) {}
+        OP_JMP,
+        OP_JT,
+        OP_JF,
+        OP_JT_POP,
+        OP_JF_POP,
 
-        OpCodeArg(double d)
-            : Double(d) {}
+        OP_CALL,
 
-        bool Boolean;
-        i8 I8;
-        u8 U8;
-        i16 I16;
-        u16 U16;
-        i32 I32;
-        u32 U32;
-        i64 I64;
-        u64 U64;
-
-        float Float;
-        double Double;
-
-        size_t Index; // Used for types and strings
-    };
-
-    struct OpCode {
-        OpCode() {}
-
-        OpCode(OpCodeKind kind)
-            : Kind(kind) {}
-
-        OpCode(OpCodeKind kind, std::initializer_list<OpCodeArg> args) {
-            ARIA_ASSERT(args.size() <= 3, "Cannot initialize op code with more than 3 arguments");
-
-            for (size_t i = 0; i < args.size(); i++) {
-                Args[i] = *(args.begin() + i);
-            }
-
-            Kind = kind;
-        }
-
-        OpCodeKind Kind = OpCodeKind::Add;
-        std::array<OpCodeArg, 3> Args;
+        OP_FUNCTION,
+        OP_ENDFUNCTION,
+        OP_LABEL,
     };
 
     struct OpCodes {
         std::vector<std::string> StringTable;
         std::vector<VMType> TypeTable;
-        std::vector<VMStruct> StructTable;
-
-        std::vector<OpCode> OpCodeTable;
+        std::vector<OpCode> Program;
     };
 
 } // namespace Aria::Internal

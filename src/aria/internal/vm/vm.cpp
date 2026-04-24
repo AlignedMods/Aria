@@ -2,60 +2,15 @@
 #include "aria/context.hpp"
 #include "aria/internal/runtime/types.hpp"
 
-#define PROG_SIZE() (m_Program->OpCodeTable.size())
-#define PROG_OP(idx) (m_Program->OpCodeTable.at(idx))
-#define GET_STR(idx) (std::string_view(m_Program->StringTable[idx]))
-#define GET_TYPE(idx) (m_Program->TypeTable[idx])
+#define PROG_SIZE() (m_OpCodes->Program.size())
+#define GET_STR() (std::string_view(m_OpCodes->StringTable[static_cast<size_t>(*(++m_ProgramCounter))]))
+#define GET_TYPE() (m_OpCodes->TypeTable[static_cast<size_t>(*(++m_ProgramCounter))])
 
 namespace Aria::Internal {
 
-    template <typename T>
-    T Add(T lhs, T rhs) { return lhs + rhs; }
-    template <typename T>
-    T Sub(T lhs, T rhs) { return lhs - rhs; }
-    template <typename T>
-    T Mul(T lhs, T rhs) { return lhs * rhs; }
-    template <typename T>
-    T Div(T lhs, T rhs) { return lhs / rhs; }
-    template <std::integral T>
-    T Mod(T lhs, T rhs) { return lhs % rhs; }
-    template <std::floating_point T>
-    T Mod(T lhs, T rhs) {
-        T r = std::fmod(lhs, rhs);
-        if (r < 0) { r += std::abs(rhs); }
-        return r;
-    }
-
-    template <std::integral T>
-    T And(T lhs, T rhs) { return lhs & rhs; }
-    template <std::integral T>
-    T Or(T lhs, T rhs) { return lhs | rhs; }
-    template <std::integral T>
-    T Xor(T lhs, T rhs) { return lhs ^ rhs; }
-
-    template <std::integral T>
-    T Shl(T lhs, T rhs) { return lhs << rhs; }
-    template <std::integral T>
-    T Shr(T lhs, T rhs) { return lhs >> rhs; }
-
-    template <typename T>
-    bool Cmp(T lhs, T rhs) { return lhs == rhs; }
-    template <typename T>
-    bool Ncmp(T lhs, T rhs) { return lhs != rhs; }
-    template <typename T>
-    bool Lt(T lhs, T rhs) { return lhs < rhs; }
-    template <typename T>
-    bool Lte(T lhs, T rhs) { return lhs <= rhs; }
-    template <typename T>
-    bool Gt(T lhs, T rhs) { return lhs > rhs; }
-    template <typename T>
-    bool Gte(T lhs, T rhs) { return lhs >= rhs; }
-
     VM::VM(Context* ctx) {
-        m_ExpressionStack.Reserve(16 * 1024, 1024);
-        m_LocalStack.     Reserve(32 * 1024, 2048);
-        m_FunctionStack.  Reserve(4 * 1024, 256);
-        m_GlobalStack.    Reserve(16 * 1024, 1024);
+        m_Stack.Reserve(static_cast<size_t>(2) * 1024, 128);
+        m_Globals.Reserve(static_cast<size_t>(16) * 1024, 1024);
 
         m_Context = ctx;
     }
@@ -78,7 +33,7 @@ namespace Aria::Internal {
         size_t alignedSize = AlignToEight(rawSize);
         
         ARIA_ASSERT(alignedSize % 8 == 0, "Memory not aligned to 8 bytes correctly!");
-        ARIA_ASSERT(stack.StackPointer + alignedSize < stack.Stack.max_size(), "Local stack overflow, allocating an insane amount of memory!");
+        ARIA_ASSERT(stack.StackPointer + alignedSize < stack.Stack.max_size(), "Stack overflow, allocating an insane amount of memory!");
 
         stack.StackPointer += alignedSize;
 
@@ -100,7 +55,7 @@ namespace Aria::Internal {
         VMSlice dstSlice = GetVMSlice(dstSlot, dst);
         VMSlice srcSlice = GetVMSlice(srcSlot, src);
 
-        ARIA_ASSERT(dstSlice.Type == srcSlice.Type, "Invalid VM::Copy() call, types of both sides must be the same!");
+        ARIA_ASSERT(dstSlice.Size == srcSlice.Size, "Invalid VM::Copy() call, sizes of both sides must be the same!");
 
         memcpy(dstSlice.Memory, srcSlice.Memory, srcSlice.Size);
     }
@@ -114,86 +69,52 @@ namespace Aria::Internal {
         memcpy(dstSlot.Memory, srcSlot.Memory, srcSlot.Size);
     }
 
-    void VM::PushStackFrame() {
-        StackFrame newStackFrame;
-        newStackFrame.PESSBP = m_ExpressionStack.StackSlotBasePointer;
-        newStackFrame.PESBP = m_ExpressionStack.StackBasePointer;
-        newStackFrame.PLSSBP = m_LocalStack.StackSlotBasePointer;
-        newStackFrame.PLSBP = m_LocalStack.StackBasePointer;
-        newStackFrame.PreviousFunction = m_ActiveFunction;
-
-        // Save the state of the local and expression stack (function stack gets handled with call/ret)
-        m_ExpressionStack.StackSlotBasePointer = m_ExpressionStack.StackSlotPointer;
-        m_ExpressionStack.StackBasePointer = m_ExpressionStack.StackPointer;
-
-        m_LocalStack.StackSlotBasePointer = m_LocalStack.StackSlotPointer;
-        m_LocalStack.StackBasePointer = m_LocalStack.StackPointer;
-
-        m_StackFrames.push_back(newStackFrame);
-    }
-
-    void VM::PopStackFrame() {
-        ARIA_ASSERT(m_StackFrames.size() > 0, "Calling VM::PopStackFrame() with no active stack frame!");
-
-        // Restore the state of the local and expression stack
-        m_ExpressionStack.StackSlotPointer = m_ExpressionStack.StackSlotBasePointer;
-        m_ExpressionStack.StackPointer = m_ExpressionStack.StackBasePointer;
-
-        m_LocalStack.StackSlotPointer = m_LocalStack.StackSlotBasePointer;
-        m_LocalStack.StackPointer = m_LocalStack.StackBasePointer;
-
-        m_ExpressionStack.StackSlotBasePointer = m_StackFrames.back().PESSBP;
-        m_ExpressionStack.StackBasePointer = m_StackFrames.back().PESBP;
-
-        m_LocalStack.StackSlotBasePointer = m_StackFrames.back().PLSSBP;
-        m_LocalStack.StackBasePointer = m_StackFrames.back().PLSBP;
-
-        m_StackFrames.pop_back();
-    }
-
     void VM::AddExtern(std::string_view signature, ExternFn fn) {
         m_ExternalFunctions[signature] = fn;
     }
 
     void VM::Call(const std::string& signature, size_t argCount) {
-        ARIA_ASSERT(m_Functions.contains(signature), "Calling unknown function");
-        VMFunction& func = m_Functions.at(signature);
-        
-        // This function can only be called when the program is in a "halted" state AKA doing nothing
-        // Therefore when we finish with execution we want to go back to that state
-        m_StackFrames.back().PreviousReturnAddress = PROG_SIZE();
-        m_StackFrames.back().PreviousFunction = nullptr;
-        m_ReturnAddress = PROG_SIZE();
+        ARIA_TODO("VM::Call()");
 
-        // Save function stack
-        m_StackFrames.back().PFSSBP = m_FunctionStack.StackSlotBasePointer;
-        m_StackFrames.back().PFSBP = m_FunctionStack.StackBasePointer;
-
-        // Perform a jump to the function
-        ARIA_ASSERT(func.Labels.contains("_entry$"), "All functions must contain a \"_entry$\" label");
-        m_ProgramCounter = func.Labels.at("_entry$");
-        m_ActiveFunction = &func;
-
-        // Set up the function stack
-        m_FunctionStack.StackSlotBasePointer = m_FunctionStack.StackSlotPointer - argCount - 1;
-        m_FunctionStack.StackBasePointer = m_FunctionStack.StackSlots[m_FunctionStack.StackSlotBasePointer].Index;
-
-        Run();
+        // ARIA_ASSERT(m_Functions.contains(signature), "Calling unknown function");
+        // VMFunction& func = m_Functions.at(signature);
+        // 
+        // // This function can only be called when the program is in a "halted" state AKA doing nothing
+        // // Therefore when we finish with execution we want to go back to that state
+        // m_StackFrames.back().PreviousReturnAddress = PROG_SIZE();
+        // m_StackFrames.back().PreviousFunction = nullptr;
+        // m_ReturnAddress = PROG_SIZE();
+        // 
+        // // Save function stack
+        // m_StackFrames.back().PFSSBP = m_FunctionStack.StackSlotBasePointer;
+        // m_StackFrames.back().PFSBP = m_FunctionStack.StackBasePointer;
+        // 
+        // // Perform a jump to the function
+        // ARIA_ASSERT(func.Labels.contains("_entry$"), "All functions must contain a \"_entry$\" label");
+        // m_ProgramCounter = func.Labels.at("_entry$");
+        // m_ActiveFunction = &func;
+        // 
+        // // Set up the function stack
+        // m_FunctionStack.StackSlotBasePointer = m_FunctionStack.StackSlotPointer - argCount - 1;
+        // m_FunctionStack.StackBasePointer = m_FunctionStack.StackSlots[m_FunctionStack.StackSlotBasePointer].Index;
+        // 
+        // Run();
     }
 
     void VM::CallExtern(const std::string& signature, size_t argCount) {
-        ARIA_ASSERT(m_ExternalFunctions.contains(signature), "Calling CallExtern() on a non-existent extern function!");
-
-        // Set up the function stack
-        m_FunctionStack.StackSlotBasePointer = m_FunctionStack.StackSlotPointer - argCount - 1;
-        m_FunctionStack.StackBasePointer = m_FunctionStack.StackSlots[m_FunctionStack.StackSlotBasePointer].Index;
-
-        // Do the call
-        m_ExternalFunctions.at(signature)(m_Context);
-
-        // Cleanup the stack
-        m_FunctionStack.StackSlotPointer = m_FunctionStack.StackSlotBasePointer;
-        m_FunctionStack.StackPointer = m_FunctionStack.StackBasePointer;
+        ARIA_TODO("VM::Call()");
+        // ARIA_ASSERT(m_ExternalFunctions.contains(signature), "Calling CallExtern() on a non-existent extern function!");
+        // 
+        // // Set up the function stack
+        // m_FunctionStack.StackSlotBasePointer = m_FunctionStack.StackSlotPointer - argCount - 1;
+        // m_FunctionStack.StackBasePointer = m_FunctionStack.StackSlots[m_FunctionStack.StackSlotBasePointer].Index;
+        // 
+        // // Do the call
+        // m_ExternalFunctions.at(signature)(m_Context);
+        // 
+        // // Cleanup the stack
+        // m_FunctionStack.StackSlotPointer = m_FunctionStack.StackSlotBasePointer;
+        // m_FunctionStack.StackPointer = m_FunctionStack.StackBasePointer;
     }
 
     void VM::StoreBool(i32 slot, bool b, Stack& stack) {
@@ -221,9 +142,21 @@ namespace Aria::Internal {
         memcpy(s.Memory, &i, 4);
     }
 
+    void VM::StoreUInt(i32 slot, uint32_t i, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
+        ARIA_ASSERT(s.Size == 4, "Cannot store a uint in a slot with a size that isn't 4!");
+        memcpy(s.Memory, &i, 4);
+    }
+
     void VM::StoreLong(i32 slot, int64_t l, Stack& stack) {
         VMSlice s = GetVMSlice(slot, stack);
         ARIA_ASSERT(s.Size == 8, "Cannot store a long in a slot with a size that isn't 8!");
+        memcpy(s.Memory, &l, 8);
+    }
+
+    void VM::StoreULong(i32 slot, uint64_t l, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
+        ARIA_ASSERT(s.Size == 8, "Cannot store a ulong in a slot with a size that isn't 8!");
         memcpy(s.Memory, &l, 8);
     }
 
@@ -361,7 +294,7 @@ namespace Aria::Internal {
     }
 
     void VM::RunByteCode(const OpCodes& ops) {
-        m_Program = &ops;
+        m_OpCodes = &ops;
         m_ProgramCounter = 0;
 
         RunPrepass();
@@ -379,181 +312,44 @@ namespace Aria::Internal {
     }
 
     void VM::Run() {
-        #define CASE_UNARYEXPR_TYPE(builtinOp, vmTypeKind, realType) case VMTypeKind::vmTypeKind: { \
-            realType value{}; memcpy(&value, GetVMSlice(-1, m_ExpressionStack).Memory, sizeof(realType)); \
-            realType result = builtinOp(value); \
-            Pop(1, m_ExpressionStack); \
-            Alloca(type, m_ExpressionStack); \
-            VMSlice newSlot = GetVMSlice(-1, m_ExpressionStack); \
-            memcpy(newSlot.Memory, &result, newSlot.Size); \
-            break; \
-        }
-
-        #define CASE_UNARYEXPR(_enum, builtinOp) case OpCodeKind::_enum: { \
-            const VMType& type = GET_TYPE(op.Args[0].Index); \
-            switch (type.Kind) { \
-                CASE_UNARYEXPR_TYPE(builtinOp, I8,  i8)   \
-                CASE_UNARYEXPR_TYPE(builtinOp, U8,  u8)   \
-                CASE_UNARYEXPR_TYPE(builtinOp, I16, i16)  \
-                CASE_UNARYEXPR_TYPE(builtinOp, U16, u16)  \
-                CASE_UNARYEXPR_TYPE(builtinOp, I32, i32)  \
-                CASE_UNARYEXPR_TYPE(builtinOp, U32, u32)  \
-                CASE_UNARYEXPR_TYPE(builtinOp, I64, i64)  \
-                CASE_UNARYEXPR_TYPE(builtinOp, U64, u64)  \
-                CASE_UNARYEXPR_TYPE(builtinOp, F32, f32)  \
-                CASE_UNARYEXPR_TYPE(builtinOp, F64, f64)  \
-                default: ARIA_UNREACHABLE();              \
-            } \
-            \
-            break; \
-        }
-
-        #define CASE_BINEXPR_TYPE(builtinOp, vmTypeKind, realType) case VMTypeKind::vmTypeKind: { \
-            realType lhs{}; \
-            realType rhs{}; \
-            memcpy(&lhs, GetVMSlice(-2, m_ExpressionStack).Memory, sizeof(realType)); \
-            memcpy(&rhs, GetVMSlice(-1, m_ExpressionStack).Memory, sizeof(realType)); \
-            realType result = builtinOp(lhs, rhs); \
-            Pop(2, m_ExpressionStack); \
-            Alloca(type, m_ExpressionStack); \
-            VMSlice s = GetVMSlice(-1, m_ExpressionStack); \
-            memcpy(s.Memory, &result, sizeof(realType)); \
-            break; \
-        }
-
-        #define CASE_BINEXPR_TYPE_BOOL(builtinOp, vmTypeKind, realType) case VMTypeKind::vmTypeKind: { \
-            realType lhs{}; \
-            realType rhs{}; \
-            memcpy(&lhs, GetVMSlice(-2, m_ExpressionStack).Memory, sizeof(realType)); \
-            memcpy(&rhs, GetVMSlice(-1, m_ExpressionStack).Memory, sizeof(realType)); \
-            bool result = builtinOp(lhs, rhs); \
-            Pop(2, m_ExpressionStack); \
-            Alloca({ VMTypeKind::I1 }, m_ExpressionStack); \
-            VMSlice s = GetVMSlice(-1, m_ExpressionStack); \
-            memcpy(s.Memory, &result, sizeof(bool)); \
-            break; \
-        }
-
-        #define CASE_BINEXPR(_enum, builtinOp) case OpCodeKind::_enum: { \
-            const VMType& type = GET_TYPE(op.Args[0].Index); \
-            switch (type.Kind) { \
-                CASE_BINEXPR_TYPE(builtinOp, I8,  i8)   \
-                CASE_BINEXPR_TYPE(builtinOp, U8,  u8)   \
-                CASE_BINEXPR_TYPE(builtinOp, I16, i16)  \
-                CASE_BINEXPR_TYPE(builtinOp, U16, u16)  \
-                CASE_BINEXPR_TYPE(builtinOp, I32, i32)  \
-                CASE_BINEXPR_TYPE(builtinOp, U32, u32)  \
-                CASE_BINEXPR_TYPE(builtinOp, I64, i64)  \
-                CASE_BINEXPR_TYPE(builtinOp, U64, u64)  \
-                CASE_BINEXPR_TYPE(builtinOp, F32, f32)  \
-                CASE_BINEXPR_TYPE(builtinOp, F64, f64)  \
-                default: ARIA_UNREACHABLE();            \
-            } \
-            break; \
-        }
-
-        #define CASE_BINEXPR_INTEGRAL(_enum, builtinOp) case OpCodeKind::_enum: { \
-            const VMType& type = GET_TYPE(op.Args[0].Index); \
-            switch (type.Kind) { \
-                CASE_BINEXPR_TYPE(builtinOp, I1,  bool) \
-                CASE_BINEXPR_TYPE(builtinOp, I8,  i8)   \
-                CASE_BINEXPR_TYPE(builtinOp, U8,  u8)   \
-                CASE_BINEXPR_TYPE(builtinOp, I16, i16)  \
-                CASE_BINEXPR_TYPE(builtinOp, U16, u16)  \
-                CASE_BINEXPR_TYPE(builtinOp, I32, i32)  \
-                CASE_BINEXPR_TYPE(builtinOp, U32, u32)  \
-                CASE_BINEXPR_TYPE(builtinOp, I64, i64)  \
-                CASE_BINEXPR_TYPE(builtinOp, U64, u64)  \
-                default: ARIA_UNREACHABLE();            \
-            } \
-            break; \
-        }
-
-        #define CASE_BINEXPR_BOOL(_enum, builtinOp) case OpCodeKind::_enum: { \
-            const VMType& type = GET_TYPE(op.Args[0].Index); \
-            switch (type.Kind) { \
-                CASE_BINEXPR_TYPE_BOOL(builtinOp, I1,  bool) \
-                CASE_BINEXPR_TYPE_BOOL(builtinOp, I8,  i8)   \
-                CASE_BINEXPR_TYPE_BOOL(builtinOp, U8,  u8)   \
-                CASE_BINEXPR_TYPE_BOOL(builtinOp, I16, i16)  \
-                CASE_BINEXPR_TYPE_BOOL(builtinOp, U16, u16)  \
-                CASE_BINEXPR_TYPE_BOOL(builtinOp, I32, i32)  \
-                CASE_BINEXPR_TYPE_BOOL(builtinOp, U32, u32)  \
-                CASE_BINEXPR_TYPE_BOOL(builtinOp, I64, i64)  \
-                CASE_BINEXPR_TYPE_BOOL(builtinOp, U64, u64)  \
-                CASE_BINEXPR_TYPE_BOOL(builtinOp, F32, f32)  \
-                CASE_BINEXPR_TYPE_BOOL(builtinOp, F64, f64)  \
-                default: ARIA_UNREACHABLE();                 \
-            } \
-            break; \
-        }
-
-        for (; m_ProgramCounter < PROG_SIZE(); m_ProgramCounter++) {
-            const OpCode& op = PROG_OP(m_ProgramCounter);
-
-            switch (op.Kind) {
-                case OpCodeKind::Nop: { continue; }
-
-                case OpCodeKind::Alloca: {
-                    const VMType& type = GET_TYPE(op.Args[0].Index);
-
-                    Alloca(type, m_ExpressionStack);
+        for (; m_ProgramCounter < &m_OpCodes->Program.back(); m_ProgramCounter++) {
+            switch (*m_ProgramCounter) {
+                case OP_ALLOCA: {
+                    auto& type = GET_TYPE();
+                    Alloca(type, m_Stack);
                     break;
                 }
 
-                case OpCodeKind::Pop: {
-                    Pop(1, m_ExpressionStack);
-                    break;
-                }
+                case OP_LD_CONST: {
+                    auto& type = GET_TYPE();
+                    Alloca(type, m_Stack);
+                    VMSlice slice = GetVMSlice(-1, m_Stack);
 
-                case OpCodeKind::Store: {
-                    void* dst = GetPointer(-2, m_ExpressionStack);
-                    VMSlice src = GetVMSlice(-1, m_ExpressionStack);
-
-                    memcpy(dst, src.Memory, src.Size);
-                    Pop(2, m_ExpressionStack);
-                    break;
-                }
-
-                case OpCodeKind::Dup: {
-                    Dup(-1, m_ExpressionStack, m_ExpressionStack);
-                    break;
-                }
-
-                case OpCodeKind::PushSF: {
-                    PushStackFrame();
-                    break;
-                }
-
-                case OpCodeKind::PopSF: {
-                    PopStackFrame();
-                    break;
-                }
-
-                case OpCodeKind::Ldc: {
-                    const VMType& type = GET_TYPE(op.Args[0].Index);
-                    Alloca(type, m_ExpressionStack);
-                    
                     switch (type.Kind) {
-                        case VMTypeKind::I1:  memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].Boolean, GetVMTypeSize(type)); break;
-                        case VMTypeKind::I8:  memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].I8,      GetVMTypeSize(type)); break;
-                        case VMTypeKind::U8:  memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].U8,      GetVMTypeSize(type)); break;
-                        case VMTypeKind::I16: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].I16,     GetVMTypeSize(type)); break;
-                        case VMTypeKind::U16: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].U16,     GetVMTypeSize(type)); break;
-                        case VMTypeKind::I32: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].I32,     GetVMTypeSize(type)); break;
-                        case VMTypeKind::U32: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].U32,     GetVMTypeSize(type)); break;
-                        case VMTypeKind::I64: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].I64,     GetVMTypeSize(type)); break;
-                        case VMTypeKind::U64: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].U64,     GetVMTypeSize(type)); break;
-                        case VMTypeKind::F32: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].Float,   GetVMTypeSize(type)); break;
-                        case VMTypeKind::F64: memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &op.Args[1].Double,  GetVMTypeSize(type)); break;
-                        default: ARIA_ASSERT(false, "Invalid \"ldc\" type");
+                        case VMTypeKind::I1: memcpy(slice.Memory, ++m_ProgramCounter, sizeof(bool)); break;
+
+                        case VMTypeKind::I8:
+                        case VMTypeKind::U8: memcpy(slice.Memory, ++m_ProgramCounter, sizeof(u8)); break;
+                        case VMTypeKind::I16:
+                        case VMTypeKind::U16: memcpy(slice.Memory, ++m_ProgramCounter, sizeof(u16)); break;
+                        case VMTypeKind::I32:
+                        case VMTypeKind::U32: memcpy(slice.Memory, ++m_ProgramCounter, sizeof(u32)); m_ProgramCounter += 1; break;
+                        case VMTypeKind::I64:
+                        case VMTypeKind::U64: memcpy(slice.Memory, ++m_ProgramCounter, sizeof(u64)); m_ProgramCounter += 3; break;
+
+                        case VMTypeKind::Float: memcpy(slice.Memory, ++m_ProgramCounter, sizeof(float)); m_ProgramCounter += 1; break;
+                        case VMTypeKind::Double: memcpy(slice.Memory, ++m_ProgramCounter, sizeof(double)); m_ProgramCounter += 3; break;
+
+                        default: ARIA_UNREACHABLE();
                     }
 
                     break;
                 }
 
-                case OpCodeKind::LdStr: {
-                    std::string_view str = GET_STR(op.Args[0].Index);
+                case OP_LD_STR: {
+                    Alloca({ VMTypeKind::String }, m_Stack);
+
+                    std::string_view str = GET_STR();
 
                     RuntimeString vmstr;
                     // Allocate the string on the heap
@@ -563,340 +359,1838 @@ namespace Aria::Internal {
                     vmstr.RawData = newStr;
                     vmstr.Size = str.size();
 
-                    Alloca({ VMTypeKind::String }, m_ExpressionStack);
-                    memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &vmstr, sizeof(vmstr));
+                    Alloca({ VMTypeKind::String }, m_Stack);
+                    memcpy(GetVMSlice(-1, m_Stack).Memory, &vmstr, sizeof(vmstr));
+
                     break;
                 }
 
-                case OpCodeKind::Deref: {
-                    const VMType& type = GET_TYPE(op.Args[0].Index);
-
-                    void* ptr = GetPointer(-1, m_ExpressionStack);
-                    Pop(1, m_ExpressionStack);
-                    Alloca(type, m_ExpressionStack);
-                    VMSlice slice = GetVMSlice(-1, m_ExpressionStack);
-                    memcpy(slice.Memory, ptr, slice.Size);
+                case OP_LD_LOCAL: {
+                    size_t index = static_cast<size_t>(*++m_ProgramCounter);
+                    Dup(index, m_Stack, m_StackFrames.back().Locals);
                     break;
                 }
 
-                case OpCodeKind::DeclareGlobal: {
-                    std::string_view g = GET_STR(op.Args[0].Index);
+                case OP_LD_GLOBAL: {
+                    std::string_view g = GET_STR();
+                    Dup(m_GlobalMap.at(g), m_Stack, m_Globals);
+                    break;
+                }
 
-                    VMSlice src = GetVMSlice(-1, m_ExpressionStack);
+                case OP_LD_PTR_LOCAL: {
+                    size_t index = static_cast<size_t>(*++m_ProgramCounter);
+                    VMSlice slice = GetVMSlice(index, m_StackFrames.back().Locals);
+                    Alloca({ VMTypeKind::Ptr }, m_Stack);
+                    StorePointer(-1, slice.Memory, m_Stack);
+                    break;
+                }
 
-                    Alloca(src.Type, m_GlobalStack);
-                    VMSlice dst = GetVMSlice(-1, m_GlobalStack);
+                case OP_LD_PTR_GLOBAL: {
+                    std::string_view g = GET_STR();
+                    VMSlice slice = GetVMSlice(m_GlobalMap.at(g), m_Globals);
+                    Alloca({ VMTypeKind::Ptr }, m_Stack);
+                    StorePointer(-1, slice.Memory, m_Stack);
+                    break;
+                }
+
+                case OP_POP: {
+                    Pop(1, m_Stack);
+                    break;
+                }
+
+                case OP_DECL_LOCAL: {
+                    size_t index = static_cast<size_t>(*++m_ProgramCounter);
+
+                    VMSlice src = GetVMSlice(-1, m_Stack);
+
+                    Alloca(src.Type, m_StackFrames.back().Locals);
+                    VMSlice dst = GetVMSlice(-1, m_StackFrames.back().Locals);
 
                     memcpy(dst.Memory, src.Memory, src.Size);
-                    Pop(1, m_ExpressionStack);
-
-                    m_GlobalMap[g] = { static_cast<i32>(m_GlobalStack.StackSlotPointer) - 1 };
+                    Pop(1, m_Stack);
                     break;
                 };
 
-                case OpCodeKind::DeclareLocal: {
-                    size_t index = op.Args[0].Index;
+                case OP_DECL_GLOBAL: {
+                    std::string_view g = GET_STR();
 
-                    VMSlice src = GetVMSlice(-1, m_ExpressionStack);
-                    VMSlice dst;
+                    VMSlice src = GetVMSlice(-1, m_Stack);
 
-                    if (!m_StackFrames.back().LocalMap.contains(index)) {
-                        Alloca(src.Type, m_LocalStack);
-                        dst = GetVMSlice(-1, m_LocalStack);
-                    } else {
-                        dst = GetVMSlice(m_StackFrames.back().LocalMap.at(index), m_LocalStack);
-                    }
+                    Alloca(src.Type, m_Globals);
+                    VMSlice dst = GetVMSlice(-1, m_Globals);
 
                     memcpy(dst.Memory, src.Memory, src.Size);
-                    Pop(1, m_ExpressionStack);
+                    Pop(1, m_Stack);
 
-                    m_StackFrames.back().LocalMap[index] = { static_cast<i32>(m_LocalStack.StackSlotPointer - m_LocalStack.StackSlotBasePointer) - 1 };
+                    m_GlobalMap[g] = { static_cast<i32>(m_Globals.StackSlotPointer) - 1 };
                     break;
                 };
 
-                case OpCodeKind::DeclareArg: {
-                    size_t index = op.Args[0].Index;
+                // VVV ADD, SUB, MUL, DIV, MOD VVV //
+                case OP_ADDI: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
 
-                    VMSlice src = GetVMSlice(-1, m_ExpressionStack);
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
-                    Alloca(src.Type, m_FunctionStack);
-                    VMSlice dst = GetVMSlice(-1, m_FunctionStack);
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::I32: {
+                            i32 lhsVal = 0;
+                            i32 rhsVal = 0;
 
-                    memcpy(dst.Memory, src.Memory, src.Size);
-                    Pop(1, m_ExpressionStack); // Pop the local stack slot which we just copied
-                    break;
-                };
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
 
-                case OpCodeKind::LdGlobal: {
-                    std::string_view g = GET_STR(op.Args[0].Index);
-                    Dup(m_GlobalMap.at(g), m_ExpressionStack, m_GlobalStack);
-                    break;
-                }
+                            auto result = lhsVal + rhsVal;
 
-                case OpCodeKind::LdLocal: {
-                    size_t index = op.Args[0].Index;
-                    Dup(m_StackFrames.back().LocalMap.at(index), m_ExpressionStack, m_LocalStack);
-                    break;
-                }
+                            Alloca(lhs.Type, m_Stack);
+                            StoreInt(-1, lhsVal, m_Stack);
+                            break;
+                        }
 
-                case OpCodeKind::LdMember: {
-                    ARIA_TODO("LdMember op code");
-                }
+                        case VMTypeKind::I64: {
+                            i64 lhsVal = 0;
+                            i64 rhsVal = 0;
 
-                case OpCodeKind::LdArg: {
-                    i32 index = static_cast<i32>(op.Args[0].Index);
-                    Dup(index + 1, m_ExpressionStack, m_FunctionStack);
-                    break;
-                }
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
 
-                case OpCodeKind::LdFunc: {
-                    std::string_view fn = GET_STR(op.Args[0].Index);
-  
-                    Alloca({ VMTypeKind::Ptr }, m_FunctionStack);
-                    StorePointer(-1, const_cast<char*>(fn.data()), m_FunctionStack);
-                    break;
-                }
+                            auto result = lhsVal + rhsVal;
 
-                case OpCodeKind::LdPtrGlobal: {
-                    std::string_view g = GET_STR(op.Args[0].Index);
-                    VMSlice slice = GetVMSlice(m_GlobalMap.at(g), m_GlobalStack);
-                    Alloca({ VMTypeKind::Ptr }, m_ExpressionStack);
-                    StorePointer(-1, slice.Memory, m_ExpressionStack);
-                    break;
-                }
+                            Alloca(lhs.Type, m_Stack);
+                            StoreLong(-1, lhsVal, m_Stack);
+                            break;
+                        }
 
-                case OpCodeKind::LdPtrLocal: {
-                    size_t index = op.Args[0].Index;
-                    VMSlice slice = GetVMSlice(m_StackFrames.back().LocalMap.at(index), m_LocalStack);
-                    Alloca({ VMTypeKind::Ptr }, m_ExpressionStack);
-                    StorePointer(-1, slice.Memory, m_ExpressionStack);
-                    break;
-                }
-
-                case OpCodeKind::LdPtrMember: {
-                    ARIA_TODO("LdPtrMember op code");
-                }
-
-                case OpCodeKind::LdPtrArg: {
-                    i32 index = static_cast<i32>(op.Args[0].Index);
-                    VMSlice slice = GetVMSlice(index + 1, m_FunctionStack);
-                    Alloca({ VMTypeKind::Ptr }, m_ExpressionStack);
-                    StorePointer(-1, slice.Memory, m_ExpressionStack);
-                    break;
-                }
-
-                case OpCodeKind::LdPtrRet: {
-                    VMSlice slice = GetVMSlice(-(static_cast<i32>(m_ExpressionStack.StackSlotPointer - m_ExpressionStack.StackSlotBasePointer) + 1), m_ExpressionStack);
-                    Alloca({ VMTypeKind::Ptr }, m_ExpressionStack);
-                    StorePointer(-1, slice.Memory, m_ExpressionStack);
-                    break;
-                }
-
-                case OpCodeKind::Function: ARIA_ASSERT(false, "VM should never reach a function op code!"); break;
-                case OpCodeKind::Label: break; // We just keep going
-
-                case OpCodeKind::Jmp: {
-                    std::string_view label = GET_STR(op.Args[0].Index);
-
-                    ARIA_ASSERT(m_ActiveFunction->Labels.contains(label), "Trying to jump to an unknown label!");
-                    m_ProgramCounter = m_ActiveFunction->Labels.at(label);
-
-                    break;
-                }
-
-                case OpCodeKind::Jt: {
-                    std::string_view label = GET_STR(op.Args[0].Index);
-
-                    if (GetBool(-1, m_ExpressionStack) == true) {
-                        ARIA_ASSERT(m_ActiveFunction->Labels.contains(label), "Trying to jump to an unknown label!");
-                        m_ProgramCounter = m_ActiveFunction->Labels.at(label);
+                        default: ARIA_ASSERT(false, "Invalid types to addi instruction");
                     }
 
                     break;
                 }
 
-                case OpCodeKind::JtPop: {
-                    std::string_view label = GET_STR(op.Args[0].Index);
+                case OP_ADDU: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
 
-                    if (GetBool(-1, m_ExpressionStack) == true) {
-                        ARIA_ASSERT(m_ActiveFunction->Labels.contains(label), "Trying to jump to an unknown label!");
-                        m_ProgramCounter = m_ActiveFunction->Labels.at(label);
-                    }
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
-                    Pop(1, m_ExpressionStack);
-                    break;
-                }
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::U32: {
+                            u32 lhsVal = 0;
+                            u32 rhsVal = 0;
 
-                case OpCodeKind::Jf: {
-                    std::string_view label = GET_STR(op.Args[0].Index);
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
 
-                    if (GetBool(-1, m_ExpressionStack) == false) {
-                        ARIA_ASSERT(m_ActiveFunction->Labels.contains(label), "Trying to jump to an unknown label!");
-                        m_ProgramCounter = m_ActiveFunction->Labels.at(label);
-                    }
+                            auto result = lhsVal + rhsVal;
 
-                    break;
-                }
+                            Alloca(lhs.Type, m_Stack);
+                            StoreUInt(-1, lhsVal, m_Stack);
+                            break;
+                        }
 
-                case OpCodeKind::JfPop: {
-                    std::string_view label = GET_STR(op.Args[0].Index);
+                        case VMTypeKind::U64: {
+                            u64 lhsVal = 0;
+                            u64 rhsVal = 0;
 
-                    if (GetBool(-1, m_ExpressionStack) == false) {
-                        ARIA_ASSERT(m_ActiveFunction->Labels.contains(label), "Trying to jump to an unknown label!");
-                        m_ProgramCounter = m_ActiveFunction->Labels.at(label);
-                    }
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
 
-                    Pop(1, m_ExpressionStack);
-                    break;
-                }
+                            auto result = lhsVal + rhsVal;
 
-                case OpCodeKind::Call: {
-                    size_t argCount = op.Args[0].Index;
-                    const VMType& retType = (m_Program->TypeTable[op.Args[1].Index]);
+                            Alloca(lhs.Type, m_Stack);
+                            StoreULong(-1, lhsVal, m_Stack);
+                            break;
+                        }
 
-                    std::string sig = reinterpret_cast<char*>(GetPointer(-(static_cast<i32>(argCount) + 1), m_FunctionStack));
-                    
-                    // Check if we have an external function
-                    if (m_ExternalFunctions.contains(sig)) {
-                        CallExtern(sig, argCount);
-                        break;
-                    }
-                    
-                    // Now check for aria functions
-                    ARIA_ASSERT(m_Functions.contains(sig), "Calling unknown function");
-                    VMFunction& func = m_Functions.at(sig);
-                    
-                    // Save the state in the current stack frame
-                    m_StackFrames.back().PreviousReturnAddress = m_ReturnAddress;
-                    m_StackFrames.back().PreviousFunction = m_ActiveFunction;
-
-                    // Save function stack
-                    m_StackFrames.back().PFSSBP = m_FunctionStack.StackSlotBasePointer;
-                    m_StackFrames.back().PFSBP = m_FunctionStack.StackBasePointer;
-
-                    m_ReturnAddress = m_ProgramCounter;
-
-                    // Perform a jump to the function
-                    ARIA_ASSERT(func.Labels.contains("_entry$"), "All functions must contain a \"_entry$\" label");
-                    m_ProgramCounter = func.Labels.at("_entry$");
-                    m_ActiveFunction = &func;
-
-                    // Set up the function stack
-                    m_FunctionStack.StackSlotBasePointer = m_FunctionStack.StackSlotPointer - argCount - 1;
-                    m_FunctionStack.StackBasePointer = m_FunctionStack.StackSlots[m_FunctionStack.StackSlotBasePointer].Index;
-
-                    break;
-                }
-
-                case OpCodeKind::Ret: {
-                    m_FunctionStack.StackSlotPointer = m_FunctionStack.StackSlotBasePointer;
-                    m_FunctionStack.StackPointer = m_FunctionStack.StackBasePointer;
-
-                    m_FunctionStack.StackSlotBasePointer = m_StackFrames.back().PFSSBP;
-                    m_FunctionStack.StackBasePointer = m_StackFrames.back().PFSBP;
-
-                    if (m_ReturnAddress == SIZE_MAX) {
-                        StopExecution();
-                    } else {
-                        m_ProgramCounter = m_ReturnAddress;
-                    }
-
-                    m_ReturnAddress = m_StackFrames.back().PreviousReturnAddress;
-                    m_ActiveFunction = m_StackFrames.back().PreviousFunction;
-
-                    break;
-                }
-
-                CASE_UNARYEXPR(Neg, -);
-
-                CASE_BINEXPR(Add, Add)
-                CASE_BINEXPR(Sub, Sub)
-                CASE_BINEXPR(Mul, Mul)
-                CASE_BINEXPR(Div, Div)
-                CASE_BINEXPR(Mod, Mod)
-
-                CASE_BINEXPR_INTEGRAL(And, And)
-                CASE_BINEXPR_INTEGRAL(Or, Or)
-                CASE_BINEXPR_INTEGRAL(Xor, Xor)
-
-                CASE_BINEXPR_INTEGRAL(Shl, Shl)
-                CASE_BINEXPR_INTEGRAL(Shr, Shr)
-
-                CASE_BINEXPR_BOOL(Cmp, Cmp)
-                CASE_BINEXPR_BOOL(Ncmp, Ncmp)
-                CASE_BINEXPR_BOOL(Lt, Lt)
-                CASE_BINEXPR_BOOL(Lte, Lte)
-                CASE_BINEXPR_BOOL(Gt, Gt)
-                CASE_BINEXPR_BOOL(Gte, Gte)
-
-                case OpCodeKind::Cast: {
-                    const VMType& dstType = GET_TYPE(op.Args[0].Index);
-
-                    VMSlice slice = GetVMSlice(-1, m_ExpressionStack);
-                    VMType srcType = slice.Type;
-
-                    #define CASE_CAST(srcVMType, dstVMType, srcRealType, dstRealType) case VMTypeKind::srcVMType: { \
-                        srcRealType val{}; \
-                        memcpy(&val, slice.Memory, slice.Size); \
-                        dstRealType result = static_cast<dstRealType>(val); \
-                        Pop(1, m_ExpressionStack); \
-                        Alloca({ dstVMType }, m_ExpressionStack); \
-                        memcpy(GetVMSlice(-1, m_ExpressionStack).Memory, &result, sizeof(result)); \
-                        break; \
-                    }
-
-                    #define CASE_CAST_GROUP(dstVMType, dstRealType) case VMTypeKind::dstVMType: { \
-                        switch (srcType.Kind) { \
-                            CASE_CAST(I1,  VMTypeKind::dstVMType, bool, dstRealType) \
-                            \
-                            CASE_CAST(I8,  VMTypeKind::dstVMType, i8, dstRealType) \
-                            CASE_CAST(U8,  VMTypeKind::dstVMType, u8, dstRealType) \
-                            CASE_CAST(I16, VMTypeKind::dstVMType, i16, dstRealType) \
-                            CASE_CAST(U16, VMTypeKind::dstVMType, u16, dstRealType) \
-                            CASE_CAST(I32, VMTypeKind::dstVMType, i32, dstRealType) \
-                            CASE_CAST(U32, VMTypeKind::dstVMType, u32, dstRealType) \
-                            CASE_CAST(I64, VMTypeKind::dstVMType, i64, dstRealType) \
-                            CASE_CAST(U64, VMTypeKind::dstVMType, u64, dstRealType) \
-                            \
-                            CASE_CAST(F32, VMTypeKind::dstVMType, f32, dstRealType) \
-                            CASE_CAST(F64, VMTypeKind::dstVMType, f64, dstRealType) \
-                            \
-                            default: ARIA_UNREACHABLE(); \
-                        } \
-                        \
-                        break; \
-                    }
-
-                    switch (dstType.Kind) {
-                        CASE_CAST_GROUP(I1, bool)
-
-                        CASE_CAST_GROUP(I8, i8)
-                        CASE_CAST_GROUP(U8, u8)
-                        CASE_CAST_GROUP(I16, i16)
-                        CASE_CAST_GROUP(U16, u16)
-                        CASE_CAST_GROUP(I32, i32)
-                        CASE_CAST_GROUP(U32, u32)
-                        CASE_CAST_GROUP(I64, i64)
-                        CASE_CAST_GROUP(U64, u64)
-                        CASE_CAST_GROUP(F32, f32)
-                        CASE_CAST_GROUP(F64, f64)
-
-                        default: ARIA_UNREACHABLE();
+                        default: ARIA_ASSERT(false, "Invalid types to addu instruction");
                     }
 
                     break;
                 }
 
-                case OpCodeKind::Comment: continue;
+                case OP_ADDF: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::Float: {
+                            float lhsVal = 0.0f;
+                            float rhsVal = 0.0f;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal + rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreFloat(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::Double: {
+                            double lhsVal = 0.0;
+                            double rhsVal = 0.0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal + rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreDouble(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to addf instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_SUBI: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::I32: {
+                            i32 lhsVal = 0;
+                            i32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal - rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreInt(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::I64: {
+                            i64 lhsVal = 0;
+                            i64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal - rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreLong(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to subi instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_SUBU: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::U32: {
+                            u32 lhsVal = 0;
+                            u32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal - rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreUInt(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::U64: {
+                            u64 lhsVal = 0;
+                            u64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal - rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreULong(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to subu instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_SUBF: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::Float: {
+                            float lhsVal = 0.0f;
+                            float rhsVal = 0.0f;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal - rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreFloat(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::Double: {
+                            double lhsVal = 0.0;
+                            double rhsVal = 0.0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal - rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreDouble(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to subf instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_MULI: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::I32: {
+                            i32 lhsVal = 0;
+                            i32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal * rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreInt(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::I64: {
+                            i64 lhsVal = 0;
+                            i64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal * rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreLong(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to muli instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_MULU: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::U32: {
+                            u32 lhsVal = 0;
+                            u32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal * rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreUInt(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::U64: {
+                            u64 lhsVal = 0;
+                            u64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal * rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreULong(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to mulu instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_MULF: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::Float: {
+                            float lhsVal = 0.0f;
+                            float rhsVal = 0.0f;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal * rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreFloat(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::Double: {
+                            double lhsVal = 0.0;
+                            double rhsVal = 0.0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal * rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreDouble(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to mulf instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_DIVI: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::I32: {
+                            i32 lhsVal = 0;
+                            i32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            // TODO: check if rhsVal is zero...
+                            auto result = lhsVal / rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreInt(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::I64: {
+                            i64 lhsVal = 0;
+                            i64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            // TODO: check if rhsVal is zero...
+                            auto result = lhsVal / rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreLong(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to divi instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_DIVU: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::U32: {
+                            u32 lhsVal = 0;
+                            u32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            // TODO: check if rhsVal is zero...
+                            auto result = lhsVal / rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreUInt(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::U64: {
+                            u64 lhsVal = 0;
+                            u64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            // TODO: check if rhsVal is zero...
+                            auto result = lhsVal / rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreULong(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to divu instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_DIVF: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::Float: {
+                            float lhsVal = 0.0f;
+                            float rhsVal = 0.0f;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal / rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreFloat(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::Double: {
+                            double lhsVal = 0.0;
+                            double rhsVal = 0.0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal / rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreDouble(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to divf instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_MODI: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::I32: {
+                            i32 lhsVal = 0;
+                            i32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            // TODO: check if rhsVal is zero...
+                            auto result = lhsVal % rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreInt(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::I64: {
+                            i64 lhsVal = 0;
+                            i64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            // TODO: check if rhsVal is zero...
+                            auto result = lhsVal % rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreLong(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to modi instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_MODU: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::U32: {
+                            u32 lhsVal = 0;
+                            u32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            // TODO: check if rhsVal is zero...
+                            auto result = lhsVal % rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreUInt(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::U64: {
+                            u64 lhsVal = 0;
+                            u64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            // TODO: check if rhsVal is zero...
+                            auto result = lhsVal % rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreULong(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to modu instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_MODF: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::Float: {
+                            float lhsVal = 0.0f;
+                            float rhsVal = 0.0f;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = fmodf(lhsVal, rhsVal);
+                            if (result < 0.0f) { result += fabsf(rhsVal); }
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreFloat(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::Double: {
+                            double lhsVal = 0.0;
+                            double rhsVal = 0.0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = fmod(lhsVal, rhsVal);
+                            if (result < 0.0) { result += fabsf(rhsVal); }
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreDouble(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to modf instruction");
+                    }
+
+                    break;
+                }
+                // ^^^ ADD, SUB, MUL, DIV, MOD ^^^ //
+
+                // VVV CMP, LT, LTE, GT, GTE VVV //
+                case OP_CMPI: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::I32: {
+                            i32 lhsVal = 0;
+                            i32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal == rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::I64: {
+                            i64 lhsVal = 0;
+                            i64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal == rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to cmpi instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_CMPU: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::U32: {
+                            u32 lhsVal = 0;
+                            u32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal == rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::U64: {
+                            u64 lhsVal = 0;
+                            u64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal == rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to cmpu instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_CMPF: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::Float: {
+                            float lhsVal = 0.0f;
+                            float rhsVal = 0.0f;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal == rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::Double: {
+                            double lhsVal = 0.0;
+                            double rhsVal = 0.0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal == rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to cmpf instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_LTI: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::I32: {
+                            i32 lhsVal = 0;
+                            i32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal < rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::I64: {
+                            i64 lhsVal = 0;
+                            i64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal < rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to lti instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_LTU: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::U32: {
+                            u32 lhsVal = 0;
+                            u32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal < rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::U64: {
+                            u64 lhsVal = 0;
+                            u64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal < rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to ltu instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_LTF: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::Float: {
+                            float lhsVal = 0.0f;
+                            float rhsVal = 0.0f;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal < rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::Double: {
+                            double lhsVal = 0.0;
+                            double rhsVal = 0.0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal < rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to ltf instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_LTEI: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::I32: {
+                            i32 lhsVal = 0;
+                            i32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal <= rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::I64: {
+                            i64 lhsVal = 0;
+                            i64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal <= rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to ltei instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_LTEU: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::U32: {
+                            u32 lhsVal = 0;
+                            u32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal <= rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::U64: {
+                            u64 lhsVal = 0;
+                            u64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal <= rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to lteu instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_LTEF: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::Float: {
+                            float lhsVal = 0.0f;
+                            float rhsVal = 0.0f;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal <= rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::Double: {
+                            double lhsVal = 0.0;
+                            double rhsVal = 0.0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal <= rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to ltef instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_GTI: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::I32: {
+                            i32 lhsVal = 0;
+                            i32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal > rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::I64: {
+                            i64 lhsVal = 0;
+                            i64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal > rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to gti instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_GTU: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::U32: {
+                            u32 lhsVal = 0;
+                            u32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal > rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::U64: {
+                            u64 lhsVal = 0;
+                            u64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal > rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to gtu instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_GTF: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::Float: {
+                            float lhsVal = 0.0f;
+                            float rhsVal = 0.0f;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal > rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::Double: {
+                            double lhsVal = 0.0;
+                            double rhsVal = 0.0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal > rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to gtf instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_GTEI: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::I32: {
+                            i32 lhsVal = 0;
+                            i32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal >= rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::I64: {
+                            i64 lhsVal = 0;
+                            i64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal >= rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to gtei instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_GTEU: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::U32: {
+                            u32 lhsVal = 0;
+                            u32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal >= rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::U64: {
+                            u64 lhsVal = 0;
+                            u64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal >= rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to gteu instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_GTEF: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::Float: {
+                            float lhsVal = 0.0f;
+                            float rhsVal = 0.0f;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal >= rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::Double: {
+                            double lhsVal = 0.0;
+                            double rhsVal = 0.0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal >= rhsVal;
+
+                            Alloca({ VMTypeKind::I1 }, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to gtef instruction");
+                    }
+
+                    break;
+                }
+                // ^^^ CMP, LT, LTE, GT, GTE ^^^ //
+
+                // VVV SHL, SHR, AND, OR, XOR VVV ///
+                case OP_SHLI: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::I32: {
+                            i32 lhsVal = 0;
+                            i32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal << rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::I64: {
+                            i64 lhsVal = 0;
+                            i64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal << rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to shli instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_SHLU: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::U32: {
+                            u32 lhsVal = 0;
+                            u32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal << rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::U64: {
+                            u64 lhsVal = 0;
+                            u64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal << rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to shlu instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_SHRI: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::I32: {
+                            i32 lhsVal = 0;
+                            i32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal >> rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::I64: {
+                            i64 lhsVal = 0;
+                            i64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal >> rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to shri instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_SHRU: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::U32: {
+                            u32 lhsVal = 0;
+                            u32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal >> rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::U64: {
+                            u64 lhsVal = 0;
+                            u64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal >> rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to shru instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_ANDI: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::I32: {
+                            i32 lhsVal = 0;
+                            i32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal & rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::I64: {
+                            i64 lhsVal = 0;
+                            i64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal & rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to andi instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_ANDU: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::U32: {
+                            u32 lhsVal = 0;
+                            u32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal & rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::U64: {
+                            u64 lhsVal = 0;
+                            u64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal & rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to andu instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_ORI: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::I32: {
+                            i32 lhsVal = 0;
+                            i32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal | rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::I64: {
+                            i64 lhsVal = 0;
+                            i64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal | rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to ori instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_ORU: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::U32: {
+                            u32 lhsVal = 0;
+                            u32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal | rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::U64: {
+                            u64 lhsVal = 0;
+                            u64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal | rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to oru instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_XORI: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::I32: {
+                            i32 lhsVal = 0;
+                            i32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal ^ rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::I64: {
+                            i64 lhsVal = 0;
+                            i64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal ^ rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to xori instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_XORU: {
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
+
+                    switch (lhs.Type.Kind) {
+                        case VMTypeKind::U32: {
+                            u32 lhsVal = 0;
+                            u32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal ^ rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::U64: {
+                            u64 lhsVal = 0;
+                            u64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.Memory, lhs.Size);
+                            memcpy(&rhsVal, rhs.Memory, rhs.Size);
+                            Pop(2, m_Stack);
+
+                            auto result = lhsVal ^ rhsVal;
+
+                            Alloca(lhs.Type, m_Stack);
+                            StoreBool(-1, lhsVal, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to xoru instruction");
+                    }
+
+                    break;
+                }
+                // ^^^ SHL, SHR, AND, OR, XOR ^^^ //
+
+                case OP_LOGAND: {
+                    bool lhs = GetBool(-2, m_Stack);
+                    bool rhs = GetBool(-1, m_Stack);
+                    Pop(2, m_Stack);
+
+                    Alloca({ VMTypeKind::I1 }, m_Stack);
+                    StoreBool(-1, lhs && rhs, m_Stack);
+                    break;
+                }
+
+                case OP_LOGOR: {
+                    bool lhs = GetBool(-2, m_Stack);
+                    bool rhs = GetBool(-1, m_Stack);
+                    Pop(2, m_Stack);
+
+                    Alloca({ VMTypeKind::I1 }, m_Stack);
+                    StoreBool(-1, lhs || rhs, m_Stack);
+                    break;
+                }
+
+                case OP_LOGNOT: {
+                    bool val = GetBool(-1, m_Stack);
+                    StoreBool(-1, !val, m_Stack);
+                    break;
+                }
+
+                default: ARIA_UNREACHABLE();
             }
         }
-
-        #undef CASE_UNARYEXPR
-        #undef CASE_UNARYEXPR_GROUP
-        #undef CASE_BINEXPR
-        #undef CASE_BINEXPR_GROUP
-        #undef CASE_CAST
-        #undef CASE_CAST_GROUP
     }
     
     VMSlice VM::GetVMSlice(i32 index, Stack& stack) {
@@ -905,7 +2199,7 @@ namespace Aria::Internal {
         if (index < 0) {
             slot = stack.StackSlots[stack.StackSlotPointer + index];
         } else {
-            slot = stack.StackSlots[stack.StackSlotBasePointer + index];
+            slot = stack.StackSlots[index];
         }
 
         return VMSlice(&stack.Stack[slot.Index], slot.Size, slot.Type);
@@ -929,24 +2223,25 @@ namespace Aria::Internal {
             case VMTypeKind::I64:    return 8;
             case VMTypeKind::U64:    return 8;
                                      
-            case VMTypeKind::F32:    return 4;
-            case VMTypeKind::F64:    return 8;
+            case VMTypeKind::Float:  return 4;
+            case VMTypeKind::Double: return 8;
                                      
             case VMTypeKind::Ptr:    return sizeof(void*);
 
             case VMTypeKind::String: return sizeof(RuntimeString);
 
             case VMTypeKind::Struct: {
-                if (m_CachedStructSize.contains(type.Data)) { return m_CachedStructSize.at(type.Data); }
-
-                size_t size = 0;
-                const VMStruct& str = m_Program->StructTable[type.Data];
-                for (size_t field : str.Fields) {
-                    size += AlignToEight(GetVMTypeSize(GET_TYPE(field)));
-                }
-
-                m_CachedStructSize[type.Data] = size;
-                return size;
+                ARIA_TODO("struct size");
+                // if (m_CachedStructSize.contains(type.Data)) { return m_CachedStructSize.at(type.Data); }
+                // 
+                // size_t size = 0;
+                // const VMStruct& str = m_Program->StructTable[type.Data];
+                // for (size_t field : str.Fields) {
+                //     size += AlignToEight(GetVMTypeSize(GET_TYPE(field)));
+                // }
+                // 
+                // m_CachedStructSize[type.Data] = size;
+                // return size;
             }
 
             default: ARIA_UNREACHABLE();
@@ -954,27 +2249,23 @@ namespace Aria::Internal {
     }
 
     void VM::StopExecution() {
-        m_ProgramCounter = m_Program->OpCodeTable.size();
+        m_ProgramCounter = &m_OpCodes->Program.back();
     }
 
     void VM::RunPrepass() {
-        for (; m_ProgramCounter < m_Program->OpCodeTable.size(); m_ProgramCounter++) {
-            const OpCode& op = m_Program->OpCodeTable[m_ProgramCounter];
-
-            if (op.Kind == OpCodeKind::Function) {
-                size_t startPc = m_ProgramCounter;
+        for (; m_ProgramCounter < &m_OpCodes->Program.back(); m_ProgramCounter++) {
+            if (*m_ProgramCounter == OP_FUNCTION) {
+                const OpCode* startPc = m_ProgramCounter;
                 m_ProgramCounter++;
                 
                 std::string_view ident = GET_STR(op.Args[0].Index);
                 VMFunction func;
                 
-                for (; m_ProgramCounter < PROG_SIZE(); m_ProgramCounter++) {
-                    const OpCode& op = PROG_OP(m_ProgramCounter);
-
-                    if (op.Kind == OpCodeKind::Label) {
+                for (; m_ProgramCounter < &m_OpCodes->Program.back(); m_ProgramCounter++) {
+                    if (*m_ProgramCounter == OP_LABEL) {
                         std::string_view label = GET_STR(op.Args[0].Index);
                         func.Labels[label] = m_ProgramCounter;
-                    } else if (op.Kind == OpCodeKind::Function) {
+                    } else if (*m_ProgramCounter == OP_ENDFUNCTION) {
                         break;
                     }
                 }

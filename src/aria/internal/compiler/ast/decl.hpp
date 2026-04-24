@@ -23,6 +23,20 @@ namespace Aria::Internal {
         BuiltinDestructor
     };
 
+    inline const char* DeclKindToString(DeclKind kind) {
+        switch (kind) {
+            case DeclKind::Error: return "Error";
+
+            case DeclKind::Var: return "Var";
+            case DeclKind::Param: return "Param";
+            case DeclKind::Function: return "Function";
+            case DeclKind::OverloadedFunction: return "OverloadedFunction";
+            case DeclKind::Struct: return "Struct";
+
+            default: ARIA_UNREACHABLE();
+        }
+    }
+
     enum class BuiltinKind {
         String
     };
@@ -55,12 +69,13 @@ namespace Aria::Internal {
     };
 
     struct VarDecl {
-        VarDecl(StringView identifier, TypeInfo* type, Expr* initializer)
-            : Identifier(identifier), Type(type), Initializer(initializer) {}
+        VarDecl(StringView identifier, TypeInfo* type, Expr* initializer, bool global)
+            : Identifier(identifier), Type(type), Initializer(initializer), GlobalVar(global) {}
 
         StringView Identifier;
         TypeInfo* Type = nullptr;
         Expr* Initializer = nullptr;
+        bool GlobalVar = false;
     };
 
     struct ParamDecl {

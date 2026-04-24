@@ -42,154 +42,92 @@ namespace Aria::Internal {
         DeclRefExpr& ref = expr->DeclRef;
         std::string ident = fmt::format("{}", ref.Identifier);
 
+        auto getType = [](Decl* d) -> TypeInfo* {
+            switch (d->Kind) {
+                case DeclKind::Var: { return d->Var.Type; }
+                case DeclKind::Param: { return d->Param.Type; }
+                case DeclKind::Function: { return d->Function.Type; }
+                case DeclKind::OverloadedFunction: { return &ErrorType; }
+                case DeclKind::Struct: { return &ErrorType; }
+
+                default: ARIA_UNREACHABLE();
+            }      
+        };
+
         if (expr->ResultDiscarded) {
             m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of identifier", CompilerDiagKind::Warning);
+        }
+
+        Module* mod = nullptr;
+
+        if (!ref.NameSpecifier) {
+            for (auto& scope : m_Scopes) {
+                if (scope.Declarations.contains(ident)) {
+                    Decl* d = scope.Declarations.at(ident).SourceDeclaration;
+                    expr->Type = getType(d);
+                    ref.ReferencedDecl = d;
+                    return;
+                }
+            }
         }
 
         if (ref.NameSpecifier) {
             ARIA_ASSERT(ref.NameSpecifier->Kind == SpecifierKind::Scope, "Invalid specifier");
 
-            ScopeSpecifier& scope = ref.NameSpecifier->Scope;
+            // We may be referencing ourselves
+            if (ref.NameSpecifier->Scope.Identifier == m_Context->ActiveCompUnit->Parent->Name) {
+                mod = m_Context->ActiveCompUnit->Parent;
+            }
 
-            if (scope.Identifier == m_Context->ActiveCompUnit->Parent->Name) {
-                scope.ReferencedModule = m_Context->ActiveCompUnit->Parent;
-            } else {
-                for (Stmt* stmt : m_Context->ActiveCompUnit->Imports) {
-                    ARIA_ASSERT(stmt->Kind == StmtKind::Import, "Invalid import");
-                
-                    if (stmt->Import.Name == scope.Identifier) {
-                        scope.ReferencedModule = stmt->Import.ResolvedModule;
-                        break;
-                    }
+            for (Stmt* import : m_Context->ActiveCompUnit->Imports) {
+                ARIA_ASSERT(import->Kind == StmtKind::Import, "Invalid import stmt");
+                if (import->Import.Name == ref.NameSpecifier->Scope.Identifier) {
+                    mod = import->Import.ResolvedModule;
                 }
             }
 
-            if (scope.ReferencedModule) {
-                Decl* d = nullptr;
-                if (scope.ReferencedModule == m_Context->ActiveCompUnit->Parent) {
-                    d = FindSymbolInModule(scope.ReferencedModule, ref.Identifier, true); // Allow accessing private declarations if we are in the same module
-                } else {
-                    d = FindSymbolInModule(scope.ReferencedModule, ref.Identifier, false);
-                }
-
-                if (!d) {
-                    m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, fmt::format("Module '{}' does not contain '{}'", scope.Identifier, ref.Identifier));
-                    expr->Type = &ErrorType;
-                    return;
-                }
-
-                switch (d->Kind) {
-                    case DeclKind::Var: {
-                        ref.Kind = DeclRefKind::GlobalVar;
-                        ref.ReferencedDecl = d;
-                        expr->Type = d->Var.Type;
-                        break;
-                    }
-
-                    case DeclKind::Function: {
-                        ref.Kind = DeclRefKind::Function;
-                        ref.ReferencedDecl = d;
-                        expr->Type = d->Function.Type;
-                        break;
-                    }
-
-                    case DeclKind::OverloadedFunction: {
-                        ref.Kind = DeclRefKind::OverloadedFunction;
-                        ref.ReferencedDecl = d;
-                        expr->Type = &ErrorType;
-                        break;
-                    }
-
-                    case DeclKind::Struct: {
-                        ref.Kind = DeclRefKind::Struct;
-                        ref.ReferencedDecl = d;
-                        expr->Type = &ErrorType;
-                        break;
-                    }
-
-                    default: ARIA_UNREACHABLE();
-                }
-
-                return;
-            } else {
-                m_Context->ReportCompilerDiagnostic(ref.NameSpecifier->Loc, ref.NameSpecifier->Range, fmt::format("Could not find module '{}'", scope.Identifier));
+            if (!mod) {
+                m_Context->ReportCompilerDiagnostic(ref.NameSpecifier->Loc, ref.NameSpecifier->Range, fmt::format("Could not find module '{}'", ref.NameSpecifier->Scope.Identifier));
                 expr->Type = &ErrorType;
+                ref.ReferencedDecl = &g_ErrorDecl;
                 return;
             }
+        } else {
+            mod = m_Context->ActiveCompUnit->Parent;
         }
 
-        if (m_ActiveStruct) {
-            StructDecl s = std::get<StructDeclaration>(m_ActiveStruct->Data).SourceDecl->Struct;
-
-            // Check for implicit self
-            for (Decl* d : s.Fields) {
-                if (d->Kind == DeclKind::Field) {
-                    FieldDecl fd = d->Field;
-                    if (fd.Identifier == ref.Identifier) {
-                        Expr* self = Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::Self, ExprValueKind::LValue, m_ActiveStruct, SelfExpr());
-                        Expr* member = Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::Member, ExprValueKind::LValue, fd.Type, MemberExpr(ref.Identifier, self));
-                        ReplaceExpr(expr, member);
-                        return;
-                    }
-                }
-            }
-        }
-        
-        for (size_t i = m_Scopes.size(); i > 0; i--) {
-            auto& it = m_Scopes.at(i - 1);
-
-            if (it.Declarations.contains(ident)) {
-                ref.Kind = it.Declarations.at(ident).DeclKind;
-                ref.ReferencedDecl = it.Declarations.at(ident).SourceDeclaration;
-                expr->Type = it.Declarations.at(ident).ResolvedType;
-                return;
-            }
-        }
-
-        if (Decl* d = FindSymbolInUnit(m_Context->ActiveCompUnit, ref.Identifier)) {
-            switch (d->Kind) {
-                case DeclKind::Var: {
-                    ref.Kind = DeclRefKind::GlobalVar;
-                    ref.ReferencedDecl = d;
-                    expr->Type = d->Var.Type;
-                    break;
-                }
-
-                case DeclKind::Function: {
-                    ref.Kind = DeclRefKind::Function;
-                    ref.ReferencedDecl = d;
-                    expr->Type = d->Function.Type;
-                    break;
-                }
-
-                case DeclKind::OverloadedFunction: {
-                    ref.Kind = DeclRefKind::OverloadedFunction;
-                    ref.ReferencedDecl = d;
-                    expr->Type = &ErrorType;
-                    break;
-                }
-
-                case DeclKind::Struct: {
-                    ref.Kind = DeclRefKind::Struct;
-                    ref.ReferencedDecl = d;
-                    expr->Type = &ErrorType;
-                    break;
-                }
-
-                default: ARIA_UNREACHABLE();
-            }
-
+        if (m_Context->ActiveCompUnit->LocalSymbols.contains(ident)) {
+            Decl* d = m_Context->ActiveCompUnit->LocalSymbols.at(ident);
+            ref.ReferencedDecl = d;
+            expr->Type = getType(d);
             return;
         }
 
-        if (FindSymbolInImports(m_Context->ActiveCompUnit, ref.Identifier)) {
-            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Symbols from other modules must be prefixed with the module name");
-            expr->Type = &ErrorType;
+        if (mod->Symbols.contains(ident)) {
+            Decl* d = mod->Symbols.at(ident);
+
+            if (d->Flags & DECL_FLAG_PRIVATE && ref.NameSpecifier) {
+                m_Context->ReportCompilerDiagnostic(ref.NameSpecifier->Loc, ref.NameSpecifier->Range, fmt::format("Symbol '{}' is not accessible", ref.Identifier));
+                expr->Type = &ErrorType;
+                ref.ReferencedDecl = &g_ErrorDecl;
+                return;
+            }
+
+            ref.ReferencedDecl = d;
+            expr->Type = getType(d);
             return;
         }
 
-        m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, fmt::format("Undeclared identifier \"{}\"", ref.Identifier));
-        expr->Type = &ErrorType;
+        for (Stmt* import : m_Context->ActiveCompUnit->Imports) {
+            ARIA_ASSERT(import->Kind == StmtKind::Import, "Invalid import");
+
+            if (import->Import.ResolvedModule->Symbols.contains(ident)) {
+                m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, fmt::format("Symbols from other modules must be prefixed with the module name ({}::{})", import->Import.Name, ref.Identifier));
+                expr->Type = &ErrorType;
+                ref.ReferencedDecl = &g_ErrorDecl;
+                return;
+            }
+        }
     }
 
     void SemanticAnalyzer::ResolveMemberExpr(Expr* expr) {
@@ -241,7 +179,7 @@ namespace Aria::Internal {
             return;
         }
 
-        if (call.Callee->Kind == ExprKind::DeclRef && call.Callee->DeclRef.Kind == DeclRefKind::OverloadedFunction) { // Overloaded function
+        if (call.Callee->Kind == ExprKind::DeclRef && call.Callee->DeclRef.ReferencedDecl->Kind == DeclKind::OverloadedFunction) { // Overloaded function
             ARIA_TODO("Overloaded function calls");
         } else if (!call.Callee->Type->IsError()) { // Normal function
             FunctionDeclaration& fnDecl = std::get<FunctionDeclaration>(calleeType->Data);
