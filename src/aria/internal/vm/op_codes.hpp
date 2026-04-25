@@ -35,7 +35,7 @@ namespace Aria::Internal {
 
     struct VMType {
         VMTypeKind Kind = VMTypeKind::Void;
-        std::variant<VMStruct> Data;
+        std::variant<bool, VMStruct> Data;
     };
 
     enum OpCode : u16 {

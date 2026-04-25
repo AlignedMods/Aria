@@ -128,6 +128,9 @@ namespace Aria::Internal {
                 return;
             }
         }
+
+        expr->Type = &ErrorType;
+        m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, fmt::format("Unknown identifier '{}'", ref.Identifier));
     }
 
     void SemanticAnalyzer::ResolveMemberExpr(Expr* expr) {
