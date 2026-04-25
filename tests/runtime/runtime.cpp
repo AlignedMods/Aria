@@ -24,7 +24,7 @@ TEST_CASE("Runtime Basic Expressions") {
     ctx.AddExternalFunction("should_never_be_called()", [](Aria::Context* ctx) {
         throw std::runtime_error("function that shouldn't be called was called");
     });
-
+    
     ctx.Run();
     
     ctx.GetGlobal("basic_expressions::a");
@@ -73,14 +73,12 @@ TEST_CASE("Runtime Functions") {
     Aria::Context ctx = Aria::Context::Create();
     ctx.CompileFile("tests/runtime/functions.aria");
     ctx.AddExternalFunction("functions::external_function(int, int, int)", [](Aria::Context* ctx) {
-        ctx->GetArg(0);
-        ctx->GetArg(1);
-        ctx->GetArg(2);
-        REQUIRE(ctx->GetInt(-3) == 5);
+        REQUIRE(ctx->GetInt(-1) == 5);
         REQUIRE(ctx->GetInt(-2) == 66);
-        REQUIRE(ctx->GetInt(-1) == 50);
+        REQUIRE(ctx->GetInt(-3) == 50);
         ctx->Pop(3);
     });
+
     ctx.Run();
     
     ctx.Call("main()", 0);

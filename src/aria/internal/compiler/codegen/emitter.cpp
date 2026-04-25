@@ -88,10 +88,10 @@ namespace Aria::Internal {
             for (CompilationUnit* unit : mod->Units) {
                 for (Decl* g : unit->Globals) {
                     EmitDecl(g);
-                    MergePendingOpCodes();
                 }
             }
 
+            MergePendingOpCodes();
             PopStackFrame();
             PUSH_OP(OP_RET);
             PUSH_OP(OP_ENDFUNCTION);
@@ -230,7 +230,7 @@ namespace Aria::Internal {
                     if (expr->Type->IsReference()) {
                         PUSH_PENDING_OP(OP_LD_GLOBAL);
                     } else {
-                        PUSH_PENDING_OP(OP_LD_GLOBAL);
+                        PUSH_PENDING_OP(OP_LD_PTR_GLOBAL);
                     }
 
                     PUSH_PENDING_OP(STR_IDX(-1));
@@ -369,9 +369,11 @@ namespace Aria::Internal {
             }
         }
 
+        OpCode idx = STR_IDX(-1);
+
         EmitExpr(copy.Expression, ExprValueKind::LValue);
         PUSH_PENDING_OP(OP_CALL);
-        PUSH_PENDING_OP(STR_IDX(-1));
+        PUSH_PENDING_OP(idx);
     }
 
     void Emitter::EmitCallExpr(Expr* expr, ExprValueKind valueKind) {
@@ -379,8 +381,8 @@ namespace Aria::Internal {
         
         ARIA_ASSERT(call.Callee->Kind == ExprKind::DeclRef, "Callee of call expression must be a decl-ref");
 
-        for (size_t i = 0; i < call.Arguments.Size; i++) {
-            EmitExpr(call.Arguments.Items[i], call.Arguments.Items[i]->ValueKind);
+        for (auto it = call.Arguments.rbegin(); it != call.Arguments.rend(); it--) {
+            EmitExpr(*it, (*it)->ValueKind);
         }
 
         std::string ident = (call.Callee->DeclRef.ReferencedDecl->Flags & DECL_FLAG_NOMANGLE) ? 
@@ -467,25 +469,25 @@ namespace Aria::Internal {
             switch (cast.Kind) {
                 case CastKind::Integral: {
                     PUSH_PENDING_OP(OP_CONV_ITOI);
-                    PUSH_PENDING_OP(TypeInfoToVMTypeIdx(cast.Expression->Type));
+                    PUSH_PENDING_OP(TypeInfoToVMTypeIdx(expr->Type));
                     break;
                 }
 
                 case CastKind::Floating: {
                     PUSH_PENDING_OP(OP_CONV_FTOF);
-                    PUSH_PENDING_OP(TypeInfoToVMTypeIdx(cast.Expression->Type));
+                    PUSH_PENDING_OP(TypeInfoToVMTypeIdx(expr->Type));
                     break;
                 }
 
                 case CastKind::IntegralToFloating: {
                     PUSH_PENDING_OP(OP_CONV_ITOF);
-                    PUSH_PENDING_OP(TypeInfoToVMTypeIdx(cast.Expression->Type));
+                    PUSH_PENDING_OP(TypeInfoToVMTypeIdx(expr->Type));
                     break;
                 }
 
                 case CastKind::FloatingToIntegral: {
                     PUSH_PENDING_OP(OP_CONV_FTOI);
-                    PUSH_PENDING_OP(TypeInfoToVMTypeIdx(cast.Expression->Type));
+                    PUSH_PENDING_OP(TypeInfoToVMTypeIdx(expr->Type));
                     break;
                 }
 
@@ -504,13 +506,24 @@ namespace Aria::Internal {
     }
 
     void Emitter::EmitUnaryOperatorExpr(Expr* expr, ExprValueKind valueKind) {
-        ARIA_TODO("Emitter::EmitUnaryOperatorExpr()");
-        // UnaryOperatorExpr unop = expr->UnaryOperator;
-        // 
-        // switch (unop.Operator) {
-        //     case UnaryOperatorKind::Negate: EmitExpr(unop.Expression, unop.Expression->ValueKind); PUSH_PENDING_OP(OpCodeKind::Neg, { TypeInfoToVMTypeIdx(unop.Expression->Type) }); break;
-        //     default: ARIA_UNREACHABLE();
-        // }
+        UnaryOperatorExpr unop = expr->UnaryOperator;
+        
+        switch (unop.Operator) {
+            case UnaryOperatorKind::Negate: { 
+                EmitExpr(unop.Expression, unop.Expression->ValueKind);
+                if (expr->Type->IsIntegral()) {
+                    ARIA_ASSERT(expr->Type->IsSigned(), "Type must be signed");
+                    PUSH_PENDING_OP(OP_NEGI);
+                } else if (expr->Type->IsFloatingPoint()) {
+                    PUSH_PENDING_OP(OP_NEGF);
+                } else {
+                    ARIA_UNREACHABLE();
+                }
+
+                break;
+            }
+            default: ARIA_UNREACHABLE();
+        }
     }
 
     void Emitter::EmitBinaryOperatorExpr(Expr* expr, ExprValueKind valueKind) {
@@ -623,8 +636,8 @@ namespace Aria::Internal {
     void Emitter::EmitCompoundAssignExpr(Expr* expr, ExprValueKind valueKind) {
         CompoundAssignExpr compAss = expr->CompoundAssign;
         
-        #define BINOP2(_enum, op) case BinaryOperatorKind::_enum: { \
-            EmitExpr(compAss.LHS, compAss.LHS->ValueKind); \
+        #define BINOP2(_enum, op) case BinaryOperatorKind::Compound##_enum: { \
+            EmitExpr(compAss.LHS, ExprValueKind::RValue); \
             EmitExpr(compAss.RHS, compAss.RHS->ValueKind); \
             \
             if (compAss.LHS->Type->IsIntegral()) { \
@@ -638,8 +651,8 @@ namespace Aria::Internal {
 
         #define BINOP(_enum, op) BINOP2(_enum, op)
 
-        #define BINOP_INT2(_enum, op) case BinaryOperatorKind::_enum: { \
-            EmitExpr(compAss.LHS, compAss.LHS->ValueKind); \
+        #define BINOP_INT2(_enum, op) case BinaryOperatorKind::Compound##_enum: { \
+            EmitExpr(compAss.LHS, ExprValueKind::RValue); \
             EmitExpr(compAss.RHS, compAss.RHS->ValueKind); \
             \
             if (compAss.LHS->Type->IsIntegral()) { \
@@ -781,17 +794,16 @@ namespace Aria::Internal {
         
         // For initializers we need to just store the value in the already declared variable
         if (varDecl.Initializer) {
+            EmitExpr(varDecl.Initializer, varDecl.Initializer->ValueKind);
+
             if (varDecl.GlobalVar) {
                 ADD_STR(ident);
-                PUSH_PENDING_OP(OP_LD_PTR_GLOBAL);
+                PUSH_PENDING_OP(OP_ST_GLOBAL);
                 PUSH_PENDING_OP(STR_IDX(-1));
             } else {
-                PUSH_PENDING_OP(OP_LD_PTR_LOCAL);
+                PUSH_PENDING_OP(OP_ST_LOCAL);
                 PUSH_PENDING_OP(static_cast<OpCode>(m_ActiveStackFrame.LocalCount - 1));
             }
-
-            EmitExpr(varDecl.Initializer, varDecl.Initializer->ValueKind);
-            PUSH_PENDING_OP(OP_ST_ADDR);
         }
     }
     
@@ -925,93 +937,105 @@ namespace Aria::Internal {
     }
 
     void Emitter::EmitWhileStmt(Stmt* stmt) {
-        ARIA_TODO("Emitter::EmitWhileStmt()");
-        // WhileStmt wh = stmt->While;
-        // 
-        // ADD_STR(fmt::format("loop.start_{}", m_LoopCounter));
-        // ADD_STR(fmt::format("loop.end_{}", m_LoopCounter));
-        // size_t startIdx = STR_IDX(-2);
-        // size_t endIdx = STR_IDX(-1);
-        // m_LoopCounter++;
-        // 
-        // PUSH_PENDING_OP(OpCodeKind::Label, { startIdx });
-        // EmitExpr(wh.Condition, wh.Condition->ValueKind);
-        // PUSH_PENDING_OP(OpCodeKind::JfPop, { endIdx });
-        // EmitBlockStmt(wh.Body);
-        // 
-        // PUSH_PENDING_OP(OpCodeKind::Jmp, { startIdx });
-        // PUSH_PENDING_OP(OpCodeKind::Label, { endIdx });
+        WhileStmt wh = stmt->While;
+        
+        ADD_STR(fmt::format("loop.start_{}", m_LoopCounter));
+        ADD_STR(fmt::format("loop.end_{}", m_LoopCounter));
+        OpCode startIdx = STR_IDX(-2);
+        OpCode endIdx = STR_IDX(-1);
+        m_LoopCounter++;
+        
+        PUSH_PENDING_OP(OP_LABEL);
+        PUSH_PENDING_OP(startIdx);
+        EmitExpr(wh.Condition, wh.Condition->ValueKind);
+        PUSH_PENDING_OP(OP_JF_POP);
+        PUSH_PENDING_OP(endIdx);
+        EmitStmt(wh.Body);
+        
+        PUSH_PENDING_OP(OP_JMP);
+        PUSH_PENDING_OP(startIdx);
+        PUSH_PENDING_OP(OP_LABEL);
+        PUSH_PENDING_OP(endIdx);
     }
 
     void Emitter::EmitDoWhileStmt(Stmt* stmt) {
-        ARIA_TODO("Emitter::EmitDoWhileStmt()");
-        // DoWhileStmt wh = stmt->DoWhile;
-        // 
-        // ADD_STR(fmt::format("loop.start_{}", m_LoopCounter));
-        // ADD_STR(fmt::format("loop.end_{}", m_LoopCounter));
-        // size_t startIdx = STR_IDX(-2);
-        // size_t endIdx = STR_IDX(-1);
-        // m_LoopCounter++;
-        // 
-        // PUSH_PENDING_OP(OpCodeKind::Label, { startIdx });
-        // EmitBlockStmt(wh.Body);
-        // 
-        // EmitExpr(wh.Condition, wh.Condition->ValueKind);
-        // PUSH_PENDING_OP(OpCodeKind::JtPop, { startIdx });
-        // PUSH_PENDING_OP(OpCodeKind::Jmp, { endIdx });
-        // 
-        // PUSH_PENDING_OP(OpCodeKind::Label, { endIdx });
+        DoWhileStmt wh = stmt->DoWhile;
+        
+        ADD_STR(fmt::format("loop.start_{}", m_LoopCounter));
+        ADD_STR(fmt::format("loop.end_{}", m_LoopCounter));
+        OpCode startIdx = STR_IDX(-2);
+        OpCode endIdx = STR_IDX(-1);
+        m_LoopCounter++;
+        
+        PUSH_PENDING_OP(OP_LABEL);
+        PUSH_PENDING_OP(startIdx);
+        EmitStmt(wh.Body);
+        
+        EmitExpr(wh.Condition, wh.Condition->ValueKind);
+        PUSH_PENDING_OP(OP_JT_POP);
+        PUSH_PENDING_OP(startIdx);
+        PUSH_PENDING_OP(OP_JMP);
+        PUSH_PENDING_OP(endIdx);
+        
+        PUSH_PENDING_OP(OP_LABEL);
+        PUSH_PENDING_OP(endIdx);
     }
 
     void Emitter::EmitForStmt(Stmt* stmt) {
-        ARIA_TODO("Emitter::EmitForStmt()");
-        // ForStmt fs = stmt->For;
-        // 
-        // ADD_STR(fmt::format("loop.start_{}", m_LoopCounter));
-        // ADD_STR(fmt::format("loop.end_{}", m_LoopCounter));
-        // size_t startIdx = STR_IDX(-2);
-        // size_t endIdx = STR_IDX(-1);
-        // m_LoopCounter++;
-        // 
-        // PushScope();
-        // if (fs.Prologue) { EmitDecl(fs.Prologue); }
-        // 
-        // PUSH_PENDING_OP(OpCodeKind::Label, { startIdx });
-        // if (fs.Condition) {
-        //     EmitExpr(fs.Condition, fs.Condition->ValueKind);
-        //     PUSH_PENDING_OP(OpCodeKind::JfPop, { endIdx });
-        // }
-        // 
-        // EmitBlockStmt(fs.Body);
-        //     
-        // if (fs.Step) {
-        //     EmitExpr(fs.Step, fs.Step->ValueKind);
-        // }
-        // 
-        // PUSH_PENDING_OP(OpCodeKind::Jmp, { startIdx });
-        // PUSH_PENDING_OP(OpCodeKind::Label, { endIdx });
-        // 
-        // PopScope();
+        ForStmt fs = stmt->For;
+        
+        ADD_STR(fmt::format("loop.start_{}", m_LoopCounter));
+        ADD_STR(fmt::format("loop.end_{}", m_LoopCounter));
+        OpCode startIdx = STR_IDX(-2);
+        OpCode endIdx = STR_IDX(-1);
+        m_LoopCounter++;
+        
+        PushScope();
+        if (fs.Prologue) { EmitDecl(fs.Prologue); }
+        
+        PUSH_PENDING_OP(OP_LABEL);
+        PUSH_PENDING_OP(startIdx);
+        if (fs.Condition) {
+            EmitExpr(fs.Condition, fs.Condition->ValueKind);
+            PUSH_PENDING_OP(OP_JF_POP);
+            PUSH_PENDING_OP(endIdx);
+        }
+        
+        EmitBlockStmt(fs.Body);
+            
+        if (fs.Step) {
+            EmitExpr(fs.Step, fs.Step->ValueKind);
+        }
+        
+        PUSH_PENDING_OP(OP_JMP);
+        PUSH_PENDING_OP(startIdx);
+        PUSH_PENDING_OP(OP_LABEL);
+        PUSH_PENDING_OP(endIdx);
+        
+        PopScope();
     }
 
     void Emitter::EmitIfStmt(Stmt* stmt) {
-        ARIA_TODO("Emitter::EmitIfStmt()");
-        // IfStmt ifs = stmt->If;
-        // 
-        // ADD_STR(fmt::format("if.body{}", m_LoopCounter));
-        // ADD_STR(fmt::format("if.end{}", m_LoopCounter));
-        // size_t bodyIdx = STR_IDX(-2);
-        // size_t endIdx = STR_IDX(-1);
-        // 
-        // EmitExpr(ifs.Condition, ifs.Condition->ValueKind);
-        // PUSH_PENDING_OP(OpCodeKind::JtPop, { bodyIdx });
-        // PUSH_PENDING_OP(OpCodeKind::Jmp, { endIdx });
-        // 
-        // PUSH_PENDING_OP(OpCodeKind::Label, { bodyIdx });
-        // EmitBlockStmt(ifs.Body);
-        // PUSH_PENDING_OP(OpCodeKind::Label, { endIdx });
-        // 
-        // m_IfCounter++;
+        IfStmt ifs = stmt->If;
+        
+        ADD_STR(fmt::format("if.body{}", m_LoopCounter));
+        ADD_STR(fmt::format("if.end{}", m_LoopCounter));
+        OpCode bodyIdx = STR_IDX(-2);
+        OpCode endIdx = STR_IDX(-1);
+        
+        EmitExpr(ifs.Condition, ifs.Condition->ValueKind);
+        PUSH_PENDING_OP(OP_JT_POP);
+        PUSH_PENDING_OP(bodyIdx);
+        PUSH_PENDING_OP(OP_JMP);
+        PUSH_PENDING_OP(endIdx);
+        
+        PUSH_PENDING_OP(OP_LABEL);
+        PUSH_PENDING_OP(bodyIdx);
+        EmitStmt(ifs.Body);
+        PUSH_PENDING_OP(OP_LABEL);
+        PUSH_PENDING_OP(endIdx);
+        
+        m_IfCounter++;
     }
 
     void Emitter::EmitBreakStmt(Stmt* stmt) {

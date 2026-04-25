@@ -419,6 +419,19 @@ namespace Aria::Internal {
                     VMSlice dst = GetVMSlice(static_cast<i32>(index), m_StackFrames.back().Locals);
                     ARIA_ASSERT(dst.Size == slice.Size, "Mismatched sizes");
                     memcpy(dst.Memory, slice.Memory, dst.Size);
+                    Pop(1, m_Stack);
+
+                    break;
+                }
+
+                case OP_ST_GLOBAL: {
+                    std::string_view g = GET_STR();
+                    VMSlice slice = GetVMSlice(-1, m_Stack);
+
+                    VMSlice dst = GetVMSlice(m_GlobalMap.at(g), m_Globals);
+                    ARIA_ASSERT(dst.Size == slice.Size, "Mismatched sizes");
+                    memcpy(dst.Memory, slice.Memory, dst.Size);
+                    Pop(1, m_Stack);
 
                     break;
                 }
@@ -484,7 +497,7 @@ namespace Aria::Internal {
                             auto result = lhsVal + rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreInt(-1, lhsVal, m_Stack);
+                            StoreInt(-1, result, m_Stack);
                             break;
                         }
 
@@ -499,7 +512,7 @@ namespace Aria::Internal {
                             auto result = lhsVal + rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreLong(-1, lhsVal, m_Stack);
+                            StoreLong(-1, result, m_Stack);
                             break;
                         }
 
@@ -527,7 +540,7 @@ namespace Aria::Internal {
                             auto result = lhsVal + rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreUInt(-1, lhsVal, m_Stack);
+                            StoreUInt(-1, result, m_Stack);
                             break;
                         }
 
@@ -542,7 +555,7 @@ namespace Aria::Internal {
                             auto result = lhsVal + rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreULong(-1, lhsVal, m_Stack);
+                            StoreULong(-1, result, m_Stack);
                             break;
                         }
 
@@ -570,7 +583,7 @@ namespace Aria::Internal {
                             auto result = lhsVal + rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreFloat(-1, lhsVal, m_Stack);
+                            StoreFloat(-1, result, m_Stack);
                             break;
                         }
 
@@ -585,7 +598,7 @@ namespace Aria::Internal {
                             auto result = lhsVal + rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreDouble(-1, lhsVal, m_Stack);
+                            StoreDouble(-1, result, m_Stack);
                             break;
                         }
 
@@ -613,7 +626,7 @@ namespace Aria::Internal {
                             auto result = lhsVal - rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreInt(-1, lhsVal, m_Stack);
+                            StoreInt(-1, result, m_Stack);
                             break;
                         }
 
@@ -628,7 +641,7 @@ namespace Aria::Internal {
                             auto result = lhsVal - rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreLong(-1, lhsVal, m_Stack);
+                            StoreLong(-1, result, m_Stack);
                             break;
                         }
 
@@ -656,7 +669,7 @@ namespace Aria::Internal {
                             auto result = lhsVal - rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreUInt(-1, lhsVal, m_Stack);
+                            StoreUInt(-1, result, m_Stack);
                             break;
                         }
 
@@ -671,7 +684,7 @@ namespace Aria::Internal {
                             auto result = lhsVal - rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreULong(-1, lhsVal, m_Stack);
+                            StoreULong(-1, result, m_Stack);
                             break;
                         }
 
@@ -699,7 +712,7 @@ namespace Aria::Internal {
                             auto result = lhsVal - rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreFloat(-1, lhsVal, m_Stack);
+                            StoreFloat(-1, result, m_Stack);
                             break;
                         }
 
@@ -714,7 +727,7 @@ namespace Aria::Internal {
                             auto result = lhsVal - rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreDouble(-1, lhsVal, m_Stack);
+                            StoreDouble(-1, result, m_Stack);
                             break;
                         }
 
@@ -742,7 +755,7 @@ namespace Aria::Internal {
                             auto result = lhsVal * rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreInt(-1, lhsVal, m_Stack);
+                            StoreInt(-1, result, m_Stack);
                             break;
                         }
 
@@ -757,7 +770,7 @@ namespace Aria::Internal {
                             auto result = lhsVal * rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreLong(-1, lhsVal, m_Stack);
+                            StoreLong(-1, result, m_Stack);
                             break;
                         }
 
@@ -785,7 +798,7 @@ namespace Aria::Internal {
                             auto result = lhsVal * rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreUInt(-1, lhsVal, m_Stack);
+                            StoreUInt(-1, result, m_Stack);
                             break;
                         }
 
@@ -800,7 +813,7 @@ namespace Aria::Internal {
                             auto result = lhsVal * rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreULong(-1, lhsVal, m_Stack);
+                            StoreULong(-1, result, m_Stack);
                             break;
                         }
 
@@ -828,7 +841,7 @@ namespace Aria::Internal {
                             auto result = lhsVal * rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreFloat(-1, lhsVal, m_Stack);
+                            StoreFloat(-1, result, m_Stack);
                             break;
                         }
 
@@ -843,7 +856,7 @@ namespace Aria::Internal {
                             auto result = lhsVal * rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreDouble(-1, lhsVal, m_Stack);
+                            StoreDouble(-1, result, m_Stack);
                             break;
                         }
 
@@ -872,7 +885,7 @@ namespace Aria::Internal {
                             auto result = lhsVal / rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreInt(-1, lhsVal, m_Stack);
+                            StoreInt(-1, result, m_Stack);
                             break;
                         }
 
@@ -888,7 +901,7 @@ namespace Aria::Internal {
                             auto result = lhsVal / rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreLong(-1, lhsVal, m_Stack);
+                            StoreLong(-1, result, m_Stack);
                             break;
                         }
 
@@ -917,7 +930,7 @@ namespace Aria::Internal {
                             auto result = lhsVal / rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreUInt(-1, lhsVal, m_Stack);
+                            StoreUInt(-1, result, m_Stack);
                             break;
                         }
 
@@ -933,7 +946,7 @@ namespace Aria::Internal {
                             auto result = lhsVal / rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreULong(-1, lhsVal, m_Stack);
+                            StoreULong(-1, result, m_Stack);
                             break;
                         }
 
@@ -961,7 +974,7 @@ namespace Aria::Internal {
                             auto result = lhsVal / rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreFloat(-1, lhsVal, m_Stack);
+                            StoreFloat(-1, result, m_Stack);
                             break;
                         }
 
@@ -976,7 +989,7 @@ namespace Aria::Internal {
                             auto result = lhsVal / rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreDouble(-1, lhsVal, m_Stack);
+                            StoreDouble(-1, result, m_Stack);
                             break;
                         }
 
@@ -1005,7 +1018,7 @@ namespace Aria::Internal {
                             auto result = lhsVal % rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreInt(-1, lhsVal, m_Stack);
+                            StoreInt(-1, result, m_Stack);
                             break;
                         }
 
@@ -1021,7 +1034,7 @@ namespace Aria::Internal {
                             auto result = lhsVal % rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreLong(-1, lhsVal, m_Stack);
+                            StoreLong(-1, result, m_Stack);
                             break;
                         }
 
@@ -1050,7 +1063,7 @@ namespace Aria::Internal {
                             auto result = lhsVal % rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreUInt(-1, lhsVal, m_Stack);
+                            StoreUInt(-1, result, m_Stack);
                             break;
                         }
 
@@ -1066,7 +1079,7 @@ namespace Aria::Internal {
                             auto result = lhsVal % rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreULong(-1, lhsVal, m_Stack);
+                            StoreULong(-1, result, m_Stack);
                             break;
                         }
 
@@ -1095,7 +1108,7 @@ namespace Aria::Internal {
                             if (result < 0.0f) { result += fabsf(rhsVal); }
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreFloat(-1, lhsVal, m_Stack);
+                            StoreFloat(-1, result, m_Stack);
                             break;
                         }
 
@@ -1111,7 +1124,7 @@ namespace Aria::Internal {
                             if (result < 0.0) { result += fabsf(rhsVal); }
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreDouble(-1, lhsVal, m_Stack);
+                            StoreDouble(-1, result, m_Stack);
                             break;
                         }
 
@@ -1141,7 +1154,7 @@ namespace Aria::Internal {
                             auto result = lhsVal == rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1156,7 +1169,7 @@ namespace Aria::Internal {
                             auto result = lhsVal == rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1184,7 +1197,7 @@ namespace Aria::Internal {
                             auto result = lhsVal == rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1199,7 +1212,7 @@ namespace Aria::Internal {
                             auto result = lhsVal == rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1227,7 +1240,7 @@ namespace Aria::Internal {
                             auto result = lhsVal == rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1242,7 +1255,7 @@ namespace Aria::Internal {
                             auto result = lhsVal == rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1270,7 +1283,7 @@ namespace Aria::Internal {
                             auto result = lhsVal < rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1285,7 +1298,7 @@ namespace Aria::Internal {
                             auto result = lhsVal < rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1313,7 +1326,7 @@ namespace Aria::Internal {
                             auto result = lhsVal < rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1328,7 +1341,7 @@ namespace Aria::Internal {
                             auto result = lhsVal < rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1356,7 +1369,7 @@ namespace Aria::Internal {
                             auto result = lhsVal < rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1371,7 +1384,7 @@ namespace Aria::Internal {
                             auto result = lhsVal < rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1399,7 +1412,7 @@ namespace Aria::Internal {
                             auto result = lhsVal <= rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1414,7 +1427,7 @@ namespace Aria::Internal {
                             auto result = lhsVal <= rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1442,7 +1455,7 @@ namespace Aria::Internal {
                             auto result = lhsVal <= rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1457,7 +1470,7 @@ namespace Aria::Internal {
                             auto result = lhsVal <= rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1485,7 +1498,7 @@ namespace Aria::Internal {
                             auto result = lhsVal <= rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1500,7 +1513,7 @@ namespace Aria::Internal {
                             auto result = lhsVal <= rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1528,7 +1541,7 @@ namespace Aria::Internal {
                             auto result = lhsVal > rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1543,7 +1556,7 @@ namespace Aria::Internal {
                             auto result = lhsVal > rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1571,7 +1584,7 @@ namespace Aria::Internal {
                             auto result = lhsVal > rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1586,7 +1599,7 @@ namespace Aria::Internal {
                             auto result = lhsVal > rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1614,7 +1627,7 @@ namespace Aria::Internal {
                             auto result = lhsVal > rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1629,7 +1642,7 @@ namespace Aria::Internal {
                             auto result = lhsVal > rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1657,7 +1670,7 @@ namespace Aria::Internal {
                             auto result = lhsVal >= rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1672,7 +1685,7 @@ namespace Aria::Internal {
                             auto result = lhsVal >= rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1700,7 +1713,7 @@ namespace Aria::Internal {
                             auto result = lhsVal >= rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1715,7 +1728,7 @@ namespace Aria::Internal {
                             auto result = lhsVal >= rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1743,7 +1756,7 @@ namespace Aria::Internal {
                             auto result = lhsVal >= rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1758,7 +1771,7 @@ namespace Aria::Internal {
                             auto result = lhsVal >= rhsVal;
 
                             Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreBool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1788,7 +1801,7 @@ namespace Aria::Internal {
                             auto result = lhsVal << rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreInt(-1, result, m_Stack);
                             break;
                         }
 
@@ -1803,7 +1816,7 @@ namespace Aria::Internal {
                             auto result = lhsVal << rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreLong(-1, result, m_Stack);
                             break;
                         }
 
@@ -1831,7 +1844,7 @@ namespace Aria::Internal {
                             auto result = lhsVal << rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreUInt(-1, result, m_Stack);
                             break;
                         }
 
@@ -1846,7 +1859,7 @@ namespace Aria::Internal {
                             auto result = lhsVal << rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreULong(-1, result, m_Stack);
                             break;
                         }
 
@@ -1874,7 +1887,7 @@ namespace Aria::Internal {
                             auto result = lhsVal >> rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreInt(-1, result, m_Stack);
                             break;
                         }
 
@@ -1889,7 +1902,7 @@ namespace Aria::Internal {
                             auto result = lhsVal >> rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreLong(-1, result, m_Stack);
                             break;
                         }
 
@@ -1917,7 +1930,7 @@ namespace Aria::Internal {
                             auto result = lhsVal >> rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreUInt(-1, result, m_Stack);
                             break;
                         }
 
@@ -1932,7 +1945,7 @@ namespace Aria::Internal {
                             auto result = lhsVal >> rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreULong(-1, result, m_Stack);
                             break;
                         }
 
@@ -1960,7 +1973,7 @@ namespace Aria::Internal {
                             auto result = lhsVal & rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreInt(-1, result, m_Stack);
                             break;
                         }
 
@@ -1975,7 +1988,7 @@ namespace Aria::Internal {
                             auto result = lhsVal & rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreLong(-1, result, m_Stack);
                             break;
                         }
 
@@ -2003,7 +2016,7 @@ namespace Aria::Internal {
                             auto result = lhsVal & rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreUInt(-1, result, m_Stack);
                             break;
                         }
 
@@ -2018,7 +2031,7 @@ namespace Aria::Internal {
                             auto result = lhsVal & rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreULong(-1, result, m_Stack);
                             break;
                         }
 
@@ -2046,7 +2059,7 @@ namespace Aria::Internal {
                             auto result = lhsVal | rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreInt(-1, result, m_Stack);
                             break;
                         }
 
@@ -2061,7 +2074,7 @@ namespace Aria::Internal {
                             auto result = lhsVal | rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreLong(-1, result, m_Stack);
                             break;
                         }
 
@@ -2089,7 +2102,7 @@ namespace Aria::Internal {
                             auto result = lhsVal | rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreUInt(-1, result, m_Stack);
                             break;
                         }
 
@@ -2104,7 +2117,7 @@ namespace Aria::Internal {
                             auto result = lhsVal | rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreULong(-1, result, m_Stack);
                             break;
                         }
 
@@ -2132,7 +2145,7 @@ namespace Aria::Internal {
                             auto result = lhsVal ^ rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreInt(-1, result, m_Stack);
                             break;
                         }
 
@@ -2147,7 +2160,7 @@ namespace Aria::Internal {
                             auto result = lhsVal ^ rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreLong(-1, result, m_Stack);
                             break;
                         }
 
@@ -2175,7 +2188,7 @@ namespace Aria::Internal {
                             auto result = lhsVal ^ rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreUInt(-1, result, m_Stack);
                             break;
                         }
 
@@ -2190,7 +2203,7 @@ namespace Aria::Internal {
                             auto result = lhsVal ^ rhsVal;
 
                             Alloca(lhs.Type, m_Stack);
-                            StoreBool(-1, lhsVal, m_Stack);
+                            StoreULong(-1, result, m_Stack);
                             break;
                         }
 
@@ -2200,6 +2213,62 @@ namespace Aria::Internal {
                     break;
                 }
                 // ^^^ SHL, SHR, AND, OR, XOR ^^^ //
+
+                case OP_NEGI: {
+                    VMSlice val = GetVMSlice(-1, m_Stack);
+
+                    switch (val.Type.Kind) {
+                        case VMTypeKind::I32: {
+                            i32 v = 0;
+                            memcpy(&v, val.Memory, sizeof(i32));
+
+                            auto result = -v;
+                            StoreInt(-1, result, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::I64: {
+                            i64 v = 0;
+                            memcpy(&v, val.Memory, sizeof(i64));
+
+                            auto result = -v;
+                            StoreLong(-1, result, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to negi instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_NEGF: {
+                    VMSlice val = GetVMSlice(-1, m_Stack);
+
+                    switch (val.Type.Kind) {
+                        case VMTypeKind::Float: {
+                            float v = 0;
+                            memcpy(&v, val.Memory, sizeof(float));
+
+                            auto result = -v;
+                            StoreFloat(-1, result, m_Stack);
+                            break;
+                        }
+
+                        case VMTypeKind::I64: {
+                            double v = 0;
+                            memcpy(&v, val.Memory, sizeof(double));
+
+                            auto result = -v;
+                            StoreDouble(-1, result, m_Stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to negf instruction");
+                    }
+
+                    break;
+                }
 
                 case OP_LOGAND: {
                     bool lhs = GetBool(-2, m_Stack);
@@ -2224,6 +2293,192 @@ namespace Aria::Internal {
                 case OP_LOGNOT: {
                     bool val = GetBool(-1, m_Stack);
                     StoreBool(-1, !val, m_Stack);
+                    break;
+                }
+
+                case OP_JMP: {
+                    std::string_view label = GET_STR();
+
+                    ARIA_ASSERT(m_StackFrames.back().Function->Labels.contains(label), "Trying to jump to non-existent label");
+                    m_ProgramCounter = m_StackFrames.back().Function->Labels.at(label) - 1;
+                    break;
+                }
+
+                case OP_JT: {
+                    std::string_view label = GET_STR();
+
+                    if (GetBool(-1, m_Stack) == true) {
+                        ARIA_ASSERT(m_StackFrames.back().Function->Labels.contains(label), "Trying to jump to non-existent label");
+                        m_ProgramCounter = m_StackFrames.back().Function->Labels.at(label) - 1;
+                    }
+                    break;
+                }
+
+                case OP_JF: {
+                    std::string_view label = GET_STR();
+
+                    if (GetBool(-1, m_Stack) == false) {
+                        ARIA_ASSERT(m_StackFrames.back().Function->Labels.contains(label), "Trying to jump to non-existent label");
+                        m_ProgramCounter = m_StackFrames.back().Function->Labels.at(label) - 1;
+                    }
+                    break;
+                }
+
+                case OP_JT_POP: {
+                    std::string_view label = GET_STR();
+
+                    if (GetBool(-1, m_Stack) == true) {
+                        ARIA_ASSERT(m_StackFrames.back().Function->Labels.contains(label), "Trying to jump to non-existent label");
+                        m_ProgramCounter = m_StackFrames.back().Function->Labels.at(label) - 1;
+                    }
+                    Pop(1, m_Stack);
+
+                    break;
+                }
+
+                case OP_JF_POP: {
+                    std::string_view label = GET_STR();
+
+                    if (GetBool(-1, m_Stack) == false) {
+                        ARIA_ASSERT(m_StackFrames.back().Function->Labels.contains(label), "Trying to jump to non-existent label");
+                        m_ProgramCounter = m_StackFrames.back().Function->Labels.at(label) - 1;
+                    }
+                    Pop(1, m_Stack);
+
+                    break;
+                }
+
+                case OP_CONV_ITOI: {
+                    auto& type = GET_TYPE();
+                    VMSlice slice = GetVMSlice(-1, m_Stack);
+
+                    #define CASE_CAST(srcTypeKind, dstTypeKind, srcType, dstType) case VMTypeKind::dstTypeKind: { \
+                        srcType t; \
+                        memcpy(&t, slice.Memory, sizeof(t)); \
+                        dstType result = static_cast<dstType>(t); \
+                        Pop(1, m_Stack); \
+                        Alloca({ VMTypeKind::dstTypeKind }, m_Stack); \
+                        memcpy(GetVMSlice(-1, m_Stack).Memory, &result, sizeof(result)); \
+                        break; \
+                    }
+
+                    #define CASE_CAST_OUTER(srcTypeKind, srcType) case VMTypeKind::srcTypeKind: { \
+                        switch (type.Kind) { \
+                            CASE_CAST(srcTypeKind, I1, srcType, bool) \
+                            CASE_CAST(srcTypeKind, I8, srcType, i8) \
+                            CASE_CAST(srcTypeKind, U8, srcType, u8) \
+                            CASE_CAST(srcTypeKind, I16, srcType, i16) \
+                            CASE_CAST(srcTypeKind, U16, srcType, u16) \
+                            CASE_CAST(srcTypeKind, I32, srcType, i32) \
+                            CASE_CAST(srcTypeKind, U32, srcType, u32) \
+                            CASE_CAST(srcTypeKind, I64, srcType, i64) \
+                            CASE_CAST(srcTypeKind, U64, srcType, u64) \
+                            default: ARIA_UNREACHABLE(); \
+                        } \
+                        break; \
+                    }
+
+                    switch (slice.Type.Kind) {
+                        CASE_CAST_OUTER(I1, bool)
+                        CASE_CAST_OUTER(I8, i8)
+                        CASE_CAST_OUTER(U8, u8)
+                        CASE_CAST_OUTER(I16, i16)
+                        CASE_CAST_OUTER(U16, u16)
+                        CASE_CAST_OUTER(I32, i32)
+                        CASE_CAST_OUTER(U32, u32)
+                        CASE_CAST_OUTER(I64, i64)
+                        CASE_CAST_OUTER(U64, u64)
+
+                        default: ARIA_UNREACHABLE();
+                    }
+                    #undef CASE_CAST_OUTER
+
+                    break;
+                }
+
+                case OP_CONV_FTOF: {
+                    auto& type = GET_TYPE();
+                    VMSlice slice = GetVMSlice(-1, m_Stack);
+
+                    #define CASE_CAST_OUTER(srcTypeKind, srcType) case VMTypeKind::srcTypeKind: { \
+                        switch (type.Kind) { \
+                            CASE_CAST(srcTypeKind, Float, srcType, float) \
+                            CASE_CAST(srcTypeKind, Double, srcType, double) \
+                            default: ARIA_UNREACHABLE(); \
+                        } \
+                        break; \
+                    }
+
+                    switch (slice.Type.Kind) {
+                        CASE_CAST_OUTER(Float, float)
+                        CASE_CAST_OUTER(Double, double)
+
+                        default: ARIA_UNREACHABLE();
+                    }
+                    #undef CASE_CAST_OUTER
+
+                    break;
+                }
+
+                case OP_CONV_ITOF: {
+                    auto& type = GET_TYPE();
+                    VMSlice slice = GetVMSlice(-1, m_Stack);
+
+                    #define CASE_CAST_OUTER(srcTypeKind, srcType) case VMTypeKind::srcTypeKind: { \
+                        switch (type.Kind) { \
+                            CASE_CAST(srcTypeKind, Float, srcType, float) \
+                            CASE_CAST(srcTypeKind, Double, srcType, double) \
+                            default: ARIA_UNREACHABLE(); \
+                        } \
+                        break; \
+                    }
+
+                    switch (slice.Type.Kind) {
+                        CASE_CAST_OUTER(I1, bool)
+                        CASE_CAST_OUTER(I8, i8)
+                        CASE_CAST_OUTER(U8, u8)
+                        CASE_CAST_OUTER(I16, i16)
+                        CASE_CAST_OUTER(U16, u16)
+                        CASE_CAST_OUTER(I32, i32)
+                        CASE_CAST_OUTER(U32, u32)
+                        CASE_CAST_OUTER(I64, i64)
+                        CASE_CAST_OUTER(U64, u64)
+
+                        default: ARIA_UNREACHABLE();
+                    }
+                    #undef CASE_CAST_OUTER
+
+                    break;
+                }
+
+                case OP_CONV_FTOI: {
+                    auto& type = GET_TYPE();
+                    VMSlice slice = GetVMSlice(-1, m_Stack);
+
+                    #define CASE_CAST_OUTER(srcTypeKind, srcType) case VMTypeKind::srcTypeKind: { \
+                        switch (type.Kind) { \
+                            CASE_CAST(srcTypeKind, I1, srcType, bool) \
+                            CASE_CAST(srcTypeKind, I8, srcType, i8) \
+                            CASE_CAST(srcTypeKind, U8, srcType, u8) \
+                            CASE_CAST(srcTypeKind, I16, srcType, i16) \
+                            CASE_CAST(srcTypeKind, U16, srcType, u16) \
+                            CASE_CAST(srcTypeKind, I32, srcType, i32) \
+                            CASE_CAST(srcTypeKind, U32, srcType, u32) \
+                            CASE_CAST(srcTypeKind, I64, srcType, i64) \
+                            CASE_CAST(srcTypeKind, U64, srcType, u64) \
+                            default: ARIA_UNREACHABLE(); \
+                        } \
+                        break; \
+                    }
+
+                    switch (slice.Type.Kind) {
+                        CASE_CAST_OUTER(Float, float)
+                        CASE_CAST_OUTER(Double, double)
+
+                        default: ARIA_UNREACHABLE();
+                    }
+                    #undef CASE_CAST_OUTER
+
                     break;
                 }
 
@@ -2257,6 +2512,15 @@ namespace Aria::Internal {
                     m_StackFrames.pop_back();
                     break;
                 }
+
+                case OP_RET_VAL: {
+                    VMStackFrame& sf = m_StackFrames.back();
+                    m_ProgramCounter = sf.ReturnAddress;
+                    m_StackFrames.pop_back();
+                    break;
+                }
+
+                case OP_LABEL: m_ProgramCounter++; break;
 
                 default: ARIA_UNREACHABLE(); break;
             }

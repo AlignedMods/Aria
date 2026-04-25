@@ -264,6 +264,13 @@ namespace Aria::Internal {
         switch (unop.Operator) {
             case UnaryOperatorKind::Negate: {
                 ARIA_ASSERT(type->IsNumeric(), "todo: add error message");
+
+                if (type->IsIntegral()) {
+                    if (type->IsUnsigned()) {
+                        m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, fmt::format("Cannot negate expression of unsigned type '{}'", TypeInfoToString(type)));
+                    }
+                }
+
                 expr->Type = type;
                 break;
             }

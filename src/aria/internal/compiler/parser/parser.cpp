@@ -249,13 +249,13 @@ namespace Aria::Internal {
             case TokenKind::Percent: return BinaryOperatorKind::Mod;
             case TokenKind::PercentEq: return BinaryOperatorKind::CompoundMod;
             case TokenKind::Ampersand: return BinaryOperatorKind::BitAnd;
-            case TokenKind::AmpersandEq: return BinaryOperatorKind::CompoundAnd;
+            case TokenKind::AmpersandEq: return BinaryOperatorKind::CompoundBitAnd;
             case TokenKind::DoubleAmpersand: return BinaryOperatorKind::LogAnd;
             case TokenKind::Pipe: return BinaryOperatorKind::BitOr;
-            case TokenKind::PipeEq: return BinaryOperatorKind::CompoundOr;
+            case TokenKind::PipeEq: return BinaryOperatorKind::CompoundBitOr;
             case TokenKind::DoublePipe: return BinaryOperatorKind::LogOr;
             case TokenKind::UpArrow: return BinaryOperatorKind::BitXor;
-            case TokenKind::UpArrowEq: return BinaryOperatorKind::CompoundXor;
+            case TokenKind::UpArrowEq: return BinaryOperatorKind::CompoundBitXor;
             case TokenKind::Less: return BinaryOperatorKind::Less;
             case TokenKind::LessEq: return BinaryOperatorKind::LessOrEq;
             case TokenKind::Greater: return BinaryOperatorKind::Greater;

@@ -36,6 +36,12 @@ namespace Aria::Internal {
 
         inline iterator end() { return Items + Size; }
         inline const_iterator end() const { return Items + Size; }
+
+        inline iterator rbegin() { return Items + Size - 1; }
+        inline const_iterator rbegin() const { return Items + Size - 1; }
+
+        inline iterator rend() { return Items - 1; }
+        inline const_iterator rend() const { return Items - 1; }
     };
 
 } // namespace Aria::Internal

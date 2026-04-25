@@ -50,6 +50,7 @@ namespace Aria::Internal {
         OP_LD_PTR_GLOBAL,
 
         OP_ST_LOCAL,
+        OP_ST_GLOBAL,
         OP_ST_ADDR,
 
         OP_POP,
@@ -102,6 +103,9 @@ namespace Aria::Internal {
         OP_ORU,
         OP_XORI,
         OP_XORU,
+
+        OP_NEGI,
+        OP_NEGF,
 
         OP_LOGAND,
         OP_LOGOR,

@@ -165,7 +165,7 @@ namespace Aria {
     }
 
     std::string Context::Disassemble() {
-        Internal::Disassembler d(m_ActiveModule->CompilationContext.Ops, false);
+        Internal::Disassembler d(m_ActiveModule->CompilationContext.Ops);
         return d.GetDisassembly();
     }
 
