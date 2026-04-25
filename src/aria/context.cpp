@@ -133,6 +133,7 @@ namespace Aria {
         vm.AddExtern("__aria_raw_print_stdout()", Internal::__aria_print);
         vm.AddExtern("__aria_destruct_str()", Internal::__aria_destruct_str);
         vm.AddExtern("__aria_copy_str()", Internal::__aria_copy_str);
+        vm.AddExtern("__aria_append_str()", Internal::__aria_append_str);
     }
 
     void Context::SetActiveModule(const std::string& module) {

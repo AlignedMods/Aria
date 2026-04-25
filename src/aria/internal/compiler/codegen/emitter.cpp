@@ -453,6 +453,71 @@ namespace Aria::Internal {
         // }
     }
 
+    void Emitter::EmitFormatExpr(Expr* expr, ExprValueKind valueKind) {
+        FormatExpr format = expr->Format;
+        StringView fStr = format.Args.Items[0]->Temporary.Expression->StringConstant.Value;
+        
+        PUSH_OP(OP_ALLOCA);
+        PUSH_OP(TypeInfoToVMTypeIdx(expr->Type));
+        PUSH_OP(OP_DECL_LOCAL);
+        PUSH_OP(static_cast<OpCode>(m_ActiveStackFrame.LocalCount));
+        size_t idx = m_ActiveStackFrame.LocalCount++;
+        
+        std::string start;
+        size_t firstFormat = 0;
+        
+        for (size_t i = 0; i < fStr.Size(); i++) {
+            if (fStr.At(i) == '{') { firstFormat = i; break; }
+            start += fStr.At(i);
+        }
+        
+        ADD_STR(start);
+        PUSH_PENDING_OP(OP_LD_STR);
+        PUSH_PENDING_OP(STR_IDX(-1));
+        PUSH_PENDING_OP(OP_ST_LOCAL);
+        PUSH_PENDING_OP(static_cast<OpCode>(idx));
+        start.clear();
+
+        size_t currentArg = 0;
+
+        for (size_t i = firstFormat; i < fStr.Size(); i++) {
+            if (fStr.At(i) == '{') {
+                if (!start.empty()) {
+                    ADD_STR(start);
+                    PUSH_PENDING_OP(OP_LD_STR);
+                    PUSH_PENDING_OP(STR_IDX(-1));
+                    
+                    PUSH_PENDING_OP(OP_LD_PTR_LOCAL);
+                    PUSH_PENDING_OP(static_cast<OpCode>(idx));
+                    
+                    ADD_STR("__aria_append_str()");
+                    PUSH_PENDING_OP(OP_CALL);
+                    PUSH_PENDING_OP(STR_IDX(-1));
+
+                    start.clear();
+                }
+
+                i++;
+
+                EmitExpr(format.Args.Items[currentArg + 1], format.Args.Items[currentArg + 1]->ValueKind);
+                PUSH_PENDING_OP(OP_LD_PTR_LOCAL);
+                PUSH_PENDING_OP(static_cast<OpCode>(idx));
+                
+                ARIA_ASSERT(format.Args.Items[currentArg + 1]->Type->IsString(), "Not supported yet");
+                ADD_STR("__aria_append_str()");
+                PUSH_PENDING_OP(OP_CALL);
+                PUSH_PENDING_OP(STR_IDX(-1));
+
+                currentArg++;
+            } else {
+                start += fStr.At(i);
+            }
+        }
+        
+        PUSH_PENDING_OP(OP_LD_LOCAL);
+        PUSH_PENDING_OP(static_cast<OpCode>(idx));
+    }
+
     void Emitter::EmitParenExpr(Expr* expr, ExprValueKind valueKind) {
         ParenExpr paren = expr->Paren;
         EmitExpr(paren.Expression, expr->ValueKind);
@@ -716,6 +781,8 @@ namespace Aria::Internal {
             EmitConstructExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::MethodCall) {
             EmitMethodCallExpr(expr, valueKind);
+        } else if (expr->Kind == ExprKind::Format) {
+            EmitFormatExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::Paren) {
             EmitParenExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::Cast) {

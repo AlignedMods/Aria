@@ -28,6 +28,7 @@ namespace Aria::Internal {
         Call,
         Construct,
         MethodCall,
+        Format,
         Paren,
         Cast,
         ImplicitCast,
@@ -258,6 +259,13 @@ namespace Aria::Internal {
         TinyVector<Expr*> Arguments;
     };
     
+    struct FormatExpr {
+        FormatExpr(TinyVector<Expr*> args)
+            : Args(args) {}
+
+        TinyVector<Expr*> Args;
+    };
+
     // ParenExpr
     // At its core it just wraps an expression
     // These kinds of expressions are usually from the actual source code
@@ -268,11 +276,11 @@ namespace Aria::Internal {
 
         Expr* Expression = nullptr;
     };
-    
+
     // CastExpr
     // Represents an explicit cast in the original source code
     // This node should never represent an implicit cast, for that use ImplicitCastExpr
-    // eg. int a = (int)5.5;
+    // eg. int a = <int>5.5;
     struct CastExpr {
         CastExpr(Expr* expr, TypeInfo* type)
             : Expression(expr), Type(type) {}
@@ -360,6 +368,7 @@ namespace Aria::Internal {
             CallExpr Call;
             ConstructExpr Construct;
             MethodCallExpr MethodCall;
+            FormatExpr Format;
             ParenExpr Paren;
             CastExpr Cast;
             ImplicitCastExpr ImplicitCast;
@@ -412,6 +421,9 @@ namespace Aria::Internal {
 
         Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, MethodCallExpr methodCall)
             : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), MethodCall(methodCall) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, FormatExpr format)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Format(format) {}
 
         Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, ParenExpr paren)
             : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Paren(paren) {}

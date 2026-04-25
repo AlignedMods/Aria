@@ -72,6 +72,7 @@ namespace Aria::Internal {
         AtExtern, // @extern
         AtNoMangle, // @nomangle
         AtPrivate, // @private
+        DollarFormat, // $format
         // ^^^ Keywords ^^^ //
 
         // VVV Types VVV //

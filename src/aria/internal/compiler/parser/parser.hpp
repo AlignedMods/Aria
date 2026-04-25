@@ -38,6 +38,7 @@ namespace Aria::Internal {
         Expr* ParseMember(Expr* left);
         Expr* ParsePrimary(Expr* left);
         Expr* ParseIdentifier(Token t);
+        Expr* ParseFormat(Expr* left);
 
         Expr* ParsePrecedenceWithLeft(Expr* left, size_t precedence);
         Expr* ParsePrecedence(size_t precedence);

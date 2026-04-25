@@ -77,6 +77,12 @@ namespace Aria::Internal {
             }
             DumpExpr(expr->MethodCall.Callee, indentation + 4);
             return;
+        } else if (expr->Kind == ExprKind::Format) {
+            m_Output += fmt::format("FormatExpr 'string' rvalue\n");
+            for (Expr* e : expr->Format.Args) {
+                DumpExpr(e, indentation + 4);
+            }
+            return;
         } else if (expr->Kind == ExprKind::Paren) {
             m_Output += fmt::format("ParenExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
             DumpExpr(expr->Paren.Expression, indentation + 4);

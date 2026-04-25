@@ -18,6 +18,7 @@ namespace Aria::Internal {
     }
 
     void Disassembler::DisassembleImpl() {
+        if (m_OpCodes->Program.size() == 0) { return; }
         m_ProgramCounter = &m_OpCodes->Program.front();
 
         while (m_ProgramCounter < &m_OpCodes->Program.back()) {

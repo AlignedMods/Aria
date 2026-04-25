@@ -90,6 +90,8 @@ namespace Aria::Internal {
         m_ExprRules[TokenKind::NumLit] =            { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
         m_ExprRules[TokenKind::StrLit] =            { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
         m_ExprRules[TokenKind::Identifier] =        { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+
+        m_ExprRules[TokenKind::DollarFormat] =      { BIND_PARSE_RULE(ParseFormat),  nullptr, PREC_NONE };
     }
 
     void Parser::ParseImpl() {
@@ -408,6 +410,40 @@ namespace Aria::Internal {
         }
 
         ARIA_UNREACHABLE();
+    }
+
+    Expr* Parser::ParseFormat(Expr* left) {
+        ARIA_ASSERT(left == nullptr, "Parser::ParseFormat() should not have a left side");
+
+        Token& f = Consume(); // Consume "$format"
+
+        Token* lp = TryConsume(TokenKind::LeftParen, "(");
+        TinyVector<Expr*> args;
+
+        while (!Match(TokenKind::RightParen)) {
+            Expr* val = ParseExpression();
+
+            if (!ExprOk(val)) {
+                SyncLocal();
+                break;
+            }
+
+            args.Append(m_Context, val);
+    
+            if (Match(TokenKind::Comma)) {
+                Consume();
+                continue;
+            }
+
+            break;
+        }
+    
+        Token* rp = TryConsume(TokenKind::RightParen, ")");
+        if (!rp) { return &g_ErrorExpr; }
+    
+        return Expr::Create(m_Context, f.Range.Start, SourceRange(f.Range.Start, rp->Range.End), ExprKind::Format,
+            ExprValueKind::RValue, &StringType, 
+            FormatExpr(args));
     }
 
     Expr* Parser::ParsePrecedenceWithLeft(Expr* left, size_t precedence) {

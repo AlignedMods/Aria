@@ -220,6 +220,62 @@ namespace Aria::Internal {
         ARIA_ASSERT(false, "todo!");
     }
 
+    void SemanticAnalyzer::ResolveFormatExpr(Expr* expr) {
+        FormatExpr& format = expr->Format;
+
+        if (expr->ResultDiscarded) {
+            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of format is not allowed");
+            return;
+        }
+
+        if (format.Args.Size == 0) {
+            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Format expression must have a format string");
+            return;
+        }
+
+        if (format.Args.Items[0]->Kind != ExprKind::StringConstant) {
+            m_Context->ReportCompilerDiagnostic(format.Args.Items[0]->Loc, format.Args.Items[0]->Range, "Format string must be a string literal");
+            return;
+        }
+
+        for (Expr* arg : format.Args) {
+            ResolveParamInitializer(arg->Type, arg);
+        }
+
+        bool needsClosing = false;
+        size_t count = 0;
+        StringView fmtStr = format.Args.Items[0]->Temporary.Expression->StringConstant.Value;
+
+        for (size_t i = 0; i < fmtStr.Size(); i++) {
+            if (needsClosing) {
+                if (fmtStr.At(i) == '}') {
+                    needsClosing = false;
+                }
+            }
+
+            if (fmtStr.At(i) == '{') {
+                count++;
+                needsClosing = true;
+            }
+        }
+
+        if (needsClosing) {
+            m_Context->ReportCompilerDiagnostic(format.Args.Items[0]->Loc, format.Args.Items[0]->Range, "Improper format string, missing closing curly brace");
+            return;
+        }
+
+        if (count != format.Args.Size - 1) {
+            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Format string does not match argument count");
+            return;
+        }
+
+        if (m_TemporaryContext) {
+            ReplaceExpr(expr, Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::Temporary,
+                ExprValueKind::RValue, expr->Type,
+                TemporaryExpr(Expr::Dup(m_Context, expr), m_BuiltInStringDestructor)));
+        }
+    }
+
     void SemanticAnalyzer::ResolveParenExpr(Expr* expr) {
         ParenExpr& paren = expr->Paren;
         ResolveExpr(paren.Expression);
@@ -478,6 +534,8 @@ namespace Aria::Internal {
             return ResolveCallExpr(expr);
         } else if (expr->Kind == ExprKind::MethodCall) {
             return ResolveMethodCallExpr(expr);
+        } else if (expr->Kind == ExprKind::Format) {
+            return ResolveFormatExpr(expr);
         } else if (expr->Kind == ExprKind::Paren) {
             return ResolveParenExpr(expr);
         } else if (expr->Kind == ExprKind::Cast) {

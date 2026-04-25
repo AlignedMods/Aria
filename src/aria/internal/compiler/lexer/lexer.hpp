@@ -22,6 +22,7 @@ namespace Aria::Internal {
         void ParseStringLiteral();
 
         void ParseAtSymbol();
+        void ParseDollarSymbol();
 
         void ParseIdentifier();
 

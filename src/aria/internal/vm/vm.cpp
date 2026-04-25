@@ -18,7 +18,8 @@ namespace Aria::Internal {
     VM::~VM() {
         const std::string& signature = "_end$()";
 
-        ARIA_ASSERT(m_Functions.contains(signature), "No function named '_end$()' was found");
+        if (!m_Functions.contains(signature)) { return; }
+
         VMFunction& func = m_Functions.at(signature);
 
         // Perform a jump to the function
@@ -171,7 +172,7 @@ namespace Aria::Internal {
         ARIA_ASSERT(s.Type.Kind == VMTypeKind::String, "Cannot store a string in a slot with a non-string type");
         
         RuntimeString& string = *reinterpret_cast<RuntimeString*>(s.Memory);
-        string.RawData = str.data();
+        string.RawData = const_cast<char*>(str.data());
         string.Size = str.size();
     }
 

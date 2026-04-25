@@ -125,6 +125,12 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case '$': {
+                    Backtrack();
+                    ParseDollarSymbol();
+                    break;
+                }
+
                 // Literals and constants
                 case '\'': {
                     ParseCharLiteral();
@@ -426,6 +432,26 @@ namespace Aria::Internal {
         else if (str == "@private") { AddToken(TokenKind::AtPrivate, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "@private"); return; }
 
         m_Context->ReportCompilerDiagnostic(start, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "Unknown flag starting with '@'");
+    }
+
+    void Lexer::ParseDollarSymbol() {
+        StringBuilder str;
+        SourceLocation start = SourceLocation(m_CurrentLine, GetColumn(m_Index));
+
+        str.Append(m_Context, '$');
+        Consume();
+
+        while (true) {
+            if (std::isalpha(Peek())) {
+                str.Append(m_Context, Peek());
+                Consume();
+            } else {
+                break;
+            }
+        }
+
+        if (str == "$format") { AddToken(TokenKind::DollarFormat, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "$format"); return; }
+        m_Context->ReportCompilerDiagnostic(start, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "Unknown identifier following '$'");
     }
 
     void Lexer::ParseIdentifier() {

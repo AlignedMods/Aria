@@ -27,4 +27,18 @@ namespace Aria::Internal {
         ctx->PushString(std::string_view(copiedData, str.Size));
     }
 
+    void __aria_append_str(Context* ctx) {
+        void* dst = ctx->GetPointer(-1);
+        std::string_view src = ctx->GetString(-2);
+        ctx->Pop(2);
+
+        RuntimeString& dstStr = *reinterpret_cast<RuntimeString*>(dst);
+
+        char* copiedData = new char[dstStr.Size + src.size()];
+        memcpy(copiedData, dstStr.RawData, dstStr.Size);
+        memcpy(copiedData + dstStr.Size, src.data(), src.size());
+        dstStr.RawData = copiedData;
+        dstStr.Size += src.size();
+    }
+
 } // namespace Aria::Internal

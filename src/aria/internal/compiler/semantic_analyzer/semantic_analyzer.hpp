@@ -71,6 +71,7 @@ namespace Aria::Internal {
         void ResolveMemberExpr(Expr* expr);
         void ResolveCallExpr(Expr* expr);
         void ResolveMethodCallExpr(Expr* expr);
+        void ResolveFormatExpr(Expr* expr);
         void ResolveParenExpr(Expr* expr);
         void ResolveCastExpr(Expr* expr);
         void ResolveUnaryOperatorExpr(Expr* expr);
