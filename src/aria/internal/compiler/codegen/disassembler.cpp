@@ -421,22 +421,26 @@ namespace Aria::Internal {
                 }
 
                 case OP_CONV_ITOI: {
-                    m_Output += "    conv.itoi";
+                    auto& type = GET_TYPE();
+                    m_Output += fmt::format("    conv.itoi {}", VMTypeToString(type));
                     break;
                 }
 
                 case OP_CONV_FTOF: {
-                    m_Output += "    conv.ftof";
+                    auto& type = GET_TYPE();
+                    m_Output += fmt::format("    conv.ftof {}", VMTypeToString(type));
                     break;
                 }
 
                 case OP_CONV_ITOF: {
-                    m_Output += "    conv.itof";
+                    auto& type = GET_TYPE();
+                    m_Output += fmt::format("    conv.itof {}", VMTypeToString(type));
                     break;
                 }
 
                 case OP_CONV_FTOI: {
-                    m_Output += "    conv.ftoi";
+                    auto& type = GET_TYPE();
+                    m_Output += fmt::format("    conv.ftoi {}", VMTypeToString(type));
                     break;
                 }
 

@@ -133,7 +133,15 @@ namespace Aria {
         vm.AddExtern("__aria_raw_print_stdout()", Internal::__aria_print);
         vm.AddExtern("__aria_destruct_str()", Internal::__aria_destruct_str);
         vm.AddExtern("__aria_copy_str()", Internal::__aria_copy_str);
-        vm.AddExtern("__aria_append_str()", Internal::__aria_append_str);
+        vm.AddExtern("__aria_append_str<char>()", Internal::__aria_append_str_char);
+        vm.AddExtern("__aria_append_str<uchar>()", Internal::__aria_append_str_uchar);
+        vm.AddExtern("__aria_append_str<short>()", Internal::__aria_append_str_short);
+        vm.AddExtern("__aria_append_str<ushort>()", Internal::__aria_append_str_ushort);
+        vm.AddExtern("__aria_append_str<int>()", Internal::__aria_append_str_int);
+        vm.AddExtern("__aria_append_str<uint>()", Internal::__aria_append_str_uint);
+        vm.AddExtern("__aria_append_str<long>()", Internal::__aria_append_str_long);
+        vm.AddExtern("__aria_append_str<ulong>()", Internal::__aria_append_str_ulong);
+        vm.AddExtern("__aria_append_str<string>()", Internal::__aria_append_str_string);
     }
 
     void Context::SetActiveModule(const std::string& module) {
@@ -293,16 +301,32 @@ namespace Aria {
         return m_ActiveModule->VM.GetChar(index, m_ActiveModule->VM.m_Stack);
     }
 
+    uint8_t Context::GetUChar(int32_t index) {
+        return static_cast<uint8_t>(m_ActiveModule->VM.GetChar(index, m_ActiveModule->VM.m_Stack));
+    }
+
     int16_t Context::GetShort(int32_t index) {
         return m_ActiveModule->VM.GetShort(index, m_ActiveModule->VM.m_Stack);
+    }
+
+    uint16_t Context::GetUShort(int32_t index) {
+        return static_cast<uint16_t>(m_ActiveModule->VM.GetShort(index, m_ActiveModule->VM.m_Stack));
     }
 
     int32_t Context::GetInt(int32_t index) {
         return m_ActiveModule->VM.GetInt(index, m_ActiveModule->VM.m_Stack);
     }
 
+    uint32_t Context::GetUInt(int32_t index) {
+        return static_cast<uint32_t>(m_ActiveModule->VM.GetInt(index, m_ActiveModule->VM.m_Stack));
+    }
+
     int64_t Context::GetLong(int32_t index) {
         return m_ActiveModule->VM.GetLong(index, m_ActiveModule->VM.m_Stack);
+    }
+
+    uint64_t Context::GetULong(int32_t index) {
+        return  static_cast<uint64_t>(m_ActiveModule->VM.GetLong(index, m_ActiveModule->VM.m_Stack));
     }
 
     float Context::GetFloat(int32_t index) {

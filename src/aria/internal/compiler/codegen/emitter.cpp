@@ -503,8 +503,7 @@ namespace Aria::Internal {
                 PUSH_PENDING_OP(OP_LD_PTR_LOCAL);
                 PUSH_PENDING_OP(static_cast<OpCode>(idx));
                 
-                ARIA_ASSERT(format.Args.Items[currentArg + 1]->Type->IsString(), "Not supported yet");
-                ADD_STR("__aria_append_str()");
+                ADD_STR(fmt::format("__aria_append_str<{}>()", TypeInfoToString(format.Args.Items[currentArg + 1]->Type)));
                 PUSH_PENDING_OP(OP_CALL);
                 PUSH_PENDING_OP(STR_IDX(-1));
 

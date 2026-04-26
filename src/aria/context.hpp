@@ -79,9 +79,13 @@ namespace Aria {
 
         bool             GetBool     (int32_t index);
         int8_t           GetChar     (int32_t index);
+        uint8_t          GetUChar    (int32_t index);
         int16_t          GetShort    (int32_t index);
+        uint16_t         GetUShort   (int32_t index);
         int32_t          GetInt      (int32_t index);
+        uint32_t         GetUInt     (int32_t index);
         int64_t          GetLong     (int32_t index);
+        uint64_t         GetULong   (int32_t index);
         float            GetFloat    (int32_t index);
         double           GetDouble   (int32_t index);
         void*            GetPointer  (int32_t index);
