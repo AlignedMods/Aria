@@ -385,10 +385,19 @@ namespace Aria::Internal {
             EmitExpr(*it, (*it)->ValueKind);
         }
 
-        std::string ident = (call.Callee->DeclRef.ReferencedDecl->Flags & DECL_FLAG_NOMANGLE) ? 
-            fmt::format("{}()", call.Callee->DeclRef.Identifier) : 
-            fmt::format("{}::{}", (call.Callee->DeclRef.NameSpecifier) ? 
-                call.Callee->DeclRef.NameSpecifier->Scope.Identifier : m_ActiveNamespace, MangleFunction(&call.Callee->DeclRef.ReferencedDecl->Function));
+        std::string ident;
+        for (auto& attr : call.Callee->DeclRef.ReferencedDecl->Attributes) {
+            if (attr.Kind == DeclAttributeKind::Extern) { ident = fmt::format("{}", attr.Arg); }
+            else if (attr.Kind == DeclAttributeKind::NoMangle) { ident = fmt::format("{}()", call.Callee->DeclRef.Identifier); }
+        }
+
+        if (ident.empty()) {
+            if (call.Callee->DeclRef.NameSpecifier) {
+                ident = fmt::format("{}::{}", call.Callee->DeclRef.NameSpecifier->Scope.Identifier, MangleFunction(&call.Callee->DeclRef.ReferencedDecl->Function));
+            } else {
+                ident = fmt::format("{}::{}", m_ActiveNamespace, MangleFunction(&call.Callee->DeclRef.ReferencedDecl->Function));
+            }
+        }
 
         ADD_STR(ident);
         PUSH_PENDING_OP(OP_CALL);
@@ -463,54 +472,13 @@ namespace Aria::Internal {
         PUSH_OP(static_cast<OpCode>(m_ActiveStackFrame.LocalCount));
         size_t idx = m_ActiveStackFrame.LocalCount++;
         
-        std::string start;
-        size_t firstFormat = 0;
-        
-        for (size_t i = 0; i < fStr.Size(); i++) {
-            if (fStr.At(i) == '{') { firstFormat = i; break; }
-            start += fStr.At(i);
-        }
-        
-        ADD_STR(start);
-        PUSH_PENDING_OP(OP_LD_STR);
-        PUSH_PENDING_OP(STR_IDX(-1));
-        PUSH_PENDING_OP(OP_ST_LOCAL);
-        PUSH_PENDING_OP(static_cast<OpCode>(idx));
-        start.clear();
-
-        size_t currentArg = 0;
-
-        for (size_t i = firstFormat; i < fStr.Size(); i++) {
-            if (fStr.At(i) == '{') {
-                if (!start.empty()) {
-                    ADD_STR(start);
-                    PUSH_PENDING_OP(OP_LD_STR);
-                    PUSH_PENDING_OP(STR_IDX(-1));
-                    
-                    PUSH_PENDING_OP(OP_LD_PTR_LOCAL);
-                    PUSH_PENDING_OP(static_cast<OpCode>(idx));
-                    
-                    ADD_STR("__aria_append_str()");
-                    PUSH_PENDING_OP(OP_CALL);
-                    PUSH_PENDING_OP(STR_IDX(-1));
-
-                    start.clear();
-                }
-
-                i++;
-
-                EmitExpr(format.Args.Items[currentArg + 1], format.Args.Items[currentArg + 1]->ValueKind);
-                PUSH_PENDING_OP(OP_LD_PTR_LOCAL);
-                PUSH_PENDING_OP(static_cast<OpCode>(idx));
-                
-                ADD_STR(fmt::format("__aria_append_str<{}>()", TypeInfoToString(format.Args.Items[currentArg + 1]->Type)));
-                PUSH_PENDING_OP(OP_CALL);
-                PUSH_PENDING_OP(STR_IDX(-1));
-
-                currentArg++;
-            } else {
-                start += fStr.At(i);
-            }
+        for (auto& arg : format.ResolvedArgs) {
+            EmitExpr(arg.Arg, arg.Arg->ValueKind);
+            ADD_STR(fmt::format("__aria_append_str<{}>()", TypeInfoToString(arg.Arg->Type)));
+            PUSH_PENDING_OP(OP_LD_PTR_LOCAL);
+            PUSH_PENDING_OP(static_cast<OpCode>(idx));
+            PUSH_PENDING_OP(OP_CALL);
+            PUSH_PENDING_OP(STR_IDX(-1));
         }
         
         PUSH_PENDING_OP(OP_LD_LOCAL);
@@ -825,7 +793,7 @@ namespace Aria::Internal {
         d.Type = varDecl.Type;
         
         if (varDecl.Type->Type == PrimitiveType::String) {
-            d.Destructor = Decl::Create(m_Context, SourceLocation(), SourceRange(), DeclKind::BuiltinDestructor, 0, BuiltinDestructorDecl(BuiltinKind::String));
+            d.Destructor = Decl::Create(m_Context, SourceLocation(), SourceRange(), DeclKind::BuiltinDestructor, {}, DeclVisibility::Private, BuiltinDestructorDecl(BuiltinKind::String));
         } else if (varDecl.Type->Type == PrimitiveType::Structure) {
             StructDeclaration& sDecl = std::get<StructDeclaration>(varDecl.Type->Data);
             Decl* dtor = nullptr;
@@ -887,16 +855,25 @@ namespace Aria::Internal {
 
     void Emitter::EmitFunctionDecl(Decl* decl) {
         FunctionDecl& fnDecl = decl->Function;
-        std::string name = (decl->Flags & DECL_FLAG_NOMANGLE) ? fmt::format("{}()", fnDecl.Identifier) : fmt::format("{}::{}", m_ActiveNamespace, MangleFunction(&fnDecl));
+
+        std::string sig;
+        for (auto& attr : decl->Attributes) {
+            if (attr.Kind == DeclAttributeKind::Extern) { return; }
+            if (attr.Kind == DeclAttributeKind::NoMangle) { sig = fmt::format("{}()", fnDecl.Identifier); break; }
+        }
+
+        if (sig.empty()) {
+            sig = fmt::format("{}::{}", m_ActiveNamespace, MangleFunction(&fnDecl));
+        }
 
         if (fnDecl.Body) {
-            ADD_STR(name);
+            ADD_STR(sig);
             ADD_STR("_entry$");
             PUSH_OP(OP_FUNCTION);
             PUSH_OP(STR_IDX(-2));
             PUSH_OP(OP_LABEL);
             PUSH_OP(STR_IDX(-1));
-            PushStackFrame(name);
+            PushStackFrame(sig);
             
             size_t returnSlot = (std::get<FunctionDeclaration>(fnDecl.Type->Data).ReturnType->Type == PrimitiveType::Void) ? 0 : 1;
             
@@ -918,7 +895,7 @@ namespace Aria::Internal {
             d.TypeIndex = TypeInfoToVMTypeIdx(std::get<FunctionDeclaration>(fnDecl.Type->Data).ReturnType);
             d.Kind = ReflectionKind::Function;
         
-            m_ReflectionData.Declarations[name] = d;
+            m_ReflectionData.Declarations[sig] = d;
         }
     }
 

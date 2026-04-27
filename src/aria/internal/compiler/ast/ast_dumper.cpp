@@ -145,10 +145,15 @@ namespace Aria::Internal {
             m_Output += fmt::format("ParamDecl '{}' '{}'\n", decl->Param.Identifier, TypeInfoToString(decl->Param.Type));
             return;
         } else if (decl->Kind == DeclKind::Function) {
-            m_Output += fmt::format("FunctionDecl '{}' '{}' {}\n", decl->Function.Identifier, TypeInfoToString(decl->Function.Type), DumpDeclarationFlags(decl->Flags));
+            m_Output += fmt::format("FunctionDecl '{}' '{}'\n", decl->Function.Identifier, TypeInfoToString(decl->Function.Type));
+            for (auto& attr : decl->Attributes) {
+                DumpDeclAttr(attr, indentation + 4);
+            }
+
             for (Decl* p : decl->Function.Parameters) {
                 DumpDecl(p, indentation + 4);
             }
+
             if (decl->Function.Body) {
                 DumpStmt(decl->Function.Body, indentation + 4);
             }
@@ -275,22 +280,17 @@ namespace Aria::Internal {
         ARIA_UNREACHABLE();
     }
 
-    std::string ASTDumper::DumpDeclarationFlags(int flags) {
-        std::string result;
+    void ASTDumper::DumpDeclAttr(DeclAttribute attr, size_t indentation) {
+        std::string ident;
+        ident.append(indentation, ' ');
+        m_Output += ident;
 
-        if (flags & DECL_FLAG_EXTERN) {
-            result = "@extern ";
+        switch (attr.Kind) {
+            case DeclAttributeKind::Extern: m_Output += fmt::format("ExternAttribute {:?}\n", attr.Arg); break;
+            case DeclAttributeKind::NoMangle: m_Output += "NoMangleAttribute\n"; break;
+            case DeclAttributeKind::Unsafe: m_Output += "UnsafeAttribute\n"; break;
+            default: ARIA_UNREACHABLE();
         }
-
-        if (flags & DECL_FLAG_NOMANGLE) {
-            result += "@nomangle ";
-        }
-
-        if (flags & DECL_FLAG_PRIVATE) {
-            result += "@private ";
-        }
-
-        return result;
     }
 
 } // namespace Aria::Internal

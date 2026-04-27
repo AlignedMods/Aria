@@ -41,9 +41,22 @@ namespace Aria::Internal {
         String
     };
 
-    constexpr int DECL_FLAG_EXTERN = 0x01;
-    constexpr int DECL_FLAG_NOMANGLE = 0x02;
-    constexpr int DECL_FLAG_PRIVATE = 0x04;
+    enum class DeclVisibility {
+        Public,
+        Private
+    };
+
+    enum class DeclAttributeKind {
+        None = 0,
+        Extern,
+        NoMangle,
+        Unsafe
+    };
+
+    struct DeclAttribute {
+        DeclAttributeKind Kind = DeclAttributeKind::None;
+        StringView Arg;
+    };
 
     struct Expr;
     struct Stmt;
@@ -163,10 +176,11 @@ namespace Aria::Internal {
 
     struct Decl {
         template <typename T>
-        static inline Decl* Create(CompilationContext* ctx, SourceLocation loc, SourceRange range, DeclKind kind, int flags, T t = ErrorDecl{}) { return ctx->Allocate<Decl>(loc, range, kind, flags, t); }
+        static inline Decl* Create(CompilationContext* ctx, SourceLocation loc, SourceRange range, DeclKind kind, TinyVector<DeclAttribute> attrs, DeclVisibility visibility, T t = ErrorDecl{}) { return ctx->Allocate<Decl>(loc, range, kind, attrs, visibility, t); }
 
         DeclKind Kind = DeclKind::Invalid;
-        int Flags = 0;
+        TinyVector<DeclAttribute> Attributes;
+        DeclVisibility Visibility = DeclVisibility::Public;
 
         SourceLocation Loc;
         SourceRange Range;
@@ -187,46 +201,46 @@ namespace Aria::Internal {
             BuiltinDestructorDecl BuiltinDestructor;
         };
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, int flags, ErrorDecl error)
-            : Loc(loc), Range(range), Kind(kind), Flags(flags), Error(error) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, TinyVector<DeclAttribute> attrs, DeclVisibility visibility, ErrorDecl error)
+            : Loc(loc), Range(range), Kind(kind), Attributes(attrs), Visibility(visibility), Error(error) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, int flags, TranslationUnitDecl translationUnit)
-            : Loc(loc), Range(range), Kind(kind), Flags(flags), TranslationUnit(translationUnit) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, TinyVector<DeclAttribute> attrs, DeclVisibility visibility, TranslationUnitDecl translationUnit)
+            : Loc(loc), Range(range), Kind(kind), Attributes(attrs), Visibility(visibility), TranslationUnit(translationUnit) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, int flags, ModuleDecl module)
-            : Loc(loc), Range(range), Kind(kind), Flags(flags), Module(module) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, TinyVector<DeclAttribute> attrs, DeclVisibility visibility, ModuleDecl module)
+            : Loc(loc), Range(range), Kind(kind), Attributes(attrs), Visibility(visibility), Module(module) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, int flags, VarDecl var)
-            : Loc(loc), Range(range), Kind(kind), Flags(flags), Var(var) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, TinyVector<DeclAttribute> attrs, DeclVisibility visibility, VarDecl var)
+            : Loc(loc), Range(range), Kind(kind), Attributes(attrs), Visibility(visibility), Var(var) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, int flags, ParamDecl param)
-            : Loc(loc), Range(range), Kind(kind), Flags(flags), Param(param) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, TinyVector<DeclAttribute> attrs, DeclVisibility visibility, ParamDecl param)
+            : Loc(loc), Range(range), Kind(kind), Attributes(attrs), Visibility(visibility), Param(param) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, int flags, FunctionDecl function)
-            : Loc(loc), Range(range), Kind(kind), Flags(flags), Function(function) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, TinyVector<DeclAttribute> attrs, DeclVisibility visibility, FunctionDecl function)
+            : Loc(loc), Range(range), Kind(kind), Attributes(attrs), Visibility(visibility), Function(function) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, int flags, StructDecl struc)
-            : Loc(loc), Range(range), Kind(kind), Flags(flags), Struct(struc) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, TinyVector<DeclAttribute> attrs, DeclVisibility visibility, StructDecl struc)
+            : Loc(loc), Range(range), Kind(kind), Attributes(attrs), Visibility(visibility), Struct(struc) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, int flags, FieldDecl field)
-            : Loc(loc), Range(range), Kind(kind), Flags(flags), Field(field) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, TinyVector<DeclAttribute> attrs, DeclVisibility visibility, FieldDecl field)
+            : Loc(loc), Range(range), Kind(kind), Attributes(attrs), Visibility(visibility), Field(field) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, int flags, ConstructorDecl ctor)
-            : Loc(loc), Range(range), Kind(kind), Flags(flags), Constructor(ctor) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, TinyVector<DeclAttribute> attrs, DeclVisibility visibility, ConstructorDecl ctor)
+            : Loc(loc), Range(range), Kind(kind), Attributes(attrs), Visibility(visibility), Constructor(ctor) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, int flags, DestructorDecl dtor)
-            : Loc(loc), Range(range), Kind(kind), Flags(flags), Destructor(dtor) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, TinyVector<DeclAttribute> attrs, DeclVisibility visibility, DestructorDecl dtor)
+            : Loc(loc), Range(range), Kind(kind), Attributes(attrs), Visibility(visibility), Destructor(dtor) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, int flags, MethodDecl method)
-            : Loc(loc), Range(range), Kind(kind), Flags(flags), Method(method) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, TinyVector<DeclAttribute> attrs, DeclVisibility visibility, MethodDecl method)
+            : Loc(loc), Range(range), Kind(kind), Attributes(attrs), Visibility(visibility), Method(method) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, int flags, BuiltinCopyConstructorDecl builtinCopyConstructor)
-            : Loc(loc), Range(range), Kind(kind), Flags(flags), BuiltinCopyConstructor(builtinCopyConstructor) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, TinyVector<DeclAttribute> attrs, DeclVisibility visibility, BuiltinCopyConstructorDecl builtinCopyConstructor)
+            : Loc(loc), Range(range), Kind(kind), Attributes(attrs), Visibility(visibility), BuiltinCopyConstructor(builtinCopyConstructor) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, int flags, BuiltinDestructorDecl builtinDestructor)
-            : Loc(loc), Range(range), Kind(kind), Flags(flags), BuiltinDestructor(builtinDestructor) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, TinyVector<DeclAttribute> attrs, DeclVisibility visibility, BuiltinDestructorDecl builtinDestructor)
+            : Loc(loc), Range(range), Kind(kind), Attributes(attrs), Visibility(visibility), BuiltinDestructor(builtinDestructor) {}
     };
 
-    inline Decl g_ErrorDecl = Decl(SourceLocation(), SourceRange(), DeclKind::Error, 0, ErrorDecl());
+    inline Decl g_ErrorDecl = Decl(SourceLocation(), SourceRange(), DeclKind::Error, {}, DeclVisibility::Public, ErrorDecl());
 
 } // namespace Aria::Internal

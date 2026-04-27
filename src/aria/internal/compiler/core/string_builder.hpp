@@ -24,6 +24,8 @@ namespace Aria::Internal {
         inline size_t Size() const { return m_Size; }
         inline const char* Data() const { return m_Str; }
 
+        inline void Clear() { m_Size = 0; }
+
         inline void Append(CompilationContext* ctx, const StringView str) {
             m_Capacity += str.Size();
             char* newStr = reinterpret_cast<char*>(ctx->AllocateSized(m_Capacity));

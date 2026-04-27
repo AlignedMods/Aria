@@ -71,7 +71,7 @@ namespace Aria::Internal {
         std::pair<TinyVector<Decl*>, TinyVector<TypeInfo*>> ParseFunctionParams();
         Decl* ParseStructDecl();
 
-        int ParseDeclarationFlags();
+        TinyVector<DeclAttribute> ParseDeclarationAttrs();
 
         Stmt* ParseGlobal();
 
@@ -88,6 +88,7 @@ namespace Aria::Internal {
         Tokens m_Tokens;
 
         bool m_DeclaredModule = false;
+        DeclVisibility m_CurrentVisibility = DeclVisibility::Public;
 
         using ParseExprFn = std::function<Expr*(Expr*)>;
         struct ParseExprRule {

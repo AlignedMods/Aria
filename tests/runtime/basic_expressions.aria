@@ -1,6 +1,6 @@
 module basic_expressions;
 
-fn should_never_be_called() -> bool @extern;
+fn should_never_be_called() -> bool @extern("should_never_be_called()");
 
 let a: int = 5 + 5;
 let b: int = (a + 5) / -5;

@@ -110,7 +110,7 @@ namespace Aria::Internal {
             FunctionDecl& f = func->Function;
 
             // do not mangle the main function
-            if (f.Identifier == "main") { func->Flags |= DECL_FLAG_NOMANGLE; }
+            if (f.Identifier == "main") { func->Attributes.Append(m_Context, { DeclAttributeKind::NoMangle }); }
             std::string ident = fmt::format("{}", f.Identifier);
 
             if (module->Symbols.contains(ident)) {
@@ -118,7 +118,7 @@ namespace Aria::Internal {
                 
                 // Handle overloading the first non-overloaded function
                 if (d->Kind == DeclKind::Function) {
-                    module->Symbols[ident] = Decl::Create(m_Context, d->Loc, d->Range, DeclKind::OverloadedFunction, 0, ErrorDecl());
+                    module->Symbols[ident] = Decl::Create(m_Context, d->Loc, d->Range, DeclKind::OverloadedFunction, {}, d->Visibility, ErrorDecl());
 
                     std::string oldMangle = MangleFunction(&d->Function);
                     std::string newMangle = MangleFunction(&f);

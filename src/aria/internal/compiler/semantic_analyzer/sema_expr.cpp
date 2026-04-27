@@ -106,7 +106,7 @@ namespace Aria::Internal {
         if (mod->Symbols.contains(ident)) {
             Decl* d = mod->Symbols.at(ident);
 
-            if (d->Flags & DECL_FLAG_PRIVATE && ref.NameSpecifier) {
+            if (d->Visibility == DeclVisibility::Private && ref.NameSpecifier) {
                 m_Context->ReportCompilerDiagnostic(ref.NameSpecifier->Loc, ref.NameSpecifier->Range, fmt::format("Symbol '{}' is not accessible", ref.Identifier));
                 expr->Type = &ErrorType;
                 ref.ReferencedDecl = &g_ErrorDecl;
@@ -130,6 +130,7 @@ namespace Aria::Internal {
         }
 
         expr->Type = &ErrorType;
+        ref.ReferencedDecl = &g_ErrorDecl;
         m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, fmt::format("Unknown identifier '{}'", ref.Identifier));
     }
 
@@ -182,35 +183,41 @@ namespace Aria::Internal {
             return;
         }
 
-        if (call.Callee->Kind == ExprKind::DeclRef && call.Callee->DeclRef.ReferencedDecl->Kind == DeclKind::OverloadedFunction) { // Overloaded function
-            ARIA_TODO("Overloaded function calls");
-        } else if (!call.Callee->Type->IsError()) { // Normal function
-            FunctionDeclaration& fnDecl = std::get<FunctionDeclaration>(calleeType->Data);
+        if (call.Callee->DeclRef.ReferencedDecl->Kind != DeclKind::Error) {
+            if (call.Callee->Kind == ExprKind::DeclRef && call.Callee->DeclRef.ReferencedDecl->Kind == DeclKind::OverloadedFunction) { // Overloaded function
+                ARIA_TODO("Overloaded function calls");
+            } else if (!call.Callee->Type->IsError()) { // Normal function
+                FunctionDeclaration& fnDecl = std::get<FunctionDeclaration>(calleeType->Data);
 
-            if (fnDecl.ParamTypes.Size != call.Arguments.Size) {
-                m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, fmt::format("Mismatched argument count, function expects {} but got {}", fnDecl.ParamTypes.Size, call.Arguments.Size));
-                for (size_t i = 0; i < call.Arguments.Size; i++) {
-                    call.Arguments.Items[i]->Type = &ErrorType;
+                if (fnDecl.ParamTypes.Size != call.Arguments.Size) {
+                    m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, fmt::format("Mismatched argument count, function expects {} but got {}", fnDecl.ParamTypes.Size, call.Arguments.Size));
+                    for (size_t i = 0; i < call.Arguments.Size; i++) {
+                        call.Arguments.Items[i]->Type = &ErrorType;
+                    }
+                } else {
+                    for (size_t i = 0; i < fnDecl.ParamTypes.Size; i++) {
+                        ResolveParamInitializer(fnDecl.ParamTypes.Items[i], call.Arguments.Items[i]);
+                    }
                 }
-            } else {
-                for (size_t i = 0; i < fnDecl.ParamTypes.Size; i++) {
-                    ResolveParamInitializer(fnDecl.ParamTypes.Items[i], call.Arguments.Items[i]);
+
+                expr->Type = fnDecl.ReturnType;
+                expr->ValueKind = (fnDecl.ReturnType->IsReference()) ? ExprValueKind::LValue : ExprValueKind::RValue;
+
+                // We may need to create a temporary if a function returns a non-trivial type and it is discarded
+                if (expr->ResultDiscarded && !fnDecl.ReturnType->IsReference()) {
+                    if (fnDecl.ReturnType->IsString()) {
+                        ReplaceExpr(expr, Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::Temporary,
+                            ExprValueKind::RValue, expr->Type,
+                            TemporaryExpr(Expr::Dup(m_Context, expr), m_BuiltInStringDestructor)));
+                    }
                 }
+
+                return;
             }
-
-            expr->Type = fnDecl.ReturnType;
-            expr->ValueKind = (fnDecl.ReturnType->IsReference()) ? ExprValueKind::LValue : ExprValueKind::RValue;
-
-            // We may need to create a temporary if a function returns a non-trivial type and it is discarded
-            if (expr->ResultDiscarded && !fnDecl.ReturnType->IsReference()) {
-                if (fnDecl.ReturnType->IsString()) {
-                    ReplaceExpr(expr, Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::Temporary,
-                        ExprValueKind::RValue, expr->Type,
-                        TemporaryExpr(Expr::Dup(m_Context, expr), m_BuiltInStringDestructor)));
-                }
+        } else {
+            for (Expr* arg : call.Arguments) {
+                ResolveExpr(arg);
             }
-
-            return;
         }
 
         expr->Type = &ErrorType;
@@ -223,11 +230,6 @@ namespace Aria::Internal {
     void SemanticAnalyzer::ResolveFormatExpr(Expr* expr) {
         FormatExpr& format = expr->Format;
 
-        if (expr->ResultDiscarded) {
-            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of format is not allowed");
-            return;
-        }
-
         if (format.Args.Size == 0) {
             m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Format expression must have a format string");
             return;
@@ -238,37 +240,75 @@ namespace Aria::Internal {
             return;
         }
 
-        for (Expr* arg : format.Args) {
-            ResolveParamInitializer(arg->Type, arg);
+        if (expr->ResultDiscarded) {
+            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of format is not allowed");
+            return;
         }
 
-        bool needsClosing = false;
-        size_t count = 0;
+        for (Expr* arg : format.Args) {
+            m_TemporaryContext = true;
+            ResolveExpr(arg);
+
+            RequireRValue(arg);
+            m_TemporaryContext = false;
+        }
+
+        TinyVector<FormatExpr::FormatArg> formattedArgs;
         StringView fmtStr = format.Args.Items[0]->Temporary.Expression->StringConstant.Value;
+        StringBuilder buf;
+        size_t idx = 0;
+        bool needsClosing = false;
 
         for (size_t i = 0; i < fmtStr.Size(); i++) {
             if (needsClosing) {
                 if (fmtStr.At(i) == '}') {
                     needsClosing = false;
+                    continue;
+                } else {
+                    m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Missing closing curly brace in format string");
+                    return;
                 }
             }
 
             if (fmtStr.At(i) == '{') {
-                count++;
+                if (buf.Size() > 0) {
+                    Expr* str = Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::StringConstant,
+                        ExprValueKind::RValue, &StringType,
+                        StringConstantExpr(buf));
+
+                    formattedArgs.Append(m_Context, { Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::Temporary,
+                        ExprValueKind::RValue, &StringType,
+                        TemporaryExpr(str, m_BuiltInStringDestructor)) });
+
+                    buf.Clear();
+                }
+                
+                if (idx + 1 >= format.Args.Size) {
+                    m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Format string specifies more arguments than are provided");
+                    return;
+                }
+
+                formattedArgs.Append(m_Context, { format.Args.Items[idx + 1] });
                 needsClosing = true;
+                idx++;
+            } else {
+                buf.Append(m_Context, fmtStr.At(i));
             }
         }
 
-        if (needsClosing) {
-            m_Context->ReportCompilerDiagnostic(format.Args.Items[0]->Loc, format.Args.Items[0]->Range, "Improper format string, missing closing curly brace");
-            return;
+        if (buf.Size() > 0) {
+            Expr* str = Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::StringConstant,
+                ExprValueKind::RValue, &StringType,
+                StringConstantExpr(buf));
+
+            formattedArgs.Append(m_Context, { Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::Temporary,
+                ExprValueKind::RValue, &StringType,
+                TemporaryExpr(str, m_BuiltInStringDestructor)) });
+
+            buf.Clear();
         }
 
-        if (count != format.Args.Size - 1) {
-            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Format string does not match argument count");
-            return;
-        }
-
+        format.ResolvedArgs = formattedArgs;
         if (m_TemporaryContext) {
             ReplaceExpr(expr, Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::Temporary,
                 ExprValueKind::RValue, expr->Type,

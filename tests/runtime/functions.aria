@@ -2,7 +2,7 @@ module functions;
 
 let result: int = 0; // Expected to be 24
 
-fn external_function(a: int, b: int, c: int) -> void;
+fn external_function(a: int, b: int, c: int) -> void @extern("external_function()");
 
 fn add(lhs: int, rhs: int) -> int {
     return lhs + rhs;

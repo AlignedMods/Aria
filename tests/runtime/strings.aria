@@ -4,3 +4,5 @@ let str = "Hello world!";
 let copyStr = str;
 
 let escaped = "\n\r\t\0\0\0Hello world";
+
+let formatted = $format("{}, {}, See you later!", str, "Bye world!");

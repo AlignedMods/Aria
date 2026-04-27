@@ -260,10 +260,17 @@ namespace Aria::Internal {
     };
     
     struct FormatExpr {
+        struct FormatArg {
+            Expr* Arg = nullptr;
+        };
+
         FormatExpr(TinyVector<Expr*> args)
             : Args(args) {}
 
         TinyVector<Expr*> Args;
+        TinyVector<FormatArg> ResolvedArgs; // Properly ordered args, ordered during semantic analysis
+                                            // eg. $format("Hello, {}, Nice to meet you", name); ->
+                                            // "Hello, " name, ", Nice to meet you"
     };
 
     // ParenExpr

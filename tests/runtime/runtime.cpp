@@ -72,7 +72,7 @@ TEST_CASE("Runtime Basic Expressions") {
 TEST_CASE("Runtime Functions") {
     Aria::Context ctx = Aria::Context::Create();
     ctx.CompileFile("tests/runtime/functions.aria");
-    ctx.AddExternalFunction("functions::external_function(int, int, int)", [](Aria::Context* ctx) {
+    ctx.AddExternalFunction("external_function()", [](Aria::Context* ctx) {
         REQUIRE(ctx->GetInt(-1) == 5);
         REQUIRE(ctx->GetInt(-2) == 66);
         REQUIRE(ctx->GetInt(-3) == 50);
@@ -164,6 +164,8 @@ TEST_CASE("Runtime Strings") {
     REQUIRE(ctx.GetString(-1) == "Hello world!");
     ctx.GetGlobal("strings::escaped");
     REQUIRE(ctx.GetString(-1) == std::string_view("\n\r\t\0\0\0Hello world", 17));
+    ctx.GetGlobal("strings::formatted");
+    REQUIRE(ctx.GetString(-1) == "Hello world!, Bye world!, See you later!");
 
     ctx.Pop(3);
 }
