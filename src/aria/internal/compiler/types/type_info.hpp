@@ -64,11 +64,12 @@ namespace Aria::Internal {
         bool Reference = false;
 
         static TypeInfo* Create(CompilationContext* ctx, PrimitiveType type, bool isReference, decltype(TypeInfo::Data) data = {});
+        static TypeInfo* Dup(CompilationContext* ctx, TypeInfo* type);
 
         bool IsError() const { return Type == PrimitiveType::Error; }
 
         bool IsTrivial() const {
-            return IsVoid() || IsBoolean() || IsNumeric() || IsString();
+            return IsVoid() || IsBoolean() || IsNumeric() || IsPointer() || IsString();
         }
 
         bool IsVoid() const {
@@ -92,6 +93,10 @@ namespace Aria::Internal {
 
         bool IsNumeric() const {
             return IsIntegral() || IsFloatingPoint();
+        }
+
+        bool IsPointer() const {
+            return Type == PrimitiveType::Ptr;
         }
 
         bool IsFunction() const {
@@ -142,6 +147,12 @@ namespace Aria::Internal {
             case PrimitiveType::Float:   str = "float"; break;
             case PrimitiveType::Double:  str = "double"; break;
 
+            case PrimitiveType::Ptr: {
+                TypeInfo* t = std::get<TypeInfo*>(type->Data);
+                str = fmt::format("{}*", TypeInfoToString(t));
+                break;
+            }
+
             case PrimitiveType::String:  str = "string"; break;
 
             case PrimitiveType::Function: {
@@ -191,18 +202,20 @@ namespace Aria::Internal {
     }
 
     // To avoid unnecessary allocations of primitive types we declare them here globally
-    inline TypeInfo ErrorType =  { PrimitiveType::Error };
-    inline TypeInfo BoolType =   { PrimitiveType::Bool };
-    inline TypeInfo CharType =   { PrimitiveType::Char };
-    inline TypeInfo UCharType =  { PrimitiveType::UChar };
-    inline TypeInfo ShortType =  { PrimitiveType::Short };
-    inline TypeInfo UShortType = { PrimitiveType::UShort };
-    inline TypeInfo IntType =    { PrimitiveType::Int };
-    inline TypeInfo UIntType =   { PrimitiveType::UInt };
-    inline TypeInfo LongType =   { PrimitiveType::Long };
-    inline TypeInfo ULongType =  { PrimitiveType::ULong };
-    inline TypeInfo DoubleType = { PrimitiveType::Double };
-    inline TypeInfo FloatType =  { PrimitiveType::Float };
-    inline TypeInfo StringType = { PrimitiveType::String };
+    inline TypeInfo ErrorType =   { PrimitiveType::Error };
+    inline TypeInfo VoidType =    { PrimitiveType::Void };
+    inline TypeInfo BoolType =    { PrimitiveType::Bool };
+    inline TypeInfo CharType =    { PrimitiveType::Char };
+    inline TypeInfo UCharType =   { PrimitiveType::UChar };
+    inline TypeInfo ShortType =   { PrimitiveType::Short };
+    inline TypeInfo UShortType =  { PrimitiveType::UShort };
+    inline TypeInfo IntType =     { PrimitiveType::Int };
+    inline TypeInfo UIntType =    { PrimitiveType::UInt };
+    inline TypeInfo LongType =    { PrimitiveType::Long };
+    inline TypeInfo ULongType =   { PrimitiveType::ULong };
+    inline TypeInfo DoubleType =  { PrimitiveType::Double };
+    inline TypeInfo FloatType =   { PrimitiveType::Float };
+    inline TypeInfo StringType =  { PrimitiveType::String };
+    inline TypeInfo VoidPtrType = { PrimitiveType::Ptr, &VoidType };
 
 } // namespace Aria::Internal

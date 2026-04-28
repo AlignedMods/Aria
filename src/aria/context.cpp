@@ -141,6 +141,8 @@ namespace Aria {
         vm.AddExtern("__aria_append_str<uint>()", Internal::__aria_append_str_uint);
         vm.AddExtern("__aria_append_str<long>()", Internal::__aria_append_str_long);
         vm.AddExtern("__aria_append_str<ulong>()", Internal::__aria_append_str_ulong);
+        vm.AddExtern("__aria_append_str<float>()", Internal::__aria_append_str_float);
+        vm.AddExtern("__aria_append_str<double>()", Internal::__aria_append_str_double);
         vm.AddExtern("__aria_append_str<string>()", Internal::__aria_append_str_string);
     }
 

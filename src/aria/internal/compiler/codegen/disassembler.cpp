@@ -92,6 +92,17 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case OP_LD_NULL: {
+                    m_Output += "    ldnull";
+                    break;
+                }
+
+                case OP_LD: {
+                    auto& type = GET_TYPE();
+                    m_Output += fmt::format("    ld {}", VMTypeToString(type));
+                    break;
+                }
+
                 case OP_LD_LOCAL: {
                     size_t idx = static_cast<size_t>(*(++m_ProgramCounter));
                     m_Output += fmt::format("    ldloc {}", idx);

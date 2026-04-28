@@ -48,10 +48,10 @@ namespace Aria::Internal {
         m_ExprRules[TokenKind::LeftParen] =         { BIND_PARSE_RULE(ParseGrouping), BIND_PARSE_RULE(ParseCall), PREC_CALL };
         m_ExprRules[TokenKind::Plus] =              { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_ADDITIVE };
         m_ExprRules[TokenKind::Minus] =             { BIND_PARSE_RULE(ParseUnary), BIND_PARSE_RULE(ParseBinary), PREC_ADDITIVE };
-        m_ExprRules[TokenKind::Star] =              { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_MULTIPLICATIVE };
+        m_ExprRules[TokenKind::Star] =              { BIND_PARSE_RULE(ParseUnary), BIND_PARSE_RULE(ParseBinary), PREC_MULTIPLICATIVE };
         m_ExprRules[TokenKind::Slash] =             { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_MULTIPLICATIVE };
         m_ExprRules[TokenKind::Percent] =           { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_MULTIPLICATIVE };
-        m_ExprRules[TokenKind::Ampersand] =         { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
+        m_ExprRules[TokenKind::Ampersand] =         { BIND_PARSE_RULE(ParseUnary), BIND_PARSE_RULE(ParseBinary), PREC_BIT };
         m_ExprRules[TokenKind::DoubleAmpersand] =   { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
         m_ExprRules[TokenKind::Pipe] =              { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
         m_ExprRules[TokenKind::DoublePipe] =        { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
@@ -89,6 +89,7 @@ namespace Aria::Internal {
         m_ExprRules[TokenKind::ULongLit] =          { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
         m_ExprRules[TokenKind::NumLit] =            { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
         m_ExprRules[TokenKind::StrLit] =            { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::Null] =              { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
         m_ExprRules[TokenKind::Identifier] =        { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
 
         m_ExprRules[TokenKind::DollarFormat] =      { BIND_PARSE_RULE(ParseFormat),  nullptr, PREC_NONE };
@@ -234,6 +235,8 @@ namespace Aria::Internal {
     UnaryOperatorKind Parser::GetUnaryOperatorFromToken(Token* token) {
         switch (token->Kind) {
             case TokenKind::Minus: return UnaryOperatorKind::Negate;
+            case TokenKind::Ampersand: return UnaryOperatorKind::AddressOf;
+            case TokenKind::Star: return UnaryOperatorKind::Dereference;
             default: return UnaryOperatorKind::Invalid;
         }
     }
@@ -277,7 +280,21 @@ namespace Aria::Internal {
         ARIA_ASSERT(left == nullptr, "Parser::ParseUnary() should not have a left side");
 
         Token op = Consume();
-        Expr* expr = ParseExpression();
+
+        Token* tok = Peek();
+        if (!tok) {
+            m_Context->ReportCompilerDiagnostic(tok->Range.Start, tok->Range, "Expected an expression");
+            return &g_ErrorExpr;
+        }
+        ParseExprFn prefixRule = m_ExprRules[tok->Kind].Prefix;
+
+        if (!prefixRule) {
+            SyncLocal();
+            m_Context->ReportCompilerDiagnostic(tok->Range.Start, tok->Range, "Expected an expression");
+            return &g_ErrorExpr;
+        }
+
+        Expr* expr = prefixRule(nullptr);
 
         if (!ExprOk(expr)) { return &g_ErrorExpr; }
 
@@ -379,6 +396,11 @@ namespace Aria::Internal {
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::StringConstant,
                     ExprValueKind::RValue, &StringType, 
                     StringConstantExpr(t.String));
+            }
+
+            case TokenKind::Null: {
+                return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::Null,
+                    ExprValueKind::RValue, &VoidPtrType, ErrorExpr());
             }
 
             case TokenKind::Identifier: {
@@ -555,6 +577,12 @@ namespace Aria::Internal {
             default: ARIA_UNREACHABLE(); break;
         }
 
+        while (Match(TokenKind::Star)) {
+            Consume();
+            type->Data = TypeInfo::Dup(m_Context, type);
+            type->Type = PrimitiveType::Ptr;
+        }
+
         if (Match(TokenKind::Ampersand)) {
             Consume();
             type->Reference = true;
@@ -721,6 +749,8 @@ namespace Aria::Internal {
 
             case TokenKind::LeftParen:
             case TokenKind::Minus:
+            case TokenKind::Ampersand:
+            case TokenKind::Star:
             case TokenKind::Bang:
             case TokenKind::Self:
             case TokenKind::True:
@@ -777,13 +807,11 @@ namespace Aria::Internal {
             case TokenKind::Plus:
             case TokenKind::PlusEq:
             case TokenKind::MinusEq:
-            case TokenKind::Star:
             case TokenKind::StarEq:
             case TokenKind::Slash:
             case TokenKind::SlashEq:
             case TokenKind::Percent:
             case TokenKind::PercentEq:
-            case TokenKind::Ampersand:
             case TokenKind::AmpersandEq:
             case TokenKind::DoubleAmpersand:
             case TokenKind::Pipe:
@@ -1099,6 +1127,7 @@ namespace Aria::Internal {
         TinyVector<DeclAttribute> attrs;
         bool hasExtern = false;
         bool hasNoMangle = false;
+        bool hasUnsafe = false;
 
         while (Peek()) {
             if (Match(TokenKind::AtExtern)) {
@@ -1124,6 +1153,12 @@ namespace Aria::Internal {
                 Consume();
                 attrs.Append(m_Context, { DeclAttributeKind::NoMangle });
                 hasNoMangle = true;
+            } else if (Match(TokenKind::AtUnsafe)) {
+                if (hasUnsafe) { m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "@unsafe attribute was already added"); }
+
+                Consume();
+                attrs.Append(m_Context, { DeclAttributeKind::Unsafe });
+                hasUnsafe = true;
             } else {
                 break;
             }

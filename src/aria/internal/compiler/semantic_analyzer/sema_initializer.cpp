@@ -23,6 +23,8 @@ namespace Aria::Internal {
             var.Type = initType;
         }
 
+        if (initType->IsError() || var.Type->IsError()) { return; }
+
         ConversionCost cost = GetConversionCost(var.Type, initType);
         if (cost.CastNeeded) {
             if (cost.ImplicitCastPossible) {
@@ -68,6 +70,8 @@ namespace Aria::Internal {
 
             case PrimitiveType::Float:  var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::FloatingConstant,  ExprValueKind::RValue, var.Type, FloatingConstantExpr(0.0)); break;
             case PrimitiveType::Double: var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::FloatingConstant,  ExprValueKind::RValue, var.Type, FloatingConstantExpr(0.0)); break;
+
+            case PrimitiveType::Ptr:    var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::Null,              ExprValueKind::RValue, var.Type, ErrorExpr()); break;
 
             case PrimitiveType::String: var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::StringConstant,    ExprValueKind::RValue, var.Type, StringConstantExpr("")); break;
 

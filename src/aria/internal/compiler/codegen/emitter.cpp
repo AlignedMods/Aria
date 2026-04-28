@@ -203,6 +203,10 @@ namespace Aria::Internal {
         PUSH_PENDING_OP(STR_IDX(-1));
     }
 
+    void Emitter::EmitNullExpr(Expr* expr, ExprValueKind valueKind) {
+        PUSH_PENDING_OP(OP_LD_NULL);
+    }
+
     // List of op codes this function can emit:
     // 
     // lvalue: LdPtrLocal, LdPtrArg, LdPtrGlobal, LdFunc
@@ -341,14 +345,18 @@ namespace Aria::Internal {
 
     void Emitter::EmitTemporaryExpr(Expr* expr, ExprValueKind valueKind) {
         TemporaryExpr& temp = expr->Temporary;
-        
-        EmitExpr(temp.Expression, valueKind);
-        
+
+        OpCode idx = static_cast<OpCode>(m_ActiveStackFrame.LocalCount);
+
         // Create a new temporary
-        PUSH_PENDING_OP(OP_DECL_LOCAL);
-        PUSH_PENDING_OP(static_cast<OpCode>(m_ActiveStackFrame.LocalCount));
-        PUSH_PENDING_OP(OP_LD_LOCAL);
-        PUSH_PENDING_OP(static_cast<OpCode>(m_ActiveStackFrame.LocalCount));
+        PUSH_OP(OP_ALLOCA);
+        PUSH_OP(TypeInfoToVMTypeIdx(expr->Type));
+        PUSH_OP(OP_DECL_LOCAL);
+        PUSH_OP(idx);
+
+        EmitExpr(temp.Expression, valueKind);
+        PUSH_PENDING_OP(OP_ST_LOCAL);
+        PUSH_PENDING_OP(idx);
         
         Declaration d;
         d.Type = temp.Expression->Type;
@@ -357,6 +365,9 @@ namespace Aria::Internal {
         m_ActiveStackFrame.LocalCount++;
         
         m_Temporaries.push_back(d);
+
+        PUSH_PENDING_OP(OP_LD_LOCAL);
+        PUSH_PENDING_OP(idx);
     }
 
     void Emitter::EmitCopyExpr(Expr* expr, ExprValueKind valueKind) {
@@ -523,6 +534,10 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case CastKind::BitCast: {
+                    break;
+                }
+
                 default: ARIA_UNREACHABLE(); break;
             }
 
@@ -554,6 +569,23 @@ namespace Aria::Internal {
 
                 break;
             }
+
+            case UnaryOperatorKind::AddressOf: {
+                EmitExpr(unop.Expression, ExprValueKind::LValue);
+                break;
+            }
+
+            case UnaryOperatorKind::Dereference: {
+                EmitExpr(unop.Expression, unop.Expression->ValueKind);
+
+                if (valueKind == ExprValueKind::RValue) {
+                    PUSH_PENDING_OP(OP_LD);
+                    PUSH_PENDING_OP(TypeInfoToVMTypeIdx(expr->Type));
+                }
+                
+                break;
+            }
+
             default: ARIA_UNREACHABLE();
         }
     }
@@ -734,6 +766,8 @@ namespace Aria::Internal {
             EmitFloatingConstantExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::StringConstant) {
             EmitStringConstantExpr(expr, valueKind);
+        } else if (expr->Kind == ExprKind::Null) {
+            EmitNullExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::DeclRef) {
             EmitDeclRefExpr(expr, valueKind);
         } else if (expr->Kind == ExprKind::Member) {

@@ -18,6 +18,8 @@ namespace Aria::Internal {
                 m_Context->ReportCompilerDiagnostic(loc, range, fmt::format("'{}' is not a type", t.Ident->DeclRef.Identifier));
                 return;
             }
+        } else if (type->Type == PrimitiveType::Ptr) {
+            ResolveType(loc, range, std::get<TypeInfo*>(type->Data));
         } else if (type->Type == PrimitiveType::Function) {
             FunctionDeclaration& fn = std::get<FunctionDeclaration>(type->Data);
 
@@ -62,6 +64,7 @@ namespace Aria::Internal {
                 cost.CoKind = ConversionKind::Promotion;
                 cost.CaKind = CastKind::IntegralToFloating;
             } else {
+                cost.ImplicitCastPossible = false;
                 cost.ExplicitCastPossible = false;
             }
 
@@ -91,6 +94,17 @@ namespace Aria::Internal {
             return cost;
         }
 
+        if (src->IsPointer()) {
+            if (dst->IsPointer()) { // Ptr to ptr
+                if (std::get<TypeInfo*>(src->Data)->IsVoid() || std::get<TypeInfo*>(dst->Data)->IsVoid()) { // Allow void* conversions
+                    cost.CoKind = ConversionKind::None;
+                    cost.CaKind = CastKind::BitCast;
+
+                    return cost;
+                }
+            }
+        }
+
         cost.ExplicitCastPossible = false;
         cost.ImplicitCastPossible = false;
         return cost;
@@ -98,6 +112,7 @@ namespace Aria::Internal {
 
     bool SemanticAnalyzer::TypeIsEqual(TypeInfo* lhs, TypeInfo* rhs) {
         if (lhs->IsTrivial() && rhs->IsTrivial()) {
+            if (lhs->IsPointer() && rhs->IsPointer()) { return TypeIsEqual(std::get<TypeInfo*>(lhs->Data), std::get<TypeInfo*>(rhs->Data)); }
             return lhs->Type == rhs->Type;
         }
 

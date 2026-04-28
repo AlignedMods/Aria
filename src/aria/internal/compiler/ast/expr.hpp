@@ -20,6 +20,7 @@ namespace Aria::Internal {
         IntegerConstant,
         FloatingConstant,
         StringConstant,
+        Null,
         DeclRef,
         Member,
         Self,
@@ -43,6 +44,7 @@ namespace Aria::Internal {
         Floating,
         IntegralToFloating,
         FloatingToIntegral,
+        BitCast,
 
         LValueToRValue
     };
@@ -53,6 +55,7 @@ namespace Aria::Internal {
             case CastKind::Floating: return "Floating";
             case CastKind::IntegralToFloating: return "IntegralToFloating";
             case CastKind::FloatingToIntegral: return "FloatingToIntegral";
+            case CastKind::BitCast: return "BitCast";
             case CastKind::LValueToRValue: return "LValueToRValue";
             default: ARIA_ASSERT(false, "Unreachable");
         }
@@ -62,7 +65,9 @@ namespace Aria::Internal {
         Invalid,
     
         Not, // "!"
-        Negate // "-8.7f"
+        Negate, // "-8.7f"
+        AddressOf, // "&x"
+        Dereference // "*ptr"
     };
     inline const char* UnaryOperatorKindToString(UnaryOperatorKind kind) {
         switch (kind) {
@@ -70,6 +75,8 @@ namespace Aria::Internal {
             
             case UnaryOperatorKind::Not: return "!";
             case UnaryOperatorKind::Negate: return "-";
+            case UnaryOperatorKind::AddressOf: return "&";
+            case UnaryOperatorKind::Dereference: return "*";
 
             default: ARIA_UNREACHABLE();
         }
@@ -211,10 +218,6 @@ namespace Aria::Internal {
         Expr* Parent = nullptr;
     };
 
-    struct SelfExpr {
-        SelfExpr() = default;
-    };
-
     // TemporaryExpr
     // Represents a temporary expression
     // eg. print("Hello world");
@@ -343,7 +346,7 @@ namespace Aria::Internal {
             SourceLocation loc, SourceRange range,
             ExprKind kind, 
             ExprValueKind valueKind, TypeInfo* type, 
-            T t) { return ctx->Allocate<Expr>(loc, range, kind, valueKind, type, t); }
+            T t = ErrorExpr()) { return ctx->Allocate<Expr>(loc, range, kind, valueKind, type, t); }
 
         static inline Expr* Dup(CompilationContext* ctx, Expr* other) {
             Expr* newExpr = ctx->Allocate<Expr>();
@@ -369,7 +372,6 @@ namespace Aria::Internal {
             StringConstantExpr StringConstant;
             DeclRefExpr DeclRef;
             MemberExpr Member;
-            SelfExpr Self;
             TemporaryExpr Temporary;
             CopyExpr Copy;
             CallExpr Call;
@@ -410,9 +412,6 @@ namespace Aria::Internal {
 
         Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, MemberExpr member)
             : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Member(member) {}
-
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, SelfExpr self)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Self(self) {}
 
         Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, TemporaryExpr temporary)
             : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Temporary(temporary) {}

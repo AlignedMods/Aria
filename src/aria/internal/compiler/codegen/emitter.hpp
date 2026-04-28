@@ -56,6 +56,7 @@ namespace Aria::Internal {
         void EmitIntegerConstantExpr(Expr* expr,   ExprValueKind valueKind);
         void EmitFloatingConstantExpr(Expr* expr,  ExprValueKind valueKind);
         void EmitStringConstantExpr(Expr* expr,    ExprValueKind valueKind);
+        void EmitNullExpr(Expr* expr,              ExprValueKind valueKind);
         void EmitDeclRefExpr(Expr* expr,           ExprValueKind valueKind);
         void EmitMemberExpr(Expr* expr,            ExprValueKind valueKind);
         void EmitSelfExpr(Expr* expr,              ExprValueKind valueKind);

@@ -171,6 +171,42 @@ namespace Aria::Internal {
         dstStr.Size += s.size();
     }
 
+    void __aria_append_str_float(Context* ctx) {
+        void* dst = ctx->GetPointer(-1);
+        float f = ctx->GetFloat(-2);
+        ctx->Pop(2);
+
+        RuntimeString& dstStr = *reinterpret_cast<RuntimeString*>(dst);
+
+        std::string s = fmt::format("{}", f);
+
+        char* copiedData = new char[dstStr.Size + s.size()];
+        memcpy(copiedData, dstStr.RawData, dstStr.Size);
+        memcpy(copiedData + dstStr.Size, s.data(), s.size());
+        delete[] dstStr.RawData;
+
+        dstStr.RawData = copiedData;
+        dstStr.Size += s.size();
+    }
+
+    void __aria_append_str_double(Context* ctx) {
+        void* dst = ctx->GetPointer(-1);
+        double d = ctx->GetDouble(-2);
+        ctx->Pop(2);
+
+        RuntimeString& dstStr = *reinterpret_cast<RuntimeString*>(dst);
+
+        std::string s = fmt::format("{}", d);
+
+        char* copiedData = new char[dstStr.Size + s.size()];
+        memcpy(copiedData, dstStr.RawData, dstStr.Size);
+        memcpy(copiedData + dstStr.Size, s.data(), s.size());
+        delete[] dstStr.RawData;
+
+        dstStr.RawData = copiedData;
+        dstStr.Size += s.size();
+    }
+
     void __aria_append_str_string(Context* ctx) {
         void* dst = ctx->GetPointer(-1);
         std::string_view str = ctx->GetString(-2);

@@ -43,6 +43,8 @@ namespace Aria::Internal {
 
         OP_LD_CONST,
         OP_LD_STR,
+        OP_LD_NULL,
+        OP_LD,
         OP_LD_LOCAL,
         OP_LD_GLOBAL,
 

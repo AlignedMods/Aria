@@ -14,6 +14,8 @@ namespace Aria::Internal {
     void __aria_append_str_uint(Context* ctx);
     void __aria_append_str_long(Context* ctx);
     void __aria_append_str_ulong(Context* ctx);
+    void __aria_append_str_float(Context* ctx);
+    void __aria_append_str_double(Context* ctx);
     void __aria_append_str_string(Context* ctx);
 
 } // namespace Aria::Internal

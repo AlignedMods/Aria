@@ -429,9 +429,10 @@ namespace Aria::Internal {
 
         if (str == "@extern") { AddToken(TokenKind::AtExtern, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "@extern"); return; }
         else if (str == "@nomangle") { AddToken(TokenKind::AtNoMangle, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "@nomangle"); return; }
+        else if (str == "@unsafe") { AddToken(TokenKind::AtUnsafe, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "@unsafe"); return; }
         else if (str == "@private") { AddToken(TokenKind::AtPrivate, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "@private"); return; }
 
-        m_Context->ReportCompilerDiagnostic(start, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "Unknown flag starting with '@'");
+        m_Context->ReportCompilerDiagnostic(start, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "Unknown attribute starting with '@'");
     }
 
     void Lexer::ParseDollarSymbol() {
@@ -469,6 +470,7 @@ namespace Aria::Internal {
 
         if (str == "true")     { AddToken(TokenKind::True,   SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "true");   return; }
         if (str == "false")    { AddToken(TokenKind::False,  SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "false");  return; }
+        if (str == "null")     { AddToken(TokenKind::Null,  SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))),  "null");  return; }
 
         if (str == "module")   { AddToken(TokenKind::Module, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "module"); return; }
         if (str == "import")   { AddToken(TokenKind::Import, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "import"); return; }

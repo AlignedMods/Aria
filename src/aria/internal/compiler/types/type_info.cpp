@@ -11,4 +11,10 @@ namespace Aria::Internal {
         return t;
     }
 
+    TypeInfo* TypeInfo::Dup(CompilationContext* ctx, TypeInfo* type) {
+        TypeInfo* t = ctx->Allocate<TypeInfo>();
+        memcpy(reinterpret_cast<void*>(t), type, sizeof(TypeInfo));
+        return t;
+    }
+
 } // namespace Aria::Internal 

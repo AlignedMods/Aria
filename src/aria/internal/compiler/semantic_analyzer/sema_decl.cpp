@@ -20,6 +20,10 @@ namespace Aria::Internal {
             if (varDecl.Type->IsVoid()) {
                 m_Context->ReportCompilerDiagnostic(decl->Loc, decl->Range, "Cannot declare variable of 'void' type");
             }
+
+            if (varDecl.Type->IsPointer() && !m_UnsafeContext) {
+                m_Context->ReportCompilerDiagnostic(decl->Loc, decl->Range, "Cannot declare variable of pointer type in a safe context");
+            }
         }
 
         ResolveVarInitializer(decl);
@@ -41,6 +45,12 @@ namespace Aria::Internal {
 
     void SemanticAnalyzer::ResolveFunctionDecl(Decl* decl) {
         FunctionDecl fnDecl = decl->Function;
+
+        for (auto& attr : decl->Attributes) {
+            if (attr.Kind == DeclAttributeKind::Unsafe) {
+                m_UnsafeContext = true;
+            }
+        }
 
         std::string ident = fmt::format("{}", fnDecl.Identifier);
         ResolveType(decl->Loc, decl->Range, fnDecl.Type);
@@ -65,6 +75,8 @@ namespace Aria::Internal {
                 m_Context->ReportCompilerDiagnostic(decl->Loc, decl->Range, "Control flow reaches end of function with a non void return type");
             }
         }
+
+        m_UnsafeContext = false;
     }
 
     void SemanticAnalyzer::ResolveStructDecl(Decl* decl) {

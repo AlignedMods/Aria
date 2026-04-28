@@ -52,6 +52,7 @@ namespace Aria::Internal {
         ULongLit,
         NumLit,
         StrLit,
+        Null,
         // ^^^ Literals and constants ^^^ //
 
         // VVV Keywords VVV //
@@ -71,6 +72,7 @@ namespace Aria::Internal {
         Struct,
         AtExtern, // @extern
         AtNoMangle, // @nomangle
+        AtUnsafe, // @unsafe
         AtPrivate, // @private
         DollarFormat, // $format
         // ^^^ Keywords ^^^ //
@@ -156,6 +158,7 @@ namespace Aria::Internal {
             case TokenKind::ULongLit: return "ulong literal";
             case TokenKind::NumLit: return "number literal";
             case TokenKind::StrLit: return "string literal";
+            case TokenKind::Null: return "null";
             // ^^^ Literals and constants ^^^ //
 
             // VVV Keywords VVV //
@@ -175,6 +178,7 @@ namespace Aria::Internal {
             case TokenKind::Struct: return "struct";
             case TokenKind::AtExtern: return "@extern";
             case TokenKind::AtNoMangle: return "@nomangle";
+            case TokenKind::AtUnsafe: return "@unsafe";
             case TokenKind::AtPrivate: return "@private";
             // ^^^ Keywords ^^^ //
             

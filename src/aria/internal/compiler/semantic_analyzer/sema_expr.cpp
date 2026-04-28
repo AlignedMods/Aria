@@ -38,6 +38,12 @@ namespace Aria::Internal {
         }
     }
 
+    void SemanticAnalyzer::ResolveNullExpr(Expr* expr) {
+        if (expr->ResultDiscarded) {
+            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of null", CompilerDiagKind::Warning);
+        }
+    }
+
     void SemanticAnalyzer::ResolveDeclRefExpr(Expr* expr) {
         DeclRefExpr& ref = expr->DeclRef;
         std::string ident = fmt::format("{}", ref.Identifier);
@@ -344,7 +350,7 @@ namespace Aria::Internal {
             if (cost.ExplicitCastPossible) {
                 InsertImplicitCast(dstType, srcType, cast.Expression, cost.CaKind);
             } else {
-                ARIA_ASSERT(false, "todo: add error message");
+                m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, fmt::format("Cannot cast '{}' to '{}'", TypeInfoToString(srcType), TypeInfoToString(dstType)));
             }
         }
 
@@ -357,11 +363,11 @@ namespace Aria::Internal {
         UnaryOperatorExpr& unop = expr->UnaryOperator;
         
         ResolveExpr(unop.Expression);
-        RequireRValue(unop.Expression);
         TypeInfo* type = unop.Expression->Type;
         
         switch (unop.Operator) {
             case UnaryOperatorKind::Negate: {
+                RequireRValue(unop.Expression);
                 ARIA_ASSERT(type->IsNumeric(), "todo: add error message");
 
                 if (type->IsIntegral()) {
@@ -371,6 +377,42 @@ namespace Aria::Internal {
                 }
 
                 expr->Type = type;
+                break;
+            }
+
+            case UnaryOperatorKind::AddressOf: {
+                if (type->IsError()) { expr->Type = type; break; }
+
+                if (unop.Expression->ValueKind != ExprValueKind::LValue) {
+                    m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Address of operation ('&') requries an lvalue");
+                }
+
+                TypeInfo* newType = TypeInfo::Create(m_Context, PrimitiveType::Ptr, false);
+                newType->Data = type;
+                expr->Type = newType;
+                break;
+            }
+
+            case UnaryOperatorKind::Dereference: {
+                if (type->IsError()) { expr->Type = type; break; }
+
+                if (unop.Expression->ValueKind != ExprValueKind::LValue) {
+                    m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Dereferencing requires an lvalue");
+                }
+
+                RequireRValue(unop.Expression);
+
+                if (type->IsPointer()) {
+                    if (std::get<TypeInfo*>(type->Data)->IsVoid()) {
+                        m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Cannot dereference a void*");
+                    }
+                } else {
+                    m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Dereferencing requires a pointer type");
+                    break;
+                }
+
+                expr->Type = std::get<TypeInfo*>(type->Data);
+                expr->ValueKind = ExprValueKind::LValue;
                 break;
             }
 
@@ -566,6 +608,8 @@ namespace Aria::Internal {
             return ResolveFloatingConstantExpr(expr);
         } else if (expr->Kind == ExprKind::StringConstant) {
             return ResolveStringConstantExpr(expr);
+        } else if (expr->Kind == ExprKind::Null) {
+            return ResolveNullExpr(expr);
         } else if (expr->Kind == ExprKind::DeclRef) {
             return ResolveDeclRefExpr(expr);
         } else if (expr->Kind == ExprKind::Member) {

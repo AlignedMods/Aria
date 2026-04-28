@@ -67,6 +67,7 @@ namespace Aria::Internal {
         void ResolveIntegerConstantExpr(Expr* expr);
         void ResolveFloatingConstantExpr(Expr* expr);
         void ResolveStringConstantExpr(Expr* expr);
+        void ResolveNullExpr(Expr* expr);
         void ResolveDeclRefExpr(Expr* expr);
         void ResolveMemberExpr(Expr* expr);
         void ResolveCallExpr(Expr* expr);
@@ -127,6 +128,7 @@ namespace Aria::Internal {
         std::unordered_map<std::string, bool> m_ImportedModules;
 
         bool m_TemporaryContext = false;
+        bool m_UnsafeContext = false;
 
         bool m_CanReachEndOfFunction = true;
 

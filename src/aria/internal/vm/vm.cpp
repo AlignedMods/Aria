@@ -385,6 +385,21 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case OP_LD_NULL: {
+                    Alloca({ VMTypeKind::Ptr }, m_Stack);
+                    memset(GetVMSlice(-1, m_Stack).Memory, 0, 8); // All slots are padded to eight bytes
+                    break;
+                }
+
+                case OP_LD: {
+                    auto& type = GET_TYPE();
+                    void* ptr = GetPointer(-1, m_Stack);
+                    Alloca(type, m_Stack);
+
+                    memcpy(GetVMSlice(-1, m_Stack).Memory, ptr, AlignToEight(GetVMTypeSize(type)));
+                    break;
+                }
+
                 case OP_LD_LOCAL: {
                     size_t index = static_cast<size_t>(*++m_ProgramCounter);
                     Dup(index, m_Stack, m_StackFrames.back().Locals);
