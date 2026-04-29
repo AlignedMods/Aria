@@ -89,7 +89,9 @@ namespace Aria::Internal {
         int8_t           GetChar   (i32 slot, Stack& stack);
         int16_t          GetShort  (i32 slot, Stack& stack);
         int32_t          GetInt    (i32 slot, Stack& stack);
+        uint32_t         GetUInt   (i32 slot, Stack& stack);
         int64_t          GetLong   (i32 slot, Stack& stack);
+        uint64_t         GetULong  (i32 slot, Stack& stack);
         size_t           GetSize   (i32 slot, Stack& stack);
         float            GetFloat  (i32 slot, Stack& stack);
         double           GetDouble (i32 slot, Stack& stack);

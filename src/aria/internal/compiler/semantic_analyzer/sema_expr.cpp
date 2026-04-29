@@ -30,12 +30,6 @@ namespace Aria::Internal {
         if (expr->ResultDiscarded) {
             m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of string literal is not allowed");
         }
-
-        if (m_TemporaryContext) {
-            ReplaceExpr(expr, Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::Temporary,
-                ExprValueKind::RValue, expr->Type,
-                TemporaryExpr(Expr::Dup(m_Context, expr), m_BuiltInStringDestructor)));
-        }
     }
 
     void SemanticAnalyzer::ResolveNullExpr(Expr* expr) {
@@ -177,6 +171,9 @@ namespace Aria::Internal {
         }
     }
 
+    void SemanticAnalyzer::ResolveTemporaryExpr(Expr* expr) { ARIA_UNREACHABLE(); }
+    void SemanticAnalyzer::ResolveCopyExpr(Expr* expr) { ARIA_UNREACHABLE(); }
+
     void SemanticAnalyzer::ResolveCallExpr(Expr* expr) {
         CallExpr& call = expr->Call;
 
@@ -235,8 +232,154 @@ namespace Aria::Internal {
         expr->Type = &ErrorType;
     }
 
+    void SemanticAnalyzer::ResolveConstructExpr(Expr* expr) { ARIA_UNREACHABLE(); }
+
     void SemanticAnalyzer::ResolveMethodCallExpr(Expr* expr) {
         ARIA_ASSERT(false, "todo!");
+    }
+
+    void SemanticAnalyzer::ResolveArraySubscriptExpr(Expr* expr) {
+        ArraySubscriptExpr& subs = expr->ArraySubscript;
+
+        ResolveExpr(subs.Array);
+        ResolveExpr(subs.Index);
+        RequireRValue(subs.Index);
+
+        if (subs.Array->Type->IsError()) { expr->Type = &ErrorType; return; }
+
+        switch (subs.Array->Type->Kind) {
+            case TypeKind::Ptr: {
+                RequireRValue(subs.Array);
+                expr->Type = subs.Array->Type->Base;
+                break;
+            }
+
+            case TypeKind::Slice: {
+                RequireRValue(subs.Array);
+                expr->Type = subs.Array->Type->Base;
+                break;
+            }
+
+            case TypeKind::Array: {
+                expr->Type = subs.Array->Type->Array.Type;
+                break;
+            }
+
+            default: m_Context->ReportCompilerDiagnostic(subs.Array->Loc, subs.Array->Range, "'[' operator can only be used with a pointer/slice/array"); break;
+        }
+
+        ConversionCost cost = GetConversionCost(&ULongType, subs.Index->Type);
+        if (cost.CastNeeded) {
+            if (cost.ImplicitCastPossible) {
+                InsertImplicitCast(&ULongType, subs.Index->Type, subs.Index, cost.Kind);
+            } else {
+                m_Context->ReportCompilerDiagnostic(subs.Index->Loc, subs.Index->Range, fmt::format("Array index cannot be implicitly converted from '{}' to 'ulong'", TypeInfoToString(subs.Index->Type)));
+            }
+        }
+    }
+
+    void SemanticAnalyzer::ResolveToSliceExpr(Expr* expr) {
+        ToSliceExpr& tos = expr->ToSlice;
+
+        ResolveExpr(tos.Source);
+        ResolveExpr(tos.Len);
+        RequireRValue(tos.Len);
+
+        if (tos.Source->Type->IsError()) { expr->Type = &ErrorType; return; }
+
+        switch (tos.Source->Type->Kind) {
+            case TypeKind::Ptr: {
+                RequireRValue(tos.Source);
+                expr->Type = TypeInfo::Create(m_Context, TypeKind::Slice, false);
+                expr->Type->Base = tos.Source->Type->Base;
+                break;
+            }
+
+            case TypeKind::Slice: {
+                ARIA_TODO("slice to slice");
+                // RequireRValue(subs.Array);
+                // expr->Type = subs.Array->Type->Base;
+                // break;
+            }
+
+            case TypeKind::Array: {
+                ARIA_TODO("array to slice");
+                // expr->Type = subs.Array->Type->Array.Type;
+                // break;
+            }
+
+            default: m_Context->ReportCompilerDiagnostic(tos.Source->Loc, tos.Source->Range, "Only a pointer/slice/array can be converted to a slice"); break;
+        }
+
+        ConversionCost cost = GetConversionCost(&ULongType, tos.Len->Type);
+        if (cost.CastNeeded) {
+            if (cost.ImplicitCastPossible) {
+                InsertImplicitCast(&ULongType, tos.Len->Type, tos.Len, cost.Kind);
+            } else {
+                m_Context->ReportCompilerDiagnostic(tos.Len->Loc, tos.Len->Range, fmt::format("Slice length cannot be implicitly converted from '{}' to 'ulong'", TypeInfoToString(tos.Len->Type)));
+            }
+        }
+    }
+
+    void SemanticAnalyzer::ResolveNewExpr(Expr* expr) {
+        NewExpr& n = expr->New;
+        
+        if (expr->ResultDiscarded) {
+            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of 'new' expression is not allowed");
+        }
+
+        if (!m_UnsafeContext) {
+            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "'new' is only allowed in unsafe context");
+        }
+
+        if (!n.Initializer) {
+            CreateDefaultInitializer(&n.Initializer, expr->Type->Base, expr->Loc, expr->Range);
+        } else {
+            if (n.Array) {
+                m_TemporaryContext = true;
+                ResolveExpr(n.Initializer);
+                RequireRValue(n.Initializer);
+                m_TemporaryContext = false;
+
+                ConversionCost cost = GetConversionCost(&ULongType, n.Initializer->Type);
+                if (cost.CastNeeded) {
+                    if (cost.ImplicitCastPossible) {
+                        InsertImplicitCast(&ULongType, n.Initializer->Type, n.Initializer, cost.Kind);
+                    } else {
+                        m_Context->ReportCompilerDiagnostic(n.Initializer->Loc, n.Initializer->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(n.Initializer->Type), TypeInfoToString(&ULongType)));
+                    }
+                }
+            } else {
+                m_TemporaryContext = true;
+                ResolveExpr(n.Initializer);
+                RequireRValue(n.Initializer);
+                m_TemporaryContext = false;
+
+                ConversionCost cost = GetConversionCost(expr->Type->Base, n.Initializer->Type);
+                if (cost.CastNeeded) {
+                    if (cost.ImplicitCastPossible) {
+                        InsertImplicitCast(expr->Type->Base, n.Initializer->Type, n.Initializer, cost.Kind);
+                    } else {
+                        m_Context->ReportCompilerDiagnostic(n.Initializer->Loc, n.Initializer->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(n.Initializer->Type), TypeInfoToString(expr->Type->Base)));
+                    }
+                }
+            }
+        }
+    }
+
+    void SemanticAnalyzer::ResolveDeleteExpr(Expr* expr) {
+        DeleteExpr& d = expr->Delete;
+
+        if (!m_UnsafeContext) {
+            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "'delete' is only allowed in unsafe context");
+        }
+
+        ResolveExpr(d.Expression);
+        RequireRValue(d.Expression);
+
+        if (!d.Expression->Type->IsPointer()) {
+            m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "'delete' can only be used with pointer types");
+        }
     }
 
     void SemanticAnalyzer::ResolveFormatExpr(Expr* expr) {
@@ -368,6 +511,8 @@ namespace Aria::Internal {
             m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Discarding result of explicit cast", CompilerDiagKind::Warning);
         }
     }
+
+    void SemanticAnalyzer::ResolveImplicitCastExpr(Expr* expr) { ARIA_UNREACHABLE(); }
 
     void SemanticAnalyzer::ResolveUnaryOperatorExpr(Expr* expr) {
         UnaryOperatorExpr& unop = expr->UnaryOperator;
@@ -615,42 +760,9 @@ namespace Aria::Internal {
     }
 
     void SemanticAnalyzer::ResolveExpr(Expr* expr) {
-        if (expr->Kind == ExprKind::Error) { return; }
-        else if (expr->Kind == ExprKind::BooleanConstant) {
-            return ResolveBooleanConstantExpr(expr);
-        } else if (expr->Kind == ExprKind::CharacterConstant) {
-            return ResolveCharacterConstantExpr(expr);
-        } else if (expr->Kind == ExprKind::IntegerConstant) {
-            return ResolveIntegerConstantExpr(expr);
-        } else if (expr->Kind == ExprKind::FloatingConstant) {
-            return ResolveFloatingConstantExpr(expr);
-        } else if (expr->Kind == ExprKind::StringConstant) {
-            return ResolveStringConstantExpr(expr);
-        } else if (expr->Kind == ExprKind::Null) {
-            return ResolveNullExpr(expr);
-        } else if (expr->Kind == ExprKind::DeclRef) {
-            return ResolveDeclRefExpr(expr);
-        } else if (expr->Kind == ExprKind::Member) {
-            return ResolveMemberExpr(expr);
-        } else if (expr->Kind == ExprKind::Call) {
-            return ResolveCallExpr(expr);
-        } else if (expr->Kind == ExprKind::MethodCall) {
-            return ResolveMethodCallExpr(expr);
-        } else if (expr->Kind == ExprKind::Format) {
-            return ResolveFormatExpr(expr);
-        } else if (expr->Kind == ExprKind::Paren) {
-            return ResolveParenExpr(expr);
-        } else if (expr->Kind == ExprKind::Cast) {
-            return ResolveCastExpr(expr);
-        }else if (expr->Kind == ExprKind::UnaryOperator) {
-            return ResolveUnaryOperatorExpr(expr);
-        } else if (expr->Kind == ExprKind::BinaryOperator) {
-            return ResolveBinaryOperatorExpr(expr);
-        } else if (expr->Kind == ExprKind::CompoundAssign) {
-            return ResolveCompoundAssignExpr(expr);
-        }
-
-        ARIA_UNREACHABLE();
+        #define EXPR_CASE(kind) Resolve##kind##Expr(expr)
+        #include "aria/internal/compiler/ast/expr_switch.hpp"
+        #undef EXPR_CASE
     }
 
     void SemanticAnalyzer::InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastKind castKind) {

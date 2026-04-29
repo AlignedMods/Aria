@@ -62,11 +62,19 @@ namespace Aria::Internal {
         void ResolveNullExpr(Expr* expr);
         void ResolveDeclRefExpr(Expr* expr);
         void ResolveMemberExpr(Expr* expr);
+        void ResolveTemporaryExpr(Expr* expr);
+        void ResolveCopyExpr(Expr* expr);
         void ResolveCallExpr(Expr* expr);
+        void ResolveConstructExpr(Expr* expr);
         void ResolveMethodCallExpr(Expr* expr);
+        void ResolveArraySubscriptExpr(Expr* expr);
+        void ResolveToSliceExpr(Expr* expr);
+        void ResolveNewExpr(Expr* expr);
+        void ResolveDeleteExpr(Expr* expr);
         void ResolveFormatExpr(Expr* expr);
         void ResolveParenExpr(Expr* expr);
         void ResolveCastExpr(Expr* expr);
+        void ResolveImplicitCastExpr(Expr* expr);
         void ResolveUnaryOperatorExpr(Expr* expr);
         void ResolveBinaryOperatorExpr(Expr* expr);
         void ResolveCompoundAssignExpr(Expr* expr);
@@ -74,13 +82,22 @@ namespace Aria::Internal {
         void ResolveExpr(Expr* expr);
 
         void ResolveTranslationUnitDecl(Decl* decl);
+        void ResolveModuleDecl(Decl* decl);
         void ResolveVarDecl(Decl* decl);
         void ResolveParamDecl(Decl* decl);
         void ResolveFunctionDecl(Decl* decl);
+        void ResolveOverloadedFunctionDecl(Decl* decl);
         void ResolveStructDecl(Decl* decl);
+        void ResolveFieldDecl(Decl* decl);
+        void ResolveConstructorDecl(Decl* decl);
+        void ResolveDestructorDecl(Decl* decl);
+        void ResolveMethodDecl(Decl* decl);
+        void ResolveBuiltinCopyConstructorDecl(Decl* decl);
+        void ResolveBuiltinDestructorDecl(Decl* decl);
 
         void ResolveDecl(Decl* decl);
 
+        void ResolveNopStmt(Stmt* stmt);
         void ResolveImportStmt(Stmt* stmt);
         void ResolveBlockStmt(Stmt* stmt);
         void ResolveWhileStmt(Stmt* stmt);
@@ -90,6 +107,8 @@ namespace Aria::Internal {
         void ResolveBreakStmt(Stmt* stmt);
         void ResolveContinueStmt(Stmt* stmt);
         void ResolveReturnStmt(Stmt* stmt);
+        void ResolveExprStmt(Stmt* stmt);
+        void ResolveDeclStmt(Stmt* stmt);
 
         void ResolveStmt(Stmt* stmt);
 
@@ -97,7 +116,7 @@ namespace Aria::Internal {
 
         void ResolveVarInitializer(Decl* decl);
         void ResolveParamInitializer(TypeInfo* paramType, Expr* arg);
-        void CreateDefaultInitializer(Decl* decl);
+        void CreateDefaultInitializer(Expr** expr, TypeInfo* type, SourceLocation loc, SourceRange range);
 
         void PushScope(bool allowBreak = false, bool allowContinue = false);
         void PopScope();

@@ -7,7 +7,7 @@ namespace Aria::Internal {
         VarDecl& var = decl->Var;
 
         if (!var.Initializer) {
-            return CreateDefaultInitializer(decl);
+            return CreateDefaultInitializer(&var.Initializer, var.Type, decl->Loc, decl->Range);
         } else {
             ResolveExpr(var.Initializer);
         }
@@ -53,30 +53,27 @@ namespace Aria::Internal {
         }
     }
 
-    void SemanticAnalyzer::CreateDefaultInitializer(Decl* decl) {
-        ARIA_ASSERT(decl->Kind == DeclKind::Var, "SemanticAnalyzer::CreateDefaultInitializer() only supports a variable declaration");
-        VarDecl& var = decl->Var;
-
-        switch (var.Type->Kind) {
-            case TypeKind::Bool:   var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::BooleanConstant,   ExprValueKind::RValue, var.Type, BooleanConstantExpr(false)); break;
-            case TypeKind::Char:   var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::CharacterConstant, ExprValueKind::RValue, var.Type, CharacterConstantExpr('\0')); break;
-            case TypeKind::UChar:  var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::CharacterConstant, ExprValueKind::RValue, var.Type, CharacterConstantExpr('\0')); break;
-            case TypeKind::Short:  var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, var.Type, IntegerConstantExpr(0)); break;
-            case TypeKind::UShort: var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, var.Type, IntegerConstantExpr(0)); break;
-            case TypeKind::Int:    var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, var.Type, IntegerConstantExpr(0)); break;
-            case TypeKind::UInt:   var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, var.Type, IntegerConstantExpr(0)); break;
-            case TypeKind::Long:   var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, var.Type, IntegerConstantExpr(0)); break;
-            case TypeKind::ULong:  var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, var.Type, IntegerConstantExpr(0)); break;
-
-            case TypeKind::Float:  var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::FloatingConstant,  ExprValueKind::RValue, var.Type, FloatingConstantExpr(0.0)); break;
-            case TypeKind::Double: var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::FloatingConstant,  ExprValueKind::RValue, var.Type, FloatingConstantExpr(0.0)); break;
-
-            case TypeKind::Ptr:    var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::Null,              ExprValueKind::RValue, var.Type, ErrorExpr()); break;
-
-            case TypeKind::String: var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::StringConstant,    ExprValueKind::RValue, var.Type, StringConstantExpr("")); break;
+    void SemanticAnalyzer::CreateDefaultInitializer(Expr** expr, TypeInfo* type, SourceLocation loc, SourceRange range) {
+        switch (type->Kind) {
+            case TypeKind::Bool:   *expr = Expr::Create(m_Context, {}, {}, ExprKind::BooleanConstant,   ExprValueKind::RValue, type, BooleanConstantExpr(false)); break;
+            case TypeKind::Char:   *expr = Expr::Create(m_Context, {}, {}, ExprKind::CharacterConstant, ExprValueKind::RValue, type, CharacterConstantExpr('\0')); break;
+            case TypeKind::UChar:  *expr = Expr::Create(m_Context, {}, {}, ExprKind::CharacterConstant, ExprValueKind::RValue, type, CharacterConstantExpr('\0')); break;
+            case TypeKind::Short:  *expr = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, type, IntegerConstantExpr(0)); break;
+            case TypeKind::UShort: *expr = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, type, IntegerConstantExpr(0)); break;
+            case TypeKind::Int:    *expr = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, type, IntegerConstantExpr(0)); break;
+            case TypeKind::UInt:   *expr = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, type, IntegerConstantExpr(0)); break;
+            case TypeKind::Long:   *expr = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, type, IntegerConstantExpr(0)); break;
+            case TypeKind::ULong:  *expr = Expr::Create(m_Context, {}, {}, ExprKind::IntegerConstant,   ExprValueKind::RValue, type, IntegerConstantExpr(0)); break;
+                                                                                                                               
+            case TypeKind::Float:  *expr = Expr::Create(m_Context, {}, {}, ExprKind::FloatingConstant,  ExprValueKind::RValue, type, FloatingConstantExpr(0.0)); break;
+            case TypeKind::Double: *expr = Expr::Create(m_Context, {}, {}, ExprKind::FloatingConstant,  ExprValueKind::RValue, type, FloatingConstantExpr(0.0)); break;
+                                                                                                                               
+            case TypeKind::Ptr:    *expr = Expr::Create(m_Context, {}, {}, ExprKind::Null,              ExprValueKind::RValue, type, ErrorExpr()); break;
+                                                                                                                               
+            case TypeKind::String: *expr = Expr::Create(m_Context, {}, {}, ExprKind::StringConstant,    ExprValueKind::RValue, type, StringConstantExpr("")); break;
 
             case TypeKind::Structure: {
-                const StructDeclaration& sDecl = var.Type->Struct;
+                const StructDeclaration& sDecl = type->Struct;
 
                 if (sDecl.SourceDecl) {
                     ARIA_ASSERT(sDecl.SourceDecl->Kind == DeclKind::Struct, "Invalid source decl");
@@ -88,10 +85,10 @@ namespace Aria::Internal {
                             }
                         }
 
-                        var.Initializer = Expr::Create(m_Context, {}, {}, ExprKind::Construct, ExprValueKind::RValue, var.Type, ConstructExpr(ctor, {}));
+                        *expr = Expr::Create(m_Context, {}, {}, ExprKind::Construct, ExprValueKind::RValue, type, ConstructExpr(ctor, {}));
                         break;
                     } else {
-                        m_Context->ReportCompilerDiagnostic(decl->Loc, decl->Range, fmt::format("Cannot default initialize variable of type '{}'", TypeInfoToString(var.Type)));
+                        m_Context->ReportCompilerDiagnostic(loc, range, fmt::format("Cannot default initialize variable of type '{}'", TypeInfoToString(type)));
                         break;
                     }
                 }
@@ -101,7 +98,7 @@ namespace Aria::Internal {
 
             case TypeKind::Unresolved: break;
 
-            default: m_Context->ReportCompilerDiagnostic(decl->Loc, decl->Range, fmt::format("Cannot default initialize variable of type '{}'", TypeInfoToString(var.Type)), CompilerDiagKind::Warning); break;
+            default: m_Context->ReportCompilerDiagnostic(loc, range, fmt::format("Cannot default initialize variable of type '{}'", TypeInfoToString(type)), CompilerDiagKind::Warning); break;
         }
     }
 

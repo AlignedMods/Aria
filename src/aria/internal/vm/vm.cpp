@@ -216,12 +216,32 @@ namespace Aria::Internal {
         return i;
     }
 
+    uint32_t VM::GetUInt(i32 slot, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
+
+        ARIA_ASSERT(s.Size == 4, "Invalid GetUInt() call!");
+
+        uint32_t i = 0;
+        memcpy(&i, s.Memory, 4);
+        return i;
+    }
+
     int64_t VM::GetLong(i32 slot, Stack& stack) {
         VMSlice s = GetVMSlice(slot, stack);
 
         ARIA_ASSERT(s.Size == 8, "Invalid GetLong() call!");
 
         int64_t l = 0;
+        memcpy(&l, s.Memory, 8);
+        return l;
+    }
+
+    uint64_t VM::GetULong(i32 slot, Stack& stack) {
+        VMSlice s = GetVMSlice(slot, stack);
+
+        ARIA_ASSERT(s.Size == 8, "Invalid GetULong() call!");
+
+        uint64_t l = 0;
         memcpy(&l, s.Memory, 8);
         return l;
     }
@@ -305,6 +325,33 @@ namespace Aria::Internal {
                     auto& type = GET_TYPE();
                     Alloca(type, m_Stack);
                     break;
+                }
+
+                case OP_NEW: {
+                   auto& type = GET_TYPE(); 
+                   void* mem = malloc(AlignToEight(GetVMTypeSize(type)));
+                   ARIA_ASSERT(mem, "Too much memory allocated on the heap");
+                   Alloca({ VMTypeKind::Ptr }, m_Stack);
+                   StorePointer(-1, mem, m_Stack);
+                   break;
+                }
+
+                case OP_NEW_ARR: {
+                   auto& type = GET_TYPE();
+                   u64 size = GetULong(-1, m_Stack);
+
+                   void* mem = malloc(AlignToEight(GetVMTypeSize(type)) * size);
+                   ARIA_ASSERT(mem, "Too much memory allocated on the heap");
+                   Alloca({ VMTypeKind::Ptr }, m_Stack);
+                   StorePointer(-1, mem, m_Stack);
+                   break;
+                }
+
+                case OP_FREE: {
+                   void* mem = GetPointer(-1, m_Stack);
+                   ARIA_ASSERT(mem, "Trying to free a null pointer");
+                   free(mem);
+                   break;
                 }
 
                 case OP_LD_CONST: {
@@ -449,6 +496,29 @@ namespace Aria::Internal {
 
                     memcpy(mem, slice.Memory, slice.Size);
                     Pop(2, m_Stack);
+                    break;
+                }
+
+                case OP_ST_SLICE_MEM: {
+                    RuntimeSlice& slice = *reinterpret_cast<RuntimeSlice*>(GetVMSlice(-2, m_Stack).Memory);
+                    void* mem = GetPointer(-1, m_Stack);
+
+                    slice.Mem = mem;
+                    Pop(2, m_Stack);
+                    break;
+                }
+
+                case OP_ST_SLICE_LEN: {
+                    RuntimeSlice& slice = *reinterpret_cast<RuntimeSlice*>(GetVMSlice(-2, m_Stack).Memory);
+                    u64 len = GetULong(-1, m_Stack);
+
+                    slice.Size = len;
+                    Pop(2, m_Stack);
+                    break;
+                }
+
+                case OP_DUP: {
+                    Dup(-1, m_Stack, m_Stack);
                     break;
                 }
 
@@ -2277,6 +2347,36 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case OP_OFFP: {
+                    auto& type = GET_TYPE();
+
+                    VMSlice lhs = GetVMSlice(-2, m_Stack);
+                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+
+                    ARIA_ASSERT(lhs.Type.Kind == VMTypeKind::Ptr || rhs.Type.Kind == VMTypeKind::Ptr, "offp instruction requires exactly one pointer operand");
+
+                    if (lhs.Type.Kind == VMTypeKind::Ptr) {
+                        ARIA_ASSERT(rhs.Type.Kind == VMTypeKind::U64, "offp instruction requires pointer and u64 types");
+
+                        void* ptr = GetPointer(-2, m_Stack);
+                        u64 offset = GetULong(-1, m_Stack);
+
+                        Pop(1, m_Stack);
+                        StorePointer(-1, reinterpret_cast<char*>(ptr) + offset * AlignToEight(GetVMTypeSize(type)), m_Stack);
+                    } else {
+                        ARIA_ASSERT(lhs.Type.Kind == VMTypeKind::U64, "offp instruction requires pointer and u64 types");
+
+                        u64 offset = GetULong(-2, m_Stack);
+                        void* ptr = GetPointer(-1, m_Stack);
+
+                        Pop(2, m_Stack);
+                        Alloca({ VMTypeKind::Ptr }, m_Stack);
+                        StorePointer(-1, reinterpret_cast<char*>(ptr) + offset * AlignToEight(GetVMTypeSize(type)), m_Stack);
+                    }
+
+                    break;
+                }
+
                 case OP_LOGAND: {
                     bool lhs = GetBool(-2, m_Stack);
                     bool rhs = GetBool(-1, m_Stack);
@@ -2577,7 +2677,7 @@ namespace Aria::Internal {
                 size_t size = 0;
                 const VMStruct& str = std::get<VMStruct>(type.Data);
                 for (size_t field : str.Fields) {
-                    size += AlignToEight(GetVMTypeSize(GET_TYPE(field)));
+                    size += AlignToEight(GetVMTypeSize(m_OpCodes->TypeTable.at(field)));
                 }
                 
                 return size;

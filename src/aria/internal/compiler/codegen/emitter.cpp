@@ -473,6 +473,83 @@ namespace Aria::Internal {
         // }
     }
 
+    void Emitter::EmitArraySubscriptExpr(Expr* expr, ExprValueKind valueKind) {
+        ArraySubscriptExpr subs = expr->ArraySubscript;
+
+        switch (subs.Array->Type->Kind) {
+            case TypeKind::Ptr: {
+                EmitExpr(subs.Array, subs.Array->ValueKind);
+                EmitExpr(subs.Index, subs.Index->ValueKind);
+                PUSH_PENDING_OP(OP_OFFP);
+                PUSH_PENDING_OP(TypeInfoToVMTypeIdx(subs.Array->Type->Base));
+
+                if (valueKind == ExprValueKind::RValue) {
+                    PUSH_PENDING_OP(OP_LD);
+                    PUSH_PENDING_OP(TypeInfoToVMTypeIdx(subs.Array->Type->Base));
+                }
+
+                break;
+            }
+
+            default: ARIA_UNREACHABLE();
+        }
+    }
+
+    void Emitter::EmitToSliceExpr(Expr* expr, ExprValueKind valueKind) {
+        ToSliceExpr tos = expr->ToSlice;
+
+        PUSH_PENDING_OP(OP_ALLOCA);
+        PUSH_PENDING_OP(TypeInfoToVMTypeIdx(expr->Type));
+
+        switch (tos.Source->Type->Kind) {
+            case TypeKind::Ptr: {
+                PUSH_PENDING_OP(OP_DUP);
+                PUSH_PENDING_OP(OP_DUP);
+                EmitExpr(tos.Source, tos.Source->ValueKind);
+                PUSH_PENDING_OP(OP_ST_SLICE_MEM);
+                EmitExpr(tos.Len, tos.Len->ValueKind);
+                PUSH_PENDING_OP(OP_ST_SLICE_LEN);
+                break;
+            }
+
+            case TypeKind::Slice: {
+                ARIA_TODO("slice to slice");
+            }
+
+            case TypeKind::Array: {
+                ARIA_TODO("array to slice");
+            }
+
+            default: ARIA_UNREACHABLE();
+        }
+    }
+
+    void Emitter::EmitNewExpr(Expr* expr, ExprValueKind valueKind) {
+        NewExpr n = expr->New;
+
+        if (n.Array) {
+            EmitExpr(n.Initializer, n.Initializer->ValueKind);
+            PUSH_PENDING_OP(OP_NEW_ARR);
+            PUSH_PENDING_OP(TypeInfoToVMTypeIdx(expr->Type->Base));
+        } else {
+            PUSH_PENDING_OP(OP_NEW);
+            PUSH_PENDING_OP(TypeInfoToVMTypeIdx(expr->Type->Base));
+
+            if (n.Initializer) {
+                PUSH_PENDING_OP(OP_DUP);
+                EmitExpr(n.Initializer, n.Initializer->ValueKind);
+                PUSH_PENDING_OP(OP_ST_ADDR);
+            }
+        }
+    }
+
+    void Emitter::EmitDeleteExpr(Expr* expr, ExprValueKind valueKind) {
+        DeleteExpr n = expr->Delete;
+
+        EmitExpr(n.Expression, n.Expression->ValueKind);
+        PUSH_PENDING_OP(OP_FREE);
+    }
+
     void Emitter::EmitFormatExpr(Expr* expr, ExprValueKind valueKind) {
         FormatExpr format = expr->Format;
         StringView fStr = format.Args.Items[0]->Temporary.Expression->StringConstant.Value;
@@ -760,47 +837,9 @@ namespace Aria::Internal {
     }
 
     void Emitter::EmitExpr(Expr* expr, ExprValueKind valueKind) {
-        if (expr->Kind == ExprKind::BooleanConstant) {
-            EmitBooleanConstantExpr(expr, valueKind);
-        } else if (expr->Kind == ExprKind::CharacterConstant) {
-            EmitCharacterConstantExpr(expr, valueKind);
-        } else if (expr->Kind == ExprKind::IntegerConstant) {
-            EmitIntegerConstantExpr(expr, valueKind);
-        } else if (expr->Kind == ExprKind::FloatingConstant) {
-            EmitFloatingConstantExpr(expr, valueKind);
-        } else if (expr->Kind == ExprKind::StringConstant) {
-            EmitStringConstantExpr(expr, valueKind);
-        } else if (expr->Kind == ExprKind::Null) {
-            EmitNullExpr(expr, valueKind);
-        } else if (expr->Kind == ExprKind::DeclRef) {
-            EmitDeclRefExpr(expr, valueKind);
-        } else if (expr->Kind == ExprKind::Member) {
-            EmitMemberExpr(expr, valueKind);
-        } else if (expr->Kind == ExprKind::Temporary) {
-            EmitTemporaryExpr(expr, valueKind);
-        } else if (expr->Kind == ExprKind::Copy) {
-            EmitCopyExpr(expr, valueKind);
-        } else if (expr->Kind == ExprKind::Call) {
-            EmitCallExpr(expr, valueKind);
-        } else if (expr->Kind == ExprKind::Construct) {
-            EmitConstructExpr(expr, valueKind);
-        } else if (expr->Kind == ExprKind::MethodCall) {
-            EmitMethodCallExpr(expr, valueKind);
-        } else if (expr->Kind == ExprKind::Format) {
-            EmitFormatExpr(expr, valueKind);
-        } else if (expr->Kind == ExprKind::Paren) {
-            EmitParenExpr(expr, valueKind);
-        } else if (expr->Kind == ExprKind::Cast) {
-            EmitCastExpr(expr, valueKind);
-        } else if (expr->Kind == ExprKind::ImplicitCast) {
-            EmitImplicitCastExpr(expr, valueKind);
-        } else if (expr->Kind == ExprKind::UnaryOperator) {
-            EmitUnaryOperatorExpr(expr, valueKind);
-        } else if (expr->Kind == ExprKind::BinaryOperator) {
-            EmitBinaryOperatorExpr(expr, valueKind);
-        } else if (expr->Kind == ExprKind::CompoundAssign) {
-            EmitCompoundAssignExpr(expr, valueKind);
-        }
+        #define EXPR_CASE(kind) Emit##kind##Expr(expr, valueKind)
+        #include "aria/internal/compiler/ast/expr_switch.hpp"
+        #undef EXPR_CASE
 
         if (expr->ResultDiscarded) {
             EmitDestructors(m_Temporaries);
@@ -819,6 +858,8 @@ namespace Aria::Internal {
             EmitStmt(stmt);
         }
     }
+
+    void Emitter::EmitModuleDecl(Decl* decl) {}
 
     void Emitter::EmitVarDecl(Decl* decl) {
         VarDecl varDecl = decl->Var;
@@ -937,6 +978,8 @@ namespace Aria::Internal {
         }
     }
 
+    void Emitter::EmitOverloadedFunctionDecl(Decl* decl) {}
+
     void Emitter::EmitStructDecl(Decl* decl) {
         ARIA_TODO("Emitter::EmitStructDecl()");
 
@@ -991,30 +1034,31 @@ namespace Aria::Internal {
         // m_Structs[decl] = sd;
     }
 
-    void Emitter::EmitDecl(Decl* decl) {
-        if (decl->Kind == DeclKind::TranslationUnit) {
-            return EmitTranslationUnitDecl(decl);
-        } else if (decl->Kind == DeclKind::Module) {
-            return;
-        } else if (decl->Kind == DeclKind::Var) {
-            return EmitVarDecl(decl);
-        } else if (decl->Kind == DeclKind::Param) {
-            return EmitParamDecl(decl);
-        } else if (decl->Kind == DeclKind::Function) {
-            return EmitFunctionDecl(decl);
-        } else if (decl->Kind == DeclKind::Struct) {
-            return EmitStructDecl(decl);
-        }
+    void Emitter::EmitFieldDecl(Decl* decl) { ARIA_UNREACHABLE(); }
+    void Emitter::EmitConstructorDecl(Decl* decl) { ARIA_UNREACHABLE(); }
+    void Emitter::EmitDestructorDecl(Decl* decl) { ARIA_UNREACHABLE(); }
+    void Emitter::EmitMethodDecl(Decl* decl) { ARIA_UNREACHABLE(); }
+    void Emitter::EmitBuiltinCopyConstructorDecl(Decl* decl) { ARIA_UNREACHABLE(); }
+    void Emitter::EmitBuiltinDestructorDecl(Decl* decl) { ARIA_UNREACHABLE(); }
 
-        ARIA_UNREACHABLE();
+    void Emitter::EmitDecl(Decl* decl) {
+        #define DECL_CASE(kind) Emit##kind##Decl(decl)
+        #include "aria/internal/compiler/ast/decl_switch.hpp"
+        #undef DECL_CASE
     }
+
+    void Emitter::EmitNopStmt(Stmt* stmt) {}
+    void Emitter::EmitImportStmt(Stmt* stmt) {}
 
     void Emitter::EmitBlockStmt(Stmt* stmt) {
         BlockStmt block = stmt->Block;
+        PushScope();
         
         for (Stmt* stmt : block.Stmts) {
             EmitStmt(stmt);
         }
+
+        PopScope();
     }
 
     void Emitter::EmitWhileStmt(Stmt* stmt) {
@@ -1142,36 +1186,18 @@ namespace Aria::Internal {
         PUSH_PENDING_OP(OP_RET);
     }
 
-    void Emitter::EmitStmt(Stmt* stmt) {
-        if (stmt->Kind == StmtKind::Nop) { return; }
-        else if (stmt->Kind == StmtKind::Import) { return; }
-        else if (stmt->Kind == StmtKind::Block) {
-            PushScope();
-            EmitBlockStmt(stmt);
-            PopScope();
-            return;
-        } else if (stmt->Kind == StmtKind::While) {
-            return EmitWhileStmt(stmt);
-        } else if (stmt->Kind == StmtKind::DoWhile) {
-            return EmitDoWhileStmt(stmt);
-        } else if (stmt->Kind == StmtKind::For) {
-            return EmitForStmt(stmt);
-        } else if (stmt->Kind == StmtKind::If) {
-            return EmitIfStmt(stmt);
-        } else if (stmt->Kind == StmtKind::Break) {
-            return EmitBreakStmt(stmt);
-        } else if (stmt->Kind == StmtKind::Continue) {
-            return EmitContinueStmt(stmt);
-        } else if (stmt->Kind == StmtKind::Return) {
-            return EmitReturnStmt(stmt);
-        } else if (stmt->Kind == StmtKind::Expr) {
-            ARIA_ASSERT(stmt->ExprStmt->ResultDiscarded, "Result of expression-statement must be discarded");
-            return EmitExpr(stmt->ExprStmt, stmt->ExprStmt->ValueKind);
-        } else if (stmt->Kind == StmtKind::Decl) {
-            return EmitDecl(stmt->DeclStmt);
-        }
+    void Emitter::EmitExprStmt(Stmt* stmt) {
+        EmitExpr(stmt->ExprStmt, stmt->ExprStmt->ValueKind);
+    }
 
-        ARIA_UNREACHABLE();
+    void Emitter::EmitDeclStmt(Stmt* stmt) {
+        EmitDecl(stmt->DeclStmt);
+    }
+
+    void Emitter::EmitStmt(Stmt* stmt) {
+        #define STMT_CASE(kind) Emit##kind##Stmt(stmt)
+        #include "aria/internal/compiler/ast/stmt_switch.hpp"
+        #undef STMT_CASE
     }
 
     void Emitter::EmitDestructors(const std::vector<Declaration>& declarations) {

@@ -31,6 +31,23 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case OP_NEW: {
+                    auto& type = GET_TYPE();
+                    m_Output += fmt::format("    new {}", VMTypeToString(type));
+                    break;
+                }
+
+                case OP_NEW_ARR: {
+                    auto& type = GET_TYPE();
+                    m_Output += fmt::format("    newarr {}", VMTypeToString(type));
+                    break;
+                }
+
+                case OP_FREE: {
+                    m_Output += "    free";
+                    break;
+                }
+
                 case OP_LD_CONST: {
                     auto& type = GET_TYPE();
                     size_t idx = static_cast<size_t>(*(++m_ProgramCounter));
@@ -139,8 +156,23 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case OP_ST_SLICE_MEM: {
+                    m_Output += "    stslice.mem";
+                    break;
+                }
+
+                case OP_ST_SLICE_LEN: {
+                    m_Output += "    stslice.len";
+                    break;
+                }
+
                 case OP_ST_ADDR: {
                     m_Output += "    staddr";
+                    break;
+                }
+
+                case OP_DUP: {
+                    m_Output += "    dup";
                     break;
                 }
 
@@ -383,6 +415,12 @@ namespace Aria::Internal {
 
                 case OP_NEGF: {
                     m_Output += "    negf";
+                    break;
+                }
+
+                case OP_OFFP: {
+                    auto& type = GET_TYPE();
+                    m_Output += fmt::format("    offp {}", VMTypeToString(type));
                     break;
                 }
 

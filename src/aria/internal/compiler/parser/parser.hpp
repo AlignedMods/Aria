@@ -34,10 +34,13 @@ namespace Aria::Internal {
         BinaryOperatorKind GetBinaryOperatorFromToken(Token* token);
         Expr* ParseUnary(Expr* left);
         Expr* ParseBinary(Expr* left);
+        Expr* ParseArraySubscript(Expr* left);
         Expr* ParseCompoundAssignment(Expr* left);
         Expr* ParseMember(Expr* left);
         Expr* ParsePrimary(Expr* left);
         Expr* ParseIdentifier(Token t);
+        Expr* ParseNew(Expr* left);
+        Expr* ParseDelete(Expr* left);
         Expr* ParseFormat(Expr* left);
 
         Expr* ParsePrecedenceWithLeft(Expr* left, size_t precedence);

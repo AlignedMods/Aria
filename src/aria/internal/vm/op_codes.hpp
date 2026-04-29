@@ -41,6 +41,9 @@ namespace Aria::Internal {
 
     enum OpCode : u16 {
         OP_ALLOCA,
+        OP_NEW,
+        OP_NEW_ARR,
+        OP_FREE,
 
         OP_LD_CONST,
         OP_LD_STR,
@@ -55,7 +58,10 @@ namespace Aria::Internal {
         OP_ST_LOCAL,
         OP_ST_GLOBAL,
         OP_ST_ADDR,
+        OP_ST_SLICE_MEM,
+        OP_ST_SLICE_LEN,
 
+        OP_DUP,
         OP_POP,
 
         OP_DECL_LOCAL,
@@ -109,6 +115,8 @@ namespace Aria::Internal {
 
         OP_NEGI,
         OP_NEGF,
+
+        OP_OFFP,
 
         OP_LOGAND,
         OP_LOGOR,

@@ -486,6 +486,8 @@ namespace Aria::Internal {
         if (str == "self")     { AddToken(TokenKind::Self,   SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "self");   return; }
         if (str == "fn")       { AddToken(TokenKind::Fn,     SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "fn");     return; }
         if (str == "struct")   { AddToken(TokenKind::Struct, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "struct"); return; }
+        if (str == "new")      { AddToken(TokenKind::New,    SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "new");    return; }
+        if (str == "delete")   { AddToken(TokenKind::Delete, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "delete"); return; }
         if (str == "unsafe")   { AddToken(TokenKind::Unsafe, SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "unsafe"); return; }
 
         if (str == "void")     { AddToken(TokenKind::Void,   SourceRange(start, SourceLocation(m_CurrentLine, GetColumn(m_Index))), "void");   return; }

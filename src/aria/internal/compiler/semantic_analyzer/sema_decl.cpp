@@ -10,6 +10,8 @@ namespace Aria::Internal {
         }
     }
 
+    void SemanticAnalyzer::ResolveModuleDecl(Decl* decl) {}
+
     void SemanticAnalyzer::ResolveVarDecl(Decl* decl) {
         VarDecl& varDecl = decl->Var;
         std::string ident = fmt::format("{}", varDecl.Identifier);
@@ -74,6 +76,8 @@ namespace Aria::Internal {
 
         m_UnsafeContext = false;
     }
+
+    void SemanticAnalyzer::ResolveOverloadedFunctionDecl(Decl* decl) {}
 
     void SemanticAnalyzer::ResolveStructDecl(Decl* decl) {
         StructDecl& s = decl->Struct;
@@ -152,25 +156,17 @@ namespace Aria::Internal {
         m_ActiveStruct = nullptr;
     }
 
-    void SemanticAnalyzer::ResolveDecl(Decl* decl) {
-        if (decl->Kind == DeclKind::Error) { return; }
-        else if (decl->Kind == DeclKind::TranslationUnit) {
-            return ResolveTranslationUnitDecl(decl);
-        } else if (decl->Kind == DeclKind::Module) {
-            return;
-        } else if (decl->Kind == DeclKind::Var) {
-            return ResolveVarDecl(decl);
-        } else if (decl->Kind == DeclKind::Param) {
-            return ResolveParamDecl(decl);
-        } else if (decl->Kind == DeclKind::Function) {
-            return ResolveFunctionDecl(decl);
-        } else if (decl->Kind == DeclKind::OverloadedFunction) {
-            return;
-        } else if (decl->Kind == DeclKind::Struct) {
-            return ResolveStructDecl(decl);
-        }
+    void SemanticAnalyzer::ResolveFieldDecl(Decl* decl) { ARIA_UNREACHABLE(); }
+    void SemanticAnalyzer::ResolveConstructorDecl(Decl* decl) { ARIA_UNREACHABLE(); }
+    void SemanticAnalyzer::ResolveDestructorDecl(Decl* decl) { ARIA_UNREACHABLE(); }
+    void SemanticAnalyzer::ResolveMethodDecl(Decl* decl) { ARIA_UNREACHABLE(); }
+    void SemanticAnalyzer::ResolveBuiltinCopyConstructorDecl(Decl* decl) { ARIA_UNREACHABLE(); }
+    void SemanticAnalyzer::ResolveBuiltinDestructorDecl(Decl* decl) { ARIA_UNREACHABLE(); }
 
-        ARIA_UNREACHABLE();
+    void SemanticAnalyzer::ResolveDecl(Decl* decl) {
+        #define DECL_CASE(kind) Resolve##kind##Decl(decl)
+        #include "aria/internal/compiler/ast/decl_switch.hpp"
+        #undef DECL_CASE
     }
 
     std::string SemanticAnalyzer::MangleFunction(FunctionDecl* fn) {

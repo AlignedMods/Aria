@@ -65,6 +65,10 @@ namespace Aria::Internal {
         void EmitCallExpr(Expr* expr,              ExprValueKind valueKind);
         void EmitConstructExpr(Expr* expr,         ExprValueKind valueKind);
         void EmitMethodCallExpr(Expr* expr,        ExprValueKind valueKind);
+        void EmitArraySubscriptExpr(Expr* expr,    ExprValueKind valueKind);
+        void EmitToSliceExpr(Expr* expr,           ExprValueKind valueKind);
+        void EmitNewExpr(Expr* expr,               ExprValueKind valueKind);
+        void EmitDeleteExpr(Expr* expr,            ExprValueKind valueKind);
         void EmitFormatExpr(Expr* expr,            ExprValueKind valueKind);
         void EmitParenExpr(Expr* expr,             ExprValueKind valueKind);
         void EmitImplicitCastExpr(Expr* expr,      ExprValueKind valueKind);
@@ -76,13 +80,23 @@ namespace Aria::Internal {
         void EmitExpr(Expr* expr, ExprValueKind valueKind);
 
         void EmitTranslationUnitDecl(Decl* decl);
+        void EmitModuleDecl(Decl* decl);
         void EmitVarDecl(Decl* decl);
         void EmitParamDecl(Decl* decl);
         void EmitFunctionDecl(Decl* decl);
+        void EmitOverloadedFunctionDecl(Decl* decl);
         void EmitStructDecl(Decl* decl);
+        void EmitFieldDecl(Decl* decl);
+        void EmitConstructorDecl(Decl* decl);
+        void EmitDestructorDecl(Decl* decl);
+        void EmitMethodDecl(Decl* decl);
+        void EmitBuiltinCopyConstructorDecl(Decl* decl);
+        void EmitBuiltinDestructorDecl(Decl* decl);
 
         void EmitDecl(Decl* decl);
 
+        void EmitNopStmt(Stmt* stmt);
+        void EmitImportStmt(Stmt* stmt);
         void EmitBlockStmt(Stmt* stmt);
         void EmitWhileStmt(Stmt* stmt);
         void EmitDoWhileStmt(Stmt* stmt);
@@ -91,6 +105,8 @@ namespace Aria::Internal {
         void EmitBreakStmt(Stmt* stmt);
         void EmitContinueStmt(Stmt* stmt);
         void EmitReturnStmt(Stmt* stmt);
+        void EmitExprStmt(Stmt* stmt);
+        void EmitDeclStmt(Stmt* stmt);
 
         void EmitStmt(Stmt* stmt);
 

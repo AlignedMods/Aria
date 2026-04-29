@@ -30,7 +30,7 @@ namespace Aria::Internal {
         } else if (expr->Kind == ExprKind::BooleanConstant) {
             m_Output += fmt::format("BooleanConstantExpr {} '{}' {}\n", expr->BooleanConstant.Value, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
         } else if (expr->Kind == ExprKind::CharacterConstant) {
-            m_Output += fmt::format("CharacterConstant '{:c}' '{}' {}\n", expr->CharacterConstant.Value, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
+            m_Output += fmt::format("CharacterConstant 0x{:x} '{}' {}\n", expr->CharacterConstant.Value, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
         } else if (expr->Kind == ExprKind::IntegerConstant) {
             m_Output += fmt::format("IntegerConstantExpr {} '{}' {}\n", expr->IntegerConstant.Value, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
         } else if (expr->Kind == ExprKind::FloatingConstant) {
@@ -78,6 +78,26 @@ namespace Aria::Internal {
                 DumpExpr(e, indentation + 4);
             }
             DumpExpr(expr->MethodCall.Callee, indentation + 4);
+            return;
+        } else if (expr->Kind == ExprKind::ToSlice) {
+            m_Output += fmt::format("ToSliceExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
+            DumpExpr(expr->ToSlice.Source, indentation + 4);
+            DumpExpr(expr->ToSlice.Len, indentation + 4);
+            return;
+        }  else if (expr->Kind == ExprKind::ArraySubscript) {
+            m_Output += fmt::format("ArraySubscriptExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
+            DumpExpr(expr->ArraySubscript.Array, indentation + 4);
+            DumpExpr(expr->ArraySubscript.Index, indentation + 4);
+            return;
+        } else if (expr->Kind == ExprKind::New) {
+            m_Output += fmt::format("NewExpr {}'{}' {}\n", expr->New.Array ? "array " : "", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
+            if (expr->New.Initializer) {
+                DumpExpr(expr->New.Initializer, indentation + 4);
+            }
+            return;
+        } else if (expr->Kind == ExprKind::Delete) {
+            m_Output += fmt::format("DeleteExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
+            DumpExpr(expr->Delete.Expression, indentation + 4);
             return;
         } else if (expr->Kind == ExprKind::Format) {
             m_Output += fmt::format("FormatExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));

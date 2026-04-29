@@ -2,10 +2,12 @@
 
 namespace Aria::Internal {
 
+    void SemanticAnalyzer::ResolveNopStmt(Stmt* stmt) {}
     void SemanticAnalyzer::ResolveImportStmt(Stmt* stmt) {}
 
     void SemanticAnalyzer::ResolveBlockStmt(Stmt* stmt) {
         BlockStmt block = stmt->Block;
+        PushScope();
 
         bool wasUnsafe = m_UnsafeContext;
         if (!m_UnsafeContext) { m_UnsafeContext = block.Unsafe; }
@@ -15,6 +17,7 @@ namespace Aria::Internal {
         }
 
         m_UnsafeContext = wasUnsafe;
+        PopScope();
     }
 
     void SemanticAnalyzer::ResolveWhileStmt(Stmt* stmt) {
@@ -127,35 +130,18 @@ namespace Aria::Internal {
         }
     }
 
-    void SemanticAnalyzer::ResolveStmt(Stmt* stmt) {
-        if (stmt->Kind == StmtKind::Error) { return; }
-        else if (stmt->Kind == StmtKind::Nop) { return; }
-        else if (stmt->Kind == StmtKind::Import) {
-            return ResolveImportStmt(stmt);
-        } else if (stmt->Kind == StmtKind::Block) {
-            return ResolveBlockStmt(stmt);
-        } else if (stmt->Kind == StmtKind::While) {
-            return ResolveWhileStmt(stmt);
-        } else if (stmt->Kind == StmtKind::DoWhile) {
-            return ResolveDoWhileStmt(stmt);
-        } else if (stmt->Kind == StmtKind::For) {
-            return ResolveForStmt(stmt);
-        } else if (stmt->Kind == StmtKind::If) {
-            return ResolveIfStmt(stmt);
-        } else if (stmt->Kind == StmtKind::Break) {
-            return ResolveBreakStmt(stmt);
-        } else if (stmt->Kind == StmtKind::Continue) {
-            return ResolveContinueStmt(stmt);
-        } else if (stmt->Kind == StmtKind::Return) {
-            return ResolveReturnStmt(stmt);
-        } else if (stmt->Kind == StmtKind::Expr) {
-            ARIA_ASSERT(stmt->ExprStmt->ResultDiscarded, "Result of expression-statement must be discarded");
-            return ResolveExpr(stmt->ExprStmt);
-        } else if (stmt->Kind == StmtKind::Decl) {
-            return ResolveDecl(stmt->DeclStmt);
-        }
+    void SemanticAnalyzer::ResolveExprStmt(Stmt* stmt) {
+        ResolveExpr(stmt->ExprStmt);
+    }
 
-        ARIA_UNREACHABLE();
+    void SemanticAnalyzer::ResolveDeclStmt(Stmt* stmt) {
+        ResolveDecl(stmt->DeclStmt);
+    }
+
+    void SemanticAnalyzer::ResolveStmt(Stmt* stmt) {
+        #define STMT_CASE(kind) Resolve##kind##Stmt(stmt)
+        #include "aria/internal/compiler/ast/stmt_switch.hpp"
+        #undef STMT_CASE
     }
 
 } // namespace Aria::Internal

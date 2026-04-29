@@ -29,6 +29,10 @@ namespace Aria::Internal {
         Call,
         Construct,
         MethodCall,
+        ArraySubscript,
+        ToSlice,
+        New,
+        Delete,
         Format,
         Paren,
         Cast,
@@ -263,6 +267,37 @@ namespace Aria::Internal {
         Expr* Callee;
         TinyVector<Expr*> Arguments;
     };
+
+    struct ArraySubscriptExpr {
+        ArraySubscriptExpr(Expr* array, Expr* index)
+            : Array(array), Index(index) {}
+
+        Expr* Array = nullptr;
+        Expr* Index = nullptr;
+    };
+
+    struct ToSliceExpr {
+        ToSliceExpr(Expr* source, Expr* len)
+            : Source(source), Len(len) {}
+
+        Expr* Source = nullptr;
+        Expr* Len = nullptr;
+    };
+
+    struct NewExpr {
+        NewExpr(Expr* initializer, bool array)
+            : Initializer(initializer), Array(array) {}
+
+        Expr* Initializer = nullptr;
+        bool Array = false;
+    };
+
+    struct DeleteExpr {
+        DeleteExpr(Expr* expr)
+            : Expression(expr) {}
+
+        Expr* Expression = nullptr;
+    };
     
     struct FormatExpr {
         struct FormatArg {
@@ -379,6 +414,10 @@ namespace Aria::Internal {
             CallExpr Call;
             ConstructExpr Construct;
             MethodCallExpr MethodCall;
+            ArraySubscriptExpr ArraySubscript;
+            ToSliceExpr ToSlice;
+            NewExpr New;
+            DeleteExpr Delete;
             FormatExpr Format;
             ParenExpr Paren;
             CastExpr Cast;
@@ -429,6 +468,18 @@ namespace Aria::Internal {
 
         Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, MethodCallExpr methodCall)
             : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), MethodCall(methodCall) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, ArraySubscriptExpr arrSubs)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), ArraySubscript(arrSubs) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, ToSliceExpr toSlice)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), ToSlice(toSlice) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, NewExpr new_)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), New(new_) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, DeleteExpr delete_)
+            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Delete(delete_) {}
 
         Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, FormatExpr format)
             : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Format(format) {}

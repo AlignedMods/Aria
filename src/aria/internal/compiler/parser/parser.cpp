@@ -64,6 +64,7 @@ namespace Aria::Internal {
         m_ExprRules[TokenKind::GreaterEq] =         { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
         m_ExprRules[TokenKind::LessLess] =          { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
         m_ExprRules[TokenKind::GreaterGreater] =    { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
+        m_ExprRules[TokenKind::LeftBracket] =       { nullptr, BIND_PARSE_RULE(ParseArraySubscript), PREC_BIT };
                                                     
         m_ExprRules[TokenKind::Eq] =                { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_ASSIGNMENT };
         m_ExprRules[TokenKind::PlusEq] =            { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
@@ -91,6 +92,9 @@ namespace Aria::Internal {
         m_ExprRules[TokenKind::StrLit] =            { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
         m_ExprRules[TokenKind::Null] =              { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
         m_ExprRules[TokenKind::Identifier] =        { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+
+        m_ExprRules[TokenKind::New] =               { BIND_PARSE_RULE(ParseNew), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::Delete] =            { BIND_PARSE_RULE(ParseDelete), nullptr, PREC_NONE };
 
         m_ExprRules[TokenKind::DollarFormat] =      { BIND_PARSE_RULE(ParseFormat),  nullptr, PREC_NONE };
     }
@@ -321,6 +325,29 @@ namespace Aria::Internal {
         return &g_ErrorExpr;
     }
 
+    Expr* Parser::ParseArraySubscript(Expr* left) {
+        ARIA_ASSERT(left, "Parser::ParseArraySubscript() expects a left side");
+
+        Token lb = Consume(); // Consume "["
+
+        if (Match(TokenKind::Colon)) {
+            Consume();
+            Expr* len = ParseExpression();
+            TryConsume(TokenKind::RightBracket, "]");
+
+            return Expr::Create(m_Context, lb.Range.Start, SourceRange(left->Range.Start, Peek(-1)->Range.End), ExprKind::ToSlice,
+                ExprValueKind::RValue, nullptr,
+                ArraySubscriptExpr(left, len));
+        } else {
+            Expr* index = ParseExpression();
+            TryConsume(TokenKind::RightBracket, "]");
+
+            return Expr::Create(m_Context, lb.Range.Start, SourceRange(left->Range.Start, Peek(-1)->Range.End), ExprKind::ArraySubscript,
+                ExprValueKind::LValue, nullptr,
+                ArraySubscriptExpr(left, index));
+        }
+    }
+
     Expr* Parser::ParseCompoundAssignment(Expr* left) {
         ARIA_ASSERT(left, "Parser::ParseCompoundAssignment() expects a left side");
 
@@ -435,6 +462,62 @@ namespace Aria::Internal {
         }
 
         ARIA_UNREACHABLE();
+    }
+
+    Expr* Parser::ParseNew(Expr* left) {
+        ARIA_ASSERT(left == nullptr, "Parser::ParseNew() should not have a left side");
+
+        Token& n = Consume(); // Consume "new"
+        TypeInfo* type = nullptr;
+        Expr* initializer = nullptr;
+
+        if (IsPrimitiveType() || Match(TokenKind::Identifier)) {
+            type = ParseType();
+        } else {
+            m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected a type");
+            type = &ErrorType;
+        }
+
+        type->Base = TypeInfo::Dup(m_Context, type);
+        type->Kind = TypeKind::Ptr;
+
+        // ParseType() will handle array types
+        // However we do not want this, so we remove the array from the type and add it to the new expression itself
+        bool array = type->Base->Kind == TypeKind::Array;
+
+        if (array) {
+            initializer = type->Base->Array.Expression;
+            type->Base = type->Base->Array.Type;
+        } else if (Match(TokenKind::LeftParen)) {
+            Consume();
+
+            if (IsExpression()) {
+                initializer = ParseExpression();
+            }
+
+            TryConsume(TokenKind::RightParen, ")");
+        } else {
+            m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected '(' or '['");
+        }
+
+        return Expr::Create(m_Context, n.Range.Start, SourceRange(n.Range.Start, Peek(-1)->Range.End), ExprKind::New,
+            ExprValueKind::RValue, type,
+            NewExpr(initializer, array));
+    }
+
+    Expr* Parser::ParseDelete(Expr* left) {
+        ARIA_ASSERT(left == nullptr, "Parser::ParseDelete() should not have a left side");
+
+        Token& d = Consume(); // Consume "delete"
+        Expr* expr = ParseExpression();
+
+        if (!expr) {
+            return &g_ErrorExpr;
+        }
+
+        return Expr::Create(m_Context, d.Range.Start, SourceRange(d.Range.Start, Peek(-1)->Range.End), ExprKind::Delete,
+            ExprValueKind::RValue, &VoidType,
+            DeleteExpr(expr));
     }
 
     Expr* Parser::ParseFormat(Expr* left) {
@@ -788,6 +871,8 @@ namespace Aria::Internal {
             case TokenKind::NumLit:
             case TokenKind::StrLit:
             case TokenKind::Identifier:
+            case TokenKind::New:
+            case TokenKind::Delete:
                 return ParseExpressionStatement();
 
             case TokenKind::LeftCurly:
