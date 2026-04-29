@@ -80,9 +80,9 @@ namespace Aria::Internal {
             DumpExpr(expr->MethodCall.Callee, indentation + 4);
             return;
         } else if (expr->Kind == ExprKind::Format) {
-            m_Output += fmt::format("FormatExpr 'string' rvalue\n");
-            for (Expr* e : expr->Format.Args) {
-                DumpExpr(e, indentation + 4);
+            m_Output += fmt::format("FormatExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
+            for (auto& arg : expr->Format.ResolvedArgs) {
+                DumpExpr(arg.Arg, indentation + 4);
             }
             return;
         } else if (expr->Kind == ExprKind::Paren) {
@@ -148,8 +148,8 @@ namespace Aria::Internal {
             return;
         } else if (decl->Kind == DeclKind::Function) {
             m_Output += fmt::format("FunctionDecl '{}' '{}'\n", decl->Function.Identifier, TypeInfoToString(decl->Function.Type));
-            for (auto& attr : decl->Attributes) {
-                DumpDeclAttr(attr, indentation + 4);
+            for (auto& attr : decl->Function.Attributes) {
+                DumpFunctionAttr(attr, indentation + 4);
             }
 
             for (Decl* p : decl->Function.Parameters) {
@@ -282,15 +282,15 @@ namespace Aria::Internal {
         ARIA_UNREACHABLE();
     }
 
-    void ASTDumper::DumpDeclAttr(DeclAttribute attr, size_t indentation) {
+    void ASTDumper::DumpFunctionAttr(FunctionDecl::Attribute attr, size_t indentation) {
         std::string ident;
         ident.append(indentation, ' ');
         m_Output += ident;
 
         switch (attr.Kind) {
-            case DeclAttributeKind::Extern: m_Output += fmt::format("ExternAttribute {:?}\n", attr.Arg); break;
-            case DeclAttributeKind::NoMangle: m_Output += "NoMangleAttribute\n"; break;
-            case DeclAttributeKind::Unsafe: m_Output += "UnsafeAttribute\n"; break;
+            case FunctionDecl::AttributeKind::Extern: m_Output += fmt::format("ExternAttribute {:?}\n", attr.Arg); break;
+            case FunctionDecl::AttributeKind::NoMangle: m_Output += "NoMangleAttribute\n"; break;
+            case FunctionDecl::AttributeKind::Unsafe: m_Output += "UnsafeAttribute\n"; break;
             default: ARIA_UNREACHABLE();
         }
     }

@@ -169,11 +169,11 @@ namespace Aria::Internal {
 
     void VM::StoreString(i32 slot, std::string_view str, Stack& stack) {
         VMSlice s = GetVMSlice(slot, stack);
-        ARIA_ASSERT(s.Type.Kind == VMTypeKind::String, "Cannot store a string in a slot with a non-string type");
+        ARIA_ASSERT(s.Type.Kind == VMTypeKind::Slice, "Cannot store a string in a slot with a non-slice type");
         
-        RuntimeString& string = *reinterpret_cast<RuntimeString*>(s.Memory);
-        string.RawData = const_cast<char*>(str.data());
-        string.Size = str.size();
+        RuntimeSlice& slice = *reinterpret_cast<RuntimeSlice*>(s.Memory);
+        slice.Mem = const_cast<char*>(str.data());
+        slice.Size = str.size();
     }
 
     bool VM::GetBool(i32 slot, Stack& stack) {
@@ -268,12 +268,12 @@ namespace Aria::Internal {
 
     std::string_view VM::GetString(i32 slot, Stack& stack) {
         VMSlice s = GetVMSlice(slot, stack);
-        ARIA_ASSERT(s.Type.Kind == VMTypeKind::String, "Invalid GetString() call!");
+        ARIA_ASSERT(s.Type.Kind == VMTypeKind::Slice, "Invalid GetString() call!");
 
-        RuntimeString str;
+        RuntimeSlice str;
         memcpy(&str, s.Memory, s.Size);
 
-        return { str.RawData, str.Size };
+        return { reinterpret_cast<char*>(str.Mem), str.Size };
     }
 
     void VM::RunByteCode(const OpCodes& ops) {
@@ -367,21 +367,12 @@ namespace Aria::Internal {
                 }
 
                 case OP_LD_STR: {
-                    Alloca({ VMTypeKind::String }, m_Stack);
-
                     std::string_view str = GET_STR();
 
-                    RuntimeString vmstr;
-                    // Allocate the string on the heap
-                    char* newStr = new char[str.size()];
-                    memcpy(newStr, str.data(), str.size());
-
-                    vmstr.RawData = newStr;
-                    vmstr.Size = str.size();
-
-                    Alloca({ VMTypeKind::String }, m_Stack);
-                    memcpy(GetVMSlice(-1, m_Stack).Memory, &vmstr, sizeof(vmstr));
-
+                    Alloca({ VMTypeKind::Slice }, m_Stack);
+                    RuntimeSlice& slice = *reinterpret_cast<RuntimeSlice*>(GetVMSlice(-1, m_Stack).Memory);
+                    slice.Mem = const_cast<char*>(str.data());
+                    slice.Size = str.size();
                     break;
                 }
 
@@ -2580,20 +2571,16 @@ namespace Aria::Internal {
                                      
             case VMTypeKind::Ptr:    return sizeof(void*);
 
-            case VMTypeKind::String: return sizeof(RuntimeString);
+            case VMTypeKind::Slice: return sizeof(RuntimeSlice);
 
             case VMTypeKind::Struct: {
-                ARIA_TODO("struct size");
-                // if (m_CachedStructSize.contains(type.Data)) { return m_CachedStructSize.at(type.Data); }
-                // 
-                // size_t size = 0;
-                // const VMStruct& str = m_Program->StructTable[type.Data];
-                // for (size_t field : str.Fields) {
-                //     size += AlignToEight(GetVMTypeSize(GET_TYPE(field)));
-                // }
-                // 
-                // m_CachedStructSize[type.Data] = size;
-                // return size;
+                size_t size = 0;
+                const VMStruct& str = std::get<VMStruct>(type.Data);
+                for (size_t field : str.Fields) {
+                    size += AlignToEight(GetVMTypeSize(GET_TYPE(field)));
+                }
+                
+                return size;
             }
 
             default: ARIA_UNREACHABLE();

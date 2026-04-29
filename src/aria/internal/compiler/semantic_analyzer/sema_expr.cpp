@@ -112,12 +112,12 @@ namespace Aria::Internal {
         if (mod->Symbols.contains(ident)) {
             Decl* d = mod->Symbols.at(ident);
 
-            if (d->Visibility == DeclVisibility::Private && ref.NameSpecifier) {
-                m_Context->ReportCompilerDiagnostic(ref.NameSpecifier->Loc, ref.NameSpecifier->Range, fmt::format("Symbol '{}' is not accessible", ref.Identifier));
-                expr->Type = &ErrorType;
-                ref.ReferencedDecl = &g_ErrorDecl;
-                return;
-            }
+            // if (d->Visibility == DeclVisibility::Private && ref.NameSpecifier) {
+            //     m_Context->ReportCompilerDiagnostic(ref.NameSpecifier->Loc, ref.NameSpecifier->Range, fmt::format("Symbol '{}' is not accessible", ref.Identifier));
+            //     expr->Type = &ErrorType;
+            //     ref.ReferencedDecl = &g_ErrorDecl;
+            //     return;
+            // }
 
             ref.ReferencedDecl = d;
             expr->Type = getType(d);
@@ -146,7 +146,7 @@ namespace Aria::Internal {
         ResolveExpr(mem.Parent);
         TypeInfo* parentType = mem.Parent->Type;
         TypeInfo* memberType = nullptr;
-        StructDeclaration& sd = std::get<StructDeclaration>(parentType->Data);
+        StructDeclaration& sd = parentType->Struct;
 
         StructDecl s = sd.SourceDecl->Struct;
 
@@ -183,7 +183,7 @@ namespace Aria::Internal {
         ResolveExpr(call.Callee);
         TypeInfo* calleeType = call.Callee->Type;
 
-        if (calleeType->Type != PrimitiveType::Function && !calleeType->IsError()) {
+        if (calleeType->Kind != TypeKind::Function && !calleeType->IsError()) {
             m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Cannot call an object of non-function type");
             expr->Type = &ErrorType;
             return;
@@ -193,7 +193,13 @@ namespace Aria::Internal {
             if (call.Callee->Kind == ExprKind::DeclRef && call.Callee->DeclRef.ReferencedDecl->Kind == DeclKind::OverloadedFunction) { // Overloaded function
                 ARIA_TODO("Overloaded function calls");
             } else if (!call.Callee->Type->IsError()) { // Normal function
-                FunctionDeclaration& fnDecl = std::get<FunctionDeclaration>(calleeType->Data);
+                FunctionDeclaration& fnDecl = calleeType->Function;
+
+                for (auto& attr : call.Callee->DeclRef.ReferencedDecl->Function.Attributes) {
+                    if (attr.Kind == FunctionDecl::AttributeKind::Unsafe && !m_UnsafeContext) {
+                        m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Cannot call unsafe function in safe context");
+                    }
+                }
 
                 if (fnDecl.ParamTypes.Size != call.Arguments.Size) {
                     m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, fmt::format("Mismatched argument count, function expects {} but got {}", fnDecl.ParamTypes.Size, call.Arguments.Size));
@@ -278,15 +284,17 @@ namespace Aria::Internal {
 
             if (fmtStr.At(i) == '{') {
                 if (buf.Size() > 0) {
+                    StringBuilder tmpB;
+                    tmpB.Append(m_Context, buf);
+                    buf.Clear();
+
                     Expr* str = Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::StringConstant,
                         ExprValueKind::RValue, &StringType,
-                        StringConstantExpr(buf));
+                        StringConstantExpr(tmpB));
 
                     formattedArgs.Append(m_Context, { Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::Temporary,
                         ExprValueKind::RValue, &StringType,
                         TemporaryExpr(str, m_BuiltInStringDestructor)) });
-
-                    buf.Clear();
                 }
                 
                 if (idx + 1 >= format.Args.Size) {
@@ -303,15 +311,17 @@ namespace Aria::Internal {
         }
 
         if (buf.Size() > 0) {
+            StringBuilder tmpB;
+            tmpB.Append(m_Context, buf);
+            buf.Clear();
+
             Expr* str = Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::StringConstant,
                 ExprValueKind::RValue, &StringType,
-                StringConstantExpr(buf));
+                StringConstantExpr(tmpB));
 
             formattedArgs.Append(m_Context, { Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::Temporary,
                 ExprValueKind::RValue, &StringType,
                 TemporaryExpr(str, m_BuiltInStringDestructor)) });
-
-            buf.Clear();
         }
 
         format.ResolvedArgs = formattedArgs;
@@ -348,7 +358,7 @@ namespace Aria::Internal {
 
         if (cost.CastNeeded) {
             if (cost.ExplicitCastPossible) {
-                InsertImplicitCast(dstType, srcType, cast.Expression, cost.CaKind);
+                InsertImplicitCast(dstType, srcType, cast.Expression, cost.Kind);
             } else {
                 m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, fmt::format("Cannot cast '{}' to '{}'", TypeInfoToString(srcType), TypeInfoToString(dstType)));
             }
@@ -383,18 +393,26 @@ namespace Aria::Internal {
             case UnaryOperatorKind::AddressOf: {
                 if (type->IsError()) { expr->Type = type; break; }
 
+                if (!m_UnsafeContext) {
+                    m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Address of operation ('&') must be in an unsafe context");
+                }
+
                 if (unop.Expression->ValueKind != ExprValueKind::LValue) {
                     m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Address of operation ('&') requries an lvalue");
                 }
 
-                TypeInfo* newType = TypeInfo::Create(m_Context, PrimitiveType::Ptr, false);
-                newType->Data = type;
+                TypeInfo* newType = TypeInfo::Create(m_Context, TypeKind::Ptr, false);
+                newType->Base = type;
                 expr->Type = newType;
                 break;
             }
 
             case UnaryOperatorKind::Dereference: {
                 if (type->IsError()) { expr->Type = type; break; }
+
+                if (!m_UnsafeContext) {
+                    m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Dereferencing of pointer must be in an unsafe context");
+                }
 
                 if (unop.Expression->ValueKind != ExprValueKind::LValue) {
                     m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Dereferencing requires an lvalue");
@@ -403,7 +421,7 @@ namespace Aria::Internal {
                 RequireRValue(unop.Expression);
 
                 if (type->IsPointer()) {
-                    if (std::get<TypeInfo*>(type->Data)->IsVoid()) {
+                    if (type->Base->IsVoid()) {
                         m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, "Cannot dereference a void*");
                     }
                 } else {
@@ -411,7 +429,7 @@ namespace Aria::Internal {
                     break;
                 }
 
-                expr->Type = std::get<TypeInfo*>(type->Data);
+                expr->Type = type->Base;
                 expr->ValueKind = ExprValueKind::LValue;
                 break;
             }
@@ -513,7 +531,7 @@ namespace Aria::Internal {
 
                 if (cost.CastNeeded) {
                     if (cost.ImplicitCastPossible) {
-                        InsertImplicitCast(LHS->Type, RHS->Type, RHS, cost.CaKind);
+                        InsertImplicitCast(LHS->Type, RHS->Type, RHS, cost.Kind);
                     } else {
                         m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(RHS->Type), TypeInfoToString(LHS->Type)));
                     }
@@ -526,7 +544,7 @@ namespace Aria::Internal {
 
             case BinaryOperatorKind::LogAnd:
             case BinaryOperatorKind::LogOr: {
-                TypeInfo* boolType = TypeInfo::Create(m_Context, PrimitiveType::Bool, false);
+                TypeInfo* boolType = TypeInfo::Create(m_Context, TypeKind::Bool, false);
 
                 RequireRValue(LHS);
                 RequireRValue(RHS);
@@ -536,7 +554,7 @@ namespace Aria::Internal {
 
                 if (costLHS.CastNeeded) {
                     if (costLHS.ImplicitCastPossible) {
-                        InsertImplicitCast(boolType, LHS->Type, LHS, costLHS.CaKind);
+                        InsertImplicitCast(boolType, LHS->Type, LHS, costLHS.Kind);
                     } else {
                         m_Context->ReportCompilerDiagnostic(LHS->Loc, LHS->Range, fmt::format("Cannot implicitly convert from '{}' to 'bool'", TypeInfoToString(LHS->Type)));
                     }
@@ -544,7 +562,7 @@ namespace Aria::Internal {
 
                 if (costRHS.CastNeeded) {
                     if (costRHS.ImplicitCastPossible) {
-                        InsertImplicitCast(boolType, RHS->Type, RHS, costRHS.CaKind);
+                        InsertImplicitCast(boolType, RHS->Type, RHS, costRHS.Kind);
                     } else {
                         m_Context->ReportCompilerDiagnostic(LHS->Loc, LHS->Range, fmt::format("Cannot implicitly convert from '{}' to 'bool'", TypeInfoToString(RHS->Type)));
                     }
@@ -585,7 +603,7 @@ namespace Aria::Internal {
         
         if (cost.CastNeeded) {
             if (cost.ImplicitCastPossible) {
-                InsertImplicitCast(LHSType, RHSType, RHS, cost.CaKind);
+                InsertImplicitCast(LHSType, RHSType, RHS, cost.Kind);
                 RHSType = LHSType;
             } else {
                 m_Context->ReportCompilerDiagnostic(compAss.RHS->Loc, compAss.RHS->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(RHSType), TypeInfoToString(LHSType)));
@@ -644,7 +662,7 @@ namespace Aria::Internal {
 
     void SemanticAnalyzer::RequireRValue(Expr* expr) {
         if (expr->ValueKind == ExprValueKind::LValue) {
-            if (expr->Type->Type == PrimitiveType::String) {
+            if (expr->Type->Kind == TypeKind::String) {
                 ReplaceExpr(expr, Expr::Create(m_Context, expr->Loc, expr->Range, 
                     ExprKind::Copy, ExprValueKind::RValue, expr->Type, 
                     CopyExpr(Expr::Dup(m_Context, expr), m_BuiltInStringCopyConstructor)));
@@ -664,7 +682,7 @@ namespace Aria::Internal {
         TypeInfo* lhsType = lhs->Type;
         TypeInfo* rhsType = rhs->Type;
 
-        if (lhsType->Type == PrimitiveType::Error || rhsType->Type == PrimitiveType::Error) {
+        if (lhsType->Kind == TypeKind::Error || rhsType->Kind == TypeKind::Error) {
             return;
         }
 

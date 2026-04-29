@@ -123,7 +123,7 @@ namespace Aria::Internal {
         StackFrame m_ActiveStackFrame;
 
         std::unordered_map<Decl*, RuntimeStructDeclaration> m_Structs;
-        std::unordered_map<PrimitiveType, u16> m_BasicTypes;
+        std::unordered_map<TypeKind, u16> m_BasicTypes;
         u16 m_StructIndex = 0;
 
         // Counters

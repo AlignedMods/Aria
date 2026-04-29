@@ -10,17 +10,9 @@
 
 namespace Aria::Internal {
 
-    enum class ConversionKind {
-        None,
-        Promotion,
-        Narrowing,
-        SignChange,
-        LValueToRValue
-    };
 
     struct ConversionCost {
-        ConversionKind CoKind = ConversionKind::None;
-        CastKind CaKind = CastKind::Invalid;
+        CastKind Kind = CastKind::Invalid;
 
         bool CastNeeded = false;
         bool ImplicitCastPossible = false;

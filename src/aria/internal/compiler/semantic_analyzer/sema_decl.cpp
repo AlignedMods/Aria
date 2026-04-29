@@ -20,10 +20,6 @@ namespace Aria::Internal {
             if (varDecl.Type->IsVoid()) {
                 m_Context->ReportCompilerDiagnostic(decl->Loc, decl->Range, "Cannot declare variable of 'void' type");
             }
-
-            if (varDecl.Type->IsPointer() && !m_UnsafeContext) {
-                m_Context->ReportCompilerDiagnostic(decl->Loc, decl->Range, "Cannot declare variable of pointer type in a safe context");
-            }
         }
 
         ResolveVarInitializer(decl);
@@ -46,8 +42,8 @@ namespace Aria::Internal {
     void SemanticAnalyzer::ResolveFunctionDecl(Decl* decl) {
         FunctionDecl fnDecl = decl->Function;
 
-        for (auto& attr : decl->Attributes) {
-            if (attr.Kind == DeclAttributeKind::Unsafe) {
+        for (auto& attr : fnDecl.Attributes) {
+            if (attr.Kind == FunctionDecl::AttributeKind::Unsafe) {
                 m_UnsafeContext = true;
             }
         }
@@ -57,7 +53,7 @@ namespace Aria::Internal {
         
         if (fnDecl.Body) {
             m_CanReachEndOfFunction = true;
-            m_ActiveReturnType = std::get<FunctionDeclaration>(fnDecl.Type->Data).ReturnType;
+            m_ActiveReturnType = fnDecl.Type->Function.ReturnType;
             PushScope();
             
             for (Decl* p : fnDecl.Parameters) {
@@ -71,7 +67,7 @@ namespace Aria::Internal {
             PopScope();
             m_ActiveReturnType = nullptr;
 
-            if (m_CanReachEndOfFunction && !std::get<FunctionDeclaration>(fnDecl.Type->Data).ReturnType->IsVoid()) {
+            if (m_CanReachEndOfFunction && !fnDecl.Type->Function.ReturnType->IsVoid()) {
                 m_Context->ReportCompilerDiagnostic(decl->Loc, decl->Range, "Control flow reaches end of function with a non void return type");
             }
         }
@@ -87,7 +83,8 @@ namespace Aria::Internal {
         d.Identifier = s.Identifier;
         d.SourceDecl = decl;
         
-        TypeInfo* structType = TypeInfo::Create(m_Context, PrimitiveType::Structure, false, d);
+        TypeInfo* structType = TypeInfo::Create(m_Context, TypeKind::Structure, false);
+        structType->Struct = d;
         std::vector<Decl*> methods;
 
         for (Decl* field : s.Fields) {
@@ -117,7 +114,7 @@ namespace Aria::Internal {
             }
         }
 
-        m_ActiveStruct = TypeInfo::Create(m_Context, structType->Type, true, structType->Data);
+        m_ActiveStruct = TypeInfo::Dup(m_Context, structType);
         
         // for (MethodDecl* md : methods) {
         //     TypeInfo* returnType = GetTypeInfoFromString(md->GetParsedType());

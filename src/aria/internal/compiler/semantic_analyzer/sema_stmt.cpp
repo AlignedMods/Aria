@@ -7,9 +7,14 @@ namespace Aria::Internal {
     void SemanticAnalyzer::ResolveBlockStmt(Stmt* stmt) {
         BlockStmt block = stmt->Block;
 
+        bool wasUnsafe = m_UnsafeContext;
+        if (!m_UnsafeContext) { m_UnsafeContext = block.Unsafe; }
+
         for (Stmt* s : block.Stmts) {
             ResolveStmt(s);
         }
+
+        m_UnsafeContext = wasUnsafe;
     }
 
     void SemanticAnalyzer::ResolveWhileStmt(Stmt* stmt) {
@@ -111,7 +116,7 @@ namespace Aria::Internal {
         ConversionCost cost = GetConversionCost(m_ActiveReturnType, ret.Value->Type);
         if (cost.CastNeeded) {
             if (cost.ImplicitCastPossible) {
-                InsertImplicitCast(m_ActiveReturnType, ret.Value->Type, ret.Value, cost.CaKind);
+                InsertImplicitCast(m_ActiveReturnType, ret.Value->Type, ret.Value, cost.Kind);
             } else {
                 m_Context->ReportCompilerDiagnostic(ret.Value->Loc, ret.Value->Range, fmt::format("Cannot implicitly convert '{}' to return type '{}'", TypeInfoToString(ret.Value->Type), TypeInfoToString(m_ActiveReturnType)));
             }

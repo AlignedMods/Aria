@@ -105,7 +105,7 @@ namespace Aria::Internal {
         }
 
         TranslationUnitDecl root(stmts);
-        Decl* decl = Decl::Create(m_Context, SourceLocation(), SourceRange(), DeclKind::TranslationUnit, {}, DeclVisibility::Public, root);
+        Decl* decl = Decl::Create(m_Context, SourceLocation(), SourceRange(), DeclKind::TranslationUnit, root);
         m_Context->ActiveCompUnit->RootASTNode = Stmt::Create(m_Context, SourceLocation(), SourceRange(), StmtKind::Decl, decl);
     }
 
@@ -283,7 +283,7 @@ namespace Aria::Internal {
 
         Token* tok = Peek();
         if (!tok) {
-            m_Context->ReportCompilerDiagnostic(tok->Range.Start, tok->Range, "Expected an expression");
+            m_Context->ReportCompilerDiagnostic(op.Range.Start, op.Range, "Expected an expression");
             return &g_ErrorExpr;
         }
         ParseExprFn prefixRule = m_ExprRules[tok->Kind].Prefix;
@@ -393,8 +393,11 @@ namespace Aria::Internal {
             }
     
             case TokenKind::StrLit: {
+                TypeInfo* type = TypeInfo::Create(m_Context, TypeKind::Slice, false);
+                type->Base = &CharType;
+
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::StringConstant,
-                    ExprValueKind::RValue, &StringType, 
+                    ExprValueKind::RValue, type, 
                     StringConstantExpr(t.String));
             }
 
@@ -518,6 +521,14 @@ namespace Aria::Internal {
         return ParsePrecedence(PREC_ASSIGNMENT);
     }
 
+    bool Parser::IsExpression() {
+        if (!Peek()) { return false; }
+        ParseExprFn prefixRule = m_ExprRules[Peek()->Kind].Prefix;
+
+        if (!prefixRule) { return false; }
+        return true;
+    }
+
     bool Parser::IsPrimitiveType() {
         if (!Peek()) { return false; }
 
@@ -546,41 +557,55 @@ namespace Aria::Internal {
     TypeInfo* Parser::ParseType() {
         ARIA_ASSERT(IsPrimitiveType() || Match(TokenKind::Identifier), "Cannot parse a type out of a non type");
 
-        TypeInfo* type = TypeInfo::Create(m_Context, PrimitiveType::Error, false);
+        TypeInfo* type = TypeInfo::Create(m_Context, TypeKind::Error, false);
 
         switch (Consume().Kind) {
-            case TokenKind::Void:       type->Type = PrimitiveType::Void; break;
+            case TokenKind::Void:       type->Kind = TypeKind::Void; break;
 
-            case TokenKind::Bool:       type->Type = PrimitiveType::Bool; break;
+            case TokenKind::Bool:       type->Kind = TypeKind::Bool; break;
 
-            case TokenKind::Char:       type->Type = PrimitiveType::Char; break;
-            case TokenKind::UChar:      type->Type = PrimitiveType::UChar; break;
-            case TokenKind::Short:      type->Type = PrimitiveType::Short; break;
-            case TokenKind::UShort:     type->Type = PrimitiveType::UShort; break;
-            case TokenKind::Int:        type->Type = PrimitiveType::Int; break;
-            case TokenKind::UInt:       type->Type = PrimitiveType::UInt; break;
-            case TokenKind::Long:       type->Type = PrimitiveType::Long; break;
-            case TokenKind::ULong:      type->Type = PrimitiveType::ULong; break;
+            case TokenKind::Char:       type->Kind = TypeKind::Char; break;
+            case TokenKind::UChar:      type->Kind = TypeKind::UChar; break;
+            case TokenKind::Short:      type->Kind = TypeKind::Short; break;
+            case TokenKind::UShort:     type->Kind = TypeKind::UShort; break;
+            case TokenKind::Int:        type->Kind = TypeKind::Int; break;
+            case TokenKind::UInt:       type->Kind = TypeKind::UInt; break;
+            case TokenKind::Long:       type->Kind = TypeKind::Long; break;
+            case TokenKind::ULong:      type->Kind = TypeKind::ULong; break;
 
-            case TokenKind::Float:      type->Type = PrimitiveType::Float; break;
-            case TokenKind::Double:     type->Type = PrimitiveType::Double; break;
+            case TokenKind::Float:      type->Kind = TypeKind::Float; break;
+            case TokenKind::Double:     type->Kind = TypeKind::Double; break;
 
-            case TokenKind::String:     type->Type = PrimitiveType::String; break;
+            case TokenKind::String:     type->Kind = TypeKind::String; break;
 
             case TokenKind::Identifier: {
                 Expr* ident = ParseIdentifier(*Peek(-1));
-                type->Type = PrimitiveType::Unresolved;
-                type->Data = UnresolvedType(ident);
+                type->Kind = TypeKind::Unresolved;
+                type->Unresolved = UnresolvedType(ident);
                 break;
             }
 
             default: ARIA_UNREACHABLE(); break;
         }
 
+        if (Match(TokenKind::LeftBracket)) {
+            Consume();
+
+            if (IsExpression()) {
+                type->Array = ArrayDeclaration(TypeInfo::Dup(m_Context, type), ParseExpression());
+                type->Kind = TypeKind::Array;
+            } else {
+                type->Base = TypeInfo::Dup(m_Context, type);
+                type->Kind = TypeKind::Slice;
+            }
+
+            TryConsume(TokenKind::RightBracket, "]");
+        }
+
         while (Match(TokenKind::Star)) {
             Consume();
-            type->Data = TypeInfo::Dup(m_Context, type);
-            type->Type = PrimitiveType::Ptr;
+            type->Base = TypeInfo::Dup(m_Context, type);
+            type->Kind = TypeKind::Ptr;
         }
 
         if (Match(TokenKind::Ampersand)) {
@@ -591,7 +616,7 @@ namespace Aria::Internal {
         return type;
     }
 
-    Stmt* Parser::ParseBlock() {
+    Stmt* Parser::ParseBlock(bool unsafe) {
         TinyVector<Stmt*> stmts;
         Token* l = TryConsume(TokenKind::LeftCurly, "'{'");
         if (!l) { return nullptr; }
@@ -607,10 +632,10 @@ namespace Aria::Internal {
         Token* r = TryConsume(TokenKind::RightCurly, "'}'");
         if (!r) { return nullptr; }
 
-        return Stmt::Create(m_Context, l->Range.Start, SourceRange(l->Range.Start, r->Range.End), StmtKind::Block, BlockStmt(stmts));
+        return Stmt::Create(m_Context, l->Range.Start, SourceRange(l->Range.Start, r->Range.End), StmtKind::Block, BlockStmt(stmts, unsafe));
     }
 
-    Stmt* Parser::ParseBlockInline() {
+    Stmt* Parser::ParseBlockInline(bool unsafe) {
         if (Match(TokenKind::LeftCurly)) {
             return ParseBlock();
         } else {
@@ -620,7 +645,7 @@ namespace Aria::Internal {
             TinyVector<Stmt*> stmts;
             stmts.Append(m_Context, stmt);
 
-            return Stmt::Create(m_Context, stmt->Loc, stmt->Range, StmtKind::Block, BlockStmt(stmts));
+            return Stmt::Create(m_Context, stmt->Loc, stmt->Range, StmtKind::Block, BlockStmt(stmts, unsafe));
         }
     }
 
@@ -792,6 +817,10 @@ namespace Aria::Internal {
             case TokenKind::Let:
                 return ParseDeclarationStatement(false);
 
+            case TokenKind::Unsafe:
+                Consume();
+                return ParseBlockInline(true);
+
             case TokenKind::Fn: {
                 Token& tok = Consume();
                 m_Context->ReportCompilerDiagnostic(tok.Range.Start, tok.Range, fmt::format("Function declaration is not allowed here"));
@@ -836,7 +865,8 @@ namespace Aria::Internal {
             }
 
             case TokenKind::AtExtern:
-            case TokenKind::AtNoMangle: {
+            case TokenKind::AtNoMangle:
+            case TokenKind::AtUnsafe: {
                 Token& tok = Consume();
                 m_Context->ReportCompilerDiagnostic(tok.Range.Start, tok.Range, fmt::format("Unexpected attribute '{}' while looking for statement", TokenKindToString(tok.Kind)));
                 return &g_ErrorStmt;
@@ -902,7 +932,7 @@ namespace Aria::Internal {
         Module* module = m_Context->FindOrCreateModule(fmt::format("{}", ident->String));
         m_Context->ActiveCompUnit->Parent = module;
 
-        return Decl::Create(m_Context, ident->Range.Start, SourceRange(mod.Range.Start, Peek(-1)->Range.End), DeclKind::Module, {}, DeclVisibility::Public, ModuleDecl(ident->String));
+        return Decl::Create(m_Context, ident->Range.Start, SourceRange(mod.Range.Start, Peek(-1)->Range.End), DeclKind::Module, ModuleDecl(ident->String));
     }
 
     Stmt* Parser::ParseImportStmt() {
@@ -952,7 +982,7 @@ namespace Aria::Internal {
 
         TryConsume(TokenKind::Semi, ";");
 
-        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Var, {}, m_CurrentVisibility, VarDecl(ident->String, type, value, global));
+        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Var, VarDecl(ident->String, type, value, global));
 
         if (global) {
             m_Context->ActiveCompUnit->Globals.push_back(decl);
@@ -965,7 +995,7 @@ namespace Aria::Internal {
         SourceLocation start = Peek()->Range.Start;
         Token fn = Consume(); // Consume "fn"
         TypeInfo* type = &ErrorType;
-        TinyVector<DeclAttribute> attrs;
+        TinyVector<FunctionDecl::Attribute> attrs;
 
         if (IsPrimitiveType()) {
             m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected an indentifier but got a type (NOTE: function declarations look like: fn name() -> type {...})");
@@ -984,11 +1014,11 @@ namespace Aria::Internal {
             if (!(IsPrimitiveType() || Match(TokenKind::Identifier))) {
                 m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected a type after '->'");
                 SyncLocal();
-            } else if (type->Type == PrimitiveType::Error) {
+            } else if (type->IsError()) {
                 type = ParseType();
             }
 
-            attrs = ParseDeclarationAttrs();
+            attrs = ParseFunctionAttrs();
         }
         
         Stmt* body = nullptr;
@@ -1003,8 +1033,9 @@ namespace Aria::Internal {
         typeDecl.ReturnType = type;
         typeDecl.ParamTypes = paramTypes;
 
-        TypeInfo* finalType = TypeInfo::Create(m_Context, PrimitiveType::Function, false, typeDecl);
-        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Function, attrs, m_CurrentVisibility, FunctionDecl(ident->String, finalType, params, body));
+        TypeInfo* finalType = TypeInfo::Create(m_Context, TypeKind::Function, false);
+        finalType->Function = typeDecl;
+        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Function, FunctionDecl(ident->String, finalType, params, body, attrs));
 
         m_Context->ActiveCompUnit->Funcs.push_back(decl);
         return decl;
@@ -1040,7 +1071,7 @@ namespace Aria::Internal {
 
             TypeInfo* paramType = ParseType();
             
-            params.Append(m_Context, Decl::Create(m_Context, paramIdent->Range.Start, paramIdent->Range, DeclKind::Param, {}, DeclVisibility::Private, ParamDecl(paramIdent->String, paramType)));
+            params.Append(m_Context, Decl::Create(m_Context, paramIdent->Range.Start, paramIdent->Range, DeclKind::Param, ParamDecl(paramIdent->String, paramType)));
             paramTypes.Append(m_Context, paramType);
 
             if (Match(TokenKind::Comma)) { Consume(); continue; }
@@ -1078,7 +1109,7 @@ namespace Aria::Internal {
                     def.HasDefaultCtor = true;
                     def.HasUserDefaultCtor = true;
 
-                    fields.Append(m_Context, Decl::Create(m_Context, start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Constructor, {}, DeclVisibility::Private, ConstructorDecl({}, body)));
+                    fields.Append(m_Context, Decl::Create(m_Context, start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Constructor, ConstructorDecl({}, body)));
                 } else {
                     Token* fieldName = TryConsume(TokenKind::Identifier, "identifier");
                     if (!fieldName) { SyncLocal(); continue; }
@@ -1092,7 +1123,7 @@ namespace Aria::Internal {
                         if (Match(TokenKind::Semi)) { Consume(); }
                     }
 
-                    fields.Append(m_Context, Decl::Create(m_Context, fieldName->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Field, {}, DeclVisibility::Private, FieldDecl(fieldName->String, type)));
+                    fields.Append(m_Context, Decl::Create(m_Context, fieldName->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Field, FieldDecl(fieldName->String, type)));
                 }
             } else if (Match(TokenKind::Squigly)) {
                 Consume();
@@ -1110,7 +1141,7 @@ namespace Aria::Internal {
                 def.HasUserDtor = true;
                 def.TrivialDtor = false;
 
-                fields.Append(m_Context, Decl::Create(m_Context, start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Destructor, {}, DeclVisibility::Private, DestructorDecl(body)));
+                fields.Append(m_Context, Decl::Create(m_Context, start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Destructor, DestructorDecl(body)));
             } else {
                 m_Context->ReportCompilerDiagnostic(start, SourceRange(start, start), "Expected identifier or '~'");
                 SyncLocal();
@@ -1118,13 +1149,13 @@ namespace Aria::Internal {
         }
         TryConsume(TokenKind::RightCurly, "}");
         
-        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(s.Range.Start, Peek(-1)->Range.End), DeclKind::Struct, {}, m_CurrentVisibility, StructDecl(ident->String, def, fields));
+        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(s.Range.Start, Peek(-1)->Range.End), DeclKind::Struct, StructDecl(ident->String, def, fields));
         m_Context->ActiveCompUnit->Structs.push_back(decl);
         return decl;
     }
 
-    TinyVector<DeclAttribute> Parser::ParseDeclarationAttrs() {
-        TinyVector<DeclAttribute> attrs;
+    TinyVector<FunctionDecl::Attribute> Parser::ParseFunctionAttrs() {
+        TinyVector<FunctionDecl::Attribute> attrs;
         bool hasExtern = false;
         bool hasNoMangle = false;
         bool hasUnsafe = false;
@@ -1140,8 +1171,8 @@ namespace Aria::Internal {
                 Token* name = TryConsume(TokenKind::StrLit, "string literal");
                 TryConsume(TokenKind::RightParen, ")");
 
-                DeclAttribute attr;
-                attr.Kind = DeclAttributeKind::Extern;
+                FunctionDecl::Attribute attr;
+                attr.Kind = FunctionDecl::AttributeKind::Extern;
                 if (name) { attr.Arg = name->String; }
 
                 attrs.Append(m_Context, attr);
@@ -1151,13 +1182,13 @@ namespace Aria::Internal {
                 if (hasExtern) { m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "@nomangle and @extern must be mutually exclusive"); }
 
                 Consume();
-                attrs.Append(m_Context, { DeclAttributeKind::NoMangle });
+                attrs.Append(m_Context, { FunctionDecl::AttributeKind::NoMangle });
                 hasNoMangle = true;
             } else if (Match(TokenKind::AtUnsafe)) {
                 if (hasUnsafe) { m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "@unsafe attribute was already added"); }
 
                 Consume();
-                attrs.Append(m_Context, { DeclAttributeKind::Unsafe });
+                attrs.Append(m_Context, { FunctionDecl::AttributeKind::Unsafe });
                 hasUnsafe = true;
             } else {
                 break;

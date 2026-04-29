@@ -70,6 +70,7 @@ namespace Aria::Internal {
         Self,
         Fn,
         Struct,
+        Unsafe,
         AtExtern, // @extern
         AtNoMangle, // @nomangle
         AtUnsafe, // @unsafe
@@ -176,6 +177,7 @@ namespace Aria::Internal {
             case TokenKind::Self: return "self";
             case TokenKind::Fn: return "fn";
             case TokenKind::Struct: return "struct";
+            case TokenKind::Unsafe: return "unsafe";
             case TokenKind::AtExtern: return "@extern";
             case TokenKind::AtNoMangle: return "@nomangle";
             case TokenKind::AtUnsafe: return "@unsafe";

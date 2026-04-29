@@ -43,12 +43,13 @@ namespace Aria::Internal {
         Expr* ParsePrecedenceWithLeft(Expr* left, size_t precedence);
         Expr* ParsePrecedence(size_t precedence);
         Expr* ParseExpression();
+        bool IsExpression();
 
         bool IsPrimitiveType();
         TypeInfo* ParseType();
 
-        Stmt* ParseBlock();
-        Stmt* ParseBlockInline();
+        Stmt* ParseBlock(bool unsafe = false);
+        Stmt* ParseBlockInline(bool unsafe = false);
         Stmt* ParseWhile();
         Stmt* ParseDoWhile();
         Stmt* ParseFor();
@@ -71,7 +72,7 @@ namespace Aria::Internal {
         std::pair<TinyVector<Decl*>, TinyVector<TypeInfo*>> ParseFunctionParams();
         Decl* ParseStructDecl();
 
-        TinyVector<DeclAttribute> ParseDeclarationAttrs();
+        TinyVector<FunctionDecl::Attribute> ParseFunctionAttrs();
 
         Stmt* ParseGlobal();
 
@@ -88,7 +89,6 @@ namespace Aria::Internal {
         Tokens m_Tokens;
 
         bool m_DeclaredModule = false;
-        DeclVisibility m_CurrentVisibility = DeclVisibility::Public;
 
         using ParseExprFn = std::function<Expr*(Expr*)>;
         struct ParseExprRule {

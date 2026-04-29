@@ -26,7 +26,7 @@ namespace Aria::Internal {
     }
 
     void Emitter::AddBasicTypes() {
-        #define ADD_TYPE(vmType, primType) do { m_OpCodes.TypeTable.emplace_back(VMTypeKind::vmType); m_BasicTypes[PrimitiveType::primType] = static_cast<u16>(i); i++; } while (0)
+        #define ADD_TYPE(vmType, primType) do { m_OpCodes.TypeTable.emplace_back(VMTypeKind::vmType); m_BasicTypes[TypeKind::primType] = static_cast<u16>(i); i++; } while (0)
 
         size_t i = 0;
         ADD_TYPE(Void, Void);
@@ -41,8 +41,8 @@ namespace Aria::Internal {
         ADD_TYPE(U64, ULong);
         ADD_TYPE(Float, Float);
         ADD_TYPE(Double, Double);
-        ADD_TYPE(String, String);
         ADD_TYPE(Ptr, Ptr);
+        ADD_TYPE(Slice, Slice);
 
         #undef ADD_TYPE
     }
@@ -186,9 +186,9 @@ namespace Aria::Internal {
         PUSH_PENDING_OP(OP_LD_CONST);
         PUSH_PENDING_OP(TypeInfoToVMTypeIdx(expr->Type));
 
-        switch (expr->Type->Type) {
-            case PrimitiveType::Float: ADD_CONSTANT(static_cast<float>(fc.Value)); break;
-            case PrimitiveType::Double: ADD_CONSTANT(static_cast<double>(fc.Value)); break;
+        switch (expr->Type->Kind) {
+            case TypeKind::Float: ADD_CONSTANT(static_cast<float>(fc.Value)); break;
+            case TypeKind::Double: ADD_CONSTANT(static_cast<double>(fc.Value)); break;
 
             default: ARIA_UNREACHABLE();
         }
@@ -397,9 +397,9 @@ namespace Aria::Internal {
         }
 
         std::string ident;
-        for (auto& attr : call.Callee->DeclRef.ReferencedDecl->Attributes) {
-            if (attr.Kind == DeclAttributeKind::Extern) { ident = fmt::format("{}", attr.Arg); }
-            else if (attr.Kind == DeclAttributeKind::NoMangle) { ident = fmt::format("{}()", call.Callee->DeclRef.Identifier); }
+        for (auto& attr : call.Callee->DeclRef.ReferencedDecl->Function.Attributes) {
+            if (attr.Kind == FunctionDecl::AttributeKind::Extern) { ident = fmt::format("{}", attr.Arg); }
+            else if (attr.Kind == FunctionDecl::AttributeKind::NoMangle) { ident = fmt::format("{}()", call.Callee->DeclRef.Identifier); }
         }
 
         if (ident.empty()) {
@@ -454,7 +454,7 @@ namespace Aria::Internal {
         // 
         // size_t retCount = 0;
         // TypeInfo* retType = call->GetResolvedType();
-        // if (retType->Type != PrimitiveType::Void) {
+        // if (retType->Type != TypeKind::Void) {
         //     PUSH_PENDING_OP(OpCodeKind::Alloca, TypeInfoToVMType(retType));
         //     retCount = 1;
         // }
@@ -535,6 +535,10 @@ namespace Aria::Internal {
                 }
 
                 case CastKind::BitCast: {
+                    break;
+                }
+
+                case CastKind::ArrayToSlice: {
                     break;
                 }
 
@@ -826,10 +830,10 @@ namespace Aria::Internal {
         Declaration d;
         d.Type = varDecl.Type;
         
-        if (varDecl.Type->Type == PrimitiveType::String) {
-            d.Destructor = Decl::Create(m_Context, SourceLocation(), SourceRange(), DeclKind::BuiltinDestructor, {}, DeclVisibility::Private, BuiltinDestructorDecl(BuiltinKind::String));
-        } else if (varDecl.Type->Type == PrimitiveType::Structure) {
-            StructDeclaration& sDecl = std::get<StructDeclaration>(varDecl.Type->Data);
+        if (varDecl.Type->IsString()) {
+            d.Destructor = Decl::Create(m_Context, SourceLocation(), SourceRange(), DeclKind::BuiltinDestructor, BuiltinDestructorDecl(BuiltinKind::String));
+        } else if (varDecl.Type->IsStructure()) {
+            StructDeclaration& sDecl = varDecl.Type->Struct;
             Decl* dtor = nullptr;
 
             for (auto& field : sDecl.SourceDecl->Struct.Fields) {
@@ -891,9 +895,9 @@ namespace Aria::Internal {
         FunctionDecl& fnDecl = decl->Function;
 
         std::string sig;
-        for (auto& attr : decl->Attributes) {
-            if (attr.Kind == DeclAttributeKind::Extern) { return; }
-            if (attr.Kind == DeclAttributeKind::NoMangle) { sig = fmt::format("{}()", fnDecl.Identifier); break; }
+        for (auto& attr : fnDecl.Attributes) {
+            if (attr.Kind == FunctionDecl::AttributeKind::Extern) { return; }
+            if (attr.Kind == FunctionDecl::AttributeKind::NoMangle) { sig = fmt::format("{}()", fnDecl.Identifier); break; }
         }
 
         if (sig.empty()) {
@@ -909,7 +913,7 @@ namespace Aria::Internal {
             PUSH_OP(STR_IDX(-1));
             PushStackFrame(sig);
             
-            size_t returnSlot = (std::get<FunctionDeclaration>(fnDecl.Type->Data).ReturnType->Type == PrimitiveType::Void) ? 0 : 1;
+            size_t returnSlot = (fnDecl.Type->Function.ReturnType->Kind == TypeKind::Void) ? 0 : 1;
             
             for (Decl* p : fnDecl.Parameters) {
                 EmitParamDecl(p);
@@ -926,7 +930,7 @@ namespace Aria::Internal {
             PUSH_OP(OP_ENDFUNCTION);
         
             CompilerReflectionDeclaration d;
-            d.TypeIndex = TypeInfoToVMTypeIdx(std::get<FunctionDeclaration>(fnDecl.Type->Data).ReturnType);
+            d.TypeIndex = TypeInfoToVMTypeIdx(fnDecl.Type->Function.ReturnType);
             d.Kind = ReflectionKind::Function;
         
             m_ReflectionData.Declarations[sig] = d;
@@ -1235,12 +1239,12 @@ namespace Aria::Internal {
     }
 
     OpCode Emitter::TypeInfoToVMTypeIdx(TypeInfo* t) {
-        if (t->IsTrivial()) {
-            return static_cast<OpCode>(m_BasicTypes[t->Type]);
+        if (t->IsPrimitive()) {
+            return static_cast<OpCode>(m_BasicTypes[t->Kind]);
         }
 
         if (t->IsStructure()) {
-            return static_cast<OpCode>(m_Structs.at(std::get<StructDeclaration>(t->Data).SourceDecl).Index);
+            return static_cast<OpCode>(m_Structs.at(t->Struct.SourceDecl).Index);
         }
 
         ARIA_UNREACHABLE();

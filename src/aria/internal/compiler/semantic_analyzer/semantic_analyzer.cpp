@@ -5,8 +5,8 @@ namespace Aria::Internal {
     SemanticAnalyzer::SemanticAnalyzer(CompilationContext* ctx) {
         m_Context = ctx;
 
-        m_BuiltInStringDestructor = Decl::Create(m_Context, {}, {}, DeclKind::BuiltinDestructor, {}, DeclVisibility::Private, BuiltinDestructorDecl(BuiltinKind::String));
-        m_BuiltInStringCopyConstructor = Decl::Create(m_Context, {}, {}, DeclKind::BuiltinCopyConstructor, {}, DeclVisibility::Private, BuiltinCopyConstructorDecl(BuiltinKind::String));
+        m_BuiltInStringDestructor = Decl::Create(m_Context, {}, {}, DeclKind::BuiltinDestructor, BuiltinDestructorDecl(BuiltinKind::String));
+        m_BuiltInStringCopyConstructor = Decl::Create(m_Context, {}, {}, DeclKind::BuiltinCopyConstructor, BuiltinCopyConstructorDecl(BuiltinKind::String));
 
         SemaImpl();
     }

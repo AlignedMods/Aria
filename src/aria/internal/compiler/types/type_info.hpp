@@ -13,7 +13,7 @@ namespace Aria::Internal {
     struct Expr;
     struct Decl;
 
-    enum class PrimitiveType {
+    enum class TypeKind {
         Error = 0,
         Void,
 
@@ -28,11 +28,12 @@ namespace Aria::Internal {
         Double,
 
         Ptr,
+        Array,
+        Slice,
 
         Function,
 
         String,
-        Array,
         Structure,
 
         Unresolved
@@ -52,6 +53,8 @@ namespace Aria::Internal {
 
     struct ArrayDeclaration {
         TypeInfo* Type = nullptr;
+        Expr* Expression = nullptr;
+        u64 Size = 0;
     };
 
     struct UnresolvedType {
@@ -59,36 +62,42 @@ namespace Aria::Internal {
     };
 
     struct TypeInfo {
-        PrimitiveType Type = PrimitiveType::Error;
-        std::variant<size_t, TypeInfo*, FunctionDeclaration, ArrayDeclaration, StructDeclaration, UnresolvedType> Data;
+        TypeKind Kind = TypeKind::Error;
+        union {
+            TypeInfo* Base = nullptr;
+            FunctionDeclaration Function;
+            ArrayDeclaration Array;
+            StructDeclaration Struct;
+            UnresolvedType Unresolved;
+        };
         bool Reference = false;
 
-        static TypeInfo* Create(CompilationContext* ctx, PrimitiveType type, bool isReference, decltype(TypeInfo::Data) data = {});
+        static TypeInfo* Create(CompilationContext* ctx, TypeKind kind, bool isReference);
         static TypeInfo* Dup(CompilationContext* ctx, TypeInfo* type);
 
-        bool IsError() const { return Type == PrimitiveType::Error; }
+        bool IsError() const { return Kind == TypeKind::Error; }
 
-        bool IsTrivial() const {
-            return IsVoid() || IsBoolean() || IsNumeric() || IsPointer() || IsString();
+        bool IsPrimitive() const {
+            return IsVoid() || IsBoolean() || IsNumeric() || IsPointer() || IsSlice() || IsString();
         }
 
         bool IsVoid() const {
-            return Type == PrimitiveType::Void;
+            return Kind == TypeKind::Void;
         }
 
         bool IsBoolean() const {
-            return Type == PrimitiveType::Bool;
+            return Kind == TypeKind::Bool;
         }
 
         bool IsIntegral() const {
-            return Type == PrimitiveType::Char  || Type == PrimitiveType::UChar  ||
-                   Type == PrimitiveType::Short || Type == PrimitiveType::UShort ||
-                   Type == PrimitiveType::Int   || Type == PrimitiveType::UInt   ||
-                   Type == PrimitiveType::Long  || Type == PrimitiveType::ULong;
+            return Kind == TypeKind::Char  || Kind == TypeKind::UChar  ||
+                   Kind == TypeKind::Short || Kind == TypeKind::UShort ||
+                   Kind == TypeKind::Int   || Kind == TypeKind::UInt   ||
+                   Kind == TypeKind::Long  || Kind == TypeKind::ULong;
         }
 
         bool IsFloatingPoint() const {
-            return Type == PrimitiveType::Float || Type == PrimitiveType::Double;
+            return Kind == TypeKind::Float || Kind == TypeKind::Double;
         }
 
         bool IsNumeric() const {
@@ -96,29 +105,37 @@ namespace Aria::Internal {
         }
 
         bool IsPointer() const {
-            return Type == PrimitiveType::Ptr;
+            return Kind == TypeKind::Ptr;
+        }
+
+        bool IsArray() const {
+            return Kind == TypeKind::Array;
+        }
+
+        bool IsSlice() const {
+            return Kind == TypeKind::Slice;
         }
 
         bool IsFunction() const {
-            return Type == PrimitiveType::Function;
+            return Kind == TypeKind::Function;
         }
 
         bool IsStructure() const {
-            return Type == PrimitiveType::Structure;
+            return Kind == TypeKind::Structure;
         }
 
         bool IsString() const {
-            return Type == PrimitiveType::String;
+            return Kind == TypeKind::String;
         }
 
         bool IsSigned() const {
             ARIA_ASSERT(IsIntegral(), "IsSigned() cannot operate on a non-integral type");
-            return Type == PrimitiveType::Char || Type == PrimitiveType::Short || Type == PrimitiveType::Int || Type == PrimitiveType::Long;
+            return Kind == TypeKind::Char || Kind == TypeKind::Short || Kind == TypeKind::Int || Kind == TypeKind::Long;
         }
 
         bool IsUnsigned() const {
             ARIA_ASSERT(IsIntegral(), "IsUnsigned() cannot operate on a non-integral type");
-            return Type == PrimitiveType::UChar || Type == PrimitiveType::UShort || Type == PrimitiveType::UInt || Type == PrimitiveType::ULong;
+            return Kind == TypeKind::UChar || Kind == TypeKind::UShort || Kind == TypeKind::UInt || Kind == TypeKind::ULong;
         }
 
         bool IsReference() const {
@@ -129,34 +146,46 @@ namespace Aria::Internal {
     inline std::string TypeInfoToString(TypeInfo* type) {
         std::string str;
 
-        switch (type->Type) {
-            case PrimitiveType::Error:   str = "error"; break;
-            case PrimitiveType::Void:    str = "void"; break;
+        switch (type->Kind) {
+            case TypeKind::Error:   str = "error"; break;
+            case TypeKind::Void:    str = "void"; break;
 
-            case PrimitiveType::Bool:    str = "bool"; break;
+            case TypeKind::Bool:    str = "bool"; break;
 
-            case PrimitiveType::Char:    str = "char"; break;
-            case PrimitiveType::UChar:   str = "uchar"; break;
-            case PrimitiveType::Short:   str = "short"; break;
-            case PrimitiveType::UShort:  str = "ushort"; break;
-            case PrimitiveType::Int:     str = "int"; break;
-            case PrimitiveType::UInt:    str = "uint"; break;
-            case PrimitiveType::Long:    str = "long"; break;
-            case PrimitiveType::ULong:   str = "ulong"; break;
+            case TypeKind::Char:    str = "char"; break;
+            case TypeKind::UChar:   str = "uchar"; break;
+            case TypeKind::Short:   str = "short"; break;
+            case TypeKind::UShort:  str = "ushort"; break;
+            case TypeKind::Int:     str = "int"; break;
+            case TypeKind::UInt:    str = "uint"; break;
+            case TypeKind::Long:    str = "long"; break;
+            case TypeKind::ULong:   str = "ulong"; break;
 
-            case PrimitiveType::Float:   str = "float"; break;
-            case PrimitiveType::Double:  str = "double"; break;
+            case TypeKind::Float:   str = "float"; break;
+            case TypeKind::Double:  str = "double"; break;
 
-            case PrimitiveType::Ptr: {
-                TypeInfo* t = std::get<TypeInfo*>(type->Data);
+            case TypeKind::Ptr: {
+                TypeInfo* t = type->Base;
                 str = fmt::format("{}*", TypeInfoToString(t));
                 break;
             }
 
-            case PrimitiveType::String:  str = "string"; break;
+            case TypeKind::Array: {
+                ArrayDeclaration& arr = type->Array;
+                str = fmt::format("{}[{}]", TypeInfoToString(arr.Type), arr.Size);
+                break;
+            }
 
-            case PrimitiveType::Function: {
-                FunctionDeclaration decl = std::get<FunctionDeclaration>(type->Data);
+            case TypeKind::Slice: {
+                TypeInfo* t = type->Base;
+                str = fmt::format("{}[]", TypeInfoToString(t));
+                break;
+            }
+
+            case TypeKind::String: str = "string"; break;
+
+            case TypeKind::Function: {
+                FunctionDeclaration decl = type->Function;
 
                 str += TypeInfoToString(decl.ReturnType);
                 str += "(";
@@ -172,21 +201,14 @@ namespace Aria::Internal {
                 break;
             }
 
-            case PrimitiveType::Array: {
-                ArrayDeclaration decl = std::get<ArrayDeclaration>(type->Data);
-
-                str = fmt::format("{}[]", TypeInfoToString(decl.Type));
-                break;
-            }
-
-            case PrimitiveType::Structure: {
-                StructDeclaration decl = std::get<StructDeclaration>(type->Data);
+            case TypeKind::Structure: {
+                StructDeclaration decl = type->Struct;
 
                 str = fmt::format("struct {}", decl.Identifier);
                 break;
             }
 
-            case PrimitiveType::Unresolved: {
+            case TypeKind::Unresolved: {
                 str = "unresolved";
                 break;
             }
@@ -202,20 +224,20 @@ namespace Aria::Internal {
     }
 
     // To avoid unnecessary allocations of primitive types we declare them here globally
-    inline TypeInfo ErrorType =   { PrimitiveType::Error };
-    inline TypeInfo VoidType =    { PrimitiveType::Void };
-    inline TypeInfo BoolType =    { PrimitiveType::Bool };
-    inline TypeInfo CharType =    { PrimitiveType::Char };
-    inline TypeInfo UCharType =   { PrimitiveType::UChar };
-    inline TypeInfo ShortType =   { PrimitiveType::Short };
-    inline TypeInfo UShortType =  { PrimitiveType::UShort };
-    inline TypeInfo IntType =     { PrimitiveType::Int };
-    inline TypeInfo UIntType =    { PrimitiveType::UInt };
-    inline TypeInfo LongType =    { PrimitiveType::Long };
-    inline TypeInfo ULongType =   { PrimitiveType::ULong };
-    inline TypeInfo DoubleType =  { PrimitiveType::Double };
-    inline TypeInfo FloatType =   { PrimitiveType::Float };
-    inline TypeInfo StringType =  { PrimitiveType::String };
-    inline TypeInfo VoidPtrType = { PrimitiveType::Ptr, &VoidType };
+    inline TypeInfo ErrorType =   { TypeKind::Error };
+    inline TypeInfo VoidType =    { TypeKind::Void };
+    inline TypeInfo BoolType =    { TypeKind::Bool };
+    inline TypeInfo CharType =    { TypeKind::Char };
+    inline TypeInfo UCharType =   { TypeKind::UChar };
+    inline TypeInfo ShortType =   { TypeKind::Short };
+    inline TypeInfo UShortType =  { TypeKind::UShort };
+    inline TypeInfo IntType =     { TypeKind::Int };
+    inline TypeInfo UIntType =    { TypeKind::UInt };
+    inline TypeInfo LongType =    { TypeKind::Long };
+    inline TypeInfo ULongType =   { TypeKind::ULong };
+    inline TypeInfo DoubleType =  { TypeKind::Double };
+    inline TypeInfo FloatType =   { TypeKind::Float };
+    inline TypeInfo StringType =  { TypeKind::String };
+    inline TypeInfo VoidPtrType = { TypeKind::Ptr, &VoidType };
 
 } // namespace Aria::Internal

@@ -45,6 +45,7 @@ namespace Aria::Internal {
         IntegralToFloating,
         FloatingToIntegral,
         BitCast,
+        ArrayToSlice,
 
         LValueToRValue
     };
@@ -56,6 +57,7 @@ namespace Aria::Internal {
             case CastKind::IntegralToFloating: return "IntegralToFloating";
             case CastKind::FloatingToIntegral: return "FloatingToIntegral";
             case CastKind::BitCast: return "BitCast";
+            case CastKind::ArrayToSlice: return "ArrayToSlice";
             case CastKind::LValueToRValue: return "LValueToRValue";
             default: ARIA_ASSERT(false, "Unreachable");
         }

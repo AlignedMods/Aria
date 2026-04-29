@@ -221,7 +221,7 @@ namespace Aria {
     }
 
     void Context::PushString(std::string_view s) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::String }, m_ActiveModule->VM.m_Stack);
+        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::Slice }, m_ActiveModule->VM.m_Stack);
         m_ActiveModule->VM.StoreString(-1, s, m_ActiveModule->VM.m_Stack);
     }
 

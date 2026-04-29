@@ -50,10 +50,11 @@ namespace Aria::Internal {
 
     struct BlockStmt {
         BlockStmt() = default;
-        BlockStmt(const TinyVector<Stmt*>& stmts)
-            : Stmts(stmts) {}
+        BlockStmt(const TinyVector<Stmt*>& stmts, bool unsafe)
+            : Stmts(stmts), Unsafe(unsafe) {}
 
         TinyVector<Stmt*> Stmts;
+        bool Unsafe = false;
     };
 
     struct WhileStmt {

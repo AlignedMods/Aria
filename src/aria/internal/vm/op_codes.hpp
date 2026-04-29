@@ -24,12 +24,13 @@ namespace Aria::Internal {
         Double,
 
         Ptr,
+        Slice,
 
-        String,
         Struct,
     };
 
     struct VMStruct {
+        std::string_view Name;
         std::vector<size_t> Fields;
     };
 

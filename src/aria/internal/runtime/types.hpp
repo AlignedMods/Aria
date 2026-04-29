@@ -2,8 +2,8 @@
 
 namespace Aria::Internal {
     
-    struct RuntimeString {
-        char* RawData = nullptr;
+    struct RuntimeSlice {
+        void* Mem = nullptr;
         size_t Size = 0;
     };
 

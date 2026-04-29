@@ -21,7 +21,7 @@ namespace Aria::Internal {
         void DumpStmt(Stmt* stmt, size_t indentation);
         void DumpSpecifier(Specifier* spec, size_t indentation);
 
-        void DumpDeclAttr(DeclAttribute attr, size_t indentation);
+        void DumpFunctionAttr(FunctionDecl::Attribute attr, size_t indentation);
 
     private:
         Stmt* m_RootASTNode = nullptr;

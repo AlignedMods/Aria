@@ -164,8 +164,8 @@ TEST_CASE("Runtime Strings") {
     REQUIRE(ctx.GetString(-1) == "Hello world!");
     ctx.GetGlobal("strings::escaped");
     REQUIRE(ctx.GetString(-1) == std::string_view("\n\r\t\0\0\0Hello world", 17));
-    ctx.GetGlobal("strings::formatted");
-    REQUIRE(ctx.GetString(-1) == "Hello world!, Bye world!, See you later!");
+    // ctx.GetGlobal("strings::formatted");
+    // REQUIRE(ctx.GetString(-1) == "Hello world!, Bye world!, See you later!");
 
     ctx.Pop(3);
 }

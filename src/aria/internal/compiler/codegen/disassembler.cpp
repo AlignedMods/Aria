@@ -512,8 +512,11 @@ namespace Aria::Internal {
             case VMTypeKind::Double: return "double";
                                      
             case VMTypeKind::Ptr:    return "ptr";
-        
-            case VMTypeKind::String: return "str";
+            case VMTypeKind::Slice: return "slice";
+
+            case VMTypeKind::Struct: {
+                return std::string(std::get<VMStruct>(type.Data).Name);
+            }
         
             default: ARIA_UNREACHABLE();
         }
