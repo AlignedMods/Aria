@@ -62,6 +62,7 @@ namespace Aria::Internal {
         void ResolveNullExpr(Expr* expr);
         void ResolveDeclRefExpr(Expr* expr);
         void ResolveMemberExpr(Expr* expr);
+        void ResolveBuiltinMemberExpr(Expr* expr);
         void ResolveTemporaryExpr(Expr* expr);
         void ResolveCopyExpr(Expr* expr);
         void ResolveCallExpr(Expr* expr);

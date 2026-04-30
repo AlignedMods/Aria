@@ -132,6 +132,14 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case OP_LD_FIELD: {
+                    size_t idx = static_cast<size_t>(*(++m_ProgramCounter));
+                    auto& structType = GET_TYPE();
+
+                    m_Output += fmt::format("    ldfield {} {}", idx, VMTypeToString(structType));
+                    break;
+                }
+
                 case OP_LD_PTR_LOCAL: {
                     size_t idx = static_cast<size_t>(*(++m_ProgramCounter));
                     m_Output += fmt::format("    ldptrloc {}", idx);
@@ -141,6 +149,19 @@ namespace Aria::Internal {
                 case OP_LD_PTR_GLOBAL: {
                     std::string_view str = GET_STR();
                     m_Output += fmt::format("    ldptrglob {}", str);
+                    break;
+                }
+
+                case OP_LD_PTR_FIELD: {
+                    size_t idx = static_cast<size_t>(*(++m_ProgramCounter));
+                    auto& structType = GET_TYPE();
+
+                    m_Output += fmt::format("    ldptrfield {} {}", idx, VMTypeToString(structType));
+                    break;
+                }
+
+                case OP_LD_PTR: {
+                    m_Output += "    ldptr";
                     break;
                 }
 
@@ -156,13 +177,11 @@ namespace Aria::Internal {
                     break;
                 }
 
-                case OP_ST_SLICE_MEM: {
-                    m_Output += "    stslice.mem";
-                    break;
-                }
+                case OP_ST_FIELD: {
+                    size_t idx = static_cast<size_t>(*(++m_ProgramCounter));
+                    auto& structType = GET_TYPE();
 
-                case OP_ST_SLICE_LEN: {
-                    m_Output += "    stslice.len";
+                    m_Output += fmt::format("    stfield {} {}", idx, VMTypeToString(structType));
                     break;
                 }
 

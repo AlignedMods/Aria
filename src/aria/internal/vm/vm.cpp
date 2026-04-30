@@ -450,6 +450,25 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case OP_LD_FIELD: {
+                    size_t idx = static_cast<size_t>(*(++m_ProgramCounter));
+                    auto& structType = GET_TYPE();
+
+                    u8* src = reinterpret_cast<u8*>(GetPointer(-1, m_Stack));           
+
+                    for (size_t i = 0; i < idx; i++) {
+                        auto& field = std::get<VMStruct>(structType.Data).Fields[i];
+                        src += AlignToEight(GetVMTypeSize(m_OpCodes->TypeTable[field]));
+                    }
+
+                    Pop(1, m_Stack);
+
+                    Alloca(m_OpCodes->TypeTable[std::get<VMStruct>(structType.Data).Fields[idx]], m_Stack);
+                    VMSlice dst = GetVMSlice(-1, m_Stack);
+                    memcpy(dst.Memory, src, dst.Size);
+                    break;
+                }
+
                 case OP_LD_PTR_LOCAL: {
                     size_t index = static_cast<size_t>(*++m_ProgramCounter);
                     VMSlice slice = GetVMSlice(index, m_StackFrames.back().Locals);
@@ -461,6 +480,28 @@ namespace Aria::Internal {
                 case OP_LD_PTR_GLOBAL: {
                     std::string_view g = GET_STR();
                     VMSlice slice = GetVMSlice(m_GlobalMap.at(g), m_Globals);
+                    Alloca({ VMTypeKind::Ptr }, m_Stack);
+                    StorePointer(-1, slice.Memory, m_Stack);
+                    break;
+                }
+
+                case OP_LD_PTR_FIELD: {
+                    size_t idx = static_cast<size_t>(*(++m_ProgramCounter));
+                    auto& structType = GET_TYPE();
+
+                    u8* src = reinterpret_cast<u8*>(GetPointer(-1, m_Stack));           
+
+                    for (size_t i = 0; i < idx; i++) {
+                        auto& field = std::get<VMStruct>(structType.Data).Fields[i];
+                        src += AlignToEight(GetVMTypeSize(m_OpCodes->TypeTable[field]));
+                    }
+
+                    StorePointer(-1, src, m_Stack);
+                    break;
+                }
+
+                case OP_LD_PTR: {
+                    VMSlice slice = GetVMSlice(-1, m_Stack);
                     Alloca({ VMTypeKind::Ptr }, m_Stack);
                     StorePointer(-1, slice.Memory, m_Stack);
                     break;
@@ -499,20 +540,19 @@ namespace Aria::Internal {
                     break;
                 }
 
-                case OP_ST_SLICE_MEM: {
-                    RuntimeSlice& slice = *reinterpret_cast<RuntimeSlice*>(GetVMSlice(-2, m_Stack).Memory);
-                    void* mem = GetPointer(-1, m_Stack);
+                case OP_ST_FIELD: {
+                    size_t idx = static_cast<size_t>(*(++m_ProgramCounter));
+                    auto& structType = GET_TYPE();
 
-                    slice.Mem = mem;
-                    Pop(2, m_Stack);
-                    break;
-                }
+                    u8* dst = reinterpret_cast<u8*>(GetPointer(-2, m_Stack));           
+                    VMSlice val = GetVMSlice(-1, m_Stack);
 
-                case OP_ST_SLICE_LEN: {
-                    RuntimeSlice& slice = *reinterpret_cast<RuntimeSlice*>(GetVMSlice(-2, m_Stack).Memory);
-                    u64 len = GetULong(-1, m_Stack);
+                    for (size_t i = 0; i < idx; i++) {
+                        auto& field = std::get<VMStruct>(structType.Data).Fields[i];
+                        dst += AlignToEight(GetVMTypeSize(m_OpCodes->TypeTable[field]));
+                    }
 
-                    slice.Size = len;
+                    memcpy(dst, val.Memory, val.Size);
                     Pop(2, m_Stack);
                     break;
                 }
@@ -2361,17 +2401,21 @@ namespace Aria::Internal {
                         void* ptr = GetPointer(-2, m_Stack);
                         u64 offset = GetULong(-1, m_Stack);
 
+                        u8* result = reinterpret_cast<u8*>(ptr) + offset * GetVMTypeSize(type);
+
                         Pop(1, m_Stack);
-                        StorePointer(-1, reinterpret_cast<char*>(ptr) + offset * AlignToEight(GetVMTypeSize(type)), m_Stack);
+                        StorePointer(-1, result, m_Stack);
                     } else {
                         ARIA_ASSERT(lhs.Type.Kind == VMTypeKind::U64, "offp instruction requires pointer and u64 types");
 
                         u64 offset = GetULong(-2, m_Stack);
                         void* ptr = GetPointer(-1, m_Stack);
 
+                        u8* result = reinterpret_cast<u8*>(ptr) + offset * AlignToEight(GetVMTypeSize(type));
+
                         Pop(2, m_Stack);
                         Alloca({ VMTypeKind::Ptr }, m_Stack);
-                        StorePointer(-1, reinterpret_cast<char*>(ptr) + offset * AlignToEight(GetVMTypeSize(type)), m_Stack);
+                        StorePointer(-1, result, m_Stack);
                     }
 
                     break;

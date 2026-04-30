@@ -13,6 +13,7 @@ switch (expr->Kind) {
     X(Null)
     X(DeclRef)
     X(Member)
+    X(BuiltinMember)
     X(Temporary)
     X(Copy)
     X(Call)

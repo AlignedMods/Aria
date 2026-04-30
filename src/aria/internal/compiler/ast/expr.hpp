@@ -23,6 +23,7 @@ namespace Aria::Internal {
         Null,
         DeclRef,
         Member,
+        BuiltinMember,
         Self,
         Temporary,
         Copy,

@@ -51,15 +51,17 @@ namespace Aria::Internal {
         OP_LD,
         OP_LD_LOCAL,
         OP_LD_GLOBAL,
+        OP_LD_FIELD,
 
         OP_LD_PTR_LOCAL,
         OP_LD_PTR_GLOBAL,
+        OP_LD_PTR_FIELD,
+        OP_LD_PTR,
 
         OP_ST_LOCAL,
         OP_ST_GLOBAL,
         OP_ST_ADDR,
-        OP_ST_SLICE_MEM,
-        OP_ST_SLICE_LEN,
+        OP_ST_FIELD,
 
         OP_DUP,
         OP_POP,

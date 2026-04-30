@@ -7,7 +7,6 @@ namespace Aria::Internal {
 
     void SemanticAnalyzer::ResolveBlockStmt(Stmt* stmt) {
         BlockStmt block = stmt->Block;
-        PushScope();
 
         bool wasUnsafe = m_UnsafeContext;
         if (!m_UnsafeContext) { m_UnsafeContext = block.Unsafe; }
@@ -17,7 +16,6 @@ namespace Aria::Internal {
         }
 
         m_UnsafeContext = wasUnsafe;
-        PopScope();
     }
 
     void SemanticAnalyzer::ResolveWhileStmt(Stmt* stmt) {

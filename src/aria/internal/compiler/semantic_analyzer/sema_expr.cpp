@@ -140,21 +140,47 @@ namespace Aria::Internal {
         ResolveExpr(mem.Parent);
         TypeInfo* parentType = mem.Parent->Type;
         TypeInfo* memberType = nullptr;
-        StructDeclaration& sd = parentType->Struct;
 
-        StructDecl s = sd.SourceDecl->Struct;
+        switch (parentType->Kind) {
+            case TypeKind::Structure: {
+                StructDeclaration& sd = parentType->Struct;
 
-        for (Decl* field : s.Fields) {
-            if (field->Kind == DeclKind::Field) {
-                FieldDecl fd = field->Field;
-                if (fd.Identifier == mem.Member) {
-                    memberType = fd.Type;
+                StructDecl s = sd.SourceDecl->Struct;
+
+                for (Decl* field : s.Fields) {
+                    if (field->Kind == DeclKind::Field) {
+                        FieldDecl fd = field->Field;
+                        if (fd.Identifier == mem.Member) {
+                            memberType = fd.Type;
+                        }
+                    } else if (field->Kind == DeclKind::Method) {
+                        MethodDecl md = field->Method;
+                        if (md.Identifier == mem.Member) {
+                            memberType = md.Type;
+                        }
+                    }
                 }
-            } else if (field->Kind == DeclKind::Method) {
-                MethodDecl md = field->Method;
-                if (md.Identifier == mem.Member) {
-                    memberType = md.Type;
+
+                break;
+            }
+
+            case TypeKind::Slice: {
+                if (mem.Member == "mem") {
+                    memberType = TypeInfo::Create(m_Context, TypeKind::Ptr, false);
+                    memberType->Base = parentType->Base;
+                    expr->Kind = ExprKind::BuiltinMember;
+                } else if (mem.Member == "len") {
+                    memberType = &ULongType;
+                    expr->Kind = ExprKind::BuiltinMember;
                 }
+
+                break;
+            }
+
+            default: {
+                m_Context->ReportCompilerDiagnostic(mem.Parent->Loc, mem.Parent->Range, fmt::format("Expression must be of slice or struct type but is '{}'", TypeInfoToString(parentType)));
+                expr->Type = &ErrorType;
+                return;
             }
         }
 
@@ -171,6 +197,7 @@ namespace Aria::Internal {
         }
     }
 
+    void SemanticAnalyzer::ResolveBuiltinMemberExpr(Expr* expr) { ARIA_UNREACHABLE(); }
     void SemanticAnalyzer::ResolveTemporaryExpr(Expr* expr) { ARIA_UNREACHABLE(); }
     void SemanticAnalyzer::ResolveCopyExpr(Expr* expr) { ARIA_UNREACHABLE(); }
 
@@ -255,7 +282,6 @@ namespace Aria::Internal {
             }
 
             case TypeKind::Slice: {
-                RequireRValue(subs.Array);
                 expr->Type = subs.Array->Type->Base;
                 break;
             }
@@ -671,6 +697,8 @@ namespace Aria::Internal {
                 if (LHS->ValueKind != ExprValueKind::LValue) {
                     m_Context->ReportCompilerDiagnostic(LHS->Loc, LHS->Range, "Expression must be a modifiable lvalue");
                 }
+
+                RequireRValue(RHS);
 
                 ConversionCost cost = GetConversionCost(LHS->Type, RHS->Type);
 

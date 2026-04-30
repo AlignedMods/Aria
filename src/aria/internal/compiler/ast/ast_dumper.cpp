@@ -49,6 +49,10 @@ namespace Aria::Internal {
             m_Output += fmt::format("MemberExpr '{}' '{}' {}\n", expr->Member.Member, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
             DumpExpr(expr->Member.Parent, indentation + 4);
             return;
+        } else if (expr->Kind == ExprKind::BuiltinMember) {
+            m_Output += fmt::format("BuiltinMemberExpr '{}' '{}' {}\n", expr->Member.Member, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
+            DumpExpr(expr->Member.Parent, indentation + 4);
+            return;
         } else if (expr->Kind == ExprKind::Self) {
             m_Output += fmt::format("SelfExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
         } else if (expr->Kind == ExprKind::Temporary) {

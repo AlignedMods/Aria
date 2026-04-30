@@ -363,7 +363,17 @@ namespace Aria::Internal {
         return &g_ErrorExpr;
     }
 
-    Expr* Parser::ParseMember(Expr* left) { ARIA_ASSERT(false, "todo!"); }
+    Expr* Parser::ParseMember(Expr* left) {
+        ARIA_ASSERT(left, "Parser::ParseMember() expects a left side");
+
+        Token d = Consume(); // Consume "."
+        Token* ident = TryConsume(TokenKind::Identifier, "identifier");
+        if (!ident) { return &g_ErrorExpr; }
+
+        return Expr::Create(m_Context, d.Range.Start, SourceRange(left->Range.Start, ident->Range.End), ExprKind::Member,
+            ExprValueKind::LValue, nullptr,
+            MemberExpr(ident->String, left));
+    }
 
     Expr* Parser::ParsePrimary(Expr* left) {
         ARIA_ASSERT(left == nullptr, "Parser::ParsePrimary() should not have a left side");
@@ -1036,7 +1046,7 @@ namespace Aria::Internal {
     Decl* Parser::ParseVariableDecl(bool global) {
         SourceLocation start = Peek()->Range.Start;
 
-        Consume(); // Consume "let"
+        TryConsume(TokenKind::Let, "let");
 
         Token* ident = nullptr;
         TypeInfo* type = nullptr;

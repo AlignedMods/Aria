@@ -59,6 +59,7 @@ namespace Aria::Internal {
         void EmitNullExpr(Expr* expr,              ExprValueKind valueKind);
         void EmitDeclRefExpr(Expr* expr,           ExprValueKind valueKind);
         void EmitMemberExpr(Expr* expr,            ExprValueKind valueKind);
+        void EmitBuiltinMemberExpr(Expr* expr,     ExprValueKind valueKind);
         void EmitSelfExpr(Expr* expr,              ExprValueKind valueKind);
         void EmitTemporaryExpr(Expr* expr,         ExprValueKind valueKind);
         void EmitCopyExpr(Expr* expr,              ExprValueKind valueKind);

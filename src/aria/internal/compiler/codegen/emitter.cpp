@@ -27,6 +27,7 @@ namespace Aria::Internal {
 
     void Emitter::AddBasicTypes() {
         #define ADD_TYPE(vmType, primType) do { m_OpCodes.TypeTable.emplace_back(VMTypeKind::vmType); m_BasicTypes[TypeKind::primType] = static_cast<u16>(i); i++; } while (0)
+        #define ADD_TYPE_STRUCT(vmType, primType, struc) do { m_OpCodes.TypeTable.emplace_back(VMTypeKind::vmType, struc); m_BasicTypes[TypeKind::primType] = static_cast<u16>(i); i++; } while (0)
 
         size_t i = 0;
         ADD_TYPE(Void, Void);
@@ -42,7 +43,7 @@ namespace Aria::Internal {
         ADD_TYPE(Float, Float);
         ADD_TYPE(Double, Double);
         ADD_TYPE(Ptr, Ptr);
-        ADD_TYPE(Slice, Slice);
+        ADD_TYPE_STRUCT(Slice, Slice, VMStruct("<builtin_slice>", std::vector{static_cast<size_t>(m_BasicTypes[TypeKind::Ptr]), static_cast<size_t>(m_BasicTypes[TypeKind::ULong])}));
 
         #undef ADD_TYPE
     }
@@ -339,6 +340,35 @@ namespace Aria::Internal {
         ARIA_ASSERT(false, "todo!");
     }
 
+    void Emitter::EmitBuiltinMemberExpr(Expr* expr, ExprValueKind valueKind) {
+        MemberExpr mem = expr->Member;
+
+        EmitExpr(mem.Parent, mem.Parent->ValueKind);
+
+        switch (mem.Parent->Type->Kind) {
+            case TypeKind::Slice: {
+                size_t idx = 0;
+
+                if (mem.Member == "mem") { idx = 0; }
+                else if (mem.Member == "len") { idx = 1; }
+
+                if (valueKind == ExprValueKind::LValue) {
+                    PUSH_PENDING_OP(OP_LD_PTR_FIELD);
+                    PUSH_PENDING_OP(static_cast<OpCode>(idx));
+                    PUSH_PENDING_OP(TypeInfoToVMTypeIdx(mem.Parent->Type));
+                } else {
+                    PUSH_PENDING_OP(OP_LD_FIELD);
+                    PUSH_PENDING_OP(static_cast<OpCode>(idx));
+                    PUSH_PENDING_OP(TypeInfoToVMTypeIdx(mem.Parent->Type));
+                }
+
+                break;
+            }
+
+            default: ARIA_UNREACHABLE();
+        }
+    }
+
     void Emitter::EmitSelfExpr(Expr* expr, ExprValueKind valueKind) {
         ARIA_TODO("Emitter::EmitSelfExpr()");
     }
@@ -491,6 +521,24 @@ namespace Aria::Internal {
                 break;
             }
 
+            case TypeKind::Slice: {
+                EmitExpr(subs.Array, subs.Array->ValueKind);
+                PUSH_PENDING_OP(OP_LD_FIELD);
+                PUSH_PENDING_OP(static_cast<OpCode>(0));
+                PUSH_PENDING_OP(TypeInfoToVMTypeIdx(subs.Array->Type));
+
+                EmitExpr(subs.Index, subs.Index->ValueKind);
+                PUSH_PENDING_OP(OP_OFFP);
+                PUSH_PENDING_OP(TypeInfoToVMTypeIdx(subs.Array->Type->Base));
+
+                if (valueKind == ExprValueKind::RValue) {
+                    PUSH_PENDING_OP(OP_LD);
+                    PUSH_PENDING_OP(TypeInfoToVMTypeIdx(subs.Array->Type->Base));
+                }
+
+                break;
+            }
+
             default: ARIA_UNREACHABLE();
         }
     }
@@ -503,12 +551,16 @@ namespace Aria::Internal {
 
         switch (tos.Source->Type->Kind) {
             case TypeKind::Ptr: {
-                PUSH_PENDING_OP(OP_DUP);
+                PUSH_PENDING_OP(OP_LD_PTR); // Load the pointer to the slice
                 PUSH_PENDING_OP(OP_DUP);
                 EmitExpr(tos.Source, tos.Source->ValueKind);
-                PUSH_PENDING_OP(OP_ST_SLICE_MEM);
+                PUSH_PENDING_OP(OP_ST_FIELD);
+                PUSH_PENDING_OP(static_cast<OpCode>(0)); // .mem is the first field
+                PUSH_PENDING_OP(TypeInfoToVMTypeIdx(expr->Type));
                 EmitExpr(tos.Len, tos.Len->ValueKind);
-                PUSH_PENDING_OP(OP_ST_SLICE_LEN);
+                PUSH_PENDING_OP(OP_ST_FIELD);
+                PUSH_PENDING_OP(static_cast<OpCode>(1)); // .len is the second field
+                PUSH_PENDING_OP(TypeInfoToVMTypeIdx(expr->Type));
                 break;
             }
 
