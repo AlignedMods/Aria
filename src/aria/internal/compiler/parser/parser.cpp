@@ -33,11 +33,6 @@ namespace Aria::Internal {
 
         if (g_ErrorExpr.Type == nullptr) { g_ErrorExpr.Type = &ErrorType; }
 
-        Module* defaultModule = new Module();
-        defaultModule->Name = fmt::format("#default_{}", ctx->ActiveCompUnit->Index);
-        ctx->ActiveCompUnit->Parent = defaultModule;
-        ctx->Modules.push_back(defaultModule);
-
         AddExprRules();
         ParseImpl();
     }
@@ -103,7 +98,12 @@ namespace Aria::Internal {
         TinyVector<Stmt*> stmts;
         while (Peek()) {
             Stmt* stmt = ParseGlobal();
-            if (stmt != nullptr) {
+
+            if (!m_DeclaredModule) {
+                m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "All translation units must contain a module declaration");
+            }
+
+            if (StmtOk(stmt)) {
                 stmts.Append(m_Context, stmt);
             }
         }
@@ -730,7 +730,7 @@ namespace Aria::Internal {
 
     Stmt* Parser::ParseBlockInline(bool unsafe) {
         if (Match(TokenKind::LeftCurly)) {
-            return ParseBlock();
+            return ParseBlock(unsafe);
         } else {
             Stmt* stmt = ParseStatement();
             if (!stmt) { return nullptr; }
@@ -1011,14 +1011,14 @@ namespace Aria::Internal {
 
     Decl* Parser::ParseModuleDecl() {
         Token& mod = Consume(); // Consume "module"
-
+        
         Token* ident = TryConsume(TokenKind::Identifier, "identifier");
         if (!ident) { return &g_ErrorDecl; }
 
         TryConsume(TokenKind::Semi, ";");
 
         if (m_DeclaredModule) {
-            m_Context->ReportCompilerDiagnostic(ident->Range.Start, SourceRange(mod.Range.Start, Peek(-1)->Range.End), "Translation unit already declares a module");
+            m_Context->ReportCompilerDiagnostic(mod.Range.Start, SourceRange(mod.Range.Start, Peek(-1)->Range.End), "Translation unit already declares a module");
             return &g_ErrorDecl;
         }
 
@@ -1384,6 +1384,13 @@ namespace Aria::Internal {
         } else {
             m_Context->ReportCompilerDiagnostic(loc, range, fmt::format("Expected '{}' but got EOF", expect));
         }
+    }
+
+    bool Parser::StmtOk(Stmt* stmt) {
+        if (stmt == nullptr) { return true; }
+        if (stmt->Kind == StmtKind::Error) { return false; }
+
+        return true;
     }
 
     bool Parser::ExprOk(Expr* expr) {

@@ -33,7 +33,9 @@ namespace Aria::Internal {
 
     Module* CompilationContext::FindOrCreateModule(const std::string& name) {
         for (Module* mod : Modules) {
-            if (mod->Name == name) { return mod; }
+            if (mod->Name == name) {
+                return mod;
+            }
         }
 
         Module* mod = new Module();

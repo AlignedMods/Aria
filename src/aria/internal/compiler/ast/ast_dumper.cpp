@@ -248,7 +248,7 @@ namespace Aria::Internal {
             m_Output += fmt::format("ImportStmt '{}'\n", stmt->Import.Name);
             return;
         } else if (stmt->Kind == StmtKind::Block) {
-            m_Output += fmt::format("BlockStmt\n");
+            m_Output += fmt::format("BlockStmt {}\n", stmt->Block.Unsafe ? "unsafe" : "");
             for (Stmt* stmt : stmt->Block.Stmts) {
                 DumpStmt(stmt, indentation + 4);
             }

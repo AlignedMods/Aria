@@ -84,6 +84,7 @@ namespace Aria::Internal {
 
         void ErrorExpected(const std::string& expect, SourceLocation loc, SourceRange range);
 
+        bool StmtOk(Stmt* stmt);
         bool ExprOk(Expr* expr);
         bool DeclOk(Decl* decl);
 

@@ -91,6 +91,8 @@ namespace Aria::Internal {
                 expr->Type = &ErrorType;
                 ref.ReferencedDecl = &g_ErrorDecl;
                 return;
+            } else {
+                ref.NameSpecifier->Scope.ReferencedModule = mod;
             }
         } else {
             mod = m_Context->ActiveCompUnit->Parent;
@@ -105,13 +107,6 @@ namespace Aria::Internal {
 
         if (mod->Symbols.contains(ident)) {
             Decl* d = mod->Symbols.at(ident);
-
-            // if (d->Visibility == DeclVisibility::Private && ref.NameSpecifier) {
-            //     m_Context->ReportCompilerDiagnostic(ref.NameSpecifier->Loc, ref.NameSpecifier->Range, fmt::format("Symbol '{}' is not accessible", ref.Identifier));
-            //     expr->Type = &ErrorType;
-            //     ref.ReferencedDecl = &g_ErrorDecl;
-            //     return;
-            // }
 
             ref.ReferencedDecl = d;
             expr->Type = getType(d);
@@ -215,7 +210,40 @@ namespace Aria::Internal {
 
         if (call.Callee->DeclRef.ReferencedDecl->Kind != DeclKind::Error) {
             if (call.Callee->Kind == ExprKind::DeclRef && call.Callee->DeclRef.ReferencedDecl->Kind == DeclKind::OverloadedFunction) { // Overloaded function
-                ARIA_TODO("Overloaded function calls");
+                m_TemporaryContext = true;
+                for (Expr* arg : call.Arguments) {
+                    ResolveExpr(arg);
+                }
+                m_TemporaryContext = false;
+
+                Decl* resolved = nullptr;
+                Module* mod = call.Callee->DeclRef.NameSpecifier ? call.Callee->DeclRef.NameSpecifier->Scope.ReferencedModule : m_Context->ActiveCompUnit->Parent;
+
+                for (Decl* func : mod->OverloadedFuncs.at(fmt::format("{}", call.Callee->DeclRef.Identifier))) {
+                    for (size_t i = 0; i < func->Function.Type->Function.ParamTypes.Size; i++) {
+                        if (!TypeIsEqual(func->Function.Type->Function.ParamTypes.Items[i], call.Arguments.Items[i]->Type)) { goto again; }
+                    }
+
+                    goto done;
+
+                done:
+                    resolved = func;
+                    break;
+
+                again:
+                    continue;
+                }
+
+                if (!resolved) {
+                    m_Context->ReportCompilerDiagnostic(expr->Loc, expr->Range, fmt::format("No matching overloaded function '{}' to call", call.Callee->DeclRef.Identifier));
+                    for (size_t i = 0; i < call.Arguments.Size; i++) {
+                        call.Arguments.Items[i]->Type = &ErrorType;
+                    }
+                }
+
+                call.Callee->DeclRef.ReferencedDecl = resolved;
+                expr->Type = resolved->Function.Type->Function.ReturnType;
+                return;
             } else if (!call.Callee->Type->IsError()) { // Normal function
                 FunctionDeclaration& fnDecl = calleeType->Function;
 
@@ -334,7 +362,7 @@ namespace Aria::Internal {
                 // break;
             }
 
-            default: m_Context->ReportCompilerDiagnostic(tos.Source->Loc, tos.Source->Range, "Only a pointer/slice/array can be converted to a slice"); break;
+            default: m_Context->ReportCompilerDiagnostic(tos.Source->Loc, tos.Source->Range, "Only a pointer/slice/array can be converted to a slice"); expr->Type = &ErrorType; break;
         }
 
         ConversionCost cost = GetConversionCost(&ULongType, tos.Len->Type);

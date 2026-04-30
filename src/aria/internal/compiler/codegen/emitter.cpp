@@ -75,7 +75,7 @@ namespace Aria::Internal {
             }
 
             // Global variable initializion requires special functions
-            std::string startSig = fmt::format("_start${}()", mod->Name);
+            std::string startSig = fmt::format("_start${}()",mod->Name);
             std::string endSig = fmt::format("_end${}()", mod->Name);
 
             ADD_STR(startSig);

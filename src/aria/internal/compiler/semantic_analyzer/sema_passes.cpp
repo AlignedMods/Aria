@@ -118,7 +118,9 @@ namespace Aria::Internal {
                 
                 // Handle overloading the first non-overloaded function
                 if (d->Kind == DeclKind::Function) {
-                    module->Symbols[ident] = Decl::Create(m_Context, d->Loc, d->Range, DeclKind::OverloadedFunction, ErrorDecl());
+                    Decl* overloaded = Decl::Create(m_Context, d->Loc, d->Range, DeclKind::OverloadedFunction, ErrorDecl());
+                    module->Symbols[ident] = overloaded;
+                    unit->LocalSymbols[ident] = overloaded;
 
                     std::string oldMangle = MangleFunction(&d->Function);
                     std::string newMangle = MangleFunction(&f);

@@ -4,6 +4,8 @@
 
 namespace Aria::Internal {
 
+    struct Module;
+
     enum class DeclKind {
         Invalid = 0,
 
