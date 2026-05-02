@@ -44,86 +44,86 @@ namespace Aria::Internal {
         Emitter(CompilationContext* ctx);
 
     private:
-        void EmitImpl();
+        void emit_impl();
 
-        void AddBasicTypes();
-        void AddUserDefinedTypes();
-        void EmitDeclarations();
-        void EmitStartEnd();
+        void add_basic_types();
+        void add_user_defined_types();
+        void emit_declarations();
+        void emit_start_end();
 
-        void EmitBooleanConstantExpr(Expr* expr,   ExprValueKind valueKind);
-        void EmitCharacterConstantExpr(Expr* expr, ExprValueKind valueKind);
-        void EmitIntegerConstantExpr(Expr* expr,   ExprValueKind valueKind);
-        void EmitFloatingConstantExpr(Expr* expr,  ExprValueKind valueKind);
-        void EmitStringConstantExpr(Expr* expr,    ExprValueKind valueKind);
-        void EmitNullExpr(Expr* expr,              ExprValueKind valueKind);
-        void EmitDeclRefExpr(Expr* expr,           ExprValueKind valueKind);
-        void EmitMemberExpr(Expr* expr,            ExprValueKind valueKind);
-        void EmitBuiltinMemberExpr(Expr* expr,     ExprValueKind valueKind);
-        void EmitSelfExpr(Expr* expr,              ExprValueKind valueKind);
-        void EmitTemporaryExpr(Expr* expr,         ExprValueKind valueKind);
-        void EmitCopyExpr(Expr* expr,              ExprValueKind valueKind);
-        void EmitCallExpr(Expr* expr,              ExprValueKind valueKind);
-        void EmitConstructExpr(Expr* expr,         ExprValueKind valueKind);
-        void EmitMethodCallExpr(Expr* expr,        ExprValueKind valueKind);
-        void EmitArraySubscriptExpr(Expr* expr,    ExprValueKind valueKind);
-        void EmitToSliceExpr(Expr* expr,           ExprValueKind valueKind);
-        void EmitNewExpr(Expr* expr,               ExprValueKind valueKind);
-        void EmitDeleteExpr(Expr* expr,            ExprValueKind valueKind);
-        void EmitFormatExpr(Expr* expr,            ExprValueKind valueKind);
-        void EmitParenExpr(Expr* expr,             ExprValueKind valueKind);
-        void EmitImplicitCastExpr(Expr* expr,      ExprValueKind valueKind);
-        void EmitCastExpr(Expr* expr,              ExprValueKind valueKind);
-        void EmitUnaryOperatorExpr(Expr* expr,     ExprValueKind valueKind);
-        void EmitBinaryOperatorExpr(Expr* expr,    ExprValueKind valueKind);
-        void EmitCompoundAssignExpr(Expr* expr,    ExprValueKind valueKind);
+        void emit_BooleanConstant_expr(Expr* expr,   ExprValueKind valueKind);
+        void emit_CharacterConstant_expr(Expr* expr, ExprValueKind valueKind);
+        void emit_IntegerConstant_expr(Expr* expr,   ExprValueKind valueKind);
+        void emit_FloatingConstant_expr(Expr* expr,  ExprValueKind valueKind);
+        void emit_StringConstant_expr(Expr* expr,    ExprValueKind valueKind);
+        void emit_Null_expr(Expr* expr,              ExprValueKind valueKind);
+        void emit_DeclRef_expr(Expr* expr,           ExprValueKind valueKind);
+        void emit_Member_expr(Expr* expr,            ExprValueKind valueKind);
+        void emit_BuiltinMember_expr(Expr* expr,     ExprValueKind valueKind);
+        void emit_Self_expr(Expr* expr,              ExprValueKind valueKind);
+        void emit_Temporary_expr(Expr* expr,         ExprValueKind valueKind);
+        void emit_Copy_expr(Expr* expr,              ExprValueKind valueKind);
+        void emit_Call_expr(Expr* expr,              ExprValueKind valueKind);
+        void emit_Construct_expr(Expr* expr,         ExprValueKind valueKind);
+        void emit_MethodCall_expr(Expr* expr,        ExprValueKind valueKind);
+        void emit_ArraySubscript_expr(Expr* expr,    ExprValueKind valueKind);
+        void emit_ToSlice_expr(Expr* expr,           ExprValueKind valueKind);
+        void emit_New_expr(Expr* expr,               ExprValueKind valueKind);
+        void emit_Delete_expr(Expr* expr,            ExprValueKind valueKind);
+        void emit_Format_expr(Expr* expr,            ExprValueKind valueKind);
+        void emit_Paren_expr(Expr* expr,             ExprValueKind valueKind);
+        void emit_ImplicitCast_expr(Expr* expr,      ExprValueKind valueKind);
+        void emit_Cast_expr(Expr* expr,              ExprValueKind valueKind);
+        void emit_UnaryOperator_expr(Expr* expr,     ExprValueKind valueKind);
+        void emit_BinaryOperator_expr(Expr* expr,    ExprValueKind valueKind);
+        void emit_CompoundAssign_expr(Expr* expr,    ExprValueKind valueKind);
 
-        void EmitExpr(Expr* expr, ExprValueKind valueKind);
+        void emit_expr(Expr* expr, ExprValueKind valueKind);
 
-        void EmitTranslationUnitDecl(Decl* decl);
-        void EmitModuleDecl(Decl* decl);
-        void EmitVarDecl(Decl* decl);
-        void EmitParamDecl(Decl* decl);
-        void EmitFunctionDecl(Decl* decl);
-        void EmitOverloadedFunctionDecl(Decl* decl);
-        void EmitStructDecl(Decl* decl);
-        void EmitFieldDecl(Decl* decl);
-        void EmitConstructorDecl(Decl* decl);
-        void EmitDestructorDecl(Decl* decl);
-        void EmitMethodDecl(Decl* decl);
-        void EmitBuiltinCopyConstructorDecl(Decl* decl);
-        void EmitBuiltinDestructorDecl(Decl* decl);
+        void emit_TranslationUnit_decl(Decl* decl);
+        void emit_Module_decl(Decl* decl);
+        void emit_Var_decl(Decl* decl);
+        void emit_Param_decl(Decl* decl);
+        void emit_Function_decl(Decl* decl);
+        void emit_OverloadedFunction_decl(Decl* decl);
+        void emit_Struct_decl(Decl* decl);
+        void emit_Field_decl(Decl* decl);
+        void emit_Constructor_decl(Decl* decl);
+        void emit_Destructor_decl(Decl* decl);
+        void emit_Method_decl(Decl* decl);
+        void emit_BuiltinCopyConstructor_decl(Decl* decl);
+        void emit_BuiltinDestructor_decl(Decl* decl);
 
-        void EmitDecl(Decl* decl);
+        void emit_decl(Decl* decl);
 
-        void EmitNopStmt(Stmt* stmt);
-        void EmitImportStmt(Stmt* stmt);
-        void EmitBlockStmt(Stmt* stmt);
-        void EmitWhileStmt(Stmt* stmt);
-        void EmitDoWhileStmt(Stmt* stmt);
-        void EmitForStmt(Stmt* stmt);
-        void EmitIfStmt(Stmt* stmt);
-        void EmitBreakStmt(Stmt* stmt);
-        void EmitContinueStmt(Stmt* stmt);
-        void EmitReturnStmt(Stmt* stmt);
-        void EmitExprStmt(Stmt* stmt);
-        void EmitDeclStmt(Stmt* stmt);
+        void emit_Nop_stmt(Stmt* stmt);
+        void emit_Import_stmt(Stmt* stmt);
+        void emit_Block_stmt(Stmt* stmt);
+        void emit_While_stmt(Stmt* stmt);
+        void emit_DoWhile_stmt(Stmt* stmt);
+        void emit_For_stmt(Stmt* stmt);
+        void emit_If_stmt(Stmt* stmt);
+        void emit_Break_stmt(Stmt* stmt);
+        void emit_Continue_stmt(Stmt* stmt);
+        void emit_Return_stmt(Stmt* stmt);
+        void emit_Expr_stmt(Stmt* stmt);
+        void emit_Decl_stmt(Stmt* stmt);
 
-        void EmitStmt(Stmt* stmt);
+        void emit_stmt(Stmt* stmt);
 
-        void EmitDestructors(const std::vector<Declaration>& declarations);
+        void emit_destructors(const std::vector<Declaration>& declarations);
 
-        void PushStackFrame(const std::string& name);
-        void PopStackFrame();
+        void push_stack_frame(const std::string& name);
+        void pop_stack_frame();
 
-        void PushScope();
-        void PopScope();
+        void push_scope();
+        void pop_scope();
 
-        void MergePendingOpCodes();
+        void merge_pending_op_codes();
 
-        OpCode TypeInfoToVMTypeIdx(TypeInfo* t);
+        OpCode type_info_to_vm_type_idx(TypeInfo* t);
 
-        std::string MangleFunction(FunctionDecl* fn);
+        std::string mangle_function(FunctionDecl* fn);
 
     private:
         OpCodes m_OpCodes;

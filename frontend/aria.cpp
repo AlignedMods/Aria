@@ -34,18 +34,18 @@ int main(int argc, char** argv) {
     }
 
     Aria::Context ctx;
-    ctx.CompileFiles(files, files.front());
+    ctx.compile_files(files, files.front());
 
-    if (dumpAST) { fmt::print("{}", ctx.DumpAST()); }
-    if (dumpByteCode) { fmt::print("{}", ctx.Disassemble()); }
+    if (dumpAST) { fmt::print("{}", ctx.dump_ast()); }
+    if (dumpByteCode) { fmt::print("{}", ctx.disassemble()); }
 
     if (!compileOnly) {
-        ctx.Run();
+        ctx.run();
 
-        if (ctx.HasFunction("main()")) {
-            ctx.Call("main()", 0);
+        if (ctx.has_function("main()")) {
+            ctx.call("main()", 0);
         }
     }
     
-    ctx.FreeModule(files.front());
+    ctx.free_module(files.front());
 }

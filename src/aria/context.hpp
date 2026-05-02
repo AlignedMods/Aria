@@ -33,77 +33,75 @@ namespace Aria {
         Context();
         static Context Create();
 
-        void CompileFile(const std::string& path);
-        void CompileFiles(const std::vector<std::string>& paths, const std::string& module);
+        void compile_file(const std::string& path);
+        void compile_files(const std::vector<std::string>& paths, const std::string& module);
 
-        void AddStandardLib();
+        void add_standard_lib();
 
         // Sets up the current module which will be used up until the next
         // SetActiveModule call
-        void SetActiveModule(const std::string& module);
+        void set_active_module(const std::string& module);
 
         // Deallocates the given module
-        void FreeModule(const std::string& module);
+        void free_module(const std::string& module);
 
         // Run the compiled string in the VM
         // Dissasemble the byte emitted byte code
-        void Run();
+        void run();
 
-        std::string DumpAST();
-        std::string Disassemble();
+        std::string dump_ast();
+        std::string disassemble();
 
-        void PushBool   (bool b);
-        void PushChar   (int8_t c);
-        void PushShort  (int16_t s);
-        void PushInt    (int32_t i);
-        void PushLong   (int64_t l);
-        void PushFloat  (float f);
-        void PushDouble (double f);
-        void PushPointer(void* p);
-        void PushString (std::string_view s);
+        void push_bool   (bool b);
+        void push_char   (int8_t c);
+        void push_short  (int16_t s);
+        void push_int    (int32_t i);
+        void push_long   (int64_t l);
+        void push_float  (float f);
+        void push_double (double f);
+        void push_pointer(void* p);
+        void push_string (std::string_view s);
 
-        void StoreBool   (int32_t index, bool b);
-        void StoreChar   (int32_t index, int8_t c);
-        void StoreShort  (int32_t index, int16_t s);
-        void StoreInt    (int32_t index, int32_t i);
-        void StoreLong   (int32_t index, int64_t l);
-        void StoreFloat  (int32_t index, float f);
-        void StoreDouble (int32_t index, double d);
-        void StorePointer(int32_t index, void* p);
-        void StoreString (int32_t index, std::string_view str);
+        void store_bool   (int32_t index, bool b);
+        void store_char   (int32_t index, int8_t c);
+        void store_short  (int32_t index, int16_t s);
+        void store_int    (int32_t index, int32_t i);
+        void store_long   (int32_t index, int64_t l);
+        void store_float  (int32_t index, float f);
+        void store_double (int32_t index, double d);
+        void store_pointer(int32_t index, void* p);
+        void store_string (int32_t index, std::string_view str);
 
-        void GetGlobal(std::string_view str);
-        void GetGlobalPtr(std::string_view str);
-        void GetArg(int32_t index);
-        void GetField(int32_t index, const std::string& name);
+        void get_global(std::string_view str);
+        void get_global_ptr(std::string_view str);
 
-        bool             GetBool     (int32_t index);
-        int8_t           GetChar     (int32_t index);
-        uint8_t          GetUChar    (int32_t index);
-        int16_t          GetShort    (int32_t index);
-        uint16_t         GetUShort   (int32_t index);
-        int32_t          GetInt      (int32_t index);
-        uint32_t         GetUInt     (int32_t index);
-        int64_t          GetLong     (int32_t index);
-        uint64_t         GetULong   (int32_t index);
-        float            GetFloat    (int32_t index);
-        double           GetDouble   (int32_t index);
-        void*            GetPointer  (int32_t index);
-        std::string_view GetString   (int32_t index);
+        bool             get_bool     (int32_t index);
+        int8_t           get_char     (int32_t index);
+        uint8_t          get_uchar    (int32_t index);
+        int16_t          get_short    (int32_t index);
+        uint16_t         get_ushort   (int32_t index);
+        int32_t          get_int      (int32_t index);
+        uint32_t         get_uint     (int32_t index);
+        int64_t          get_long     (int32_t index);
+        uint64_t         get_ulong   (int32_t index);
+        float            get_float    (int32_t index);
+        double           get_double   (int32_t index);
+        void*            get_pointer  (int32_t index);
+        std::string_view get_string   (int32_t index);
 
-        void Pop(size_t count);
+        void pop(size_t count);
 
-        bool HasFunction(const std::string& str);
-        void Call(const std::string& str, size_t argCount);
+        bool has_function(const std::string& str);
+        void call(const std::string& str, size_t argCount);
 
-        void AddExternalFunction(std::string_view name, ExternFn fn);
+        void add_external_function(std::string_view name, ExternFn fn);
 
-        void SetRuntimeErrorHandler(RuntimeErrorHandlerFn fn);
-        void SetCompilerErrorHandler(CompilerErrorHandlerFn fn);
+        void set_runtime_error_handler(RuntimeErrorHandlerFn fn);
+        void set_compiler_error_handler(CompilerErrorHandlerFn fn);
 
     private:
-        void CompileFileRaw(const std::string& source, const std::string& filename);
-        void ReportRuntimeError(const std::string& error);
+        void compile_file_raw(const std::string& source, const std::string& filename);
+        void report_runtime_error(const std::string& error);
 
         friend class Internal::VM;
 

@@ -1,10 +1,10 @@
 #pragma once
 
 #include "aria/internal/compiler/core/vector.hpp"
-#include "aria/internal/compiler/core/string_view.hpp"
-#include "aria/internal/compiler/core/string_builder.hpp"
 #include "aria/internal/compiler/types/type_info.hpp"
 #include "aria/internal/compiler/core/source_location.hpp"
+
+#include <string_view>
 
 namespace Aria::Internal {
 
@@ -41,10 +41,10 @@ namespace Aria::Internal {
     };
 
     struct ImportStmt {
-        ImportStmt(StringView name)
+        ImportStmt(std::string_view name)
             : Name(name) {}
 
-        StringView Name;
+        std::string_view Name;
         Module* ResolvedModule = nullptr;
     };
 
@@ -109,7 +109,7 @@ namespace Aria::Internal {
 
     struct Stmt {
         template <typename T>
-        static inline Stmt* Create(CompilationContext* ctx, SourceLocation loc, SourceRange range, StmtKind kind, T t) { return ctx->Allocate<Stmt>(kind, loc, range, t); }
+        static inline Stmt* Create(CompilationContext* ctx, SourceLocation loc, SourceRange range, StmtKind kind, T t) { return ctx->allocate<Stmt>(kind, loc, range, t); }
 
         StmtKind Kind = StmtKind::Invalid;
 
@@ -172,6 +172,6 @@ namespace Aria::Internal {
             : Kind(kind), Loc(loc), Range(range), DeclStmt(decl) {}
     };
 
-    inline Stmt g_ErrorStmt = Stmt(StmtKind::Error, SourceLocation(), SourceRange(), ErrorStmt());
+    inline Stmt error_stmt = Stmt(StmtKind::Error, SourceLocation(), SourceRange(), ErrorStmt());
 
 } // namespace Aria::Internal

@@ -1,7 +1,6 @@
 #pragma once
 
 #include "aria/internal/compiler/core/vector.hpp"
-#include "aria/internal/compiler/core/string_view.hpp"
 #include "aria/internal/compiler/types/type_info.hpp"
 #include "aria/internal/compiler/core/source_location.hpp"
 #include "aria/internal/compiler/ast/stmt.hpp"
@@ -202,26 +201,26 @@ namespace Aria::Internal {
     };
 
     struct StringConstantExpr {
-        StringConstantExpr(StringView value)
+        StringConstantExpr(std::string_view value)
             : Value(value) {}
 
-        StringView Value;
+        std::string_view Value;
     };
 
     struct DeclRefExpr {
-        DeclRefExpr(StringView identifier, Specifier* specifier)
+        DeclRefExpr(std::string_view identifier, Specifier* specifier)
             : Identifier(identifier), NameSpecifier(specifier) {}
 
-        StringView Identifier;
+        std::string_view Identifier;
         Specifier* NameSpecifier = nullptr;
         Decl* ReferencedDecl = nullptr;
     };
 
     struct MemberExpr {
-        MemberExpr(StringView member, Expr* parent)
+        MemberExpr(std::string_view member, Expr* parent)
             : Member(member), Parent(parent) {}
 
-        StringView Member;
+        std::string_view Member;
         Expr* Parent = nullptr;
     };
 
@@ -384,10 +383,10 @@ namespace Aria::Internal {
             SourceLocation loc, SourceRange range,
             ExprKind kind, 
             ExprValueKind valueKind, TypeInfo* type, 
-            T t = ErrorExpr()) { return ctx->Allocate<Expr>(loc, range, kind, valueKind, type, t); }
+            T t = ErrorExpr()) { return ctx->allocate<Expr>(loc, range, kind, valueKind, type, t); }
 
         static inline Expr* Dup(CompilationContext* ctx, Expr* other) {
-            Expr* newExpr = ctx->Allocate<Expr>();
+            Expr* newExpr = ctx->allocate<Expr>();
             memcpy(reinterpret_cast<void*>(newExpr), other, sizeof(Expr));
             return newExpr;
         }
@@ -504,6 +503,6 @@ namespace Aria::Internal {
             : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), CompoundAssign(compoundAssign) {}
     };
 
-    inline Expr g_ErrorExpr = Expr(SourceLocation(), SourceRange(), ExprKind::Error, ExprValueKind::RValue, nullptr, ErrorExpr());
+    inline Expr error_expr = Expr(SourceLocation(), SourceRange(), ExprKind::Error, ExprValueKind::RValue, nullptr, ErrorExpr());
 
 } // namespace Aria::Internal

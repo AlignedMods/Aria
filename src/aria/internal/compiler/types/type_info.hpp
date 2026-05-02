@@ -1,12 +1,10 @@
 #pragma once
 
 #include "aria/core.hpp"
-#include "aria/internal/compiler/core/string_view.hpp"
 #include "aria/internal/compiler/compilation_context.hpp"
 #include "aria/internal/compiler/core/vector.hpp"
 
-#include <variant>
-#include <vector>
+#include <string_view>
 
 namespace Aria::Internal {
 
@@ -42,7 +40,7 @@ namespace Aria::Internal {
     struct TypeInfo;
 
     struct StructDeclaration {
-        StringView Identifier;
+        std::string_view Identifier;
         Decl* SourceDecl = nullptr;
     };
 
@@ -75,75 +73,75 @@ namespace Aria::Internal {
         static TypeInfo* Create(CompilationContext* ctx, TypeKind kind, bool isReference);
         static TypeInfo* Dup(CompilationContext* ctx, TypeInfo* type);
 
-        bool IsError() const { return Kind == TypeKind::Error; }
+        bool is_error() const { return Kind == TypeKind::Error; }
 
-        bool IsPrimitive() const {
-            return IsVoid() || IsBoolean() || IsNumeric() || IsPointer() || IsSlice() || IsString();
+        bool is_primitive() const {
+            return is_void() || is_boolean() || is_numeric() || is_pointer() || is_slice() || is_string();
         }
 
-        bool IsVoid() const {
+        bool is_void() const {
             return Kind == TypeKind::Void;
         }
 
-        bool IsBoolean() const {
+        bool is_boolean() const {
             return Kind == TypeKind::Bool;
         }
 
-        bool IsIntegral() const {
+        bool is_integral() const {
             return Kind == TypeKind::Char  || Kind == TypeKind::UChar  ||
                    Kind == TypeKind::Short || Kind == TypeKind::UShort ||
                    Kind == TypeKind::Int   || Kind == TypeKind::UInt   ||
                    Kind == TypeKind::Long  || Kind == TypeKind::ULong;
         }
 
-        bool IsFloatingPoint() const {
+        bool is_floating_point() const {
             return Kind == TypeKind::Float || Kind == TypeKind::Double;
         }
 
-        bool IsNumeric() const {
-            return IsIntegral() || IsFloatingPoint();
+        bool is_numeric() const {
+            return is_integral() || is_floating_point();
         }
 
-        bool IsPointer() const {
+        bool is_pointer() const {
             return Kind == TypeKind::Ptr;
         }
 
-        bool IsArray() const {
+        bool is_array() const {
             return Kind == TypeKind::Array;
         }
 
-        bool IsSlice() const {
+        bool is_slice() const {
             return Kind == TypeKind::Slice;
         }
 
-        bool IsFunction() const {
+        bool is_function() const {
             return Kind == TypeKind::Function;
         }
 
-        bool IsStructure() const {
+        bool is_structure() const {
             return Kind == TypeKind::Structure;
         }
 
-        bool IsString() const {
+        bool is_string() const {
             return Kind == TypeKind::String;
         }
 
-        bool IsSigned() const {
-            ARIA_ASSERT(IsIntegral(), "IsSigned() cannot operate on a non-integral type");
+        bool is_signed() const {
+            ARIA_ASSERT(is_integral(), "is_signed() cannot operate on a non-integral type");
             return Kind == TypeKind::Char || Kind == TypeKind::Short || Kind == TypeKind::Int || Kind == TypeKind::Long;
         }
 
-        bool IsUnsigned() const {
-            ARIA_ASSERT(IsIntegral(), "IsUnsigned() cannot operate on a non-integral type");
+        bool is_unsigned() const {
+            ARIA_ASSERT(is_integral(), "is_unsigned() cannot operate on a non-integral type");
             return Kind == TypeKind::UChar || Kind == TypeKind::UShort || Kind == TypeKind::UInt || Kind == TypeKind::ULong;
         }
 
-        bool IsReference() const {
+        bool is_reference() const {
             return Reference;
         }
     };
 
-    inline std::string TypeInfoToString(TypeInfo* type) {
+    inline std::string type_info_to_string(TypeInfo* type) {
         std::string str;
 
         switch (type->Kind) {
@@ -166,19 +164,19 @@ namespace Aria::Internal {
 
             case TypeKind::Ptr: {
                 TypeInfo* t = type->Base;
-                str = fmt::format("{}*", TypeInfoToString(t));
+                str = fmt::format("{}*", type_info_to_string(t));
                 break;
             }
 
             case TypeKind::Array: {
                 ArrayDeclaration& arr = type->Array;
-                str = fmt::format("{}[{}]", TypeInfoToString(arr.Type), arr.Size);
+                str = fmt::format("{}[{}]", type_info_to_string(arr.Type), arr.Size);
                 break;
             }
 
             case TypeKind::Slice: {
                 TypeInfo* t = type->Base;
-                str = fmt::format("{}[]", TypeInfoToString(t));
+                str = fmt::format("{}[]", type_info_to_string(t));
                 break;
             }
 
@@ -187,11 +185,11 @@ namespace Aria::Internal {
             case TypeKind::Function: {
                 FunctionDeclaration decl = type->Function;
 
-                str += TypeInfoToString(decl.ReturnType);
+                str += type_info_to_string(decl.ReturnType);
                 str += "(";
 
                 for (size_t i = 0; i < decl.ParamTypes.Size; i++) {
-                    str += TypeInfoToString(decl.ParamTypes.Items[i]);
+                    str += type_info_to_string(decl.ParamTypes.Items[i]);
                     if (i != decl.ParamTypes.Size - 1) {
                         str += ", ";
                     }
@@ -216,7 +214,7 @@ namespace Aria::Internal {
             default: ARIA_UNREACHABLE();
         }
 
-        if (type->IsReference()) {
+        if (type->is_reference()) {
             str += "&";
         }
 
@@ -224,20 +222,21 @@ namespace Aria::Internal {
     }
 
     // To avoid unnecessary allocations of primitive types we declare them here globally
-    inline TypeInfo ErrorType =   { TypeKind::Error };
-    inline TypeInfo VoidType =    { TypeKind::Void };
-    inline TypeInfo BoolType =    { TypeKind::Bool };
-    inline TypeInfo CharType =    { TypeKind::Char };
-    inline TypeInfo UCharType =   { TypeKind::UChar };
-    inline TypeInfo ShortType =   { TypeKind::Short };
-    inline TypeInfo UShortType =  { TypeKind::UShort };
-    inline TypeInfo IntType =     { TypeKind::Int };
-    inline TypeInfo UIntType =    { TypeKind::UInt };
-    inline TypeInfo LongType =    { TypeKind::Long };
-    inline TypeInfo ULongType =   { TypeKind::ULong };
-    inline TypeInfo DoubleType =  { TypeKind::Double };
-    inline TypeInfo FloatType =   { TypeKind::Float };
-    inline TypeInfo StringType =  { TypeKind::String };
-    inline TypeInfo VoidPtrType = { TypeKind::Ptr, &VoidType };
+    inline TypeInfo error_type =      { TypeKind::Error };
+    inline TypeInfo void_type =       { TypeKind::Void };
+    inline TypeInfo bool_type =       { TypeKind::Bool };
+    inline TypeInfo char_type =       { TypeKind::Char };
+    inline TypeInfo uchar_type =      { TypeKind::UChar };
+    inline TypeInfo short_type =      { TypeKind::Short };
+    inline TypeInfo ushort_type =     { TypeKind::UShort };
+    inline TypeInfo int_type =        { TypeKind::Int };
+    inline TypeInfo uint_type =       { TypeKind::UInt };
+    inline TypeInfo long_type =       { TypeKind::Long };
+    inline TypeInfo ulong_type =      { TypeKind::ULong };
+    inline TypeInfo double_type =     { TypeKind::Double };
+    inline TypeInfo float_type =      { TypeKind::Float };
+    inline TypeInfo string_type =     { TypeKind::String };
+    inline TypeInfo void_ptr_type =   { TypeKind::Ptr, &void_type };
+    inline TypeInfo char_slice_type = { TypeKind::Slice, &char_type };
 
 } // namespace Aria::Internal

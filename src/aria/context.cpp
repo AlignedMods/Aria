@@ -42,7 +42,7 @@ namespace Aria {
         return ctx;
     }
 
-    void Context::CompileFile(const std::string& path) {
+    void Context::compile_file(const std::string& path) {
         std::ifstream file(path);
         if (!file.is_open()) {
             fmt::print(fmt::fg(fmt::color::pale_violet_red), "Failed to open file: {}!\n", path);
@@ -57,9 +57,9 @@ namespace Aria {
         Module* newModule = new Module(this);
         m_ActiveModule = newModule;
 
-        CompileFileRaw(contents, path);
-        m_ActiveModule->CompilationContext.FinishCompilation();
-        AddStandardLib();
+        compile_file_raw(contents, path);
+        m_ActiveModule->CompilationContext.finish_compilation();
+        add_standard_lib();
 
         // Handle compiler diagnostics
         auto& unit = m_ActiveModule->CompilationContext.CompilationUnits.at(0);
@@ -82,7 +82,7 @@ namespace Aria {
         m_Modules[path] = newModule;
     }
 
-    void Context::CompileFiles(const std::vector<std::string>& paths, const std::string& module) {
+    void Context::compile_files(const std::vector<std::string>& paths, const std::string& module) {
         Module* src = new Module(this);
         m_ActiveModule = src;
 
@@ -98,11 +98,11 @@ namespace Aria {
             std::string contents = ss.str();
             ss.flush();
 
-            CompileFileRaw(contents, path);
+            compile_file_raw(contents, path);
         }
 
-        m_ActiveModule->CompilationContext.FinishCompilation();
-        AddStandardLib();
+        m_ActiveModule->CompilationContext.finish_compilation();
+        add_standard_lib();
 
         for (size_t i = 0; i < paths.size(); i++) {
             // Handle compiler errors
@@ -127,266 +127,243 @@ namespace Aria {
         m_Modules[module] = src;
     }
 
-    void Context::AddStandardLib() {
+    void Context::add_standard_lib() {
         Internal::VM& vm = m_ActiveModule->VM;
 
-        vm.AddExtern("__aria_raw_print_stdout()", Internal::__aria_print);
-        vm.AddExtern("__aria_destruct_str()", Internal::__aria_destruct_str);
-        vm.AddExtern("__aria_copy_str()", Internal::__aria_copy_str);
-        vm.AddExtern("__aria_append_str<char>()", Internal::__aria_append_str_char);
-        vm.AddExtern("__aria_append_str<uchar>()", Internal::__aria_append_str_uchar);
-        vm.AddExtern("__aria_append_str<short>()", Internal::__aria_append_str_short);
-        vm.AddExtern("__aria_append_str<ushort>()", Internal::__aria_append_str_ushort);
-        vm.AddExtern("__aria_append_str<int>()", Internal::__aria_append_str_int);
-        vm.AddExtern("__aria_append_str<uint>()", Internal::__aria_append_str_uint);
-        vm.AddExtern("__aria_append_str<long>()", Internal::__aria_append_str_long);
-        vm.AddExtern("__aria_append_str<ulong>()", Internal::__aria_append_str_ulong);
-        vm.AddExtern("__aria_append_str<float>()", Internal::__aria_append_str_float);
-        vm.AddExtern("__aria_append_str<double>()", Internal::__aria_append_str_double);
-        vm.AddExtern("__aria_append_str<string>()", Internal::__aria_append_str_string);
+        vm.add_extern("__aria_raw_print_stdout()", Internal::__aria_print);
+        vm.add_extern("__aria_destruct_str()", Internal::__aria_destruct_str);
+        vm.add_extern("__aria_copy_str()", Internal::__aria_copy_str);
+        vm.add_extern("__aria_append_str<char>()", Internal::__aria_append_str_char);
+        vm.add_extern("__aria_append_str<uchar>()", Internal::__aria_append_str_uchar);
+        vm.add_extern("__aria_append_str<short>()", Internal::__aria_append_str_short);
+        vm.add_extern("__aria_append_str<ushort>()", Internal::__aria_append_str_ushort);
+        vm.add_extern("__aria_append_str<int>()", Internal::__aria_append_str_int);
+        vm.add_extern("__aria_append_str<uint>()", Internal::__aria_append_str_uint);
+        vm.add_extern("__aria_append_str<long>()", Internal::__aria_append_str_long);
+        vm.add_extern("__aria_append_str<ulong>()", Internal::__aria_append_str_ulong);
+        vm.add_extern("__aria_append_str<float>()", Internal::__aria_append_str_float);
+        vm.add_extern("__aria_append_str<double>()", Internal::__aria_append_str_double);
+        vm.add_extern("__aria_append_str<string>()", Internal::__aria_append_str_string);
     }
 
-    void Context::SetActiveModule(const std::string& module) {
+    void Context::set_active_module(const std::string& module) {
         ARIA_ASSERT(m_Modules.contains(module), "Current context does not contain the requested module!");
         m_ActiveModule = m_Modules.at(module);
     }
 
-    void Context::FreeModule(const std::string& module) {
+    void Context::free_module(const std::string& module) {
         ARIA_ASSERT(m_Modules.contains(module), "Current context does not contain the requested module!");
         delete m_Modules.at(module);
         m_Modules.erase(module);
     }
 
-    void Context::Run() {
+    void Context::run() {
         if (!m_ActiveModule->CompilationContext.HasErrors) {
-            m_ActiveModule->VM.RunByteCode(m_ActiveModule->CompilationContext.Ops);
+            m_ActiveModule->VM.run_byte_code(m_ActiveModule->CompilationContext.Ops);
         }
     }
 
-    std::string Context::DumpAST() {
+    std::string Context::dump_ast() {
         std::string output;
 
         for (Internal::CompilationUnit* unit : m_ActiveModule->CompilationContext.CompilationUnits) {
             Internal::ASTDumper d(unit->RootASTNode);
-            output += d.GetOutput();
+            output += d.get_output();
             output += '\n';
         }
 
         return output;
     }
 
-    std::string Context::Disassemble() {
+    std::string Context::disassemble() {
         Internal::Disassembler d(m_ActiveModule->CompilationContext.Ops);
         return d.GetDisassembly();
     }
 
-    void Context::PushBool(bool b) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I1 }, m_ActiveModule->VM.m_Stack);
-        m_ActiveModule->VM.StoreBool(-1 , b, m_ActiveModule->VM.m_Stack);
+    void Context::push_bool(bool b) {
+        m_ActiveModule->VM.alloc({ Internal::VMTypeKind::I1 }, m_ActiveModule->VM.m_Stack);
+        m_ActiveModule->VM.store_bool(-1 , b, m_ActiveModule->VM.m_Stack);
     }
 
-    void Context::PushChar(int8_t c) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I8 }, m_ActiveModule->VM.m_Stack);
-        m_ActiveModule->VM.StoreChar(-1, c, m_ActiveModule->VM.m_Stack);
+    void Context::push_char(int8_t c) {
+        m_ActiveModule->VM.alloc({ Internal::VMTypeKind::I8 }, m_ActiveModule->VM.m_Stack);
+        m_ActiveModule->VM.store_char(-1, c, m_ActiveModule->VM.m_Stack);
     }
 
-    void Context::PushShort(int16_t s) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I16 }, m_ActiveModule->VM.m_Stack);
-        m_ActiveModule->VM.StoreShort(-1, s, m_ActiveModule->VM.m_Stack);
+    void Context::push_short(int16_t s) {
+        m_ActiveModule->VM.alloc({ Internal::VMTypeKind::I16 }, m_ActiveModule->VM.m_Stack);
+        m_ActiveModule->VM.store_short(-1, s, m_ActiveModule->VM.m_Stack);
     }
 
-    void Context::PushInt(int32_t i) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I32 }, m_ActiveModule->VM.m_Stack);
-        m_ActiveModule->VM.StoreInt(-1, i, m_ActiveModule->VM.m_Stack);
+    void Context::push_int(int32_t i) {
+        m_ActiveModule->VM.alloc({ Internal::VMTypeKind::I32 }, m_ActiveModule->VM.m_Stack);
+        m_ActiveModule->VM.store_int(-1, i, m_ActiveModule->VM.m_Stack);
     }
 
-    void Context::PushLong(int64_t l) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::I64 }, m_ActiveModule->VM.m_Stack);
-        m_ActiveModule->VM.StoreLong(-1, l, m_ActiveModule->VM.m_Stack);
+    void Context::push_long(int64_t l) {
+        m_ActiveModule->VM.alloc({ Internal::VMTypeKind::I64 }, m_ActiveModule->VM.m_Stack);
+        m_ActiveModule->VM.store_long(-1, l, m_ActiveModule->VM.m_Stack);
     }
 
-    void Context::PushFloat(float f) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::Float }, m_ActiveModule->VM.m_Stack);
-        m_ActiveModule->VM.StoreFloat(-1, f, m_ActiveModule->VM.m_Stack);
+    void Context::push_float(float f) {
+        m_ActiveModule->VM.alloc({ Internal::VMTypeKind::Float }, m_ActiveModule->VM.m_Stack);
+        m_ActiveModule->VM.store_float(-1, f, m_ActiveModule->VM.m_Stack);
     }
 
-    void Context::PushDouble(double d) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::Double }, m_ActiveModule->VM.m_Stack);
-        m_ActiveModule->VM.StoreDouble(-1, d, m_ActiveModule->VM.m_Stack);
+    void Context::push_double(double d) {
+        m_ActiveModule->VM.alloc({ Internal::VMTypeKind::Double }, m_ActiveModule->VM.m_Stack);
+        m_ActiveModule->VM.store_double(-1, d, m_ActiveModule->VM.m_Stack);
     }
 
-    void Context::PushPointer(void* p) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::Ptr }, m_ActiveModule->VM.m_Stack);
-        m_ActiveModule->VM.StorePointer(-1, p, m_ActiveModule->VM.m_Stack);
+    void Context::push_pointer(void* p) {
+        m_ActiveModule->VM.alloc({ Internal::VMTypeKind::Ptr }, m_ActiveModule->VM.m_Stack);
+        m_ActiveModule->VM.store_pointer(-1, p, m_ActiveModule->VM.m_Stack);
     }
 
-    void Context::PushString(std::string_view s) {
-        m_ActiveModule->VM.Alloca({ Internal::VMTypeKind::Slice }, m_ActiveModule->VM.m_Stack);
-        m_ActiveModule->VM.StoreString(-1, s, m_ActiveModule->VM.m_Stack);
+    void Context::push_string(std::string_view s) {
+        m_ActiveModule->VM.alloc({ Internal::VMTypeKind::Slice }, m_ActiveModule->VM.m_Stack);
+        m_ActiveModule->VM.store_string(-1, s, m_ActiveModule->VM.m_Stack);
     }
 
-    void Context::StoreBool(int32_t index, bool b) {
-        m_ActiveModule->VM.StoreBool(index, b, m_ActiveModule->VM.m_Stack);
+    void Context::store_bool(int32_t index, bool b) {
+        m_ActiveModule->VM.store_bool(index, b, m_ActiveModule->VM.m_Stack);
     }
 
-    void Context::StoreChar(int32_t index, int8_t c) {
-        m_ActiveModule->VM.StoreChar(index, c, m_ActiveModule->VM.m_Stack);
+    void Context::store_char(int32_t index, int8_t c) {
+        m_ActiveModule->VM.store_char(index, c, m_ActiveModule->VM.m_Stack);
     }
 
-    void Context::StoreShort(int32_t index, int16_t s) {
-        m_ActiveModule->VM.StoreShort(index, s, m_ActiveModule->VM.m_Stack);
+    void Context::store_short(int32_t index, int16_t s) {
+        m_ActiveModule->VM.store_short(index, s, m_ActiveModule->VM.m_Stack);
     }
 
-    void Context::StoreInt(int32_t index, int32_t i) {
-        m_ActiveModule->VM.StoreInt(index, i, m_ActiveModule->VM.m_Stack);
+    void Context::store_int(int32_t index, int32_t i) {
+        m_ActiveModule->VM.store_int(index, i, m_ActiveModule->VM.m_Stack);
     }
 
-    void Context::StoreLong(int32_t index, int64_t l) {
-        m_ActiveModule->VM.StoreLong(index, l, m_ActiveModule->VM.m_Stack);
+    void Context::store_long(int32_t index, int64_t l) {
+        m_ActiveModule->VM.store_long(index, l, m_ActiveModule->VM.m_Stack);
     }
 
-    void Context::StoreFloat(int32_t index, float f) {
-        m_ActiveModule->VM.StoreFloat(index, f, m_ActiveModule->VM.m_Stack);
+    void Context::store_float(int32_t index, float f) {
+        m_ActiveModule->VM.store_float(index, f, m_ActiveModule->VM.m_Stack);
     }
 
-    void Context::StoreDouble(int32_t index, double d) {
-        m_ActiveModule->VM.StoreDouble(index, d, m_ActiveModule->VM.m_Stack);
+    void Context::store_double(int32_t index, double d) {
+        m_ActiveModule->VM.store_double(index, d, m_ActiveModule->VM.m_Stack);
     }
 
-    void Context::StorePointer(int32_t index, void* p) {
-        m_ActiveModule->VM.StorePointer(index, p, m_ActiveModule->VM.m_Stack);
+    void Context::store_pointer(int32_t index, void* p) {
+        m_ActiveModule->VM.store_pointer(index, p, m_ActiveModule->VM.m_Stack);
     }
 
-    void Context::StoreString(int32_t index, std::string_view str) {
-        m_ActiveModule->VM.StoreString(index, str, m_ActiveModule->VM.m_Stack);
+    void Context::store_string(int32_t index, std::string_view str) {
+        m_ActiveModule->VM.store_string(index, str, m_ActiveModule->VM.m_Stack);
     }
 
-    void Context::GetGlobal(std::string_view str) {
+    void Context::get_global(std::string_view str) {
         ARIA_ASSERT(m_ActiveModule->VM.m_GlobalMap.contains(str), "VM does not contain global variable");
-        m_ActiveModule->VM.Dup(m_ActiveModule->VM.m_GlobalMap[str], m_ActiveModule->VM.m_Stack, m_ActiveModule->VM.m_Globals);
+        m_ActiveModule->VM.dup(m_ActiveModule->VM.m_GlobalMap[str], m_ActiveModule->VM.m_Stack, m_ActiveModule->VM.m_Globals);
     }
 
-    void Context::GetGlobalPtr(std::string_view str) {
+    void Context::get_global_ptr(std::string_view str) {
         ARIA_ASSERT(m_ActiveModule->VM.m_GlobalMap.contains(str), "VM does not contain global variable");
-        Internal::VMSlice slice = m_ActiveModule->VM.GetVMSlice(m_ActiveModule->VM.m_GlobalMap[str], m_ActiveModule->VM.m_Globals);
-        PushPointer(slice.Memory);
+        Internal::VMSlice slice = m_ActiveModule->VM.get_vm_slice(m_ActiveModule->VM.m_GlobalMap[str], m_ActiveModule->VM.m_Globals);
+        push_pointer(slice.Memory);
     }
 
-    void Context::GetArg(int32_t index) {
-        ARIA_TODO("Context::GetArg()");
-        // m_ActiveModule->VM.Dup(index + 1, m_ActiveModule->VM.m_Stack, m_ActiveModule->VM.m_FunctionStack);
+    bool Context::get_bool(int32_t index) {
+        return m_ActiveModule->VM.get_bool(index, m_ActiveModule->VM.m_Stack);
     }
 
-    void Context::GetField(int32_t index, const std::string& name) {
-        // CompiledSource* src = GetCompiledSource(module);
-        //
-        // Internal::StackSlot slot = src->VM.GetStackSlot(index);
-        // 
-        // ARIA_ASSERT(slot.ResolvedType->Type == Internal::PrimitiveType::Structure, "Accessing a field can only happen with a struct");
-        // 
-        // for (const auto& field : std::get<Internal::StructDeclaration>(slot.ResolvedType->Data).Fields) {
-        //     if (Internal::StringView(name.data(), name.size()) == field.Identifier) {
-        //         src->VM.Ref({index, field.Offset, field.ResolvedType->GetSize()}, field.ResolvedType);
-        //     }
-        // }
-        
-        ARIA_ASSERT(false, "Add Context::PushField()");
-
-        // ReportRuntimeError(fmt::format("Could find field {} in {}", name, Internal::TypeInfoToString(slot.ResolvedType)));
+    int8_t Context::get_char(int32_t index) {
+        return m_ActiveModule->VM.get_char(index, m_ActiveModule->VM.m_Stack);
     }
 
-    bool Context::GetBool(int32_t index) {
-        return m_ActiveModule->VM.GetBool(index, m_ActiveModule->VM.m_Stack);
+    uint8_t Context::get_uchar(int32_t index) {
+        return static_cast<uint8_t>(m_ActiveModule->VM.get_char(index, m_ActiveModule->VM.m_Stack));
     }
 
-    int8_t Context::GetChar(int32_t index) {
-        return m_ActiveModule->VM.GetChar(index, m_ActiveModule->VM.m_Stack);
+    int16_t Context::get_short(int32_t index) {
+        return m_ActiveModule->VM.get_short(index, m_ActiveModule->VM.m_Stack);
     }
 
-    uint8_t Context::GetUChar(int32_t index) {
-        return static_cast<uint8_t>(m_ActiveModule->VM.GetChar(index, m_ActiveModule->VM.m_Stack));
+    uint16_t Context::get_ushort(int32_t index) {
+        return static_cast<uint16_t>(m_ActiveModule->VM.get_short(index, m_ActiveModule->VM.m_Stack));
     }
 
-    int16_t Context::GetShort(int32_t index) {
-        return m_ActiveModule->VM.GetShort(index, m_ActiveModule->VM.m_Stack);
+    int32_t Context::get_int(int32_t index) {
+        return m_ActiveModule->VM.get_int(index, m_ActiveModule->VM.m_Stack);
     }
 
-    uint16_t Context::GetUShort(int32_t index) {
-        return static_cast<uint16_t>(m_ActiveModule->VM.GetShort(index, m_ActiveModule->VM.m_Stack));
+    uint32_t Context::get_uint(int32_t index) {
+        return m_ActiveModule->VM.get_uint(index, m_ActiveModule->VM.m_Stack);
     }
 
-    int32_t Context::GetInt(int32_t index) {
-        return m_ActiveModule->VM.GetInt(index, m_ActiveModule->VM.m_Stack);
+    int64_t Context::get_long(int32_t index) {
+        return m_ActiveModule->VM.get_long(index, m_ActiveModule->VM.m_Stack);
     }
 
-    uint32_t Context::GetUInt(int32_t index) {
-        return static_cast<uint32_t>(m_ActiveModule->VM.GetInt(index, m_ActiveModule->VM.m_Stack));
+    uint64_t Context::get_ulong(int32_t index) {
+        return m_ActiveModule->VM.get_ulong(index, m_ActiveModule->VM.m_Stack);
     }
 
-    int64_t Context::GetLong(int32_t index) {
-        return m_ActiveModule->VM.GetLong(index, m_ActiveModule->VM.m_Stack);
+    float Context::get_float(int32_t index) {
+        return m_ActiveModule->VM.get_float(index, m_ActiveModule->VM.m_Stack);
     }
 
-    uint64_t Context::GetULong(int32_t index) {
-        return  static_cast<uint64_t>(m_ActiveModule->VM.GetLong(index, m_ActiveModule->VM.m_Stack));
+    double Context::get_double(int32_t index) {
+        return m_ActiveModule->VM.get_double(index, m_ActiveModule->VM.m_Stack);
     }
 
-    float Context::GetFloat(int32_t index) {
-        return m_ActiveModule->VM.GetFloat(index, m_ActiveModule->VM.m_Stack);
+    void* Context::get_pointer(int32_t index) {
+        return m_ActiveModule->VM.get_pointer(index, m_ActiveModule->VM.m_Stack);
     }
 
-    double Context::GetDouble(int32_t index) {
-        return m_ActiveModule->VM.GetDouble(index, m_ActiveModule->VM.m_Stack);
+    std::string_view Context::get_string(int32_t index) {
+        return m_ActiveModule->VM.get_string(index, m_ActiveModule->VM.m_Stack);
     }
 
-    void* Context::GetPointer(int32_t index) {
-        return m_ActiveModule->VM.GetPointer(index, m_ActiveModule->VM.m_Stack);
+    void Context::pop(size_t count) {
+        m_ActiveModule->VM.pop(count, m_ActiveModule->VM.m_Stack);
     }
 
-    std::string_view Context::GetString(int32_t index) {
-        return m_ActiveModule->VM.GetString(index, m_ActiveModule->VM.m_Stack);
+    void Context::add_external_function(std::string_view name, ExternFn fn) {
+        m_ActiveModule->VM.add_extern(name, fn);
     }
 
-    void Context::Pop(size_t count) {
-        m_ActiveModule->VM.Pop(count, m_ActiveModule->VM.m_Stack);
-    }
-
-    void Context::AddExternalFunction(std::string_view name, ExternFn fn) {
-        m_ActiveModule->VM.AddExtern(name, fn);
-    }
-
-    bool Context::HasFunction(const std::string& str) {
+    bool Context::has_function(const std::string& str) {
         Internal::CompilerReflectionData& reflection = m_ActiveModule->CompilationContext.ReflectionData;
         return reflection.Declarations.contains(str) && reflection.Declarations.at(str).Kind == Internal::ReflectionKind::Function;
     }
 
-    void Context::Call(const std::string& str, size_t argCount) {
+    void Context::call(const std::string& str, size_t argCount) {
         Internal::CompilerReflectionData& reflection = m_ActiveModule->CompilationContext.ReflectionData;
         ARIA_ASSERT(reflection.Declarations.contains(str), "Module does not contain function");
 
-        m_ActiveModule->VM.Call(str, argCount);
+        m_ActiveModule->VM.call(str, argCount);
     }
 
-    void Context::SetRuntimeErrorHandler(RuntimeErrorHandlerFn fn) {
+    void Context::set_runtime_error_handler(RuntimeErrorHandlerFn fn) {
         m_RuntimeErrorHandler = fn;
     }
 
-    void Context::SetCompilerErrorHandler(CompilerErrorHandlerFn fn) {
+    void Context::set_compiler_error_handler(CompilerErrorHandlerFn fn) {
         m_CompilerErrorHandler = fn;
     }
 
-    void Context::CompileFileRaw(const std::string& source, const std::string& filename) {
-        m_ActiveModule->CompilationContext.CompileFile(source);
+    void Context::compile_file_raw(const std::string& source, const std::string& filename) {
+        m_ActiveModule->CompilationContext.compile_file(source);
     }
 
-    void Context::ReportRuntimeError(const std::string& error) {
+    void Context::report_runtime_error(const std::string& error) {
         if (m_RuntimeErrorHandler) {
             m_RuntimeErrorHandler(error);
         } else {
             fmt::print(stderr, "A runtime error occurred!\nError message: {}", error);
         }
 
-        m_ActiveModule->VM.StopExecution();
+        m_ActiveModule->VM.stop_execution();
     }
 
 } // namespace Aria

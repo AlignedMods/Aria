@@ -48,7 +48,7 @@ namespace Aria::Internal {
         std::vector<StackSlot> StackSlots;
         size_t StackSlotPointer = 0;
 
-        inline void Reserve(size_t size, size_t slotCount) { Stack.resize(size); StackSlots.resize(slotCount); }
+        inline void reserve(size_t size, size_t slotCount) { Stack.resize(size); StackSlots.resize(slotCount); }
     };
 
     struct VMStackFrame {
@@ -62,54 +62,53 @@ namespace Aria::Internal {
         explicit VM(Context* ctx);
         ~VM();
 
-        // Allocates memory on a stack (local, function, global, ..)
-        void Alloca(const VMType& type, Stack& stack);
-        void Pop   (size_t count, Stack& stack);
-        void Copy  (i32 dstSlot, i32 srcSlot, Stack& dst, Stack& src);
-        void Dup   (i32 slot, Stack& dst, Stack& src);
+        void alloc(const VMType& type, Stack& stack);
+        void pop  (size_t count, Stack& stack);
+        void copy (i32 dstSlot, i32 srcSlot, Stack& dst, Stack& src);
+        void dup  (i32 slot, Stack& dst, Stack& src);
 
-        void AddExtern(std::string_view signature, ExternFn fn);
+        void add_extern(std::string_view signature, ExternFn fn);
 
-        void Call(const std::string& signature, size_t argCount);
+        void call(const std::string& signature, size_t argCount);
         
-        void StoreBool   (i32 slot, bool b,                Stack& stack);
-        void StoreChar   (i32 slot, int8_t c,              Stack& stack);
-        void StoreShort  (i32 slot, int16_t ch,            Stack& stack);
-        void StoreInt    (i32 slot, int32_t i,             Stack& stack);
-        void StoreUInt   (i32 slot, uint32_t i,            Stack& stack);
-        void StoreLong   (i32 slot, int64_t l,            Stack& stack);
-        void StoreULong  (i32 slot, uint64_t l,            Stack& stack);
-        void StoreSize   (i32 slot, size_t sz,             Stack& stack);
-        void StoreFloat  (i32 slot, float f,               Stack& stack);
-        void StoreDouble (i32 slot, double d,              Stack& stack);
-        void StorePointer(i32 slot, void* p,               Stack& stack);
-        void StoreString (i32 slot, std::string_view str,  Stack& stack);
+        void store_bool   (i32 slot, bool b,                Stack& stack);
+        void store_char   (i32 slot, int8_t c,              Stack& stack);
+        void store_short  (i32 slot, int16_t ch,            Stack& stack);
+        void store_int    (i32 slot, int32_t i,             Stack& stack);
+        void store_uint   (i32 slot, uint32_t i,            Stack& stack);
+        void store_long   (i32 slot, int64_t l,             Stack& stack);
+        void store_ulong  (i32 slot, uint64_t l,            Stack& stack);
+        void store_size   (i32 slot, size_t sz,             Stack& stack);
+        void store_float  (i32 slot, float f,               Stack& stack);
+        void store_double (i32 slot, double d,              Stack& stack);
+        void store_pointer(i32 slot, void* p,               Stack& stack);
+        void store_string (i32 slot, std::string_view str,  Stack& stack);
 
-        bool             GetBool   (i32 slot, Stack& stack);
-        int8_t           GetChar   (i32 slot, Stack& stack);
-        int16_t          GetShort  (i32 slot, Stack& stack);
-        int32_t          GetInt    (i32 slot, Stack& stack);
-        uint32_t         GetUInt   (i32 slot, Stack& stack);
-        int64_t          GetLong   (i32 slot, Stack& stack);
-        uint64_t         GetULong  (i32 slot, Stack& stack);
-        size_t           GetSize   (i32 slot, Stack& stack);
-        float            GetFloat  (i32 slot, Stack& stack);
-        double           GetDouble (i32 slot, Stack& stack);
-        void*            GetPointer(i32 slot, Stack& stack);
-        std::string_view GetString (i32 slot, Stack& stack);
+        bool             get_bool   (i32 slot, Stack& stack);
+        int8_t           get_char   (i32 slot, Stack& stack);
+        int16_t          get_short  (i32 slot, Stack& stack);
+        int32_t          get_int    (i32 slot, Stack& stack);
+        uint32_t         get_uint   (i32 slot, Stack& stack);
+        int64_t          get_long   (i32 slot, Stack& stack);
+        uint64_t         get_ulong  (i32 slot, Stack& stack);
+        size_t           get_size   (i32 slot, Stack& stack);
+        float            get_float  (i32 slot, Stack& stack);
+        double           get_double (i32 slot, Stack& stack);
+        void*            get_pointer(i32 slot, Stack& stack);
+        std::string_view get_string (i32 slot, Stack& stack);
 
-        void RunByteCode(const OpCodes& ops);
-        void Run();
+        void run_byte_code(const OpCodes& ops);
+        void run();
 
-        VMSlice GetVMSlice(i32 slot, Stack& stack);
-        size_t GetVMTypeSize(const VMType& type);
+        VMSlice get_vm_slice(i32 slot, Stack& stack);
+        size_t get_vm_type_size(const VMType& type);
 
-        void StopExecution();
+        void stop_execution();
 
     private:
-        void RunPrepass();
+        void run_prepass();
 
-        size_t AlignToEight(size_t size);
+        size_t align_to_eight(size_t size);
         
     private:
         Stack m_Stack;

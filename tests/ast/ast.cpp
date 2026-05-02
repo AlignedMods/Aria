@@ -4,5 +4,5 @@
 
 TEST_CASE("AST Implicit Casts") {
     Aria::Context ctx = Aria::Context::Create();
-    ctx.CompileFile("tests/ast/implicit_casts.aria");
+    ctx.compile_file("tests/ast/implicit_casts.aria");
 }

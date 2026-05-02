@@ -2,58 +2,58 @@
 
 namespace Aria::Internal {
 
-    void SemanticAnalyzer::ResolveVarInitializer(Decl* decl) {
-        ARIA_ASSERT(decl->Kind == DeclKind::Var, "SemanticAnalyzer::ResolveVarInitializer() only supports a variable declaration");
+    void SemanticAnalyzer::resolve_var_initializer(Decl* decl) {
+        ARIA_ASSERT(decl->Kind == DeclKind::Var, "SemanticAnalyzer::resolve_var_initializer() only supports a variable declaration");
         VarDecl& var = decl->Var;
 
         if (!var.Initializer) {
-            return CreateDefaultInitializer(&var.Initializer, var.Type, decl->Loc, decl->Range);
+            return create_default_initializer(&var.Initializer, var.Type, decl->Loc, decl->Range);
         } else {
-            ResolveExpr(var.Initializer);
+            resolve_expr(var.Initializer);
         }
 
         TypeInfo* initType = var.Initializer->Type;
-        RequireRValue(var.Initializer);
+        require_rvalue(var.Initializer);
 
         // Handle type inferrence here
         if (!var.Type) {
-            if (initType->IsVoid()) {
-                m_Context->ReportCompilerDiagnostic(decl->Loc, decl->Range, "Cannot create variable of void type");
+            if (initType->is_void()) {
+                m_Context->report_compiler_diagnostic(decl->Loc, decl->Range, "Cannot create variable of void type");
             }
             var.Type = initType;
         }
 
-        if (initType->IsError() || var.Type->IsError()) { return; }
+        if (initType->is_error() || var.Type->is_error()) { return; }
 
-        ConversionCost cost = GetConversionCost(var.Type, initType);
+        ConversionCost cost = get_conversion_cost(var.Type, initType);
         if (cost.CastNeeded) {
             if (cost.ImplicitCastPossible) {
-                InsertImplicitCast(var.Type, initType, var.Initializer, cost.Kind);
+                insert_implicit_cast(var.Type, initType, var.Initializer, cost.Kind);
             } else {
-                m_Context->ReportCompilerDiagnostic(var.Initializer->Loc, var.Initializer->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(initType), TypeInfoToString(var.Type)));
+                m_Context->report_compiler_diagnostic(var.Initializer->Loc, var.Initializer->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(initType), type_info_to_string(var.Type)));
             }
         }
     }
 
-    void SemanticAnalyzer::ResolveParamInitializer(TypeInfo* paramType, Expr* arg) {
+    void SemanticAnalyzer::resolve_param_initializer(TypeInfo* paramType, Expr* arg) {
         m_TemporaryContext = true;
-        ResolveExpr(arg);
+        resolve_expr(arg);
 
         TypeInfo* argType = arg->Type;
-        RequireRValue(arg);
+        require_rvalue(arg);
         m_TemporaryContext = false;
 
-        ConversionCost cost = GetConversionCost(paramType, argType);
+        ConversionCost cost = get_conversion_cost(paramType, argType);
         if (cost.CastNeeded) {
             if (cost.ImplicitCastPossible) {
-                InsertImplicitCast(paramType, argType, arg, cost.Kind);
+                insert_implicit_cast(paramType, argType, arg, cost.Kind);
             } else {
-                m_Context->ReportCompilerDiagnostic(arg->Loc, arg->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", TypeInfoToString(argType), TypeInfoToString(paramType)));
+                m_Context->report_compiler_diagnostic(arg->Loc, arg->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(argType), type_info_to_string(paramType)));
             }
         }
     }
 
-    void SemanticAnalyzer::CreateDefaultInitializer(Expr** expr, TypeInfo* type, SourceLocation loc, SourceRange range) {
+    void SemanticAnalyzer::create_default_initializer(Expr** expr, TypeInfo* type, SourceLocation loc, SourceRange range) {
         switch (type->Kind) {
             case TypeKind::Bool:   *expr = Expr::Create(m_Context, {}, {}, ExprKind::BooleanConstant,   ExprValueKind::RValue, type, BooleanConstantExpr(false)); break;
             case TypeKind::Char:   *expr = Expr::Create(m_Context, {}, {}, ExprKind::CharacterConstant, ExprValueKind::RValue, type, CharacterConstantExpr('\0')); break;
@@ -88,7 +88,7 @@ namespace Aria::Internal {
                         *expr = Expr::Create(m_Context, {}, {}, ExprKind::Construct, ExprValueKind::RValue, type, ConstructExpr(ctor, {}));
                         break;
                     } else {
-                        m_Context->ReportCompilerDiagnostic(loc, range, fmt::format("Cannot default initialize variable of type '{}'", TypeInfoToString(type)));
+                        m_Context->report_compiler_diagnostic(loc, range, fmt::format("Cannot default initialize variable of type '{}'", type_info_to_string(type)));
                         break;
                     }
                 }
@@ -98,7 +98,7 @@ namespace Aria::Internal {
 
             case TypeKind::Unresolved: break;
 
-            default: m_Context->ReportCompilerDiagnostic(loc, range, fmt::format("Cannot default initialize variable of type '{}'", TypeInfoToString(type)), CompilerDiagKind::Warning); break;
+            default: m_Context->report_compiler_diagnostic(loc, range, fmt::format("Cannot default initialize variable of type '{}'", type_info_to_string(type)), CompilerDiagKind::Warning); break;
         }
     }
 

@@ -11,17 +11,17 @@ namespace Aria::Internal {
     public:
         ASTDumper(Stmt* rootASTNode);
 
-        std::string& GetOutput();
+        std::string& get_output();
 
     private:
-        void DumpASTImpl();
+        void dump_ast_impl();
 
-        void DumpExpr(Expr* expr, size_t indentation);
-        void DumpDecl(Decl* decl, size_t indentation);
-        void DumpStmt(Stmt* stmt, size_t indentation);
-        void DumpSpecifier(Specifier* spec, size_t indentation);
+        void dump_expr(Expr* expr, size_t indentation);
+        void dump_decl(Decl* decl, size_t indentation);
+        void dump_stmt(Stmt* stmt, size_t indentation);
+        void dump_specifier(Specifier* spec, size_t indentation);
 
-        void DumpFunctionAttr(FunctionDecl::Attribute attr, size_t indentation);
+        void dump_function_attr(FunctionDecl::Attribute attr, size_t indentation);
 
     private:
         Stmt* m_RootASTNode = nullptr;

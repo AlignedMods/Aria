@@ -2,142 +2,153 @@
 
 namespace Aria::Internal {
 
-    void SemanticAnalyzer::ResolveNopStmt(Stmt* stmt) {}
-    void SemanticAnalyzer::ResolveImportStmt(Stmt* stmt) {}
+    void SemanticAnalyzer::resolve_Nop_stmt(Stmt* stmt) {}
+    void SemanticAnalyzer::resolve_Import_stmt(Stmt* stmt) {}
 
-    void SemanticAnalyzer::ResolveBlockStmt(Stmt* stmt) {
+    void SemanticAnalyzer::resolve_Block_stmt(Stmt* stmt) {
         BlockStmt block = stmt->Block;
 
         bool wasUnsafe = m_UnsafeContext;
         if (!m_UnsafeContext) { m_UnsafeContext = block.Unsafe; }
 
         for (Stmt* s : block.Stmts) {
-            ResolveStmt(s);
+            resolve_stmt(s);
         }
 
         m_UnsafeContext = wasUnsafe;
     }
 
-    void SemanticAnalyzer::ResolveWhileStmt(Stmt* stmt) {
+    void SemanticAnalyzer::resolve_While_stmt(Stmt* stmt) {
         WhileStmt wh = stmt->While;
 
-        PushScope(true, true);
+        resolve_expr(wh.Condition);
+        require_rvalue(wh.Condition);
 
-        ResolveExpr(wh.Condition);
-        RequireRValue(wh.Condition);
-
-        if (!wh.Condition->Type->IsBoolean()) {
+        if (!wh.Condition->Type->is_boolean()) {
             ARIA_ASSERT(false, "todo: add error");
         }
 
-        ResolveBlockStmt(wh.Body);
+        // Check for loops such as "while true"
+        if (is_const_expr(wh.Condition) && eval_expr_bool(wh.Condition)) {
+            m_Scopes.back().ReachesEnd = false;
+        }
 
-        PopScope();
+        push_scope(true, true);
+        resolve_Block_stmt(wh.Body);
+        pop_scope();
     }
 
-    void SemanticAnalyzer::ResolveDoWhileStmt(Stmt* stmt) {
+    void SemanticAnalyzer::resolve_DoWhile_stmt(Stmt* stmt) {
         DoWhileStmt wh = stmt->DoWhile;
 
-        PushScope(true, true);
+        resolve_expr(wh.Condition);
+        require_rvalue(wh.Condition);
 
-        ResolveExpr(wh.Condition);
-        RequireRValue(wh.Condition);
-
-        if (!wh.Condition->Type->IsBoolean()) {
+        if (!wh.Condition->Type->is_boolean()) {
             ARIA_ASSERT(false, "todo: add error");
         }
 
-        ResolveBlockStmt(wh.Body);
+        // Check for loops such as "do {} while true"
+        if (is_const_expr(wh.Condition) && eval_expr_bool(wh.Condition)) {
+            m_Scopes.back().ReachesEnd = false;
+        }
 
-        PopScope();
+        push_scope(true, true);
+        resolve_Block_stmt(wh.Body);
+        pop_scope();
     }
 
-    void SemanticAnalyzer::ResolveForStmt(Stmt* stmt) {
+    void SemanticAnalyzer::resolve_For_stmt(Stmt* stmt) {
         ForStmt fs = stmt->For;
 
-        PushScope(true, true);
-        
-        if (fs.Prologue) { ResolveDecl(fs.Prologue); }
-
         if (fs.Condition) {
-            ResolveExpr(fs.Condition);
-            RequireRValue(fs.Condition);
+            resolve_expr(fs.Condition);
+            require_rvalue(fs.Condition);
 
-            if (!fs.Condition->Type->IsBoolean() && !fs.Condition->Type->IsError()) {
-                m_Context->ReportCompilerDiagnostic(fs.Condition->Loc, fs.Condition->Range, fmt::format("For loop condition must be of a boolean type but is '{}'", TypeInfoToString(fs.Condition->Type)));
+            if (!fs.Condition->Type->is_boolean() && !fs.Condition->Type->is_error()) {
+                m_Context->report_compiler_diagnostic(fs.Condition->Loc, fs.Condition->Range, fmt::format("For loop condition must be of a boolean type but is '{}'", type_info_to_string(fs.Condition->Type)));
             }
+
+            if (is_const_expr(fs.Condition) && eval_expr_bool(fs.Condition)) {
+                m_Scopes.back().ReachesEnd = false;
+            }
+        } else {
+            m_Scopes.back().ReachesEnd = false;
         }
 
-        if (fs.Step) { ResolveExpr(fs.Step); }
-        ResolveBlockStmt(fs.Body);
-        
-        PopScope();
+        push_scope(true, true);
+        if (fs.Prologue) { resolve_decl(fs.Prologue); }
+        if (fs.Step) { resolve_expr(fs.Step); }
+        resolve_Block_stmt(fs.Body);
+        pop_scope();
     }
 
-    void SemanticAnalyzer::ResolveIfStmt(Stmt* stmt) {
+    void SemanticAnalyzer::resolve_If_stmt(Stmt* stmt) {
         IfStmt ifs = stmt->If;
-        PushScope();
+        push_scope();
 
-        ResolveExpr(ifs.Condition);
-        RequireRValue(ifs.Condition);
+        resolve_expr(ifs.Condition);
+        require_rvalue(ifs.Condition);
 
-        if (!ifs.Condition->Type->IsBoolean()) {
+        if (!ifs.Condition->Type->is_boolean()) {
             ARIA_ASSERT(false, "todo: add error");
         }
 
-        ResolveBlockStmt(ifs.Body);
+        resolve_Block_stmt(ifs.Body);
 
-        PopScope();
+        pop_scope();
     }
 
-    void SemanticAnalyzer::ResolveBreakStmt(Stmt* stmt) {
+    void SemanticAnalyzer::resolve_Break_stmt(Stmt* stmt) {
         if (!m_Scopes.back().AllowBreakStmt) {
-            m_Context->ReportCompilerDiagnostic(stmt->Loc, stmt->Range, "Cannot use 'break' here");
+            m_Context->report_compiler_diagnostic(stmt->Loc, stmt->Range, "Cannot use 'break' here");
+        } else {
+            m_Scopes.back().ReachesEnd = false;
         }
     }
 
-    void SemanticAnalyzer::ResolveContinueStmt(Stmt* stmt) {
+    void SemanticAnalyzer::resolve_Continue_stmt(Stmt* stmt) {
         if (!m_Scopes.back().AllowContinueStmt) {
-            m_Context->ReportCompilerDiagnostic(stmt->Loc, stmt->Range, "Cannot use 'continue' here");
+            m_Context->report_compiler_diagnostic(stmt->Loc, stmt->Range, "Cannot use 'continue' here");
+        } else {
+            m_Scopes.back().ReachesEnd = false;
         }
     }
 
-    void SemanticAnalyzer::ResolveReturnStmt(Stmt* stmt) {
+    void SemanticAnalyzer::resolve_Return_stmt(Stmt* stmt) {
         ReturnStmt& ret = stmt->Return;
         
         if (m_ActiveReturnType == nullptr) {
-            m_Context->ReportCompilerDiagnostic(stmt->Loc, stmt->Range, "'return' statement out of function body is not allowed");
-            ret.Value->Type = &ErrorType;
+            m_Context->report_compiler_diagnostic(stmt->Loc, stmt->Range, "'return' statement out of function body is not allowed");
+            ret.Value->Type = &error_type;
             return;
         }
         
-        ResolveExpr(ret.Value);
-        RequireRValue(ret.Value);
+        resolve_expr(ret.Value);
+        require_rvalue(ret.Value);
 
-        ConversionCost cost = GetConversionCost(m_ActiveReturnType, ret.Value->Type);
+        ConversionCost cost = get_conversion_cost(m_ActiveReturnType, ret.Value->Type);
         if (cost.CastNeeded) {
             if (cost.ImplicitCastPossible) {
-                InsertImplicitCast(m_ActiveReturnType, ret.Value->Type, ret.Value, cost.Kind);
+                insert_implicit_cast(m_ActiveReturnType, ret.Value->Type, ret.Value, cost.Kind);
             } else {
-                m_Context->ReportCompilerDiagnostic(ret.Value->Loc, ret.Value->Range, fmt::format("Cannot implicitly convert '{}' to return type '{}'", TypeInfoToString(ret.Value->Type), TypeInfoToString(m_ActiveReturnType)));
+                m_Context->report_compiler_diagnostic(ret.Value->Loc, ret.Value->Range, fmt::format("Cannot implicitly convert '{}' to return type '{}'", type_info_to_string(ret.Value->Type), type_info_to_string(m_ActiveReturnType)));
             }
         }
 
-        if (m_Scopes.size() == 1) {
-            m_CanReachEndOfFunction = false;
-        }
+        m_Scopes.back().ReachesEnd = false;
     }
 
-    void SemanticAnalyzer::ResolveExprStmt(Stmt* stmt) {
-        ResolveExpr(stmt->ExprStmt);
+    void SemanticAnalyzer::resolve_Expr_stmt(Stmt* stmt) {
+        resolve_expr(stmt->ExprStmt);
     }
 
-    void SemanticAnalyzer::ResolveDeclStmt(Stmt* stmt) {
-        ResolveDecl(stmt->DeclStmt);
+    void SemanticAnalyzer::resolve_Decl_stmt(Stmt* stmt) {
+        resolve_decl(stmt->DeclStmt);
     }
 
-    void SemanticAnalyzer::ResolveStmt(Stmt* stmt) {
-        #define STMT_CASE(kind) Resolve##kind##Stmt(stmt)
+    void SemanticAnalyzer::resolve_stmt(Stmt* stmt) {
+        #define STMT_CASE(kind) resolve_##kind##_stmt(stmt)
         #include "aria/internal/compiler/ast/stmt_switch.hpp"
         #undef STMT_CASE
     }

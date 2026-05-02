@@ -1,7 +1,8 @@
 #pragma once
 
-#include "aria/internal/compiler/core/string_view.hpp"
 #include "aria/internal/compiler/compilation_context.hpp"
+
+#include <string_view>
 
 namespace Aria::Internal {
 
@@ -12,16 +13,16 @@ namespace Aria::Internal {
     };
 
     struct ScopeSpecifier {
-        ScopeSpecifier(StringView identifier)
+        ScopeSpecifier(std::string_view identifier)
             : Identifier(identifier) {}
 
-        StringView Identifier;
+        std::string_view Identifier;
         Module* ReferencedModule = nullptr;
     };
 
     struct Specifier {
         template <typename T>
-        static inline Specifier* Create(CompilationContext* ctx, SourceLocation loc, SourceRange range, SpecifierKind kind, T t) { return ctx->Allocate<Specifier>(loc, range, kind, t); }
+        static inline Specifier* Create(CompilationContext* ctx, SourceLocation loc, SourceRange range, SpecifierKind kind, T t) { return ctx->allocate<Specifier>(loc, range, kind, t); }
 
         SpecifierKind Kind = SpecifierKind::Invalid;
 

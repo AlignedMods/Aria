@@ -9,8 +9,8 @@
 namespace Aria::Internal {
 
     VM::VM(Context* ctx) {
-        m_Stack.Reserve(static_cast<size_t>(2) * 1024, 128);
-        m_Globals.Reserve(static_cast<size_t>(16) * 1024, 1024);
+        m_Stack.reserve(static_cast<size_t>(2) * 1024, 128);
+        m_Globals.reserve(static_cast<size_t>(16) * 1024, 1024);
 
         m_Context = ctx;
     }
@@ -30,20 +30,20 @@ namespace Aria::Internal {
         sf.Function = &func;
         sf.ReturnAddress = &m_OpCodes->Program.back() + 1;
         m_StackFrames.push_back(sf);
-        Run();
+        run();
     }
 
-    void VM::Alloca(const VMType& type, Stack& stack) {
-        size_t rawSize = GetVMTypeSize(type);
-        size_t alignedSize = AlignToEight(rawSize);
+    void VM::alloc(const VMType& type, Stack& stack) {
+        size_t rawSize = get_vm_type_size(type);
+        size_t alignedSize = align_to_eight(rawSize);
         
         ARIA_ASSERT(alignedSize % 8 == 0, "Memory not aligned to 8 bytes correctly!");
-        ARIA_ASSERT(stack.StackPointer + alignedSize < stack.Stack.max_size(), "Stack overflow, allocating an insane amount of memory!");
+        ARIA_ASSERT(stack.StackPointer + alignedSize < stack.Stack.max_size(), "Stack overflow, allocting an insane amount of memory!");
 
         stack.StackPointer += alignedSize;
 
         if (stack.Stack.size() == 0) {
-            stack.Reserve(static_cast<size_t>(2) * 1024, 128);
+            stack.reserve(static_cast<size_t>(2) * 1024, 128);
         }
 
         while (stack.StackPointer >= stack.Stack.size()) {
@@ -58,35 +58,35 @@ namespace Aria::Internal {
         stack.StackSlots[stack.StackSlotPointer++] = { stack.StackPointer - alignedSize, rawSize, type };
     }
 
-    void VM::Pop(size_t count, Stack& stack) {
+    void VM::pop(size_t count, Stack& stack) {
         size_t sp = stack.StackPointer;
         stack.StackPointer = stack.StackSlots[stack.StackSlotPointer - count].Index;
         stack.StackSlotPointer -= count;
     }
 
-    void VM::Copy(i32 dstSlot, i32 srcSlot, Stack& dst, Stack& src) {
-        VMSlice dstSlice = GetVMSlice(dstSlot, dst);
-        VMSlice srcSlice = GetVMSlice(srcSlot, src);
+    void VM::copy(i32 dstSlot, i32 srcSlot, Stack& dst, Stack& src) {
+        VMSlice dstSlice = get_vm_slice(dstSlot, dst);
+        VMSlice srcSlice = get_vm_slice(srcSlot, src);
 
         ARIA_ASSERT(dstSlice.Size == srcSlice.Size, "Invalid VM::Copy() call, sizes of both sides must be the same!");
 
         memcpy(dstSlice.Memory, srcSlice.Memory, srcSlice.Size);
     }
 
-    void VM::Dup(i32 slot, Stack& dst, Stack& src) {
-        VMSlice srcSlot = GetVMSlice(slot, src);
+    void VM::dup(i32 slot, Stack& dst, Stack& src) {
+        VMSlice srcSlot = get_vm_slice(slot, src);
 
-        Alloca(srcSlot.Type, dst);
-        VMSlice dstSlot = GetVMSlice(-1, dst);
+        alloc(srcSlot.Type, dst);
+        VMSlice dstSlot = get_vm_slice(-1, dst);
         
         memcpy(dstSlot.Memory, srcSlot.Memory, srcSlot.Size);
     }
 
-    void VM::AddExtern(std::string_view signature, ExternFn fn) {
+    void VM::add_extern(std::string_view signature, ExternFn fn) {
         m_ExternalFunctions[signature] = fn;
     }
 
-    void VM::Call(const std::string& signature, size_t argCount) {
+    void VM::call(const std::string& signature, size_t argCount) {
         ARIA_ASSERT(m_Functions.contains(signature), "Calling unknown function");
         VMFunction& func = m_Functions.at(signature);
         
@@ -97,78 +97,78 @@ namespace Aria::Internal {
         sf.Function = &func;
         sf.ReturnAddress = &m_OpCodes->Program.back() + 1;
         m_StackFrames.push_back(sf);
-        Run();
+        run();
     }
 
-    void VM::StoreBool(i32 slot, bool b, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    void VM::store_bool(i32 slot, bool b, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
         ARIA_ASSERT(s.Size == 1, "Cannot store a bool in a slot with a size that isn't 1!");
         int8_t bb = static_cast<int8_t>(b);
         memcpy(s.Memory, &bb, 1);
     }
 
-    void VM::StoreChar(i32 slot, int8_t c, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    void VM::store_char(i32 slot, int8_t c, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
         ARIA_ASSERT(s.Size == 1, "Cannot store a char in a slot with a size that isn't 1!");
         memcpy(s.Memory, &c, 1);
     }
 
-    void VM::StoreShort(i32 slot, int16_t sh, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    void VM::store_short(i32 slot, int16_t sh, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
         ARIA_ASSERT(s.Size == 2, "Cannot store a short in a slot with a size that isn't 2!");
         memcpy(s.Memory, &sh, 2);
     }
 
-    void VM::StoreInt(i32 slot, int32_t i, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    void VM::store_int(i32 slot, int32_t i, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
         ARIA_ASSERT(s.Size == 4, "Cannot store an int in a slot with a size that isn't 4!");
         memcpy(s.Memory, &i, 4);
     }
 
-    void VM::StoreUInt(i32 slot, uint32_t i, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    void VM::store_uint(i32 slot, uint32_t i, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
         ARIA_ASSERT(s.Size == 4, "Cannot store a uint in a slot with a size that isn't 4!");
         memcpy(s.Memory, &i, 4);
     }
 
-    void VM::StoreLong(i32 slot, int64_t l, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    void VM::store_long(i32 slot, int64_t l, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
         ARIA_ASSERT(s.Size == 8, "Cannot store a long in a slot with a size that isn't 8!");
         memcpy(s.Memory, &l, 8);
     }
 
-    void VM::StoreULong(i32 slot, uint64_t l, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    void VM::store_ulong(i32 slot, uint64_t l, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
         ARIA_ASSERT(s.Size == 8, "Cannot store a ulong in a slot with a size that isn't 8!");
         memcpy(s.Memory, &l, 8);
     }
 
-    void VM::StoreSize(i32 slot, size_t sz, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    void VM::store_size(i32 slot, size_t sz, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
         ARIA_ASSERT(s.Size == sizeof(size_t), "Cannot store a size_t in a slot with a size that isn't sizeof(size_t)!");
         memcpy(s.Memory, &sz, sizeof(size_t));
     }
 
-    void VM::StoreFloat(i32 slot, float f, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    void VM::store_float(i32 slot, float f, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
         ARIA_ASSERT(s.Size == 4, "Cannot store a float in a slot with a size that isn't 4!");
         memcpy(s.Memory, &f, 4);
     }
 
-    void VM::StoreDouble(i32 slot, double d, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    void VM::store_double(i32 slot, double d, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
         ARIA_ASSERT(s.Size == 8, "Cannot store a double in a slot with a size that isn't 8!");
         memcpy(s.Memory, &d, 8);
     }
 
-    void VM::StorePointer(i32 slot, void* p, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    void VM::store_pointer(i32 slot, void* p, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
         ARIA_ASSERT(s.Size == sizeof(void*), "Cannot store a double in a slot with a size that isn't sizeof(void*)!");
         memcpy(s.Memory, &p, sizeof(void*));
     }
 
-    void VM::StoreString(i32 slot, std::string_view str, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    void VM::store_string(i32 slot, std::string_view str, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
         ARIA_ASSERT(s.Type.Kind == VMTypeKind::Slice, "Cannot store a string in a slot with a non-slice type");
         
         RuntimeSlice& slice = *reinterpret_cast<RuntimeSlice*>(s.Memory);
@@ -176,118 +176,118 @@ namespace Aria::Internal {
         slice.Size = str.size();
     }
 
-    bool VM::GetBool(i32 slot, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    bool VM::get_bool(i32 slot, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
 
-        ARIA_ASSERT(s.Size == 1, "Invalid GetBool() call!");
+        ARIA_ASSERT(s.Size == 1, "Invalid get_bool() call!");
 
         bool b = false;
         memcpy(&b, s.Memory, 1);
         return b;
     }
 
-    int8_t VM::GetChar(i32 slot, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    int8_t VM::get_char(i32 slot, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
 
-        ARIA_ASSERT(s.Size == 1, "Invalid GetChar() call!");
+        ARIA_ASSERT(s.Size == 1, "Invalid get_char() call!");
 
         int8_t c = 0;
         memcpy(&c, s.Memory, 1);
         return c;
     }
 
-    int16_t VM::GetShort(i32 slot, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    int16_t VM::get_short(i32 slot, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
 
-        ARIA_ASSERT(s.Size == 2, "Invalid GetShort() call!");
+        ARIA_ASSERT(s.Size == 2, "Invalid get_short() call!");
 
         int16_t sh = 0;
         memcpy(&sh, s.Memory, 2);
         return sh;
     }
 
-    int32_t VM::GetInt(i32 slot, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    int32_t VM::get_int(i32 slot, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
 
-        ARIA_ASSERT(s.Size == 4, "Invalid GetInt() call!");
+        ARIA_ASSERT(s.Size == 4, "Invalid get_int() call!");
 
         int32_t i = 0;
         memcpy(&i, s.Memory, 4);
         return i;
     }
 
-    uint32_t VM::GetUInt(i32 slot, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    uint32_t VM::get_uint(i32 slot, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
 
-        ARIA_ASSERT(s.Size == 4, "Invalid GetUInt() call!");
+        ARIA_ASSERT(s.Size == 4, "Invalid get_uint() call!");
 
         uint32_t i = 0;
         memcpy(&i, s.Memory, 4);
         return i;
     }
 
-    int64_t VM::GetLong(i32 slot, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    int64_t VM::get_long(i32 slot, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
 
-        ARIA_ASSERT(s.Size == 8, "Invalid GetLong() call!");
+        ARIA_ASSERT(s.Size == 8, "Invalid get_long() call!");
 
         int64_t l = 0;
         memcpy(&l, s.Memory, 8);
         return l;
     }
 
-    uint64_t VM::GetULong(i32 slot, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    uint64_t VM::get_ulong(i32 slot, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
 
-        ARIA_ASSERT(s.Size == 8, "Invalid GetULong() call!");
+        ARIA_ASSERT(s.Size == 8, "Invalid get_ulong() call!");
 
         uint64_t l = 0;
         memcpy(&l, s.Memory, 8);
         return l;
     }
 
-    size_t VM::GetSize(i32 slot, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    size_t VM::get_size(i32 slot, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
 
-        ARIA_ASSERT(s.Size == sizeof(size_t), "Invalid GetLong() call!");
+        ARIA_ASSERT(s.Size == sizeof(size_t), "Invalid get_size() call!");
 
         size_t sz = 0;
         memcpy(&sz, s.Memory, sizeof(size_t));
         return sz;
     }
 
-    float VM::GetFloat(i32 slot, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    float VM::get_float(i32 slot, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
 
-        ARIA_ASSERT(s.Size == 4, "Invalid GetFloat() call!");
+        ARIA_ASSERT(s.Size == 4, "Invalid get_float() call!");
 
         float f = 0;
         memcpy(&f, s.Memory, 4);
         return f;
     }
 
-    double VM::GetDouble(i32 slot, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    double VM::get_double(i32 slot, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
 
-        ARIA_ASSERT(s.Size == 8, "Invalid GetDouble() call!");
+        ARIA_ASSERT(s.Size == 8, "Invalid get_double() call!");
 
         double d = 0;
         memcpy(&d, s.Memory, 8);
         return d;
     }
 
-    void* VM::GetPointer(i32 slot, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    void* VM::get_pointer(i32 slot, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
 
-        ARIA_ASSERT(s.Size == sizeof(void*), "Invalid GetPointer() call!");
+        ARIA_ASSERT(s.Size == sizeof(void*), "Invalid get_pointer() call!");
 
         void* p = nullptr;
         memcpy(&p, s.Memory, sizeof(void*));
         return p;
     }
 
-    std::string_view VM::GetString(i32 slot, Stack& stack) {
-        VMSlice s = GetVMSlice(slot, stack);
+    std::string_view VM::get_string(i32 slot, Stack& stack) {
+        VMSlice s = get_vm_slice(slot, stack);
         ARIA_ASSERT(s.Type.Kind == VMTypeKind::Slice, "Invalid GetString() call!");
 
         RuntimeSlice str;
@@ -296,11 +296,11 @@ namespace Aria::Internal {
         return { reinterpret_cast<char*>(str.Mem), str.Size };
     }
 
-    void VM::RunByteCode(const OpCodes& ops) {
+    void VM::run_byte_code(const OpCodes& ops) {
         m_OpCodes = &ops;
         m_ProgramCounter = 0;
 
-        RunPrepass();
+        run_prepass();
 
         const std::string& signature = "_start$()";
 
@@ -315,40 +315,40 @@ namespace Aria::Internal {
         sf.Function = &func;
         sf.ReturnAddress = &m_OpCodes->Program.back() + 1;
         m_StackFrames.push_back(sf);
-        Run();
+        run();
     }
 
-    void VM::Run() {
+    void VM::run() {
         while (m_ProgramCounter < &m_OpCodes->Program.back()) {
             switch (*m_ProgramCounter) {
                 case OP_ALLOCA: {
                     auto& type = GET_TYPE();
-                    Alloca(type, m_Stack);
+                    alloc(type, m_Stack);
                     break;
                 }
 
                 case OP_NEW: {
                    auto& type = GET_TYPE(); 
-                   void* mem = malloc(AlignToEight(GetVMTypeSize(type)));
-                   ARIA_ASSERT(mem, "Too much memory allocated on the heap");
-                   Alloca({ VMTypeKind::Ptr }, m_Stack);
-                   StorePointer(-1, mem, m_Stack);
+                   void* mem = malloc(align_to_eight(get_vm_type_size(type)));
+                   ARIA_ASSERT(mem, "Too much memory allocted on the heap");
+                   alloc({ VMTypeKind::Ptr }, m_Stack);
+                   store_pointer(-1, mem, m_Stack);
                    break;
                 }
 
                 case OP_NEW_ARR: {
                    auto& type = GET_TYPE();
-                   u64 size = GetULong(-1, m_Stack);
+                   u64 size = get_ulong(-1, m_Stack);
 
-                   void* mem = malloc(AlignToEight(GetVMTypeSize(type)) * size);
-                   ARIA_ASSERT(mem, "Too much memory allocated on the heap");
-                   Alloca({ VMTypeKind::Ptr }, m_Stack);
-                   StorePointer(-1, mem, m_Stack);
+                   void* mem = malloc(align_to_eight(get_vm_type_size(type)) * size);
+                   ARIA_ASSERT(mem, "Too much memory allocted on the heap");
+                   alloc({ VMTypeKind::Ptr }, m_Stack);
+                   store_pointer(-1, mem, m_Stack);
                    break;
                 }
 
                 case OP_FREE: {
-                   void* mem = GetPointer(-1, m_Stack);
+                   void* mem = get_pointer(-1, m_Stack);
                    ARIA_ASSERT(mem, "Trying to free a null pointer");
                    free(mem);
                    break;
@@ -357,8 +357,8 @@ namespace Aria::Internal {
                 case OP_LD_CONST: {
                     auto& type = GET_TYPE();
                     size_t idx = static_cast<size_t>(*(++m_ProgramCounter));
-                    Alloca(type, m_Stack);
-                    VMSlice slice = GetVMSlice(-1, m_Stack);
+                    alloc(type, m_Stack);
+                    VMSlice slice = get_vm_slice(-1, m_Stack);
 
                     switch (type.Kind) {
                         case VMTypeKind::I1: {
@@ -416,37 +416,37 @@ namespace Aria::Internal {
                 case OP_LD_STR: {
                     std::string_view str = GET_STR();
 
-                    Alloca({ VMTypeKind::Slice }, m_Stack);
-                    RuntimeSlice& slice = *reinterpret_cast<RuntimeSlice*>(GetVMSlice(-1, m_Stack).Memory);
+                    alloc({ VMTypeKind::Slice }, m_Stack);
+                    RuntimeSlice& slice = *reinterpret_cast<RuntimeSlice*>(get_vm_slice(-1, m_Stack).Memory);
                     slice.Mem = const_cast<char*>(str.data());
                     slice.Size = str.size();
                     break;
                 }
 
                 case OP_LD_NULL: {
-                    Alloca({ VMTypeKind::Ptr }, m_Stack);
-                    memset(GetVMSlice(-1, m_Stack).Memory, 0, 8); // All slots are padded to eight bytes
+                    alloc({ VMTypeKind::Ptr }, m_Stack);
+                    memset(get_vm_slice(-1, m_Stack).Memory, 0, 8); // All slots are padded to eight bytes
                     break;
                 }
 
                 case OP_LD: {
                     auto& type = GET_TYPE();
-                    void* ptr = GetPointer(-1, m_Stack);
-                    Alloca(type, m_Stack);
+                    void* ptr = get_pointer(-1, m_Stack);
+                    alloc(type, m_Stack);
 
-                    memcpy(GetVMSlice(-1, m_Stack).Memory, ptr, AlignToEight(GetVMTypeSize(type)));
+                    memcpy(get_vm_slice(-1, m_Stack).Memory, ptr, align_to_eight(get_vm_type_size(type)));
                     break;
                 }
 
                 case OP_LD_LOCAL: {
                     size_t index = static_cast<size_t>(*++m_ProgramCounter);
-                    Dup(index, m_Stack, m_StackFrames.back().Locals);
+                    dup(index, m_Stack, m_StackFrames.back().Locals);
                     break;
                 }
 
                 case OP_LD_GLOBAL: {
                     std::string_view g = GET_STR();
-                    Dup(m_GlobalMap.at(g), m_Stack, m_Globals);
+                    dup(m_GlobalMap.at(g), m_Stack, m_Globals);
                     break;
                 }
 
@@ -454,34 +454,34 @@ namespace Aria::Internal {
                     size_t idx = static_cast<size_t>(*(++m_ProgramCounter));
                     auto& structType = GET_TYPE();
 
-                    u8* src = reinterpret_cast<u8*>(GetPointer(-1, m_Stack));           
+                    u8* src = reinterpret_cast<u8*>(get_pointer(-1, m_Stack));           
 
                     for (size_t i = 0; i < idx; i++) {
                         auto& field = std::get<VMStruct>(structType.Data).Fields[i];
-                        src += AlignToEight(GetVMTypeSize(m_OpCodes->TypeTable[field]));
+                        src += align_to_eight(get_vm_type_size(m_OpCodes->TypeTable[field]));
                     }
 
-                    Pop(1, m_Stack);
+                    pop(1, m_Stack);
 
-                    Alloca(m_OpCodes->TypeTable[std::get<VMStruct>(structType.Data).Fields[idx]], m_Stack);
-                    VMSlice dst = GetVMSlice(-1, m_Stack);
+                    alloc(m_OpCodes->TypeTable[std::get<VMStruct>(structType.Data).Fields[idx]], m_Stack);
+                    VMSlice dst = get_vm_slice(-1, m_Stack);
                     memcpy(dst.Memory, src, dst.Size);
                     break;
                 }
 
                 case OP_LD_PTR_LOCAL: {
                     size_t index = static_cast<size_t>(*++m_ProgramCounter);
-                    VMSlice slice = GetVMSlice(index, m_StackFrames.back().Locals);
-                    Alloca({ VMTypeKind::Ptr }, m_Stack);
-                    StorePointer(-1, slice.Memory, m_Stack);
+                    VMSlice slice = get_vm_slice(index, m_StackFrames.back().Locals);
+                    alloc({ VMTypeKind::Ptr }, m_Stack);
+                    store_pointer(-1, slice.Memory, m_Stack);
                     break;
                 }
 
                 case OP_LD_PTR_GLOBAL: {
                     std::string_view g = GET_STR();
-                    VMSlice slice = GetVMSlice(m_GlobalMap.at(g), m_Globals);
-                    Alloca({ VMTypeKind::Ptr }, m_Stack);
-                    StorePointer(-1, slice.Memory, m_Stack);
+                    VMSlice slice = get_vm_slice(m_GlobalMap.at(g), m_Globals);
+                    alloc({ VMTypeKind::Ptr }, m_Stack);
+                    store_pointer(-1, slice.Memory, m_Stack);
                     break;
                 }
 
@@ -489,54 +489,54 @@ namespace Aria::Internal {
                     size_t idx = static_cast<size_t>(*(++m_ProgramCounter));
                     auto& structType = GET_TYPE();
 
-                    u8* src = reinterpret_cast<u8*>(GetPointer(-1, m_Stack));           
+                    u8* src = reinterpret_cast<u8*>(get_pointer(-1, m_Stack));           
 
                     for (size_t i = 0; i < idx; i++) {
                         auto& field = std::get<VMStruct>(structType.Data).Fields[i];
-                        src += AlignToEight(GetVMTypeSize(m_OpCodes->TypeTable[field]));
+                        src += align_to_eight(get_vm_type_size(m_OpCodes->TypeTable[field]));
                     }
 
-                    StorePointer(-1, src, m_Stack);
+                    store_pointer(-1, src, m_Stack);
                     break;
                 }
 
                 case OP_LD_PTR: {
-                    VMSlice slice = GetVMSlice(-1, m_Stack);
-                    Alloca({ VMTypeKind::Ptr }, m_Stack);
-                    StorePointer(-1, slice.Memory, m_Stack);
+                    VMSlice slice = get_vm_slice(-1, m_Stack);
+                    alloc({ VMTypeKind::Ptr }, m_Stack);
+                    store_pointer(-1, slice.Memory, m_Stack);
                     break;
                 }
 
                 case OP_ST_LOCAL: {
                     size_t index = static_cast<size_t>(*++m_ProgramCounter);
-                    VMSlice slice = GetVMSlice(-1, m_Stack);
+                    VMSlice slice = get_vm_slice(-1, m_Stack);
 
-                    VMSlice dst = GetVMSlice(static_cast<i32>(index), m_StackFrames.back().Locals);
+                    VMSlice dst = get_vm_slice(static_cast<i32>(index), m_StackFrames.back().Locals);
                     ARIA_ASSERT(dst.Size == slice.Size, "Mismatched sizes");
                     memcpy(dst.Memory, slice.Memory, dst.Size);
-                    Pop(1, m_Stack);
+                    pop(1, m_Stack);
 
                     break;
                 }
 
                 case OP_ST_GLOBAL: {
                     std::string_view g = GET_STR();
-                    VMSlice slice = GetVMSlice(-1, m_Stack);
+                    VMSlice slice = get_vm_slice(-1, m_Stack);
 
-                    VMSlice dst = GetVMSlice(m_GlobalMap.at(g), m_Globals);
+                    VMSlice dst = get_vm_slice(m_GlobalMap.at(g), m_Globals);
                     ARIA_ASSERT(dst.Size == slice.Size, "Mismatched sizes");
                     memcpy(dst.Memory, slice.Memory, dst.Size);
-                    Pop(1, m_Stack);
+                    pop(1, m_Stack);
 
                     break;
                 }
 
                 case OP_ST_ADDR: {
-                    void* mem = GetPointer(-2, m_Stack);
-                    VMSlice slice = GetVMSlice(-1, m_Stack);
+                    void* mem = get_pointer(-2, m_Stack);
+                    VMSlice slice = get_vm_slice(-1, m_Stack);
 
                     memcpy(mem, slice.Memory, slice.Size);
-                    Pop(2, m_Stack);
+                    pop(2, m_Stack);
                     break;
                 }
 
@@ -544,52 +544,52 @@ namespace Aria::Internal {
                     size_t idx = static_cast<size_t>(*(++m_ProgramCounter));
                     auto& structType = GET_TYPE();
 
-                    u8* dst = reinterpret_cast<u8*>(GetPointer(-2, m_Stack));           
-                    VMSlice val = GetVMSlice(-1, m_Stack);
+                    u8* dst = reinterpret_cast<u8*>(get_pointer(-2, m_Stack));           
+                    VMSlice val = get_vm_slice(-1, m_Stack);
 
                     for (size_t i = 0; i < idx; i++) {
                         auto& field = std::get<VMStruct>(structType.Data).Fields[i];
-                        dst += AlignToEight(GetVMTypeSize(m_OpCodes->TypeTable[field]));
+                        dst += align_to_eight(get_vm_type_size(m_OpCodes->TypeTable[field]));
                     }
 
                     memcpy(dst, val.Memory, val.Size);
-                    Pop(2, m_Stack);
+                    pop(2, m_Stack);
                     break;
                 }
 
                 case OP_DUP: {
-                    Dup(-1, m_Stack, m_Stack);
+                    dup(-1, m_Stack, m_Stack);
                     break;
                 }
 
                 case OP_POP: {
-                    Pop(1, m_Stack);
+                    pop(1, m_Stack);
                     break;
                 }
 
                 case OP_DECL_LOCAL: {
                     size_t index = static_cast<size_t>(*++m_ProgramCounter);
 
-                    VMSlice src = GetVMSlice(-1, m_Stack);
+                    VMSlice src = get_vm_slice(-1, m_Stack);
 
-                    Alloca(src.Type, m_StackFrames.back().Locals);
-                    VMSlice dst = GetVMSlice(-1, m_StackFrames.back().Locals);
+                    alloc(src.Type, m_StackFrames.back().Locals);
+                    VMSlice dst = get_vm_slice(-1, m_StackFrames.back().Locals);
 
                     memcpy(dst.Memory, src.Memory, src.Size);
-                    Pop(1, m_Stack);
+                    pop(1, m_Stack);
                     break;
                 };
 
                 case OP_DECL_GLOBAL: {
                     std::string_view g = GET_STR();
 
-                    VMSlice src = GetVMSlice(-1, m_Stack);
+                    VMSlice src = get_vm_slice(-1, m_Stack);
 
-                    Alloca(src.Type, m_Globals);
-                    VMSlice dst = GetVMSlice(-1, m_Globals);
+                    alloc(src.Type, m_Globals);
+                    VMSlice dst = get_vm_slice(-1, m_Globals);
 
                     memcpy(dst.Memory, src.Memory, src.Size);
-                    Pop(1, m_Stack);
+                    pop(1, m_Stack);
 
                     m_GlobalMap[g] = { static_cast<i32>(m_Globals.StackSlotPointer) - 1 };
                     break;
@@ -597,8 +597,8 @@ namespace Aria::Internal {
 
                 // VVV ADD, SUB, MUL, DIV, MOD VVV //
                 case OP_ADDI: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -609,12 +609,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal + rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreInt(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_int(-1, result, m_Stack);
                             break;
                         }
 
@@ -624,12 +624,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal + rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreLong(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_long(-1, result, m_Stack);
                             break;
                         }
 
@@ -640,8 +640,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_ADDU: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -652,12 +652,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal + rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreUInt(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_uint(-1, result, m_Stack);
                             break;
                         }
 
@@ -667,12 +667,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal + rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreULong(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_ulong(-1, result, m_Stack);
                             break;
                         }
 
@@ -683,8 +683,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_ADDF: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -695,12 +695,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal + rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreFloat(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_float(-1, result, m_Stack);
                             break;
                         }
 
@@ -710,12 +710,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal + rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreDouble(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_double(-1, result, m_Stack);
                             break;
                         }
 
@@ -726,8 +726,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_SUBI: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -738,12 +738,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal - rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreInt(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_int(-1, result, m_Stack);
                             break;
                         }
 
@@ -753,12 +753,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal - rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreLong(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_long(-1, result, m_Stack);
                             break;
                         }
 
@@ -769,8 +769,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_SUBU: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -781,12 +781,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal - rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreUInt(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_uint(-1, result, m_Stack);
                             break;
                         }
 
@@ -796,12 +796,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal - rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreULong(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_ulong(-1, result, m_Stack);
                             break;
                         }
 
@@ -812,8 +812,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_SUBF: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -824,12 +824,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal - rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreFloat(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_float(-1, result, m_Stack);
                             break;
                         }
 
@@ -839,12 +839,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal - rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreDouble(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_double(-1, result, m_Stack);
                             break;
                         }
 
@@ -855,8 +855,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_MULI: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -867,12 +867,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal * rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreInt(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_int(-1, result, m_Stack);
                             break;
                         }
 
@@ -882,12 +882,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal * rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreLong(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_long(-1, result, m_Stack);
                             break;
                         }
 
@@ -898,8 +898,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_MULU: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -910,12 +910,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal * rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreUInt(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_uint(-1, result, m_Stack);
                             break;
                         }
 
@@ -925,12 +925,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal * rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreULong(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_ulong(-1, result, m_Stack);
                             break;
                         }
 
@@ -941,8 +941,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_MULF: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -953,12 +953,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal * rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreFloat(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_float(-1, result, m_Stack);
                             break;
                         }
 
@@ -968,12 +968,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal * rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreDouble(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_double(-1, result, m_Stack);
                             break;
                         }
 
@@ -984,8 +984,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_DIVI: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -996,13 +996,13 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             // TODO: check if rhsVal is zero...
                             auto result = lhsVal / rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreInt(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_int(-1, result, m_Stack);
                             break;
                         }
 
@@ -1012,13 +1012,13 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             // TODO: check if rhsVal is zero...
                             auto result = lhsVal / rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreLong(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_long(-1, result, m_Stack);
                             break;
                         }
 
@@ -1029,8 +1029,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_DIVU: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1041,13 +1041,13 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             // TODO: check if rhsVal is zero...
                             auto result = lhsVal / rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreUInt(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_uint(-1, result, m_Stack);
                             break;
                         }
 
@@ -1057,13 +1057,13 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             // TODO: check if rhsVal is zero...
                             auto result = lhsVal / rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreULong(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_ulong(-1, result, m_Stack);
                             break;
                         }
 
@@ -1074,8 +1074,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_DIVF: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1086,12 +1086,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal / rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreFloat(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_float(-1, result, m_Stack);
                             break;
                         }
 
@@ -1101,12 +1101,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal / rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreDouble(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_double(-1, result, m_Stack);
                             break;
                         }
 
@@ -1117,8 +1117,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_MODI: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1129,13 +1129,13 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             // TODO: check if rhsVal is zero...
                             auto result = lhsVal % rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreInt(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_int(-1, result, m_Stack);
                             break;
                         }
 
@@ -1145,13 +1145,13 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             // TODO: check if rhsVal is zero...
                             auto result = lhsVal % rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreLong(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_long(-1, result, m_Stack);
                             break;
                         }
 
@@ -1162,8 +1162,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_MODU: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1174,13 +1174,13 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             // TODO: check if rhsVal is zero...
                             auto result = lhsVal % rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreUInt(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_uint(-1, result, m_Stack);
                             break;
                         }
 
@@ -1190,13 +1190,13 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             // TODO: check if rhsVal is zero...
                             auto result = lhsVal % rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreULong(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_ulong(-1, result, m_Stack);
                             break;
                         }
 
@@ -1207,8 +1207,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_MODF: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1219,13 +1219,13 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = fmodf(lhsVal, rhsVal);
                             if (result < 0.0f) { result += fabsf(rhsVal); }
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreFloat(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_float(-1, result, m_Stack);
                             break;
                         }
 
@@ -1235,13 +1235,13 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = fmod(lhsVal, rhsVal);
                             if (result < 0.0) { result += fabsf(rhsVal); }
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreDouble(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_double(-1, result, m_Stack);
                             break;
                         }
 
@@ -1254,8 +1254,8 @@ namespace Aria::Internal {
 
                 // VVV CMP, LT, LTE, GT, GTE VVV //
                 case OP_CMPI: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1266,12 +1266,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal == rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1281,12 +1281,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal == rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1297,8 +1297,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_CMPU: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1309,12 +1309,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal == rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1324,12 +1324,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal == rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1340,8 +1340,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_CMPF: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1352,12 +1352,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal == rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1367,12 +1367,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal == rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1383,8 +1383,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_LTI: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1395,12 +1395,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal < rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1410,12 +1410,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal < rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1426,8 +1426,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_LTU: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1438,12 +1438,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal < rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1453,12 +1453,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal < rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1469,8 +1469,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_LTF: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1481,12 +1481,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal < rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1496,12 +1496,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal < rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1512,8 +1512,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_LTEI: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1524,12 +1524,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal <= rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1539,12 +1539,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal <= rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1555,8 +1555,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_LTEU: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1567,12 +1567,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal <= rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1582,12 +1582,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal <= rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1598,8 +1598,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_LTEF: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1610,12 +1610,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal <= rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1625,12 +1625,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal <= rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1641,8 +1641,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_GTI: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1653,12 +1653,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal > rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1668,12 +1668,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal > rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1684,8 +1684,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_GTU: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1696,12 +1696,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal > rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1711,12 +1711,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal > rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1727,8 +1727,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_GTF: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1739,12 +1739,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal > rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1754,12 +1754,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal > rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1770,8 +1770,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_GTEI: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1782,12 +1782,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal >= rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1797,12 +1797,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal >= rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1813,8 +1813,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_GTEU: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1825,12 +1825,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal >= rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1840,12 +1840,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal >= rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1856,8 +1856,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_GTEF: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1868,12 +1868,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal >= rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1883,12 +1883,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal >= rhsVal;
 
-                            Alloca({ VMTypeKind::I1 }, m_Stack);
-                            StoreBool(-1, result, m_Stack);
+                            alloc({ VMTypeKind::I1 }, m_Stack);
+                            store_bool(-1, result, m_Stack);
                             break;
                         }
 
@@ -1901,8 +1901,8 @@ namespace Aria::Internal {
 
                 // VVV SHL, SHR, AND, OR, XOR VVV ///
                 case OP_SHLI: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1913,12 +1913,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal << rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreInt(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_int(-1, result, m_Stack);
                             break;
                         }
 
@@ -1928,12 +1928,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal << rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreLong(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_long(-1, result, m_Stack);
                             break;
                         }
 
@@ -1944,8 +1944,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_SHLU: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1956,12 +1956,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal << rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreUInt(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_uint(-1, result, m_Stack);
                             break;
                         }
 
@@ -1971,12 +1971,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal << rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreULong(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_ulong(-1, result, m_Stack);
                             break;
                         }
 
@@ -1987,8 +1987,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_SHRI: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -1999,12 +1999,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal >> rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreInt(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_int(-1, result, m_Stack);
                             break;
                         }
 
@@ -2014,12 +2014,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal >> rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreLong(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_long(-1, result, m_Stack);
                             break;
                         }
 
@@ -2030,8 +2030,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_SHRU: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -2042,12 +2042,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal >> rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreUInt(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_uint(-1, result, m_Stack);
                             break;
                         }
 
@@ -2057,12 +2057,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal >> rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreULong(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_ulong(-1, result, m_Stack);
                             break;
                         }
 
@@ -2073,8 +2073,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_ANDI: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -2085,12 +2085,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal & rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreInt(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_int(-1, result, m_Stack);
                             break;
                         }
 
@@ -2100,12 +2100,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal & rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreLong(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_long(-1, result, m_Stack);
                             break;
                         }
 
@@ -2116,8 +2116,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_ANDU: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -2128,12 +2128,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal & rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreUInt(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_uint(-1, result, m_Stack);
                             break;
                         }
 
@@ -2143,12 +2143,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal & rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreULong(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_ulong(-1, result, m_Stack);
                             break;
                         }
 
@@ -2159,8 +2159,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_ORI: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -2171,12 +2171,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal | rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreInt(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_int(-1, result, m_Stack);
                             break;
                         }
 
@@ -2186,12 +2186,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal | rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreLong(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_long(-1, result, m_Stack);
                             break;
                         }
 
@@ -2202,8 +2202,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_ORU: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -2214,12 +2214,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal | rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreUInt(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_uint(-1, result, m_Stack);
                             break;
                         }
 
@@ -2229,12 +2229,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal | rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreULong(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_ulong(-1, result, m_Stack);
                             break;
                         }
 
@@ -2245,8 +2245,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_XORI: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -2257,12 +2257,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal ^ rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreInt(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_int(-1, result, m_Stack);
                             break;
                         }
 
@@ -2272,12 +2272,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal ^ rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreLong(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_long(-1, result, m_Stack);
                             break;
                         }
 
@@ -2288,8 +2288,8 @@ namespace Aria::Internal {
                 }
 
                 case OP_XORU: {
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == rhs.Type.Kind, "Types of both sides must be the same");
 
@@ -2300,12 +2300,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal ^ rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreUInt(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_uint(-1, result, m_Stack);
                             break;
                         }
 
@@ -2315,12 +2315,12 @@ namespace Aria::Internal {
 
                             memcpy(&lhsVal, lhs.Memory, lhs.Size);
                             memcpy(&rhsVal, rhs.Memory, rhs.Size);
-                            Pop(2, m_Stack);
+                            pop(2, m_Stack);
 
                             auto result = lhsVal ^ rhsVal;
 
-                            Alloca(lhs.Type, m_Stack);
-                            StoreULong(-1, result, m_Stack);
+                            alloc(lhs.Type, m_Stack);
+                            store_ulong(-1, result, m_Stack);
                             break;
                         }
 
@@ -2332,7 +2332,7 @@ namespace Aria::Internal {
                 // ^^^ SHL, SHR, AND, OR, XOR ^^^ //
 
                 case OP_NEGI: {
-                    VMSlice val = GetVMSlice(-1, m_Stack);
+                    VMSlice val = get_vm_slice(-1, m_Stack);
 
                     switch (val.Type.Kind) {
                         case VMTypeKind::I32: {
@@ -2340,7 +2340,7 @@ namespace Aria::Internal {
                             memcpy(&v, val.Memory, sizeof(i32));
 
                             auto result = -v;
-                            StoreInt(-1, result, m_Stack);
+                            store_int(-1, result, m_Stack);
                             break;
                         }
 
@@ -2349,7 +2349,7 @@ namespace Aria::Internal {
                             memcpy(&v, val.Memory, sizeof(i64));
 
                             auto result = -v;
-                            StoreLong(-1, result, m_Stack);
+                            store_long(-1, result, m_Stack);
                             break;
                         }
 
@@ -2360,7 +2360,7 @@ namespace Aria::Internal {
                 }
 
                 case OP_NEGF: {
-                    VMSlice val = GetVMSlice(-1, m_Stack);
+                    VMSlice val = get_vm_slice(-1, m_Stack);
 
                     switch (val.Type.Kind) {
                         case VMTypeKind::Float: {
@@ -2368,7 +2368,7 @@ namespace Aria::Internal {
                             memcpy(&v, val.Memory, sizeof(float));
 
                             auto result = -v;
-                            StoreFloat(-1, result, m_Stack);
+                            store_float(-1, result, m_Stack);
                             break;
                         }
 
@@ -2377,7 +2377,7 @@ namespace Aria::Internal {
                             memcpy(&v, val.Memory, sizeof(double));
 
                             auto result = -v;
-                            StoreDouble(-1, result, m_Stack);
+                            store_double(-1, result, m_Stack);
                             break;
                         }
 
@@ -2390,60 +2390,60 @@ namespace Aria::Internal {
                 case OP_OFFP: {
                     auto& type = GET_TYPE();
 
-                    VMSlice lhs = GetVMSlice(-2, m_Stack);
-                    VMSlice rhs = GetVMSlice(-1, m_Stack);
+                    VMSlice lhs = get_vm_slice(-2, m_Stack);
+                    VMSlice rhs = get_vm_slice(-1, m_Stack);
 
                     ARIA_ASSERT(lhs.Type.Kind == VMTypeKind::Ptr || rhs.Type.Kind == VMTypeKind::Ptr, "offp instruction requires exactly one pointer operand");
 
                     if (lhs.Type.Kind == VMTypeKind::Ptr) {
                         ARIA_ASSERT(rhs.Type.Kind == VMTypeKind::U64, "offp instruction requires pointer and u64 types");
 
-                        void* ptr = GetPointer(-2, m_Stack);
-                        u64 offset = GetULong(-1, m_Stack);
+                        void* ptr = get_pointer(-2, m_Stack);
+                        u64 offset = get_ulong(-1, m_Stack);
 
-                        u8* result = reinterpret_cast<u8*>(ptr) + offset * GetVMTypeSize(type);
+                        u8* result = reinterpret_cast<u8*>(ptr) + offset * get_vm_type_size(type);
 
-                        Pop(1, m_Stack);
-                        StorePointer(-1, result, m_Stack);
+                        pop(1, m_Stack);
+                        store_pointer(-1, result, m_Stack);
                     } else {
                         ARIA_ASSERT(lhs.Type.Kind == VMTypeKind::U64, "offp instruction requires pointer and u64 types");
 
-                        u64 offset = GetULong(-2, m_Stack);
-                        void* ptr = GetPointer(-1, m_Stack);
+                        u64 offset = get_ulong(-2, m_Stack);
+                        void* ptr = get_pointer(-1, m_Stack);
 
-                        u8* result = reinterpret_cast<u8*>(ptr) + offset * AlignToEight(GetVMTypeSize(type));
+                        u8* result = reinterpret_cast<u8*>(ptr) + offset * align_to_eight(get_vm_type_size(type));
 
-                        Pop(2, m_Stack);
-                        Alloca({ VMTypeKind::Ptr }, m_Stack);
-                        StorePointer(-1, result, m_Stack);
+                        pop(2, m_Stack);
+                        alloc({ VMTypeKind::Ptr }, m_Stack);
+                        store_pointer(-1, result, m_Stack);
                     }
 
                     break;
                 }
 
                 case OP_LOGAND: {
-                    bool lhs = GetBool(-2, m_Stack);
-                    bool rhs = GetBool(-1, m_Stack);
-                    Pop(2, m_Stack);
+                    bool lhs = get_bool(-2, m_Stack);
+                    bool rhs = get_bool(-1, m_Stack);
+                    pop(2, m_Stack);
 
-                    Alloca({ VMTypeKind::I1 }, m_Stack);
-                    StoreBool(-1, lhs && rhs, m_Stack);
+                    alloc({ VMTypeKind::I1 }, m_Stack);
+                    store_bool(-1, lhs && rhs, m_Stack);
                     break;
                 }
 
                 case OP_LOGOR: {
-                    bool lhs = GetBool(-2, m_Stack);
-                    bool rhs = GetBool(-1, m_Stack);
-                    Pop(2, m_Stack);
+                    bool lhs = get_bool(-2, m_Stack);
+                    bool rhs = get_bool(-1, m_Stack);
+                    pop(2, m_Stack);
 
-                    Alloca({ VMTypeKind::I1 }, m_Stack);
-                    StoreBool(-1, lhs || rhs, m_Stack);
+                    alloc({ VMTypeKind::I1 }, m_Stack);
+                    store_bool(-1, lhs || rhs, m_Stack);
                     break;
                 }
 
                 case OP_LOGNOT: {
-                    bool val = GetBool(-1, m_Stack);
-                    StoreBool(-1, !val, m_Stack);
+                    bool val = get_bool(-1, m_Stack);
+                    store_bool(-1, !val, m_Stack);
                     break;
                 }
 
@@ -2458,7 +2458,7 @@ namespace Aria::Internal {
                 case OP_JT: {
                     std::string_view label = GET_STR();
 
-                    if (GetBool(-1, m_Stack) == true) {
+                    if (get_bool(-1, m_Stack) == true) {
                         ARIA_ASSERT(m_StackFrames.back().Function->Labels.contains(label), "Trying to jump to non-existent label");
                         m_ProgramCounter = m_StackFrames.back().Function->Labels.at(label) - 1;
                     }
@@ -2468,7 +2468,7 @@ namespace Aria::Internal {
                 case OP_JF: {
                     std::string_view label = GET_STR();
 
-                    if (GetBool(-1, m_Stack) == false) {
+                    if (get_bool(-1, m_Stack) == false) {
                         ARIA_ASSERT(m_StackFrames.back().Function->Labels.contains(label), "Trying to jump to non-existent label");
                         m_ProgramCounter = m_StackFrames.back().Function->Labels.at(label) - 1;
                     }
@@ -2478,11 +2478,11 @@ namespace Aria::Internal {
                 case OP_JT_POP: {
                     std::string_view label = GET_STR();
 
-                    if (GetBool(-1, m_Stack) == true) {
+                    if (get_bool(-1, m_Stack) == true) {
                         ARIA_ASSERT(m_StackFrames.back().Function->Labels.contains(label), "Trying to jump to non-existent label");
                         m_ProgramCounter = m_StackFrames.back().Function->Labels.at(label) - 1;
                     }
-                    Pop(1, m_Stack);
+                    pop(1, m_Stack);
 
                     break;
                 }
@@ -2490,26 +2490,26 @@ namespace Aria::Internal {
                 case OP_JF_POP: {
                     std::string_view label = GET_STR();
 
-                    if (GetBool(-1, m_Stack) == false) {
+                    if (get_bool(-1, m_Stack) == false) {
                         ARIA_ASSERT(m_StackFrames.back().Function->Labels.contains(label), "Trying to jump to non-existent label");
                         m_ProgramCounter = m_StackFrames.back().Function->Labels.at(label) - 1;
                     }
-                    Pop(1, m_Stack);
+                    pop(1, m_Stack);
 
                     break;
                 }
 
                 case OP_CONV_ITOI: {
                     auto& type = GET_TYPE();
-                    VMSlice slice = GetVMSlice(-1, m_Stack);
+                    VMSlice slice = get_vm_slice(-1, m_Stack);
 
                     #define CASE_CAST(srcTypeKind, dstTypeKind, srcType, dstType) case VMTypeKind::dstTypeKind: { \
                         srcType t; \
                         memcpy(&t, slice.Memory, sizeof(t)); \
                         dstType result = static_cast<dstType>(t); \
-                        Pop(1, m_Stack); \
-                        Alloca({ VMTypeKind::dstTypeKind }, m_Stack); \
-                        memcpy(GetVMSlice(-1, m_Stack).Memory, &result, sizeof(result)); \
+                        pop(1, m_Stack); \
+                        alloc({ VMTypeKind::dstTypeKind }, m_Stack); \
+                        memcpy(get_vm_slice(-1, m_Stack).Memory, &result, sizeof(result)); \
                         break; \
                     }
 
@@ -2549,7 +2549,7 @@ namespace Aria::Internal {
 
                 case OP_CONV_FTOF: {
                     auto& type = GET_TYPE();
-                    VMSlice slice = GetVMSlice(-1, m_Stack);
+                    VMSlice slice = get_vm_slice(-1, m_Stack);
 
                     #define CASE_CAST_OUTER(srcTypeKind, srcType) case VMTypeKind::srcTypeKind: { \
                         switch (type.Kind) { \
@@ -2573,7 +2573,7 @@ namespace Aria::Internal {
 
                 case OP_CONV_ITOF: {
                     auto& type = GET_TYPE();
-                    VMSlice slice = GetVMSlice(-1, m_Stack);
+                    VMSlice slice = get_vm_slice(-1, m_Stack);
 
                     #define CASE_CAST_OUTER(srcTypeKind, srcType) case VMTypeKind::srcTypeKind: { \
                         switch (type.Kind) { \
@@ -2604,7 +2604,7 @@ namespace Aria::Internal {
 
                 case OP_CONV_FTOI: {
                     auto& type = GET_TYPE();
-                    VMSlice slice = GetVMSlice(-1, m_Stack);
+                    VMSlice slice = get_vm_slice(-1, m_Stack);
 
                     #define CASE_CAST_OUTER(srcTypeKind, srcType) case VMTypeKind::srcTypeKind: { \
                         switch (type.Kind) { \
@@ -2680,7 +2680,7 @@ namespace Aria::Internal {
         }
     }
     
-    VMSlice VM::GetVMSlice(i32 index, Stack& stack) {
+    VMSlice VM::get_vm_slice(i32 index, Stack& stack) {
         StackSlot slot;
 
         if (index < 0) {
@@ -2692,7 +2692,7 @@ namespace Aria::Internal {
         return VMSlice(&stack.Stack[slot.Index], slot.Size, slot.Type);
     }
 
-    size_t VM::GetVMTypeSize(const VMType& type) {
+    size_t VM::get_vm_type_size(const VMType& type) {
         switch (type.Kind) {
             case VMTypeKind::Void:   return 0;
                                      
@@ -2721,7 +2721,7 @@ namespace Aria::Internal {
                 size_t size = 0;
                 const VMStruct& str = std::get<VMStruct>(type.Data);
                 for (size_t field : str.Fields) {
-                    size += AlignToEight(GetVMTypeSize(m_OpCodes->TypeTable.at(field)));
+                    size += align_to_eight(get_vm_type_size(m_OpCodes->TypeTable.at(field)));
                 }
                 
                 return size;
@@ -2731,11 +2731,11 @@ namespace Aria::Internal {
         }
     }
 
-    void VM::StopExecution() {
+    void VM::stop_execution() {
         m_ProgramCounter = &m_OpCodes->Program.back();
     }
 
-    void VM::RunPrepass() {
+    void VM::run_prepass() {
         for (m_ProgramCounter = &m_OpCodes->Program.front(); m_ProgramCounter < &m_OpCodes->Program.back(); m_ProgramCounter++) {
             if (*m_ProgramCounter == OP_FUNCTION) {
                 const OpCode* startPc = m_ProgramCounter;
@@ -2767,7 +2767,7 @@ namespace Aria::Internal {
         m_ProgramCounter = 0; // Reset the program counter so the normal execution happens from the start
     }
 
-    size_t VM::AlignToEight(size_t size) {
+    size_t VM::align_to_eight(size_t size) {
         return ((size + 8 - 1) / 8) * 8;
     }
 

@@ -3,6 +3,8 @@
 #include "aria/internal/compiler/lexer/tokens.hpp"
 #include "aria/internal/compiler/compilation_context.hpp"
 
+#include <string_view>
+
 namespace Aria::Internal {
 
     class Lexer {
@@ -10,39 +12,39 @@ namespace Aria::Internal {
         Lexer(CompilationContext* ctx);
 
     private:
-        void LexImpl();
+        void lex_impl();
 
-        char Peek(size_t count = 0);
-        void Backtrack(size_t count = 1);
-        void Consume(size_t count = 1);
-        bool TryConsume(char c);
+        char peek(size_t count = 0);
+        void backtrack(size_t count = 1);
+        void consume(size_t count = 1);
+        bool try_consume(char c);
 
-        void ParseCharLiteral();
-        void ParseDecimalLiteral();
-        void ParseStringLiteral();
+        void parse_char_literal();
+        void parse_decimal_literal();
+        void parse_string_literal();
 
-        void ParseAtSymbol();
-        void ParseDollarSymbol();
+        void parse_at_symbol();
+        void parse_dollar_symbol();
 
-        void ParseIdentifier();
+        void parse_identifier();
 
-        void ParseSingleLineComment();
+        void parse_single_line_comment();
 
-        void SkipWhitespace();
+        void skip_whitespace();
 
-        char ParseChar();
+        char parse_char();
 
-        void AddToken(TokenKind kind, const SourceRange& range, StringView string);
-        void AddTokenWithInteger(TokenKind kind, const SourceRange& range, u64 integer);
-        void AddTokenWithNumber(TokenKind kind, const SourceRange& range, f64 number);
+        void add_token(TokenKind kind, const SourceRange& range, std::string_view string);
+        void add_token_with_integer(TokenKind kind, const SourceRange& range, u64 integer);
+        void add_token_with_number(TokenKind kind, const SourceRange& range, f64 number);
 
-        size_t GetColumn(size_t index);
+        size_t get_column(size_t index);
 
     private:
         Tokens m_Tokens;
 
         size_t m_Index = 0;
-        StringView m_Source;
+        std::string_view m_Source;
 
         size_t m_CurrentLine = 1;
         size_t m_CurrentLineStart = 0; // The number of characters it takes to get to this line (from the start of the file)

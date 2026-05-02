@@ -8,16 +8,16 @@ namespace Aria::Internal {
         m_BuiltInStringDestructor = Decl::Create(m_Context, {}, {}, DeclKind::BuiltinDestructor, BuiltinDestructorDecl(BuiltinKind::String));
         m_BuiltInStringCopyConstructor = Decl::Create(m_Context, {}, {}, DeclKind::BuiltinCopyConstructor, BuiltinCopyConstructorDecl(BuiltinKind::String));
 
-        SemaImpl();
+        sema_impl();
     }
 
-    void SemanticAnalyzer::SemaImpl() {
-        PassImports();
-        PassDecls();
-        PassCode();
+    void SemanticAnalyzer::sema_impl() {
+        pass_imports();
+        pass_decls();
+        pass_code();
     }
 
-    void SemanticAnalyzer::PushScope(bool allowBreak, bool allowContinue) {
+    void SemanticAnalyzer::push_scope(bool allowBreak, bool allowContinue) {
         Scope s;
 
         if (m_Scopes.size() > 0) {
@@ -34,17 +34,17 @@ namespace Aria::Internal {
         m_Scopes.push_back(s);
     }
 
-    void SemanticAnalyzer::PopScope() {
+    void SemanticAnalyzer::pop_scope() {
         m_Scopes.pop_back();
     }
 
-    void SemanticAnalyzer::ReplaceExpr(Expr* src, Expr* newExpr) {
+    void SemanticAnalyzer::replace_expr(Expr* src, Expr* newExpr) {
         bool resultDiscarded = src->ResultDiscarded;
         *src = *newExpr;
         src->ResultDiscarded = resultDiscarded;
     }
 
-    void SemanticAnalyzer::ReplaceDecl(Decl* src, Decl* newDecl) {
+    void SemanticAnalyzer::replace_decl(Decl* src, Decl* newDecl) {
         *src = *newDecl;
     }
 

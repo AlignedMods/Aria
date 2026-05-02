@@ -1,6 +1,8 @@
 #pragma once
 
-#include <aria/internal/compiler/ast/stmt.hpp>
+#include "aria/internal/compiler/ast/stmt.hpp"
+
+#include <string_view>
 
 namespace Aria::Internal {
 
@@ -60,27 +62,27 @@ namespace Aria::Internal {
     };
 
     struct ModuleDecl {
-        ModuleDecl(StringView name)
+        ModuleDecl(std::string_view name)
             : Name(name) {}
 
-        StringView Name;
+        std::string_view Name;
     };
 
     struct VarDecl {
-        VarDecl(StringView identifier, TypeInfo* type, Expr* initializer, bool global)
+        VarDecl(std::string_view identifier, TypeInfo* type, Expr* initializer, bool global)
             : Identifier(identifier), Type(type), Initializer(initializer), GlobalVar(global) {}
 
-        StringView Identifier;
+        std::string_view Identifier;
         TypeInfo* Type = nullptr;
         Expr* Initializer = nullptr;
         bool GlobalVar = false;
     };
 
     struct ParamDecl {
-        ParamDecl(StringView identifier, TypeInfo* type)
+        ParamDecl(std::string_view identifier, TypeInfo* type)
             : Identifier(identifier), Type(type) {}
 
-        StringView Identifier;
+        std::string_view Identifier;
         TypeInfo* Type = nullptr;
     };
 
@@ -94,13 +96,13 @@ namespace Aria::Internal {
 
         struct Attribute {
             AttributeKind Kind = AttributeKind::None;
-            StringView Arg;
+            std::string_view Arg;
         };
 
-        FunctionDecl(StringView identifier, TypeInfo* type, TinyVector<Decl*> params, Stmt* body, TinyVector<Attribute> attrs)
+        FunctionDecl(std::string_view identifier, TypeInfo* type, TinyVector<Decl*> params, Stmt* body, TinyVector<Attribute> attrs)
             : Identifier(identifier), Type(type), Parameters(params), Body(body), Attributes(attrs) {}
 
-        StringView Identifier;
+        std::string_view Identifier;
         TypeInfo* Type = nullptr;
         TinyVector<Decl*> Parameters;
         Stmt* Body = nullptr;
@@ -116,19 +118,19 @@ namespace Aria::Internal {
             bool TrivialDtor : 1;
         };
 
-        StructDecl(StringView identifier, DefinitionData defd, TinyVector<Decl*> fields)
+        StructDecl(std::string_view identifier, DefinitionData defd, TinyVector<Decl*> fields)
             : Identifier(identifier), Definition(defd), Fields(fields) {}
 
-        StringView Identifier;
+        std::string_view Identifier;
         DefinitionData Definition;
         TinyVector<Decl*> Fields;
     };
 
     struct FieldDecl {
-        FieldDecl(StringView identifier, TypeInfo* type)
+        FieldDecl(std::string_view identifier, TypeInfo* type)
             : Identifier(identifier), Type(type) {}
 
-        StringView Identifier;
+        std::string_view Identifier;
         TypeInfo* Type = nullptr;
     };
 
@@ -148,11 +150,11 @@ namespace Aria::Internal {
     };
 
     struct MethodDecl {
-        MethodDecl(StringView identifier, StringView parsedType, TinyVector<Decl*> parameters, Stmt* body)
+        MethodDecl(std::string_view identifier, std::string_view parsedType, TinyVector<Decl*> parameters, Stmt* body)
             : Identifier(identifier), Parameters(parameters), ParsedType(parsedType), Body(body) {}
 
-        StringView Identifier;
-        StringView ParsedType;
+        std::string_view Identifier;
+        std::string_view ParsedType;
         TinyVector<Decl*> Parameters;
         Stmt* Body = nullptr;
         TypeInfo* Type = nullptr;
@@ -174,7 +176,7 @@ namespace Aria::Internal {
 
     struct Decl {
         template <typename T>
-        static inline Decl* Create(CompilationContext* ctx, SourceLocation loc, SourceRange range, DeclKind kind, T t = ErrorDecl{}) { return ctx->Allocate<Decl>(loc, range, kind, t); }
+        static inline Decl* Create(CompilationContext* ctx, SourceLocation loc, SourceRange range, DeclKind kind, T t = ErrorDecl{}) { return ctx->allocate<Decl>(loc, range, kind, t); }
 
         DeclKind Kind = DeclKind::Invalid;
 
@@ -237,6 +239,6 @@ namespace Aria::Internal {
             : Loc(loc), Range(range), Kind(kind), BuiltinDestructor(builtinDestructor) {}
     };
 
-    inline Decl g_ErrorDecl = Decl(SourceLocation(), SourceRange(), DeclKind::Error, ErrorDecl());
+    inline Decl error_decl = Decl(SourceLocation(), SourceRange(), DeclKind::Error, ErrorDecl());
 
 } // namespace Aria::Internal

@@ -3,196 +3,226 @@
 
 #include "catch2.hpp"
 
-TEST_CASE("Runtime Variable Declaration") {
+TEST_CASE("runtime Variable Declaration") {
     Aria::Context ctx = Aria::Context::Create();
-    ctx.CompileFile("tests/runtime/variable_declaration.aria");
-    ctx.Run();
+    ctx.compile_file("tests/runtime/variable_declaration.aria");
+    ctx.run();
     
-    ctx.GetGlobal("variable_declaration::f");
-    REQUIRE(ctx.GetBool(-1) == false);
-    ctx.GetGlobal("variable_declaration::t");
-    REQUIRE(ctx.GetBool(-1) == true);
-    ctx.GetGlobal("variable_declaration::i");
-    REQUIRE(ctx.GetInt(-1) == 99);
+    ctx.get_global("variable_declaration::f");
+    REQUIRE(ctx.get_bool(-1) == false);
+    ctx.get_global("variable_declaration::t");
+    REQUIRE(ctx.get_bool(-1) == true);
+    ctx.get_global("variable_declaration::i");
+    REQUIRE(ctx.get_int(-1) == 99);
 
-    ctx.Pop(3);
+    ctx.pop(3);
 }
 
-TEST_CASE("Runtime Basic Expressions") {
+TEST_CASE("runtime Basic Expressions") {
     Aria::Context ctx = Aria::Context::Create();
-    ctx.CompileFile("tests/runtime/basic_expressions.aria");
-    ctx.AddExternalFunction("should_never_be_called()", [](Aria::Context* ctx) {
+    ctx.compile_file("tests/runtime/basic_expressions.aria");
+    ctx.add_external_function("should_never_be_called()", [](Aria::Context* ctx) {
         throw std::runtime_error("function that shouldn't be called was called");
     });
     
-    ctx.Run();
+    ctx.run();
     
-    ctx.GetGlobal("basic_expressions::a");
-    REQUIRE(ctx.GetInt(-1) == 10);
-    ctx.GetGlobal("basic_expressions::b");
-    REQUIRE(ctx.GetInt(-1) == -3);
-    ctx.GetGlobal("basic_expressions::c");
-    REQUIRE(ctx.GetInt(-1) == 10);
+    ctx.get_global("basic_expressions::a");
+    REQUIRE(ctx.get_int(-1) == 10);
+    ctx.get_global("basic_expressions::b");
+    REQUIRE(ctx.get_int(-1) == -3);
+    ctx.get_global("basic_expressions::c");
+    REQUIRE(ctx.get_int(-1) == 10);
 
-    ctx.GetGlobal("basic_expressions::d");
-    REQUIRE(ctx.GetBool(-1) == false);
-    ctx.GetGlobal("basic_expressions::e");
-    REQUIRE(ctx.GetBool(-1) == false);
-    ctx.GetGlobal("basic_expressions::f");
-    REQUIRE(ctx.GetBool(-1) == true);
-    ctx.GetGlobal("basic_expressions::g");
-    REQUIRE(ctx.GetBool(-1) == false);
+    ctx.get_global("basic_expressions::d");
+    REQUIRE(ctx.get_bool(-1) == false);
+    ctx.get_global("basic_expressions::e");
+    REQUIRE(ctx.get_bool(-1) == false);
+    ctx.get_global("basic_expressions::f");
+    REQUIRE(ctx.get_bool(-1) == true);
+    ctx.get_global("basic_expressions::g");
+    REQUIRE(ctx.get_bool(-1) == false);
 
-    ctx.GetGlobal("basic_expressions::h");
-    REQUIRE(ctx.GetBool(-1) == true);
-    ctx.GetGlobal("basic_expressions::i");
-    REQUIRE(ctx.GetBool(-1) == true);
-    ctx.GetGlobal("basic_expressions::j");
-    REQUIRE(ctx.GetBool(-1) == false);
-    ctx.GetGlobal("basic_expressions::k");
-    REQUIRE(ctx.GetBool(-1) == true);
+    ctx.get_global("basic_expressions::h");
+    REQUIRE(ctx.get_bool(-1) == true);
+    ctx.get_global("basic_expressions::i");
+    REQUIRE(ctx.get_bool(-1) == true);
+    ctx.get_global("basic_expressions::j");
+    REQUIRE(ctx.get_bool(-1) == false);
+    ctx.get_global("basic_expressions::k");
+    REQUIRE(ctx.get_bool(-1) == true);
 
-    ctx.GetGlobal("basic_expressions::l");
-    REQUIRE(ctx.GetInt(-1) == 32);
-    ctx.GetGlobal("basic_expressions::m");
-    REQUIRE(ctx.GetInt(-1) == 1);
-    ctx.GetGlobal("basic_expressions::n");
-    REQUIRE(ctx.GetInt(-1) == 0);
-    ctx.GetGlobal("basic_expressions::o");
-    REQUIRE(ctx.GetInt(-1) == 4);
-    ctx.GetGlobal("basic_expressions::p");
-    REQUIRE(ctx.GetInt(-1) == 20);
+    ctx.get_global("basic_expressions::l");
+    REQUIRE(ctx.get_int(-1) == 32);
+    ctx.get_global("basic_expressions::m");
+    REQUIRE(ctx.get_int(-1) == 1);
+    ctx.get_global("basic_expressions::n");
+    REQUIRE(ctx.get_int(-1) == 0);
+    ctx.get_global("basic_expressions::o");
+    REQUIRE(ctx.get_int(-1) == 4);
+    ctx.get_global("basic_expressions::p");
+    REQUIRE(ctx.get_int(-1) == 20);
 
-    ctx.GetGlobal("basic_expressions::cc");
-    REQUIRE(ctx.GetInt(-1) == 4);
-    ctx.GetGlobal("basic_expressions::dd");
-    REQUIRE(ctx.GetInt(-1) == 50);
+    ctx.get_global("basic_expressions::cc");
+    REQUIRE(ctx.get_int(-1) == 4);
+    ctx.get_global("basic_expressions::dd");
+    REQUIRE(ctx.get_int(-1) == 50);
 }
 
-TEST_CASE("Runtime Functions") {
+TEST_CASE("runtime Functions") {
     Aria::Context ctx = Aria::Context::Create();
-    ctx.CompileFile("tests/runtime/functions.aria");
-    ctx.AddExternalFunction("external_function()", [](Aria::Context* ctx) {
-        REQUIRE(ctx->GetInt(-1) == 5);
-        REQUIRE(ctx->GetInt(-2) == 66);
-        REQUIRE(ctx->GetInt(-3) == 50);
-        ctx->Pop(3);
+    ctx.compile_file("tests/runtime/functions.aria");
+    ctx.add_external_function("external_function()", [](Aria::Context* ctx) {
+        REQUIRE(ctx->get_int(-1) == 5);
+        REQUIRE(ctx->get_int(-2) == 66);
+        REQUIRE(ctx->get_int(-3) == 50);
+        ctx->pop(3);
     });
 
-    ctx.Run();
+    ctx.run();
     
-    ctx.Call("main()", 0);
+    ctx.call("main()", 0);
     
-    ctx.GetGlobal("functions::result");
-    REQUIRE(ctx.GetInt(-1) == 24);
-    ctx.GetGlobal("functions::otherResult");
-    REQUIRE(ctx.GetInt(-1) == 26);
-    ctx.Pop(2);
+    ctx.get_global("functions::result");
+    REQUIRE(ctx.get_int(-1) == 24);
+    ctx.get_global("functions::otherResult");
+    REQUIRE(ctx.get_int(-1) == 26);
+    ctx.pop(2);
 }
 
-TEST_CASE("Runtime Control Flow") {
+TEST_CASE("runtime Control Flow") {
     Aria::Context ctx = Aria::Context::Create();
-    ctx.CompileFile("tests/runtime/control_flow.aria");
-    ctx.Run();
+    ctx.compile_file("tests/runtime/control_flow.aria");
+    ctx.run();
     
-    ctx.Call("control_flow::test_while()", 0);
-    REQUIRE(ctx.GetInt(-1) == 10);
-    ctx.Pop(1);
+    ctx.call("control_flow::test_while()", 0);
+    REQUIRE(ctx.get_int(-1) == 10);
+    ctx.pop(1);
     
-    ctx.Call("control_flow::test_do_while1()", 0);
-    REQUIRE(ctx.GetInt(-1) == 10);
-    ctx.Pop(1);
+    ctx.call("control_flow::test_do_while1()", 0);
+    REQUIRE(ctx.get_int(-1) == 10);
+    ctx.pop(1);
     
-    ctx.Call("control_flow::test_do_while2()", 0);
-    REQUIRE(ctx.GetBool(-1) == true);
-    ctx.Pop(1);
+    ctx.call("control_flow::test_do_while2()", 0);
+    REQUIRE(ctx.get_bool(-1) == true);
+    ctx.pop(1);
     
-    ctx.Call("control_flow::test_for()", 0);
-    REQUIRE(ctx.GetInt(-1) == 190);
-    ctx.Pop(1);
+    ctx.call("control_flow::test_for()", 0);
+    REQUIRE(ctx.get_int(-1) == 190);
+    ctx.pop(1);
 
-    ctx.Call("control_flow::test_break()", 0);
-    REQUIRE(ctx.GetInt(-1) == 69);
-    ctx.Pop(1);
+    ctx.call("control_flow::test_break()", 0);
+    REQUIRE(ctx.get_int(-1) == 69);
+    ctx.pop(1);
     
-    ctx.Call("control_flow::test_if()", 0);
-    REQUIRE(ctx.GetBool(-1) == false);
-    ctx.Pop(1);
+    ctx.call("control_flow::test_if()", 0);
+    REQUIRE(ctx.get_bool(-1) == false);
+    ctx.pop(1);
 }
 
-TEST_CASE("Runtime Recursion") {
+TEST_CASE("runtime Recursion") {
     Aria::Context ctx = Aria::Context::Create();
-    ctx.CompileFile("tests/runtime/recursion.aria");
-    ctx.Run();
+    ctx.compile_file("tests/runtime/recursion.aria");
+    ctx.run();
     
-    ctx.PushInt(10);
-    ctx.Call("recursion::fib(int)", 1);
-    REQUIRE(ctx.GetInt(-1) == 55);
-    ctx.Pop(1);
+    ctx.push_int(10);
+    ctx.call("recursion::fib(int)", 1);
+    REQUIRE(ctx.get_int(-1) == 55);
+    ctx.pop(1);
     
-    ctx.PushInt(20);
-    ctx.Call("recursion::fib(int)", 1);
-    REQUIRE(ctx.GetInt(-1) == 6765);
-    ctx.Pop(1);
+    ctx.push_int(20);
+    ctx.call("recursion::fib(int)", 1);
+    REQUIRE(ctx.get_int(-1) == 6765);
+    ctx.pop(1);
+
+    ctx.push_long(5);
+    ctx.call("recursion::factorial(long)", 1);
+    REQUIRE(ctx.get_long(-1) == 120);
+    ctx.pop(1);
+    
+    ctx.push_long(7);
+    ctx.call("recursion::factorial(long)", 1);
+    REQUIRE(ctx.get_long(-1) == 5040);
+    ctx.pop(1);
+
+    ctx.push_long(14);
+    ctx.call("recursion::factorial(long)", 1);
+    REQUIRE(ctx.get_long(-1) == 87178291200);
+    ctx.pop(1);
+
+    ctx.push_long(16);
+    ctx.call("recursion::factorial(long)", 1);
+    REQUIRE(ctx.get_long(-1) == 20922789888000);
+    ctx.pop(1);
+
+    ctx.push_int(30);
+    ctx.call("recursion::sum(int)", 1);
+    REQUIRE(ctx.get_int(-1) == 465);
+    ctx.pop(1);
+    
+    ctx.push_int(50);
+    ctx.call("recursion::sum(int)", 1);
+    REQUIRE(ctx.get_int(-1) == 1275);
+    ctx.pop(1);
 }
 
-TEST_CASE("Runtime Casts") {
+TEST_CASE("runtime Casts") {
     Aria::Context ctx = Aria::Context::Create();
-    ctx.CompileFile("tests/runtime/casts.aria");
-    ctx.Run();
+    ctx.compile_file("tests/runtime/casts.aria");
+    ctx.run();
 
-    ctx.GetGlobal("casts::a");
-    REQUIRE(ctx.GetInt(-1) == 2);
-    ctx.GetGlobal("casts::b");
-    REQUIRE((ctx.GetFloat(-1) > 1.9999f && ctx.GetFloat(-1) < 2.0001f)); // Due to floating point inaccuracies we don't require exact matching numbers
-    ctx.GetGlobal("casts::c");
-    REQUIRE(ctx.GetLong(-1) == static_cast<int64_t>(5));
-    ctx.GetGlobal("casts::d");
-    REQUIRE((ctx.GetDouble(-1) > 9.9999999 && ctx.GetDouble(-1) < 10.000000001));
+    ctx.get_global("casts::a");
+    REQUIRE(ctx.get_int(-1) == 2);
+    ctx.get_global("casts::b");
+    REQUIRE((ctx.get_float(-1) > 1.9999f && ctx.get_float(-1) < 2.0001f)); // Due to floating point inaccuracies we don't require exact matching numbers
+    ctx.get_global("casts::c");
+    REQUIRE(ctx.get_long(-1) == static_cast<int64_t>(5));
+    ctx.get_global("casts::d");
+    REQUIRE((ctx.get_double(-1) > 9.9999999 && ctx.get_double(-1) < 10.000000001));
 
-    ctx.Pop(4);
+    ctx.pop(4);
 }
 
-TEST_CASE("Runtime Strings") {
+TEST_CASE("runtime Strings") {
     Aria::Context ctx = Aria::Context::Create();
-    ctx.CompileFile("tests/runtime/strings.aria");
-    ctx.Run();
+    ctx.compile_file("tests/runtime/strings.aria");
+    ctx.run();
 
-    ctx.GetGlobal("strings::str");
-    REQUIRE(ctx.GetString(-1) == "Hello world!");
-    ctx.GetGlobal("strings::copyStr");
-    REQUIRE(ctx.GetString(-1) == "Hello world!");
-    ctx.GetGlobal("strings::escaped");
-    REQUIRE(ctx.GetString(-1) == std::string_view("\n\r\t\0\0\0Hello world", 17));
-    // ctx.GetGlobal("strings::formatted");
-    // REQUIRE(ctx.GetString(-1) == "Hello world!, Bye world!, See you later!");
+    ctx.get_global("strings::str");
+    REQUIRE(ctx.get_string(-1) == "Hello world!");
+    ctx.get_global("strings::copyStr");
+    REQUIRE(ctx.get_string(-1) == "Hello world!");
+    ctx.get_global("strings::escaped");
+    REQUIRE(ctx.get_string(-1) == std::string_view("\n\r\t\0\0\0Hello world", 17));
+    // ctx.get_global("strings::formatted");
+    // REQUIRE(ctx.get_string(-1) == "Hello world!, Bye world!, See you later!");
 
-    ctx.Pop(3);
+    ctx.pop(3);
 }
 
-TEST_CASE("Runtime Structs") {
+TEST_CASE("runtime Structs") {
     // Aria::Context ctx = Aria::Context::Create();
-    // ctx.CompileFile("tests/runtime/structs.aria", "Runtime Structs");
-    // ctx.Run();
+    // ctx.compile_file("tests/runtime/structs.aria", "runtime Structs");
+    // ctx.run();
     // 
-    // ctx.GetGlobalPtr("p");
-    // ctx.Call("Player::GetX()", 1);
-    // REQUIRE(ctx.GetFloat(-1) == 5.0f);
-    // ctx.Pop(1); // Pop the return value
+    // ctx.get_globalPtr("p");
+    // ctx.call("Player::GetX()", 1);
+    // REQUIRE(ctx.get_float(-1) == 5.0f);
+    // ctx.pop(1); // pop the return value
     // 
-    // ctx.GetGlobalPtr("p");
-    // ctx.Call("Player::GetY()", 1);
-    // REQUIRE(ctx.GetFloat(-1) == 4.0f);
-    // ctx.Pop(1);
+    // ctx.get_globalPtr("p");
+    // ctx.call("Player::GetY()", 1);
+    // REQUIRE(ctx.get_float(-1) == 4.0f);
+    // ctx.pop(1);
 }
 
-TEST_CASE("Runtime Arrays") {
+TEST_CASE("runtime Arrays") {
     // Aria::Context ctx = Aria::Context::Create();
-    // ctx.CompileFile("tests/runtime/arrays.bl", "Runtime Arrays");
-    // fmt::print("{}\n", ctx.Disassemble("Runtime Arrays"));
-    // ctx.Run("Runtime Arrays");
-    // ctx.Call("main", "Runtime Arrays");
+    // ctx.compile_file("tests/runtime/arrays.bl", "runtime Arrays");
+    // fmt::print("{}\n", ctx.Disassemble("runtime Arrays"));
+    // ctx.run("runtime Arrays");
+    // ctx.call("main", "runtime Arrays");
     // 
-    // ctx.GetGlobal("result");
-    // REQUIRE(ctx.GetInt(-1) == 140);
+    // ctx.get_global("result");
+    // REQUIRE(ctx.get_int(-1) == 140);
 }

@@ -8,20 +8,11 @@
 
 #define BIND_PARSE_RULE(fn) [this](Expr* expr) -> Expr* { return fn(expr); }
 
-#define ASSIGN_OR_RET(varName, expr, what) do { \
-        varName = expr; \
-        if (!varName) { return what; } \
-    } while (false)
-
-#define CONSUME_OR_RET(kind, what) do { \
-        if (!TryConsume(TokenKind::kind, TokenKindToString(TokenKind::kind))) { return what; } \
-    } while (false)
-
 static constexpr size_t PREC_NONE = 0;
 static constexpr size_t PREC_ASSIGNMENT = 10;
 static constexpr size_t PREC_RELATIONAL = 20;
-static constexpr size_t PREC_BIT = 30;
-static constexpr size_t PREC_ADDITIVE = 40;
+static constexpr size_t PREC_ADDITIVE = 20;
+static constexpr size_t PREC_BIT = 40;
 static constexpr size_t PREC_MULTIPLICATIVE = 50;
 static constexpr size_t PREC_CALL = 60;
 
@@ -31,80 +22,81 @@ namespace Aria::Internal {
         m_Context = ctx;
         m_Tokens = ctx->ActiveCompUnit->Tokens;
 
-        if (g_ErrorExpr.Type == nullptr) { g_ErrorExpr.Type = &ErrorType; }
+        if (error_expr.Type == nullptr) { error_expr.Type = &error_type; }
 
-        AddExprRules();
-        ParseImpl();
+        add_expr_rules();
+        parse_impl();
     }
 
-    void Parser::AddExprRules() {
+    void Parser::add_expr_rules() {
         m_ExprRules.reserve(static_cast<size_t>(TokenKind::Last));
 
-        m_ExprRules[TokenKind::LeftParen] =         { BIND_PARSE_RULE(ParseGrouping), BIND_PARSE_RULE(ParseCall), PREC_CALL };
-        m_ExprRules[TokenKind::Plus] =              { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_ADDITIVE };
-        m_ExprRules[TokenKind::Minus] =             { BIND_PARSE_RULE(ParseUnary), BIND_PARSE_RULE(ParseBinary), PREC_ADDITIVE };
-        m_ExprRules[TokenKind::Star] =              { BIND_PARSE_RULE(ParseUnary), BIND_PARSE_RULE(ParseBinary), PREC_MULTIPLICATIVE };
-        m_ExprRules[TokenKind::Slash] =             { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_MULTIPLICATIVE };
-        m_ExprRules[TokenKind::Percent] =           { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_MULTIPLICATIVE };
-        m_ExprRules[TokenKind::Ampersand] =         { BIND_PARSE_RULE(ParseUnary), BIND_PARSE_RULE(ParseBinary), PREC_BIT };
-        m_ExprRules[TokenKind::DoubleAmpersand] =   { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::Pipe] =              { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
-        m_ExprRules[TokenKind::DoublePipe] =        { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::UpArrow] =           { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
-        m_ExprRules[TokenKind::EqEq] =              { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::BangEq] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::Less] =              { BIND_PARSE_RULE(ParseCast), BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::LessEq] =            { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::Greater] =           { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::GreaterEq] =         { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_RELATIONAL };
-        m_ExprRules[TokenKind::LessLess] =          { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
-        m_ExprRules[TokenKind::GreaterGreater] =    { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_BIT };
-        m_ExprRules[TokenKind::LeftBracket] =       { nullptr, BIND_PARSE_RULE(ParseArraySubscript), PREC_BIT };
+        m_ExprRules[TokenKind::LeftParen] =         { BIND_PARSE_RULE(parse_grouping), BIND_PARSE_RULE(parse_call), PREC_CALL };
+        m_ExprRules[TokenKind::Plus] =              { nullptr, BIND_PARSE_RULE(parse_binary), PREC_ADDITIVE };
+        m_ExprRules[TokenKind::Minus] =             { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_binary), PREC_ADDITIVE };
+        m_ExprRules[TokenKind::Star] =              { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_binary), PREC_MULTIPLICATIVE };
+        m_ExprRules[TokenKind::Slash] =             { nullptr, BIND_PARSE_RULE(parse_binary), PREC_MULTIPLICATIVE };
+        m_ExprRules[TokenKind::Percent] =           { nullptr, BIND_PARSE_RULE(parse_binary), PREC_MULTIPLICATIVE };
+        m_ExprRules[TokenKind::Ampersand] =         { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_binary), PREC_BIT };
+        m_ExprRules[TokenKind::DoubleAmpersand] =   { nullptr, BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::Pipe] =              { nullptr, BIND_PARSE_RULE(parse_binary), PREC_BIT };
+        m_ExprRules[TokenKind::DoublePipe] =        { nullptr, BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::UpArrow] =           { nullptr, BIND_PARSE_RULE(parse_binary), PREC_BIT };
+        m_ExprRules[TokenKind::EqEq] =              { nullptr, BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::BangEq] =            { nullptr, BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::Less] =              { BIND_PARSE_RULE(parse_cast), BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::LessEq] =            { nullptr, BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::Greater] =           { nullptr, BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::GreaterEq] =         { nullptr, BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
+        m_ExprRules[TokenKind::LessLess] =          { nullptr, BIND_PARSE_RULE(parse_binary), PREC_BIT };
+        m_ExprRules[TokenKind::GreaterGreater] =    { nullptr, BIND_PARSE_RULE(parse_binary), PREC_BIT };
+        m_ExprRules[TokenKind::LeftBracket] =       { nullptr, BIND_PARSE_RULE(parse_array_subscript), PREC_BIT };
                                                     
-        m_ExprRules[TokenKind::Eq] =                { nullptr, BIND_PARSE_RULE(ParseBinary), PREC_ASSIGNMENT };
-        m_ExprRules[TokenKind::PlusEq] =            { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
-        m_ExprRules[TokenKind::MinusEq] =           { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
-        m_ExprRules[TokenKind::StarEq] =            { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
-        m_ExprRules[TokenKind::SlashEq] =           { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
-        m_ExprRules[TokenKind::PercentEq] =         { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
-        m_ExprRules[TokenKind::AmpersandEq] =       { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
-        m_ExprRules[TokenKind::PipeEq] =            { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
-        m_ExprRules[TokenKind::UpArrowEq] =         { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
-        m_ExprRules[TokenKind::LessLessEq] =        { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
-        m_ExprRules[TokenKind::GreaterGreaterEq] =  { nullptr, BIND_PARSE_RULE(ParseCompoundAssignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::Eq] =                { nullptr, BIND_PARSE_RULE(parse_binary), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::PlusEq] =            { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::MinusEq] =           { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::StarEq] =            { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::SlashEq] =           { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::PercentEq] =         { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::AmpersandEq] =       { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::PipeEq] =            { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::UpArrowEq] =         { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::LessLessEq] =        { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
+        m_ExprRules[TokenKind::GreaterGreaterEq] =  { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
 
-        m_ExprRules[TokenKind::Dot] =               { nullptr, BIND_PARSE_RULE(ParseMember), PREC_CALL };
+        m_ExprRules[TokenKind::Dot] =               { nullptr, BIND_PARSE_RULE(parse_member), PREC_CALL };
                                                     
-        m_ExprRules[TokenKind::Self] =              { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
-        m_ExprRules[TokenKind::True] =              { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
-        m_ExprRules[TokenKind::False] =             { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
-        m_ExprRules[TokenKind::CharLit] =           { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
-        m_ExprRules[TokenKind::IntLit] =            { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
-        m_ExprRules[TokenKind::UIntLit] =           { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
-        m_ExprRules[TokenKind::LongLit] =           { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
-        m_ExprRules[TokenKind::ULongLit] =          { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
-        m_ExprRules[TokenKind::NumLit] =            { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
-        m_ExprRules[TokenKind::StrLit] =            { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
-        m_ExprRules[TokenKind::Null] =              { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
-        m_ExprRules[TokenKind::Identifier] =        { BIND_PARSE_RULE(ParsePrimary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::Self] =              { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::True] =              { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::False] =             { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::CharLit] =           { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::IntLit] =            { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::UIntLit] =           { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::LongLit] =           { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::ULongLit] =          { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::NumLit] =            { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::StrLit] =            { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::Null] =              { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::Identifier] =        { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
 
-        m_ExprRules[TokenKind::New] =               { BIND_PARSE_RULE(ParseNew), nullptr, PREC_NONE };
-        m_ExprRules[TokenKind::Delete] =            { BIND_PARSE_RULE(ParseDelete), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::New] =               { BIND_PARSE_RULE(parse_new), nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::Delete] =            { BIND_PARSE_RULE(parse_delete), nullptr, PREC_NONE };
 
-        m_ExprRules[TokenKind::DollarFormat] =      { BIND_PARSE_RULE(ParseFormat),  nullptr, PREC_NONE };
+        m_ExprRules[TokenKind::DollarFormat] =      { BIND_PARSE_RULE(parse_format),  nullptr, PREC_NONE };
     }
 
-    void Parser::ParseImpl() {
+    void Parser::parse_impl() {
         TinyVector<Stmt*> stmts;
-        while (Peek()) {
-            Stmt* stmt = ParseGlobal();
+        while (peek()) {
+            Stmt* stmt = parse_global();
 
             if (!m_DeclaredModule) {
-                m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "All translation units must contain a module declaration");
+                m_Context->report_compiler_diagnostic(peek()->Range.Start, peek()->Range, "All translation units must contain a module declaration");
+                break;
             }
 
-            if (StmtOk(stmt)) {
-                stmts.Append(m_Context, stmt);
+            if (stmt_ok(stmt)) {
+                stmts.append(m_Context, stmt);
             }
         }
 
@@ -113,7 +105,7 @@ namespace Aria::Internal {
         m_Context->ActiveCompUnit->RootASTNode = Stmt::Create(m_Context, SourceLocation(), SourceRange(), StmtKind::Decl, decl);
     }
 
-    Token* Parser::Peek(size_t count) {
+    Token* Parser::peek(size_t count) {
         // While the count is a size_t, you are still allowed to use -1
         // Even if you pass -1 the actual data underneath is the same
         if (m_Index + count < m_Tokens.size()) {
@@ -123,55 +115,55 @@ namespace Aria::Internal {
         }
     }
 
-    Token& Parser::Consume() {
-        ARIA_ASSERT(m_Index < m_Tokens.size(), "Consume out of bounds!");
+    Token& Parser::consume() {
+        ARIA_ASSERT(m_Index < m_Tokens.size(), "consume out of bounds!");
 
         return m_Tokens.at(m_Index++);
     }
 
-    Token* Parser::TryConsume(TokenKind kind, const std::string& expect) {
-        if (Match(kind)) {
-            Token& t = Consume();
+    Token* Parser::try_consume(TokenKind kind, const std::string& expect) {
+        if (match(kind)) {
+            Token& t = consume();
             return &t;
         }
 
-        Token* cur = (Peek()) ? Peek() : Peek(-1);
-        ErrorExpected(expect, cur->Range.Start, cur->Range);
+        Token* cur = (peek()) ? peek() : peek(-1);
+        error_expected(expect, cur->Range.Start, cur->Range);
         return nullptr;
     }
 
-    bool Parser::Match(TokenKind kind) {
-        if (!Peek()) {
+    bool Parser::match(TokenKind kind) {
+        if (!peek()) {
             return false;
         }
 
-        if (Peek()->Kind == kind) {
+        if (peek()->Kind == kind) {
             return true;
         } else {
             return false;
         }
     }
 
-    Expr* Parser::ParseGrouping(Expr* left) {
-        ARIA_ASSERT(left == nullptr, "Parser::ParseGrouping() should not have a left side");
+    Expr* Parser::parse_grouping(Expr* left) {
+        ARIA_ASSERT(left == nullptr, "Parser::parse_grouping() should not have a left side");
 
-        Token* lp = TryConsume(TokenKind::LeftParen, "(");
+        Token* lp = try_consume(TokenKind::LeftParen, "(");
 
-        if (IsPrimitiveType()) {
-            SourceLocation typeStart = Peek()->Range.Start;
-            ParseType();
-            m_Context->ReportCompilerDiagnostic(typeStart, SourceRange(typeStart, Peek(-1)->Range.End), "Unexpected type found, did you mean to perform a cast? (<<type>> <expr>)");
-            SyncLocal();
+        if (is_primitive_type()) {
+            SourceLocation typeStart = peek()->Range.Start;
+            parse_type();
+            m_Context->report_compiler_diagnostic(typeStart, SourceRange(typeStart, peek(-1)->Range.End), "Unexpected type found, did you mean to perform a cast? (<<type>> <expr>)");
+            sync_local();
 
-            return &g_ErrorExpr;
+            return &error_expr;
         }
 
-        Expr* child = ParseExpression();
-        Token* rp = TryConsume(TokenKind::RightParen, ")");
+        Expr* child = parse_expression();
+        Token* rp = try_consume(TokenKind::RightParen, ")");
 
         if (!rp) {
-            SyncLocal();
-            return &g_ErrorExpr;
+            sync_local();
+            return &error_expr;
         }
 
         return Expr::Create(m_Context, lp->Range.Start, SourceRange(lp->Range.Start, rp->Range.End), ExprKind::Paren, 
@@ -179,64 +171,64 @@ namespace Aria::Internal {
             ParenExpr(child));
     }
 
-    Expr* Parser::ParseCast(Expr* left) {
-        ARIA_ASSERT(left == nullptr, "Parser::ParseCast() should not have a left side");
+    Expr* Parser::parse_cast(Expr* left) {
+        ARIA_ASSERT(left == nullptr, "Parser::parse_cast() should not have a left side");
 
-        Token* lp = TryConsume(TokenKind::Less, "<");
+        Token* lp = try_consume(TokenKind::Less, "<");
         TypeInfo* type = nullptr;
 
-        if (IsPrimitiveType() || Match(TokenKind::Identifier)) {
-            type = ParseType();
+        if (is_primitive_type() || match(TokenKind::Identifier)) {
+            type = parse_type();
         } else {
-            m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected a type");
-            type = &ErrorType;
+            m_Context->report_compiler_diagnostic(peek()->Range.Start, peek()->Range, "Expected a type");
+            type = &error_type;
         }
 
-        if (!TryConsume(TokenKind::Greater, ">")) {
-            SyncLocal();
-            return &g_ErrorExpr;
+        if (!try_consume(TokenKind::Greater, ">")) {
+            sync_local();
+            return &error_expr;
         }
 
-        Expr* child = ParseExpression();
+        Expr* child = parse_expression();
 
         return Expr::Create(m_Context, lp->Range.Start, SourceRange(lp->Range.Start, child->Range.End), ExprKind::Cast, 
             ExprValueKind::RValue, type,
             CastExpr(child, type));
     }
 
-    Expr* Parser::ParseCall(Expr* left) {
-        ARIA_ASSERT(left, "Parser::ParseCall() expects a left side");
+    Expr* Parser::parse_call(Expr* left) {
+        ARIA_ASSERT(left, "Parser::parse_call() expects a left side");
 
-        Token* lp = TryConsume(TokenKind::LeftParen, "(");
+        Token* lp = try_consume(TokenKind::LeftParen, "(");
         TinyVector<Expr*> args;
 
-        while (!Match(TokenKind::RightParen)) {
-            Expr* val = ParseExpression();
+        while (!match(TokenKind::RightParen)) {
+            Expr* val = parse_expression();
 
-            if (!ExprOk(val)) {
-                SyncLocal();
+            if (!expr_ok(val)) {
+                sync_local();
                 break;
             }
 
-            args.Append(m_Context, val);
+            args.append(m_Context, val);
     
-            if (Match(TokenKind::Comma)) {
-                Consume();
+            if (match(TokenKind::Comma)) {
+                consume();
                 continue;
             }
 
             break;
         }
     
-        Token* rp = TryConsume(TokenKind::RightParen, ")");
-        if (!rp) { return &g_ErrorExpr; }
+        Token* rp = try_consume(TokenKind::RightParen, ")");
+        if (!rp) { return &error_expr; }
     
         return Expr::Create(m_Context, lp->Range.Start, SourceRange(left->Range.Start, rp->Range.End), ExprKind::Call,
             ExprValueKind::RValue, nullptr, 
             CallExpr(left, args));
     }
 
-    UnaryOperatorKind Parser::GetUnaryOperatorFromToken(Token* token) {
+    UnaryOperatorKind Parser::get_unary_operator_from_token(Token* token) {
         switch (token->Kind) {
             case TokenKind::Minus: return UnaryOperatorKind::Negate;
             case TokenKind::Ampersand: return UnaryOperatorKind::AddressOf;
@@ -245,7 +237,7 @@ namespace Aria::Internal {
         }
     }
 
-    BinaryOperatorKind Parser::GetBinaryOperatorFromToken(Token* token) {
+    BinaryOperatorKind Parser::get_binary_operator_from_token(Token* token) {
         switch (token->Kind) {
             case TokenKind::Plus: return BinaryOperatorKind::Add;
             case TokenKind::PlusEq: return BinaryOperatorKind::CompoundAdd;
@@ -280,183 +272,180 @@ namespace Aria::Internal {
         }
     }
 
-    Expr* Parser::ParseUnary(Expr* left) {
-        ARIA_ASSERT(left == nullptr, "Parser::ParseUnary() should not have a left side");
+    Expr* Parser::parse_unary(Expr* left) {
+        ARIA_ASSERT(left == nullptr, "Parser::parse_unary() should not have a left side");
 
-        Token op = Consume();
+        Token op = consume();
 
-        Token* tok = Peek();
+        Token* tok = peek();
         if (!tok) {
-            m_Context->ReportCompilerDiagnostic(op.Range.Start, op.Range, "Expected an expression");
-            return &g_ErrorExpr;
+            m_Context->report_compiler_diagnostic(op.Range.Start, op.Range, "Expected an expression");
+            return &error_expr;
         }
         ParseExprFn prefixRule = m_ExprRules[tok->Kind].Prefix;
 
         if (!prefixRule) {
-            SyncLocal();
-            m_Context->ReportCompilerDiagnostic(tok->Range.Start, tok->Range, "Expected an expression");
-            return &g_ErrorExpr;
+            sync_local();
+            m_Context->report_compiler_diagnostic(tok->Range.Start, tok->Range, "Expected an expression");
+            return &error_expr;
         }
 
         Expr* expr = prefixRule(nullptr);
 
-        if (!ExprOk(expr)) { return &g_ErrorExpr; }
+        if (!expr_ok(expr)) { return &error_expr; }
 
         return Expr::Create(m_Context, op.Range.Start, SourceRange(op.Range.Start, expr->Range.End), ExprKind::UnaryOperator,
             ExprValueKind::RValue, expr->Type,
-            UnaryOperatorExpr(expr, GetUnaryOperatorFromToken(&op)));
+            UnaryOperatorExpr(expr, get_unary_operator_from_token(&op)));
     }
 
-    Expr* Parser::ParseBinary(Expr* left) {
-        ARIA_ASSERT(left, "Parser::ParseBinary() expects a left side");
+    Expr* Parser::parse_binary(Expr* left) {
+        ARIA_ASSERT(left, "Parser::parse_binary() expects a left side");
 
-        Token op = Consume();
+        Token op = consume();
         Expr* right = nullptr;
         
-        if (op.Kind == TokenKind::Eq) { right = ParsePrecedence(PREC_ASSIGNMENT); }
-        else { right = ParsePrecedence(m_ExprRules[op.Kind].Precedence + 1); }
+        if (op.Kind == TokenKind::Eq) { right = parse_precedence(PREC_ASSIGNMENT); }
+        else { right = parse_precedence(m_ExprRules[op.Kind].Precedence + 1); }
 
-        if (ExprOk(right)) {
+        if (expr_ok(right)) {
             return Expr::Create(m_Context, op.Range.Start, SourceRange(left->Range.Start, right->Range.End), ExprKind::BinaryOperator,
                 ExprValueKind::RValue, nullptr,
-                BinaryOperatorExpr(left, right, GetBinaryOperatorFromToken(&op)));
+                BinaryOperatorExpr(left, right, get_binary_operator_from_token(&op)));
         }
         
-        return &g_ErrorExpr;
+        return &error_expr;
     }
 
-    Expr* Parser::ParseArraySubscript(Expr* left) {
-        ARIA_ASSERT(left, "Parser::ParseArraySubscript() expects a left side");
+    Expr* Parser::parse_array_subscript(Expr* left) {
+        ARIA_ASSERT(left, "Parser::parse_array_subscript() expects a left side");
 
-        Token lb = Consume(); // Consume "["
+        Token lb = consume(); // consume "["
 
-        if (Match(TokenKind::Colon)) {
-            Consume();
-            Expr* len = ParseExpression();
-            TryConsume(TokenKind::RightBracket, "]");
+        if (match(TokenKind::Colon)) {
+            consume();
+            Expr* len = parse_expression();
+            try_consume(TokenKind::RightBracket, "]");
 
-            return Expr::Create(m_Context, lb.Range.Start, SourceRange(left->Range.Start, Peek(-1)->Range.End), ExprKind::ToSlice,
+            return Expr::Create(m_Context, lb.Range.Start, SourceRange(left->Range.Start, peek(-1)->Range.End), ExprKind::ToSlice,
                 ExprValueKind::RValue, nullptr,
                 ArraySubscriptExpr(left, len));
         } else {
-            Expr* index = ParseExpression();
-            TryConsume(TokenKind::RightBracket, "]");
+            Expr* index = parse_expression();
+            try_consume(TokenKind::RightBracket, "]");
 
-            return Expr::Create(m_Context, lb.Range.Start, SourceRange(left->Range.Start, Peek(-1)->Range.End), ExprKind::ArraySubscript,
+            return Expr::Create(m_Context, lb.Range.Start, SourceRange(left->Range.Start, peek(-1)->Range.End), ExprKind::ArraySubscript,
                 ExprValueKind::LValue, nullptr,
                 ArraySubscriptExpr(left, index));
         }
     }
 
-    Expr* Parser::ParseCompoundAssignment(Expr* left) {
-        ARIA_ASSERT(left, "Parser::ParseCompoundAssignment() expects a left side");
+    Expr* Parser::parse_compound_assignment(Expr* left) {
+        ARIA_ASSERT(left, "Parser::parse_compound_assignment() expects a left side");
 
-        Token op = Consume();
-        Expr* right = ParsePrecedence(PREC_ASSIGNMENT);
+        Token op = consume();
+        Expr* right = parse_precedence(PREC_ASSIGNMENT);
 
-        if (ExprOk(right)) {
+        if (expr_ok(right)) {
             return Expr::Create(m_Context, op.Range.Start, SourceRange(left->Range.Start, right->Range.End), ExprKind::CompoundAssign,
                 ExprValueKind::RValue, nullptr,
-                BinaryOperatorExpr(left, right, GetBinaryOperatorFromToken(&op)));
+                BinaryOperatorExpr(left, right, get_binary_operator_from_token(&op)));
         }
         
-        return &g_ErrorExpr;
+        return &error_expr;
     }
 
-    Expr* Parser::ParseMember(Expr* left) {
-        ARIA_ASSERT(left, "Parser::ParseMember() expects a left side");
+    Expr* Parser::parse_member(Expr* left) {
+        ARIA_ASSERT(left, "Parser::parse_member() expects a left side");
 
-        Token d = Consume(); // Consume "."
-        Token* ident = TryConsume(TokenKind::Identifier, "identifier");
-        if (!ident) { return &g_ErrorExpr; }
+        Token d = consume(); // consume "."
+        Token* ident = try_consume(TokenKind::Identifier, "identifier");
+        if (!ident) { return &error_expr; }
 
         return Expr::Create(m_Context, d.Range.Start, SourceRange(left->Range.Start, ident->Range.End), ExprKind::Member,
             ExprValueKind::LValue, nullptr,
             MemberExpr(ident->String, left));
     }
 
-    Expr* Parser::ParsePrimary(Expr* left) {
-        ARIA_ASSERT(left == nullptr, "Parser::ParsePrimary() should not have a left side");
+    Expr* Parser::parse_primary(Expr* left) {
+        ARIA_ASSERT(left == nullptr, "Parser::parse_primary() should not have a left side");
 
-        Token& t = Consume();
+        Token& t = consume();
         switch (t.Kind) {
             case TokenKind::False: {
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::BooleanConstant, 
-                    ExprValueKind::RValue, &BoolType, 
+                    ExprValueKind::RValue, &bool_type, 
                     BooleanConstantExpr(false));
             }
 
             case TokenKind::True: {
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::BooleanConstant, 
-                    ExprValueKind::RValue, &BoolType, 
+                    ExprValueKind::RValue, &bool_type, 
                     BooleanConstantExpr(true));
             }
 
             case TokenKind::CharLit: {
                 int8_t ch = static_cast<int8_t>(t.Integer);
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::CharacterConstant, 
-                    ExprValueKind::RValue, &CharType, 
+                    ExprValueKind::RValue, &char_type, 
                     CharacterConstantExpr(ch));
             }
     
             case TokenKind::IntLit: {
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::IntegerConstant,
-                    ExprValueKind::RValue, &IntType, 
+                    ExprValueKind::RValue, &int_type, 
                     IntegerConstantExpr(t.Integer));
             }
 
             case TokenKind::UIntLit: {
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::IntegerConstant, 
-                    ExprValueKind::RValue, &UIntType, 
+                    ExprValueKind::RValue, &uint_type, 
                     IntegerConstantExpr(t.Integer));
             }
 
             case TokenKind::LongLit: {
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::IntegerConstant,
-                    ExprValueKind::RValue, &LongType, 
+                    ExprValueKind::RValue, &long_type, 
                     IntegerConstantExpr(t.Integer));
             }
 
             case TokenKind::ULongLit: {
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::IntegerConstant, 
-                    ExprValueKind::RValue, &ULongType, 
+                    ExprValueKind::RValue, &ulong_type, 
                     IntegerConstantExpr(t.Integer));
             }
     
             case TokenKind::NumLit: {
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::FloatingConstant,
-                    ExprValueKind::RValue, &DoubleType, 
+                    ExprValueKind::RValue, &double_type, 
                     FloatingConstantExpr(t.Number));
             }
     
             case TokenKind::StrLit: {
-                TypeInfo* type = TypeInfo::Create(m_Context, TypeKind::Slice, false);
-                type->Base = &CharType;
-
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::StringConstant,
-                    ExprValueKind::RValue, type, 
+                    ExprValueKind::RValue, &char_slice_type, 
                     StringConstantExpr(t.String));
             }
 
             case TokenKind::Null: {
                 return Expr::Create(m_Context, t.Range.Start, t.Range, ExprKind::Null,
-                    ExprValueKind::RValue, &VoidPtrType, ErrorExpr());
+                    ExprValueKind::RValue, &void_ptr_type, ErrorExpr());
             }
 
             case TokenKind::Identifier: {
-                return ParseIdentifier(t);
+                return parse_identifier(t);
             }
 
-            default: return &g_ErrorExpr;
+            default: return &error_expr;
         }
     }
 
-    Expr* Parser::ParseIdentifier(Token t) {
-        if (Match(TokenKind::ColonColon)) {
-            Token& col = Consume();
+    Expr* Parser::parse_identifier(Token t) {
+        if (match(TokenKind::ColonColon)) {
+            Token& col = consume();
 
-            Token* child = TryConsume(TokenKind::Identifier, "identifier");
-            if (!child) { return &g_ErrorExpr; }
+            Token* child = try_consume(TokenKind::Identifier, "identifier");
+            if (!child) { return &error_expr; }
 
             Specifier* specifier = Specifier::Create(m_Context, col.Range.Start, SourceRange(t.Range.Start, col.Range.End), SpecifierKind::Scope, ScopeSpecifier(t.String));
 
@@ -474,101 +463,101 @@ namespace Aria::Internal {
         ARIA_UNREACHABLE();
     }
 
-    Expr* Parser::ParseNew(Expr* left) {
-        ARIA_ASSERT(left == nullptr, "Parser::ParseNew() should not have a left side");
+    Expr* Parser::parse_new(Expr* left) {
+        ARIA_ASSERT(left == nullptr, "Parser::parse_new() should not have a left side");
 
-        Token& n = Consume(); // Consume "new"
+        Token& n = consume(); // consume "new"
         TypeInfo* type = nullptr;
         Expr* initializer = nullptr;
 
-        if (IsPrimitiveType() || Match(TokenKind::Identifier)) {
-            type = ParseType();
+        if (is_primitive_type() || match(TokenKind::Identifier)) {
+            type = parse_type();
         } else {
-            m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected a type");
-            type = &ErrorType;
+            m_Context->report_compiler_diagnostic(peek()->Range.Start, peek()->Range, "Expected a type");
+            type = &error_type;
         }
 
         type->Base = TypeInfo::Dup(m_Context, type);
         type->Kind = TypeKind::Ptr;
 
-        // ParseType() will handle array types
+        // parse_type() will handle array types
         // However we do not want this, so we remove the array from the type and add it to the new expression itself
         bool array = type->Base->Kind == TypeKind::Array;
 
         if (array) {
             initializer = type->Base->Array.Expression;
             type->Base = type->Base->Array.Type;
-        } else if (Match(TokenKind::LeftParen)) {
-            Consume();
+        } else if (match(TokenKind::LeftParen)) {
+            consume();
 
-            if (IsExpression()) {
-                initializer = ParseExpression();
+            if (is_expression()) {
+                initializer = parse_expression();
             }
 
-            TryConsume(TokenKind::RightParen, ")");
+            try_consume(TokenKind::RightParen, ")");
         } else {
-            m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected '(' or '['");
+            m_Context->report_compiler_diagnostic(peek()->Range.Start, peek()->Range, "Expected '(' or '['");
         }
 
-        return Expr::Create(m_Context, n.Range.Start, SourceRange(n.Range.Start, Peek(-1)->Range.End), ExprKind::New,
+        return Expr::Create(m_Context, n.Range.Start, SourceRange(n.Range.Start, peek(-1)->Range.End), ExprKind::New,
             ExprValueKind::RValue, type,
             NewExpr(initializer, array));
     }
 
-    Expr* Parser::ParseDelete(Expr* left) {
-        ARIA_ASSERT(left == nullptr, "Parser::ParseDelete() should not have a left side");
+    Expr* Parser::parse_delete(Expr* left) {
+        ARIA_ASSERT(left == nullptr, "Parser::parse_delete() should not have a left side");
 
-        Token& d = Consume(); // Consume "delete"
-        Expr* expr = ParseExpression();
+        Token& d = consume(); // consume "delete"
+        Expr* expr = parse_expression();
 
         if (!expr) {
-            return &g_ErrorExpr;
+            return &error_expr;
         }
 
-        return Expr::Create(m_Context, d.Range.Start, SourceRange(d.Range.Start, Peek(-1)->Range.End), ExprKind::Delete,
-            ExprValueKind::RValue, &VoidType,
+        return Expr::Create(m_Context, d.Range.Start, SourceRange(d.Range.Start, peek(-1)->Range.End), ExprKind::Delete,
+            ExprValueKind::RValue, &void_type,
             DeleteExpr(expr));
     }
 
-    Expr* Parser::ParseFormat(Expr* left) {
-        ARIA_ASSERT(left == nullptr, "Parser::ParseFormat() should not have a left side");
+    Expr* Parser::parse_format(Expr* left) {
+        ARIA_ASSERT(left == nullptr, "Parser::parse_format() should not have a left side");
 
-        Token& f = Consume(); // Consume "$format"
+        Token& f = consume(); // consume "$format"
 
-        Token* lp = TryConsume(TokenKind::LeftParen, "(");
+        Token* lp = try_consume(TokenKind::LeftParen, "(");
         TinyVector<Expr*> args;
 
-        while (!Match(TokenKind::RightParen)) {
-            Expr* val = ParseExpression();
+        while (!match(TokenKind::RightParen)) {
+            Expr* val = parse_expression();
 
-            if (!ExprOk(val)) {
-                SyncLocal();
+            if (!expr_ok(val)) {
+                sync_local();
                 break;
             }
 
-            args.Append(m_Context, val);
+            args.append(m_Context, val);
     
-            if (Match(TokenKind::Comma)) {
-                Consume();
+            if (match(TokenKind::Comma)) {
+                consume();
                 continue;
             }
 
             break;
         }
     
-        Token* rp = TryConsume(TokenKind::RightParen, ")");
-        if (!rp) { return &g_ErrorExpr; }
+        Token* rp = try_consume(TokenKind::RightParen, ")");
+        if (!rp) { return &error_expr; }
     
         return Expr::Create(m_Context, f.Range.Start, SourceRange(f.Range.Start, rp->Range.End), ExprKind::Format,
-            ExprValueKind::RValue, &StringType, 
+            ExprValueKind::RValue, &string_type, 
             FormatExpr(args));
     }
 
-    Expr* Parser::ParsePrecedenceWithLeft(Expr* left, size_t precedence) {
-        ARIA_ASSERT(left, "Parser::ParsePrecedenceWithLeft() expects a left side");
+    Expr* Parser::parse_precedence_with_left(Expr* left, size_t precedence) {
+        ARIA_ASSERT(left, "Parser::parse_precedence_with_left() expects a left side");
 
         while (true) {
-            Token* tok = Peek();
+            Token* tok = peek();
             if (!tok) { break; }
             size_t tokPrecedence = m_ExprRules[tok->Kind].Precedence;
 
@@ -577,55 +566,55 @@ namespace Aria::Internal {
             ParseExprFn infixRule = m_ExprRules[tok->Kind].Infix;
 
             if (!infixRule) {
-                SyncLocal();
-                m_Context->ReportCompilerDiagnostic(tok->Range.Start, tok->Range, fmt::format("'{}' cannot appear here, did you forget something before the operator?", TokenKindToString(tok->Kind)));
-                return &g_ErrorExpr;
+                sync_local();
+                m_Context->report_compiler_diagnostic(tok->Range.Start, tok->Range, fmt::format("'{}' cannot appear here, did you forget something before the operator?", TokenKindToString(tok->Kind)));
+                return &error_expr;
             }
 
             left = infixRule(left);
 
-            if (!ExprOk(left)) {
-                SyncLocal();
-                return &g_ErrorExpr;
+            if (!expr_ok(left)) {
+                sync_local();
+                return &error_expr;
             }
         }
 
         return left;
     }
 
-    Expr* Parser::ParsePrecedence(size_t precedence) {
-        Token* tok = Peek();
-        if (!tok) { return &g_ErrorExpr; }
+    Expr* Parser::parse_precedence(size_t precedence) {
+        Token* tok = peek();
+        if (!tok) { return &error_expr; }
         ParseExprFn prefixRule = m_ExprRules[tok->Kind].Prefix;
 
         if (!prefixRule) {
-            SyncLocal();
-            m_Context->ReportCompilerDiagnostic(tok->Range.Start, tok->Range, "Expected an expression");
-            return &g_ErrorExpr;
+            sync_local();
+            m_Context->report_compiler_diagnostic(tok->Range.Start, tok->Range, "Expected an expression");
+            return &error_expr;
         }
 
         Expr* left = prefixRule(nullptr);
-        if (!ExprOk(left)) { return &g_ErrorExpr; }
+        if (!expr_ok(left)) { return &error_expr; }
 
-        return ParsePrecedenceWithLeft(left, precedence);
+        return parse_precedence_with_left(left, precedence);
     }
 
-    Expr* Parser::ParseExpression() {
-        return ParsePrecedence(PREC_ASSIGNMENT);
+    Expr* Parser::parse_expression() {
+        return parse_precedence(PREC_ASSIGNMENT);
     }
 
-    bool Parser::IsExpression() {
-        if (!Peek()) { return false; }
-        ParseExprFn prefixRule = m_ExprRules[Peek()->Kind].Prefix;
+    bool Parser::is_expression() {
+        if (!peek()) { return false; }
+        ParseExprFn prefixRule = m_ExprRules[peek()->Kind].Prefix;
 
         if (!prefixRule) { return false; }
         return true;
     }
 
-    bool Parser::IsPrimitiveType() {
-        if (!Peek()) { return false; }
+    bool Parser::is_primitive_type() {
+        if (!peek()) { return false; }
 
-        Token type = *Peek();
+        Token type = *peek();
 
         switch (type.Kind) {
             case TokenKind::Void:
@@ -647,12 +636,12 @@ namespace Aria::Internal {
         return false;
     }
 
-    TypeInfo* Parser::ParseType() {
-        ARIA_ASSERT(IsPrimitiveType() || Match(TokenKind::Identifier), "Cannot parse a type out of a non type");
+    TypeInfo* Parser::parse_type() {
+        ARIA_ASSERT(is_primitive_type() || match(TokenKind::Identifier), "Cannot parse a type out of a non type");
 
         TypeInfo* type = TypeInfo::Create(m_Context, TypeKind::Error, false);
 
-        switch (Consume().Kind) {
+        switch (consume().Kind) {
             case TokenKind::Void:       type->Kind = TypeKind::Void; break;
 
             case TokenKind::Bool:       type->Kind = TypeKind::Bool; break;
@@ -672,7 +661,7 @@ namespace Aria::Internal {
             case TokenKind::String:     type->Kind = TypeKind::String; break;
 
             case TokenKind::Identifier: {
-                Expr* ident = ParseIdentifier(*Peek(-1));
+                Expr* ident = parse_identifier(*peek(-1));
                 type->Kind = TypeKind::Unresolved;
                 type->Unresolved = UnresolvedType(ident);
                 break;
@@ -681,187 +670,187 @@ namespace Aria::Internal {
             default: ARIA_UNREACHABLE(); break;
         }
 
-        if (Match(TokenKind::LeftBracket)) {
-            Consume();
+        if (match(TokenKind::LeftBracket)) {
+            consume();
 
-            if (IsExpression()) {
-                type->Array = ArrayDeclaration(TypeInfo::Dup(m_Context, type), ParseExpression());
+            if (is_expression()) {
+                type->Array = ArrayDeclaration(TypeInfo::Dup(m_Context, type), parse_expression());
                 type->Kind = TypeKind::Array;
             } else {
                 type->Base = TypeInfo::Dup(m_Context, type);
                 type->Kind = TypeKind::Slice;
             }
 
-            TryConsume(TokenKind::RightBracket, "]");
+            try_consume(TokenKind::RightBracket, "]");
         }
 
-        while (Match(TokenKind::Star)) {
-            Consume();
+        while (match(TokenKind::Star)) {
+            consume();
             type->Base = TypeInfo::Dup(m_Context, type);
             type->Kind = TypeKind::Ptr;
         }
 
-        if (Match(TokenKind::Ampersand)) {
-            Consume();
+        if (match(TokenKind::Ampersand)) {
+            consume();
             type->Reference = true;
         }
 
         return type;
     }
 
-    Stmt* Parser::ParseBlock(bool unsafe) {
+    Stmt* Parser::parse_block(bool unsafe) {
         TinyVector<Stmt*> stmts;
-        Token* l = TryConsume(TokenKind::LeftCurly, "'{'");
+        Token* l = try_consume(TokenKind::LeftCurly, "'{'");
         if (!l) { return nullptr; }
 
-        while (!Match(TokenKind::RightCurly)) {
-            Stmt* stmt = ParseStatement();
+        while (!match(TokenKind::RightCurly)) {
+            Stmt* stmt = parse_statement();
 
             if (stmt != nullptr) {
-                stmts.Append(m_Context, stmt);
+                stmts.append(m_Context, stmt);
             }
         }
 
-        Token* r = TryConsume(TokenKind::RightCurly, "'}'");
+        Token* r = try_consume(TokenKind::RightCurly, "'}'");
         if (!r) { return nullptr; }
 
         return Stmt::Create(m_Context, l->Range.Start, SourceRange(l->Range.Start, r->Range.End), StmtKind::Block, BlockStmt(stmts, unsafe));
     }
 
-    Stmt* Parser::ParseBlockInline(bool unsafe) {
-        if (Match(TokenKind::LeftCurly)) {
-            return ParseBlock(unsafe);
+    Stmt* Parser::parse_block_inline(bool unsafe) {
+        if (match(TokenKind::LeftCurly)) {
+            return parse_block(unsafe);
         } else {
-            Stmt* stmt = ParseStatement();
+            Stmt* stmt = parse_statement();
             if (!stmt) { return nullptr; }
 
             TinyVector<Stmt*> stmts;
-            stmts.Append(m_Context, stmt);
+            stmts.append(m_Context, stmt);
 
             return Stmt::Create(m_Context, stmt->Loc, stmt->Range, StmtKind::Block, BlockStmt(stmts, unsafe));
         }
     }
 
-    Stmt* Parser::ParseWhile() {
-        Token w = Consume(); // Consume "while"
+    Stmt* Parser::parse_while() {
+        Token w = consume(); // consume "while"
 
-        Expr* condition = ParseExpression();
-        Stmt* body = ParseBlockInline();
+        Expr* condition = parse_expression();
+        Stmt* body = parse_block_inline();
 
-        return Stmt::Create(m_Context, w.Range.Start, SourceRange(w.Range.Start, Peek(-1)->Range.End), StmtKind::While, WhileStmt(condition, body));
+        return Stmt::Create(m_Context, w.Range.Start, SourceRange(w.Range.Start, peek(-1)->Range.End), StmtKind::While, WhileStmt(condition, body));
     }
 
-    Stmt* Parser::ParseDoWhile() {
-        Token d = Consume(); // Consume "do"
+    Stmt* Parser::parse_do_while() {
+        Token d = consume(); // consume "do"
 
-        Stmt* body = ParseBlockInline();
-        TryConsume(TokenKind::While, "while");
-        Expr* condition = ParseExpression();
+        Stmt* body = parse_block_inline();
+        try_consume(TokenKind::While, "while");
+        Expr* condition = parse_expression();
         
-        return Stmt::Create(m_Context, d.Range.Start, SourceRange(d.Range.Start, Peek(-1)->Range.End), StmtKind::DoWhile, DoWhileStmt(condition, body));
+        return Stmt::Create(m_Context, d.Range.Start, SourceRange(d.Range.Start, peek(-1)->Range.End), StmtKind::DoWhile, DoWhileStmt(condition, body));
     }
 
-    Stmt* Parser::ParseFor() {
-        Token f = Consume(); // Consume "for"
+    Stmt* Parser::parse_for() {
+        Token f = consume(); // consume "for"
         
         // We still try to keep parsing if we are missing a '('
         // It could be quite likely that the user just forgot it
-        TryConsume(TokenKind::LeftParen, "(");
+        try_consume(TokenKind::LeftParen, "(");
         
         Decl* prologue = nullptr;
         Expr* condition = nullptr;
         Expr* step = nullptr;
         Stmt* body = nullptr;
 
-        if (Match(TokenKind::Semi)) {
-            Consume();
+        if (match(TokenKind::Semi)) {
+            consume();
         } else {
-            prologue = ParseVariableDecl(false);
-            if (!DeclOk(prologue)) {
-                SyncLocal();
+            prologue = parse_variable_decl(false);
+            if (!decl_ok(prologue)) {
+                sync_local();
 
-                if (Match(TokenKind::Semi)) {
-                    Consume();
+                if (match(TokenKind::Semi)) {
+                    consume();
                 }
             }
         }
 
-        if (Match(TokenKind::Semi)) {
-            Consume();
+        if (match(TokenKind::Semi)) {
+            consume();
         } else {
-            condition = ParseExpression();
+            condition = parse_expression();
 
-            TryConsume(TokenKind::Semi, "';'");
+            try_consume(TokenKind::Semi, "';'");
         }
         
-        if (Match(TokenKind::RightParen)) {
-            Consume();
+        if (match(TokenKind::RightParen)) {
+            consume();
         } else {
-            step = ParseExpression();
+            step = parse_expression();
             if (step) { step->ResultDiscarded = true; }
-            TryConsume(TokenKind::RightParen, "')'");
+            try_consume(TokenKind::RightParen, "')'");
         }
         
-        body = ParseBlockInline();
+        body = parse_block_inline();
         
-        return Stmt::Create(m_Context, f.Range.Start, SourceRange(f.Range.Start, Peek(-1)->Range.End), StmtKind::For, ForStmt(prologue, condition, step, body));
+        return Stmt::Create(m_Context, f.Range.Start, SourceRange(f.Range.Start, peek(-1)->Range.End), StmtKind::For, ForStmt(prologue, condition, step, body));
     }
 
-    Stmt* Parser::ParseIf() {
-        Token i = Consume(); // Consume "if"
+    Stmt* Parser::parse_if() {
+        Token i = consume(); // consume "if"
         
-        Expr* condition = ParseExpression();
-        Stmt* body = ParseStatement();
+        Expr* condition = parse_expression();
+        Stmt* body = parse_statement();
         
-        return Stmt::Create(m_Context, i.Range.Start, SourceRange(i.Range.Start, Peek(-1)->Range.End), StmtKind::If, IfStmt(condition, body, nullptr));
+        return Stmt::Create(m_Context, i.Range.Start, SourceRange(i.Range.Start, peek(-1)->Range.End), StmtKind::If, IfStmt(condition, body, nullptr));
     }
 
-    Stmt* Parser::ParseBreak() {
-        Token& b = Consume(); // Consume "break"
-        TryConsume(TokenKind::Semi, ";");
+    Stmt* Parser::parse_break() {
+        Token& b = consume(); // consume "break"
+        try_consume(TokenKind::Semi, ";");
         return Stmt::Create(m_Context, b.Range.Start, b.Range, StmtKind::Break, BreakStmt());
     }
 
-    Stmt* Parser::ParseContinue() {
-        Token& b = Consume(); // Consume "continue"
-        TryConsume(TokenKind::Semi, ";");
+    Stmt* Parser::parse_continue() {
+        Token& b = consume(); // consume "continue"
+        try_consume(TokenKind::Semi, ";");
         return Stmt::Create(m_Context, b.Range.Start, b.Range, StmtKind::Continue, BreakStmt());
     }
 
-    Stmt* Parser::ParseReturn() {
-        Token r = Consume(); // Consume "return"
-        Expr* value = ParseExpression();
-        TryConsume(TokenKind::Semi, ";");
+    Stmt* Parser::parse_return() {
+        Token r = consume(); // consume "return"
+        Expr* value = parse_expression();
+        try_consume(TokenKind::Semi, ";");
         
-        return Stmt::Create(m_Context, r.Range.Start, SourceRange(r.Range.Start, Peek(-1)->Range.End), StmtKind::Return, ReturnStmt(value));
+        return Stmt::Create(m_Context, r.Range.Start, SourceRange(r.Range.Start, peek(-1)->Range.End), StmtKind::Return, ReturnStmt(value));
     }
 
-    Stmt* Parser::ParseExpressionStatement() {
-        Expr* expr = nullptr;
-        ASSIGN_OR_RET(expr, ParseExpression(), &g_ErrorStmt);
-        TryConsume(TokenKind::Semi, ";");
+    Stmt* Parser::parse_expression_statement() {
+        Expr* expr = parse_expression();
+        if (!expr_ok(expr)) { return &error_stmt; }
+        try_consume(TokenKind::Semi, ";");
         expr->ResultDiscarded = true;
         
-        return Stmt::Create(m_Context, expr->Loc, SourceRange(expr->Range.Start, Peek(-1)->Range.End), StmtKind::Expr, expr);
+        return Stmt::Create(m_Context, expr->Loc, SourceRange(expr->Range.Start, peek(-1)->Range.End), StmtKind::Expr, expr);
     }
 
-    Stmt* Parser::ParseDeclarationStatement(bool global) {
-        Decl* decl = ParseVariableDecl(global);
+    Stmt* Parser::parse_declaration_statement(bool global) {
+        Decl* decl = parse_variable_decl(global);
 
-        if (!DeclOk(decl)) {
-            SyncLocal();
-            if (Match(TokenKind::Semi)) {
-                Consume();
+        if (!decl_ok(decl)) {
+            sync_local();
+            if (match(TokenKind::Semi)) {
+                consume();
             }
         }
 
-        return Stmt::Create(m_Context, decl->Loc, SourceRange(decl->Range.Start, Peek(-1)->Range.End), StmtKind::Decl, decl);
+        return Stmt::Create(m_Context, decl->Loc, SourceRange(decl->Range.Start, peek(-1)->Range.End), StmtKind::Decl, decl);
     }
 
-    Stmt* Parser::ParseStatement() {
-        switch (Peek()->Kind) {
+    Stmt* Parser::parse_statement() {
+        switch (peek()->Kind) {
             case TokenKind::Semi: {
-                Token& tok = Consume();
+                Token& tok = consume();
                 return Stmt::Create(m_Context, tok.Range.Start, tok.Range, StmtKind::Nop, NopStmt());
             }
 
@@ -883,49 +872,49 @@ namespace Aria::Internal {
             case TokenKind::Identifier:
             case TokenKind::New:
             case TokenKind::Delete:
-                return ParseExpressionStatement();
+                return parse_expression_statement();
 
             case TokenKind::LeftCurly:
-                return ParseBlock();
+                return parse_block();
 
             case TokenKind::If:
-                return ParseIf();
+                return parse_if();
 
             case TokenKind::While:
-                return ParseWhile();
+                return parse_while();
 
             case TokenKind::Do:
-                return ParseDoWhile();
+                return parse_do_while();
 
             case TokenKind::For:
-                return ParseFor();
+                return parse_for();
 
             case TokenKind::Break:
-                return ParseBreak();
+                return parse_break();
 
             case TokenKind::Continue:
-                return ParseContinue();
+                return parse_continue();
 
             case TokenKind::Return:
-                return ParseReturn();
+                return parse_return();
 
             case TokenKind::Let:
-                return ParseDeclarationStatement(false);
+                return parse_declaration_statement(false);
 
             case TokenKind::Unsafe:
-                Consume();
-                return ParseBlockInline(true);
+                consume();
+                return parse_block_inline(true);
 
             case TokenKind::Fn: {
-                Token& tok = Consume();
-                m_Context->ReportCompilerDiagnostic(tok.Range.Start, tok.Range, fmt::format("Function declaration is not allowed here"));
-                return &g_ErrorStmt;
+                Token& tok = consume();
+                m_Context->report_compiler_diagnostic(tok.Range.Start, tok.Range, fmt::format("Function declaration is not allowed here"));
+                return &error_stmt;
             }
 
             case TokenKind::Struct: {
-                Token& tok = Consume();
-                m_Context->ReportCompilerDiagnostic(tok.Range.Start, tok.Range, fmt::format("Structure declaration is not allowed here"));
-                return &g_ErrorStmt;
+                Token& tok = consume();
+                m_Context->report_compiler_diagnostic(tok.Range.Start, tok.Range, fmt::format("Structure declaration is not allowed here"));
+                return &error_stmt;
             }
 
             case TokenKind::Plus:
@@ -954,17 +943,17 @@ namespace Aria::Internal {
             case TokenKind::LessEq:
             case TokenKind::Greater:
             case TokenKind::GreaterEq: {
-                Token& tok = Consume();
-                m_Context->ReportCompilerDiagnostic(tok.Range.Start, tok.Range, fmt::format("Unexpected binary operator '{}' while looking for statement", TokenKindToString(tok.Kind)));
-                return &g_ErrorStmt;
+                Token& tok = consume();
+                m_Context->report_compiler_diagnostic(tok.Range.Start, tok.Range, fmt::format("Unexpected binary operator '{}' while looking for statement", TokenKindToString(tok.Kind)));
+                return &error_stmt;
             }
 
             case TokenKind::AtExtern:
             case TokenKind::AtNoMangle:
             case TokenKind::AtUnsafe: {
-                Token& tok = Consume();
-                m_Context->ReportCompilerDiagnostic(tok.Range.Start, tok.Range, fmt::format("Unexpected attribute '{}' while looking for statement", TokenKindToString(tok.Kind)));
-                return &g_ErrorStmt;
+                Token& tok = consume();
+                m_Context->report_compiler_diagnostic(tok.Range.Start, tok.Range, fmt::format("Unexpected attribute '{}' while looking for statement", TokenKindToString(tok.Kind)));
+                return &error_stmt;
             }
 
             case TokenKind::Void:
@@ -980,9 +969,9 @@ namespace Aria::Internal {
             case TokenKind::Float:
             case TokenKind::Double:
             case TokenKind::String: {
-                Token& tok = Consume();
-                m_Context->ReportCompilerDiagnostic(tok.Range.Start, tok.Range, fmt::format("Unexpected type '{}', did you mean to declare a variable? (let <name>: <type>)", TokenKindToString(tok.Kind)));
-                return &g_ErrorStmt;
+                Token& tok = consume();
+                m_Context->report_compiler_diagnostic(tok.Range.Start, tok.Range, fmt::format("Unexpected type '{}', did you mean to declare a variable? (let <name>: <type>)", TokenKindToString(tok.Kind)));
+                return &error_stmt;
             }
 
             case TokenKind::Module:
@@ -997,9 +986,9 @@ namespace Aria::Internal {
             case TokenKind::Colon:
             case TokenKind::ColonColon:
             case TokenKind::Dot: {
-                Token& tok = Consume();
-                m_Context->ReportCompilerDiagnostic(tok.Range.Start, tok.Range, fmt::format("Unexpected token '{}' while looking for statement", TokenKindToString(tok.Kind)));
-                return &g_ErrorStmt;
+                Token& tok = consume();
+                m_Context->report_compiler_diagnostic(tok.Range.Start, tok.Range, fmt::format("Unexpected token '{}' while looking for statement", TokenKindToString(tok.Kind)));
+                return &error_stmt;
             }
 
             case TokenKind::Last: ARIA_UNREACHABLE();
@@ -1009,75 +998,74 @@ namespace Aria::Internal {
         return nullptr;
     }
 
-    Decl* Parser::ParseModuleDecl() {
-        Token& mod = Consume(); // Consume "module"
+    Decl* Parser::parse_module_decl() {
+        Token& mod = consume(); // consume "module"
         
-        Token* ident = TryConsume(TokenKind::Identifier, "identifier");
-        if (!ident) { return &g_ErrorDecl; }
+        Token* ident = try_consume(TokenKind::Identifier, "identifier");
+        if (!ident) { return &error_decl; }
 
-        TryConsume(TokenKind::Semi, ";");
+        try_consume(TokenKind::Semi, ";");
 
         if (m_DeclaredModule) {
-            m_Context->ReportCompilerDiagnostic(mod.Range.Start, SourceRange(mod.Range.Start, Peek(-1)->Range.End), "Translation unit already declares a module");
-            return &g_ErrorDecl;
+            m_Context->report_compiler_diagnostic(mod.Range.Start, SourceRange(mod.Range.Start, peek(-1)->Range.End), "Translation unit already declares a module");
+            return &error_decl;
         }
 
         m_DeclaredModule = true;
 
-        Module* module = m_Context->FindOrCreateModule(fmt::format("{}", ident->String));
+        Module* module = m_Context->find_or_create_module(fmt::format("{}", ident->String));
         m_Context->ActiveCompUnit->Parent = module;
 
-        return Decl::Create(m_Context, ident->Range.Start, SourceRange(mod.Range.Start, Peek(-1)->Range.End), DeclKind::Module, ModuleDecl(ident->String));
+        return Decl::Create(m_Context, ident->Range.Start, SourceRange(mod.Range.Start, peek(-1)->Range.End), DeclKind::Module, ModuleDecl(ident->String));
     }
 
-    Stmt* Parser::ParseImportStmt() {
-        Token& imp = Consume(); // Consume "import"
+    Stmt* Parser::parse_import_decl() {
+        Token& imp = consume(); // consume "import"
 
-        Token* ident = TryConsume(TokenKind::Identifier, "identifier");
-        if (!ident) { return &g_ErrorStmt; }
+        Token* ident = try_consume(TokenKind::Identifier, "identifier");
+        if (!ident) { return &error_stmt; }
 
-        TryConsume(TokenKind::Semi, ";");
+        try_consume(TokenKind::Semi, ";");
 
-        Stmt* import = Stmt::Create(m_Context, ident->Range.Start, SourceRange(ident->Range.Start, Peek(-1)->Range.End), StmtKind::Import, ImportStmt(ident->String));
+        Stmt* import = Stmt::Create(m_Context, ident->Range.Start, SourceRange(ident->Range.Start, peek(-1)->Range.End), StmtKind::Import, ImportStmt(ident->String));
         m_Context->ActiveCompUnit->Imports.push_back(import);
         return import;
     }
 
-    Decl* Parser::ParseVariableDecl(bool global) {
-        SourceLocation start = Peek()->Range.Start;
+    Decl* Parser::parse_variable_decl(bool global) {
+        SourceLocation start = peek()->Range.Start;
 
-        TryConsume(TokenKind::Let, "let");
+        try_consume(TokenKind::Let, "let");
 
-        Token* ident = nullptr;
+        Token* ident = try_consume(TokenKind::Identifier, "identifier");
+        if (!ident) { return &error_decl; }
         TypeInfo* type = nullptr;
-        
-        ASSIGN_OR_RET(ident, TryConsume(TokenKind::Identifier, "identifier"), &g_ErrorDecl);
         Expr* value = nullptr;
 
-        if (Match(TokenKind::Colon)) {
-            TryConsume(TokenKind::Colon, ":");
+        if (match(TokenKind::Colon)) {
+            try_consume(TokenKind::Colon, ":");
 
-            if (IsPrimitiveType() || Match(TokenKind::Identifier)) {
-                type = ParseType();
+            if (is_primitive_type() || match(TokenKind::Identifier)) {
+                type = parse_type();
             } else {
-                m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected a type after ':'");
-                type = &ErrorType;
+                m_Context->report_compiler_diagnostic(peek()->Range.Start, peek()->Range, "Expected a type after ':'");
+                type = &error_type;
             }
         }
 
-        if (Match(TokenKind::Eq)) {
-            Consume();
-            value = ParseExpression();
+        if (match(TokenKind::Eq)) {
+            consume();
+            value = parse_expression();
         } else if (!type) {
-            m_Context->ReportCompilerDiagnostic(ident->Range.Start, SourceRange(start, Peek()->Range.End), "No initializer provided for type-inffered variable declaration");
-            type = &ErrorType;
+            m_Context->report_compiler_diagnostic(ident->Range.Start, SourceRange(start, peek()->Range.End), "No initializer provided for type-inffered variable declaration");
+            type = &error_type;
 
-            return &g_ErrorDecl;
+            return &error_decl;
         }
 
-        TryConsume(TokenKind::Semi, ";");
+        try_consume(TokenKind::Semi, ";");
 
-        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Var, VarDecl(ident->String, type, value, global));
+        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(start, peek(-1)->Range.End), DeclKind::Var, VarDecl(ident->String, type, value, global));
 
         if (global) {
             m_Context->ActiveCompUnit->Globals.push_back(decl);
@@ -1086,42 +1074,42 @@ namespace Aria::Internal {
         return decl;
     }
 
-    Decl* Parser::ParseFunctionDecl() {
-        SourceLocation start = Peek()->Range.Start;
-        Token fn = Consume(); // Consume "fn"
-        TypeInfo* type = &ErrorType;
+    Decl* Parser::parse_function_decl() {
+        SourceLocation start = peek()->Range.Start;
+        Token fn = consume(); // consume "fn"
+        TypeInfo* type = &error_type;
         TinyVector<FunctionDecl::Attribute> attrs;
 
-        if (IsPrimitiveType()) {
-            m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected an indentifier but got a type (NOTE: function declarations look like: fn name() -> type {...})");
-            type = ParseType();
+        if (is_primitive_type()) {
+            m_Context->report_compiler_diagnostic(peek()->Range.Start, peek()->Range, "Expected an indentifier but got a type (NOTE: function declarations look like: fn name() -> type {...})");
+            type = parse_type();
         }
 
-        Token* ident = TryConsume(TokenKind::Identifier, "identifier");
+        Token* ident = try_consume(TokenKind::Identifier, "identifier");
         if (!ident) {
-            SyncLocal();
-            return &g_ErrorDecl;
+            sync_local();
+            return &error_decl;
         }
 
-        auto[params, paramTypes] = ParseFunctionParams();
+        auto[params, paramTypes] = parse_function_params();
 
-        if (TryConsume(TokenKind::Arrow, "->")) {
-            if (!(IsPrimitiveType() || Match(TokenKind::Identifier))) {
-                m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected a type after '->'");
-                SyncLocal();
-            } else if (type->IsError()) {
-                type = ParseType();
+        if (try_consume(TokenKind::Arrow, "->")) {
+            if (!(is_primitive_type() || match(TokenKind::Identifier))) {
+                m_Context->report_compiler_diagnostic(peek()->Range.Start, peek()->Range, "Expected a type after '->'");
+                sync_local();
+            } else if (type->is_error()) {
+                type = parse_type();
             }
 
-            attrs = ParseFunctionAttrs();
+            attrs = parse_function_attrs();
         }
         
         Stmt* body = nullptr;
 
-        if (Match(TokenKind::LeftCurly)) {
-            body = ParseBlock();
+        if (match(TokenKind::LeftCurly)) {
+            body = parse_block();
         } else {
-            CONSUME_OR_RET(Semi, &g_ErrorDecl);
+            try_consume(TokenKind::Semi, ";");
         }
 
         FunctionDeclaration typeDecl;
@@ -1130,160 +1118,160 @@ namespace Aria::Internal {
 
         TypeInfo* finalType = TypeInfo::Create(m_Context, TypeKind::Function, false);
         finalType->Function = typeDecl;
-        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Function, FunctionDecl(ident->String, finalType, params, body, attrs));
+        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(start, peek(-1)->Range.End), DeclKind::Function, FunctionDecl(ident->String, finalType, params, body, attrs));
 
         m_Context->ActiveCompUnit->Funcs.push_back(decl);
         return decl;
     }
 
-    std::pair<TinyVector<Decl*>, TinyVector<TypeInfo*>> Parser::ParseFunctionParams() {
+    std::pair<TinyVector<Decl*>, TinyVector<TypeInfo*>> Parser::parse_function_params() {
         TinyVector<Decl*> params;
         TinyVector<TypeInfo*> paramTypes;
 
-        TryConsume(TokenKind::LeftParen, "(");
+        try_consume(TokenKind::LeftParen, "(");
 
-        while (!Match(TokenKind::RightParen)) {
-            if (IsPrimitiveType()) {
-                m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected an identifier but got a type (<name>: <type>)");
-                Consume();
+        while (!match(TokenKind::RightParen)) {
+            if (is_primitive_type()) {
+                m_Context->report_compiler_diagnostic(peek()->Range.Start, peek()->Range, "Expected an identifier but got a type (<name>: <type>)");
+                consume();
                 continue;
             }
 
-            Token* paramIdent = TryConsume(TokenKind::Identifier, "identifier");
+            Token* paramIdent = try_consume(TokenKind::Identifier, "identifier");
             
             if (!paramIdent) {
-                Consume();
+                consume();
                 continue;
             }
 
-            TryConsume(TokenKind::Colon, ":");
+            try_consume(TokenKind::Colon, ":");
 
-            if (!(IsPrimitiveType() || Match(TokenKind::Identifier))) {
-                m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected a type");
-                Consume();
+            if (!(is_primitive_type() || match(TokenKind::Identifier))) {
+                m_Context->report_compiler_diagnostic(peek()->Range.Start, peek()->Range, "Expected a type");
+                consume();
                 continue;
             }
 
-            TypeInfo* paramType = ParseType();
+            TypeInfo* paramType = parse_type();
             
-            params.Append(m_Context, Decl::Create(m_Context, paramIdent->Range.Start, paramIdent->Range, DeclKind::Param, ParamDecl(paramIdent->String, paramType)));
-            paramTypes.Append(m_Context, paramType);
+            params.append(m_Context, Decl::Create(m_Context, paramIdent->Range.Start, paramIdent->Range, DeclKind::Param, ParamDecl(paramIdent->String, paramType)));
+            paramTypes.append(m_Context, paramType);
 
-            if (Match(TokenKind::Comma)) { Consume(); continue; }
-            if (Match(TokenKind::RightParen)) { break; }
+            if (match(TokenKind::Comma)) { consume(); continue; }
+            if (match(TokenKind::RightParen)) { break; }
 
-            SyncLocal();
-            m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "Expected either ',' or ')'");
+            sync_local();
+            m_Context->report_compiler_diagnostic(peek()->Range.Start, peek()->Range, "Expected either ',' or ')'");
         }
 
-        TryConsume(TokenKind::RightParen, ")");
+        try_consume(TokenKind::RightParen, ")");
 
         return { params, paramTypes };
     }
 
-    Decl* Parser::ParseStructDecl() {
-        Token s = Consume(); // Consume "struct"
-        Token* ident = TryConsume(TokenKind::Identifier, "indentifier");
+    Decl* Parser::parse_struct_decl() {
+        Token s = consume(); // consume "struct"
+        Token* ident = try_consume(TokenKind::Identifier, "indentifier");
         
         TinyVector<Decl*> fields;
 
         StructDecl::DefinitionData def{};
         
-        TryConsume(TokenKind::LeftCurly, "{");
-        while (!Match(TokenKind::RightCurly)) {
-            SourceLocation start = Peek()->Range.Start;
+        try_consume(TokenKind::LeftCurly, "{");
+        while (!match(TokenKind::RightCurly)) {
+            SourceLocation start = peek()->Range.Start;
 
-            if (Match(TokenKind::Identifier)) {
-                if (Peek()->String == ident->String) { // Check for constructor
-                    Consume();
-                    TryConsume(TokenKind::LeftParen, "(");
-                    TryConsume(TokenKind::RightParen, ")");
+            if (match(TokenKind::Identifier)) {
+                if (peek()->String == ident->String) { // Check for constructor
+                    consume();
+                    try_consume(TokenKind::LeftParen, "(");
+                    try_consume(TokenKind::RightParen, ")");
                     
-                    Stmt* body = ParseBlock();
+                    Stmt* body = parse_block();
 
                     def.HasDefaultCtor = true;
                     def.HasUserDefaultCtor = true;
 
-                    fields.Append(m_Context, Decl::Create(m_Context, start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Constructor, ConstructorDecl({}, body)));
+                    fields.append(m_Context, Decl::Create(m_Context, start, SourceRange(start, peek(-1)->Range.End), DeclKind::Constructor, ConstructorDecl({}, body)));
                 } else {
-                    Token* fieldName = TryConsume(TokenKind::Identifier, "identifier");
-                    if (!fieldName) { SyncLocal(); continue; }
+                    Token* fieldName = try_consume(TokenKind::Identifier, "identifier");
+                    if (!fieldName) { sync_local(); continue; }
 
-                    TryConsume(TokenKind::Colon, ":");
+                    try_consume(TokenKind::Colon, ":");
 
-                    TypeInfo* type = ParseType();
+                    TypeInfo* type = parse_type();
 
-                    if (!TryConsume(TokenKind::Semi, ";")) {
-                        SyncLocal();
-                        if (Match(TokenKind::Semi)) { Consume(); }
+                    if (!try_consume(TokenKind::Semi, ";")) {
+                        sync_local();
+                        if (match(TokenKind::Semi)) { consume(); }
                     }
 
-                    fields.Append(m_Context, Decl::Create(m_Context, fieldName->Range.Start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Field, FieldDecl(fieldName->String, type)));
+                    fields.append(m_Context, Decl::Create(m_Context, fieldName->Range.Start, SourceRange(start, peek(-1)->Range.End), DeclKind::Field, FieldDecl(fieldName->String, type)));
                 }
-            } else if (Match(TokenKind::Squigly)) {
-                Consume();
+            } else if (match(TokenKind::Squigly)) {
+                consume();
 
-                Token* dtor = TryConsume(TokenKind::Identifier, "identifier");
-                if (!dtor) { SyncLocal(); continue; }
+                Token* dtor = try_consume(TokenKind::Identifier, "identifier");
+                if (!dtor) { sync_local(); continue; }
 
-                if (dtor->String != ident->String) { m_Context->ReportCompilerDiagnostic(dtor->Range.Start, dtor->Range, "Name of destructor must match name of struct"); }
+                if (dtor->String != ident->String) { m_Context->report_compiler_diagnostic(dtor->Range.Start, dtor->Range, "Name of destructor must match name of struct"); }
 
-                TryConsume(TokenKind::LeftParen, "(");
-                TryConsume(TokenKind::RightParen, ")");
+                try_consume(TokenKind::LeftParen, "(");
+                try_consume(TokenKind::RightParen, ")");
 
-                Stmt* body = ParseBlock();
+                Stmt* body = parse_block();
 
                 def.HasUserDtor = true;
                 def.TrivialDtor = false;
 
-                fields.Append(m_Context, Decl::Create(m_Context, start, SourceRange(start, Peek(-1)->Range.End), DeclKind::Destructor, DestructorDecl(body)));
+                fields.append(m_Context, Decl::Create(m_Context, start, SourceRange(start, peek(-1)->Range.End), DeclKind::Destructor, DestructorDecl(body)));
             } else {
-                m_Context->ReportCompilerDiagnostic(start, SourceRange(start, start), "Expected identifier or '~'");
-                SyncLocal();
+                m_Context->report_compiler_diagnostic(start, SourceRange(start, start), "Expected identifier or '~'");
+                sync_local();
             }
         }
-        TryConsume(TokenKind::RightCurly, "}");
+        try_consume(TokenKind::RightCurly, "}");
         
-        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(s.Range.Start, Peek(-1)->Range.End), DeclKind::Struct, StructDecl(ident->String, def, fields));
+        Decl* decl = Decl::Create(m_Context, ident->Range.Start, SourceRange(s.Range.Start, peek(-1)->Range.End), DeclKind::Struct, StructDecl(ident->String, def, fields));
         m_Context->ActiveCompUnit->Structs.push_back(decl);
         return decl;
     }
 
-    TinyVector<FunctionDecl::Attribute> Parser::ParseFunctionAttrs() {
+    TinyVector<FunctionDecl::Attribute> Parser::parse_function_attrs() {
         TinyVector<FunctionDecl::Attribute> attrs;
         bool hasExtern = false;
         bool hasNoMangle = false;
         bool hasUnsafe = false;
 
-        while (Peek()) {
-            if (Match(TokenKind::AtExtern)) {
-                if (hasExtern) { m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "@extern attribute was already added"); }
-                if (hasNoMangle) { m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "@nomangle and @extern must be mutually exclusive"); }
+        while (peek()) {
+            if (match(TokenKind::AtExtern)) {
+                if (hasExtern) { m_Context->report_compiler_diagnostic(peek()->Range.Start, peek()->Range, "@extern attribute was already added"); }
+                if (hasNoMangle) { m_Context->report_compiler_diagnostic(peek()->Range.Start, peek()->Range, "@nomangle and @extern must be mutually exclusive"); }
 
-                Consume();
+                consume();
                 
-                TryConsume(TokenKind::LeftParen, "(");
-                Token* name = TryConsume(TokenKind::StrLit, "string literal");
-                TryConsume(TokenKind::RightParen, ")");
+                try_consume(TokenKind::LeftParen, "(");
+                Token* name = try_consume(TokenKind::StrLit, "string literal");
+                try_consume(TokenKind::RightParen, ")");
 
                 FunctionDecl::Attribute attr;
                 attr.Kind = FunctionDecl::AttributeKind::Extern;
                 if (name) { attr.Arg = name->String; }
 
-                attrs.Append(m_Context, attr);
+                attrs.append(m_Context, attr);
                 hasExtern = true;
-            } else if (Match(TokenKind::AtNoMangle)) {
-                if (hasNoMangle) { m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "@nomangle attribute was already added"); }
-                if (hasExtern) { m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "@nomangle and @extern must be mutually exclusive"); }
+            } else if (match(TokenKind::AtNoMangle)) {
+                if (hasNoMangle) { m_Context->report_compiler_diagnostic(peek()->Range.Start, peek()->Range, "@nomangle attribute was already added"); }
+                if (hasExtern) { m_Context->report_compiler_diagnostic(peek()->Range.Start, peek()->Range, "@nomangle and @extern must be mutually exclusive"); }
 
-                Consume();
-                attrs.Append(m_Context, { FunctionDecl::AttributeKind::NoMangle });
+                consume();
+                attrs.append(m_Context, { FunctionDecl::AttributeKind::NoMangle });
                 hasNoMangle = true;
-            } else if (Match(TokenKind::AtUnsafe)) {
-                if (hasUnsafe) { m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, "@unsafe attribute was already added"); }
+            } else if (match(TokenKind::AtUnsafe)) {
+                if (hasUnsafe) { m_Context->report_compiler_diagnostic(peek()->Range.Start, peek()->Range, "@unsafe attribute was already added"); }
 
-                Consume();
-                attrs.Append(m_Context, { FunctionDecl::AttributeKind::Unsafe });
+                consume();
+                attrs.append(m_Context, { FunctionDecl::AttributeKind::Unsafe });
                 hasUnsafe = true;
             } else {
                 break;
@@ -1293,39 +1281,39 @@ namespace Aria::Internal {
         return attrs;
     }
 
-    Stmt* Parser::ParseGlobal() {
-        switch (Peek()->Kind) {
+    Stmt* Parser::parse_global() {
+        switch (peek()->Kind) {
             case TokenKind::Module: {
-                Decl* d = ParseModuleDecl();
-                if (!DeclOk(d)) { SyncGlobal(); return &g_ErrorStmt; }
+                Decl* d = parse_module_decl();
+                if (!decl_ok(d)) { sync_global(); return &error_stmt; }
 
                 return Stmt::Create(m_Context, d->Loc, d->Range, StmtKind::Decl, d);
             }
 
             case TokenKind::Import:
-                return ParseImportStmt();
+                return parse_import_decl();
 
             case TokenKind::Let:
-                return ParseDeclarationStatement(true);
+                return parse_declaration_statement(true);
 
             case TokenKind::Fn: {
-                Decl* decl = nullptr;
-                ASSIGN_OR_RET(decl, ParseFunctionDecl(), &g_ErrorStmt);
+                Decl* decl = parse_function_decl();
+                if (!decl_ok(decl)) { return &error_stmt; }
 
                 return Stmt::Create(m_Context, decl->Loc, decl->Range, StmtKind::Decl, decl);
             }
 
             case TokenKind::Struct: {
-                Decl* decl = nullptr;
-                ASSIGN_OR_RET(decl, ParseStructDecl(), &g_ErrorStmt);
+                Decl* decl = parse_struct_decl();
+                if (!decl_ok(decl)) { return &error_stmt; }
 
                 return Stmt::Create(m_Context, decl->Loc, decl->Range, StmtKind::Decl, decl);
             }
 
             case TokenKind::Semi: {
-                m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, fmt::format("Token ';' was unexpected, try removing it")); 
-                Consume(); 
-                return &g_ErrorStmt;
+                m_Context->report_compiler_diagnostic(peek()->Range.Start, peek()->Range, fmt::format("Token ';' was unexpected, try removing it")); 
+                consume(); 
+                return &error_stmt;
             }
 
             case TokenKind::Void:
@@ -1342,65 +1330,65 @@ namespace Aria::Internal {
             case TokenKind::Double:
             case TokenKind::String:
             case TokenKind::Identifier: {
-                Token& t = Consume();
-                m_Context->ReportCompilerDiagnostic(t.Range.Start, t.Range, fmt::format("Unexpected type '{}', did you mean to declare a global variable? (let <name>: <type>)", TokenKindToString(t.Kind)));
+                Token& t = consume();
+                m_Context->report_compiler_diagnostic(t.Range.Start, t.Range, fmt::format("Unexpected type '{}', did you mean to declare a global variable? (let <name>: <type>)", TokenKindToString(t.Kind)));
             }
 
             default: {
-                m_Context->ReportCompilerDiagnostic(Peek()->Range.Start, Peek()->Range, fmt::format("Expected the start of a global declaration", TokenKindToString(Peek()->Kind)));
-                SyncGlobal();
-                return &g_ErrorStmt;
+                m_Context->report_compiler_diagnostic(peek()->Range.Start, peek()->Range, fmt::format("Expected the start of a global declaration", TokenKindToString(peek()->Kind)));
+                sync_global();
+                return &error_stmt;
             }
         }
     }
 
-    void Parser::SyncGlobal() {
-        while (Peek()) {
-            TokenKind kind = Peek()->Kind;
+    void Parser::sync_global() {
+        while (peek()) {
+            TokenKind kind = peek()->Kind;
 
-            if (kind == TokenKind::Fn || kind == TokenKind::Struct || IsPrimitiveType() || kind == TokenKind::Identifier) {
+            if (kind == TokenKind::Fn || kind == TokenKind::Struct || is_primitive_type() || kind == TokenKind::Identifier) {
                 return;
             }
 
-            Consume();
+            consume();
         }
     }
 
-    void Parser::SyncLocal() {
-        while (Peek()) {
-            TokenKind type = Peek()->Kind;
+    void Parser::sync_local() {
+        while (peek()) {
+            TokenKind type = peek()->Kind;
 
             if (type == TokenKind::Semi || type == TokenKind::LeftCurly || type == TokenKind::Comma) {
                 return;
             }
 
-            Consume();
+            consume();
         }
     }
 
-    void Parser::ErrorExpected(const std::string& expect, SourceLocation loc, SourceRange range) {
-        if (Peek()) {
-            m_Context->ReportCompilerDiagnostic(loc, range, fmt::format("Expected '{}' but got '{}'", expect, TokenKindToString(Peek()->Kind)));
+    void Parser::error_expected(const std::string& expect, SourceLocation loc, SourceRange range) {
+        if (peek()) {
+            m_Context->report_compiler_diagnostic(loc, range, fmt::format("Expected '{}' but got '{}'", expect, TokenKindToString(peek()->Kind)));
         } else {
-            m_Context->ReportCompilerDiagnostic(loc, range, fmt::format("Expected '{}' but got EOF", expect));
+            m_Context->report_compiler_diagnostic(loc, range, fmt::format("Expected '{}' but got EOF", expect));
         }
     }
 
-    bool Parser::StmtOk(Stmt* stmt) {
+    bool Parser::stmt_ok(Stmt* stmt) {
         if (stmt == nullptr) { return true; }
         if (stmt->Kind == StmtKind::Error) { return false; }
 
         return true;
     }
 
-    bool Parser::ExprOk(Expr* expr) {
+    bool Parser::expr_ok(Expr* expr) {
         if (expr == nullptr) { return true; }
         if (expr->Kind == ExprKind::Error) { return false; }
 
         return true;
     }
 
-    bool Parser::DeclOk(Decl* decl) {
+    bool Parser::decl_ok(Decl* decl) {
         if (decl == nullptr) { return true; }
         if (decl->Kind == DeclKind::Error) { return false; }
 

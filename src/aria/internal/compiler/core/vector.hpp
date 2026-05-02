@@ -1,8 +1,12 @@
 #pragma once
 
-#include "aria/internal/compiler/compilation_context.hpp"
+#include <cstring>
 
 namespace Aria::Internal {
+
+    struct CompilationContext;
+
+    void* alloc_arena(CompilationContext* ctx, size_t size);
 
     template <typename T>
     struct TinyVector {
@@ -13,16 +17,16 @@ namespace Aria::Internal {
         size_t Capacity = 0;
         size_t Size = 0;
     
-        inline void Append(CompilationContext* ctx, T t) {
+        inline void append(CompilationContext* ctx, T t) {
             if (Capacity == 0) {
-                Items = reinterpret_cast<T*>(ctx->AllocateSized(sizeof(T) * 1));
-                Capacity = 1;
+                Items = reinterpret_cast<T*>(alloc_arena(ctx, sizeof(T) * 32));
+                Capacity = 32;
             }
     
             if (Size >= Capacity) {
                 Capacity *= 2;
     
-                T* newItems = reinterpret_cast<T*>(ctx->AllocateSized(sizeof(T) * Capacity));
+                T* newItems = reinterpret_cast<T*>(alloc_arena(ctx, sizeof(T) * Capacity));
                 memcpy(newItems, Items, sizeof(T) * Size);
                 Items = newItems;
             }

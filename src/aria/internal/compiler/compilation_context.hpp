@@ -76,20 +76,20 @@ namespace Aria::Internal {
         }
 
         template <typename T>
-        inline T* Allocate() {
-            return Arena->AllocateNamed<T>();
+        inline T* allocate() {
+            return Arena->allocate_named<T>();
         }
 
         template <typename T, typename... Args>
-        inline T* Allocate(Args&&... args) {
-            return Arena->AllocateNamed<T>(std::forward<Args>(args)...);
+        inline T* allocate(Args&&... args) {
+            return Arena->allocate_named<T>(std::forward<Args>(args)...);
         }
 
-        inline void* AllocateSized(size_t size) {
-            return Arena->Allocate(size);
+        inline void* allocate_sized(size_t size) {
+            return Arena->allocate(size);
         }
 
-        inline void ReportCompilerDiagnostic(SourceLocation loc, SourceRange range, const std::string& error, CompilerDiagKind kind = CompilerDiagKind::Error) {
+        inline void report_compiler_diagnostic(SourceLocation loc, SourceRange range, const std::string& error, CompilerDiagKind kind = CompilerDiagKind::Error) {
             CompilerDiagnostic d;
             d.Kind = kind;
             d.Line = loc.Line;
@@ -106,15 +106,15 @@ namespace Aria::Internal {
             }
         }
     
-        void CompileFile(const std::string& source);
-        void FinishCompilation();
+        void compile_file(const std::string& source);
+        void finish_compilation();
 
-        void Lex();
-        void Parse();
-        void Analyze();
-        void Emit();
+        void lex();
+        void parse();
+        void analyze();
+        void emit();
 
-        Module* FindOrCreateModule(const std::string& name);
+        Module* find_or_create_module(const std::string& name);
 
         ArenaAllocator* Arena = nullptr;
 

@@ -2,7 +2,6 @@
 
 #include "aria/internal/compiler/lexer/tokens.hpp"
 #include "aria/internal/compiler/compilation_context.hpp"
-#include "aria/internal/compiler/core/string_builder.hpp"
 #include "aria/internal/compiler/ast/expr.hpp"
 #include "aria/internal/compiler/ast/stmt.hpp"
 #include "aria/internal/compiler/ast/decl.hpp"
@@ -18,75 +17,75 @@ namespace Aria::Internal {
         Parser(CompilationContext* ctx);
 
     private:
-        void AddExprRules();
-        void ParseImpl();
+        void add_expr_rules();
+        void parse_impl();
 
-        Token* Peek(size_t count = 0);
-        Token& Consume();
-        Token* TryConsume(TokenKind kind, const std::string& expect);
-        bool Match(TokenKind kind);
+        Token* peek(size_t count = 0);
+        Token& consume();
+        Token* try_consume(TokenKind kind, const std::string& expect);
+        bool match(TokenKind kind);
 
         // Expressions
-        Expr* ParseGrouping(Expr* left);
-        Expr* ParseCast(Expr* left);
-        Expr* ParseCall(Expr* left);
-        UnaryOperatorKind GetUnaryOperatorFromToken(Token* token);
-        BinaryOperatorKind GetBinaryOperatorFromToken(Token* token);
-        Expr* ParseUnary(Expr* left);
-        Expr* ParseBinary(Expr* left);
-        Expr* ParseArraySubscript(Expr* left);
-        Expr* ParseCompoundAssignment(Expr* left);
-        Expr* ParseMember(Expr* left);
-        Expr* ParsePrimary(Expr* left);
-        Expr* ParseIdentifier(Token t);
-        Expr* ParseNew(Expr* left);
-        Expr* ParseDelete(Expr* left);
-        Expr* ParseFormat(Expr* left);
+        Expr* parse_grouping(Expr* left);
+        Expr* parse_cast(Expr* left);
+        Expr* parse_call(Expr* left);
+        UnaryOperatorKind get_unary_operator_from_token(Token* token);
+        BinaryOperatorKind get_binary_operator_from_token(Token* token);
+        Expr* parse_unary(Expr* left);
+        Expr* parse_binary(Expr* left);
+        Expr* parse_array_subscript(Expr* left);
+        Expr* parse_compound_assignment(Expr* left);
+        Expr* parse_member(Expr* left);
+        Expr* parse_primary(Expr* left);
+        Expr* parse_identifier(Token t);
+        Expr* parse_new(Expr* left);
+        Expr* parse_delete(Expr* left);
+        Expr* parse_format(Expr* left);
 
-        Expr* ParsePrecedenceWithLeft(Expr* left, size_t precedence);
-        Expr* ParsePrecedence(size_t precedence);
-        Expr* ParseExpression();
-        bool IsExpression();
+        Expr* parse_precedence_with_left(Expr* left, size_t precedence);
+        Expr* parse_precedence(size_t precedence);
+        Expr* parse_expression();
+        bool is_expression();
 
-        bool IsPrimitiveType();
-        TypeInfo* ParseType();
+        bool is_primitive_type();
+        TypeInfo* parse_type();
 
-        Stmt* ParseBlock(bool unsafe = false);
-        Stmt* ParseBlockInline(bool unsafe = false);
-        Stmt* ParseWhile();
-        Stmt* ParseDoWhile();
-        Stmt* ParseFor();
-        Stmt* ParseIf();
+        Stmt* parse_block(bool unsafe = false);
+        Stmt* parse_block_inline(bool unsafe = false);
+        Stmt* parse_while();
+        Stmt* parse_do_while();
+        Stmt* parse_for();
+        Stmt* parse_if();
 
-        Stmt* ParseBreak();
-        Stmt* ParseContinue();
-        Stmt* ParseReturn();
+        Stmt* parse_break();
+        Stmt* parse_continue();
+        Stmt* parse_return();
 
-        Stmt* ParseExpressionStatement();
-        Stmt* ParseDeclarationStatement(bool global);
+        Stmt* parse_expression_statement();
+        Stmt* parse_declaration_statement(bool global);
 
-        Stmt* ParseStatement();
+        Stmt* parse_statement();
 
         // Declarations
-        Decl* ParseModuleDecl();
-        Stmt* ParseImportStmt();
-        Decl* ParseVariableDecl(bool global);
-        Decl* ParseFunctionDecl();
-        std::pair<TinyVector<Decl*>, TinyVector<TypeInfo*>> ParseFunctionParams();
-        Decl* ParseStructDecl();
+        Decl* parse_module_decl();
+        Stmt* parse_import_decl();
+        Decl* parse_variable_decl(bool global);
+        Decl* parse_function_decl();
+        std::pair<TinyVector<Decl*>, TinyVector<TypeInfo*>> parse_function_params();
+        Decl* parse_struct_decl();
 
-        TinyVector<FunctionDecl::Attribute> ParseFunctionAttrs();
+        TinyVector<FunctionDecl::Attribute> parse_function_attrs();
 
-        Stmt* ParseGlobal();
+        Stmt* parse_global();
 
-        void SyncGlobal(); // Syncs the parser to a common sync point in a global context
-        void SyncLocal(); // Syncs the parser to a common sync point in a local (block) context
+        void sync_global(); // Syncs the parser to a common sync point in a global context
+        void sync_local(); // Syncs the parser to a common sync point in a local (block) context
 
-        void ErrorExpected(const std::string& expect, SourceLocation loc, SourceRange range);
+        void error_expected(const std::string& expect, SourceLocation loc, SourceRange range);
 
-        bool StmtOk(Stmt* stmt);
-        bool ExprOk(Expr* expr);
-        bool DeclOk(Decl* decl);
+        bool stmt_ok(Stmt* stmt);
+        bool expr_ok(Expr* expr);
+        bool decl_ok(Decl* decl);
 
     private:
         size_t m_Index = 0;

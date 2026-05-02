@@ -29,7 +29,7 @@ namespace Aria {
         void operator=(const ArenaAllocator& other) = delete;
         void operator=(ArenaAllocator&& other) = delete;
 
-        [[nodiscard]] inline void* Allocate(size_t bytes) {
+        [[nodiscard]] inline void* allocate(size_t bytes) {
             ARIA_ASSERT(m_Index + bytes < m_Capacity, "Too much memory allocated!");
             uint8_t* mem = &m_Data[m_Index];
 
@@ -39,16 +39,16 @@ namespace Aria {
         }
 
         template <typename T>
-        [[nodiscard]] inline T* AllocateNamed() {
-            T* mem = reinterpret_cast<T*>(Allocate(sizeof(T)));
+        [[nodiscard]] inline T* allocate_named() {
+            T* mem = reinterpret_cast<T*>(allocate(sizeof(T)));
 
             // return mem;
             return new (mem) T{};
         }
 
         template <typename T, typename... Args>
-        [[nodiscard]] inline T* AllocateNamed(Args&&... args) {
-            T* mem = reinterpret_cast<T*>(Allocate(sizeof(T)));
+        [[nodiscard]] inline T* allocate_named(Args&&... args) {
+            T* mem = reinterpret_cast<T*>(allocate(sizeof(T)));
 
             return new (mem) T{std::forward<Args>(args)...};
         }

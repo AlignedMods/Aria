@@ -7,18 +7,18 @@ namespace Aria::Internal {
     ASTDumper::ASTDumper(Stmt* rootASTNode) {
         m_RootASTNode = rootASTNode;
 
-        DumpASTImpl();
+        dump_ast_impl();
     }
 
-    std::string& ASTDumper::GetOutput() {
+    std::string& ASTDumper::get_output() {
         return m_Output;
     }
 
-    void ASTDumper::DumpASTImpl() {
-        DumpStmt(m_RootASTNode, 0);
+    void ASTDumper::dump_ast_impl() {
+        dump_stmt(m_RootASTNode, 0);
     }
 
-    void ASTDumper::DumpExpr(Expr* expr, size_t indentation) {
+    void ASTDumper::dump_expr(Expr* expr, size_t indentation) {
         std::string ident;
         ident.append(indentation, ' ');
         m_Output += ident;
@@ -26,121 +26,121 @@ namespace Aria::Internal {
         if (expr == nullptr) { m_Output += "<<NULL>>\n"; return; };
         
         if (expr->Kind == ExprKind::Error) {
-            m_Output += fmt::format("ErrorExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
+            m_Output += fmt::format("ErrorExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
         } else if (expr->Kind == ExprKind::BooleanConstant) {
-            m_Output += fmt::format("BooleanConstantExpr {} '{}' {}\n", expr->BooleanConstant.Value, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
+            m_Output += fmt::format("BooleanConstantExpr {} '{}' {}\n", expr->BooleanConstant.Value, type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
         } else if (expr->Kind == ExprKind::CharacterConstant) {
-            m_Output += fmt::format("CharacterConstant 0x{:x} '{}' {}\n", expr->CharacterConstant.Value, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
+            m_Output += fmt::format("CharacterConstant 0x{:x} '{}' {}\n", expr->CharacterConstant.Value, type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
         } else if (expr->Kind == ExprKind::IntegerConstant) {
-            m_Output += fmt::format("IntegerConstantExpr {} '{}' {}\n", expr->IntegerConstant.Value, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
+            m_Output += fmt::format("IntegerConstantExpr {} '{}' {}\n", expr->IntegerConstant.Value, type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
         } else if (expr->Kind == ExprKind::FloatingConstant) {
-            m_Output += fmt::format("FloatingConstantExpr {} '{}' {}\n", expr->FloatingConstant.Value, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
+            m_Output += fmt::format("FloatingConstantExpr {} '{}' {}\n", expr->FloatingConstant.Value, type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
         } else if (expr->Kind == ExprKind::StringConstant) {
-            m_Output += fmt::format("StringConstantExpr {:?} '{}' {}\n", expr->StringConstant.Value, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
+            m_Output += fmt::format("StringConstantExpr {:?} '{}' {}\n", expr->StringConstant.Value, type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
         } else if (expr->Kind == ExprKind::Null) {
-            m_Output += fmt::format("NullExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
+            m_Output += fmt::format("NullExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
         } else if (expr->Kind == ExprKind::DeclRef) {
-            m_Output += fmt::format("DeclRefExpr '{}' '{}' {} {} {}\n", expr->DeclRef.Identifier, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind), DeclKindToString(expr->DeclRef.ReferencedDecl->Kind), static_cast<void*>(expr->DeclRef.ReferencedDecl));
+            m_Output += fmt::format("DeclRefExpr '{}' '{}' {} {} {}\n", expr->DeclRef.Identifier, type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind), DeclKindToString(expr->DeclRef.ReferencedDecl->Kind), static_cast<void*>(expr->DeclRef.ReferencedDecl));
             if (expr->DeclRef.NameSpecifier) {
-                DumpSpecifier(expr->DeclRef.NameSpecifier, indentation + 4);
+                dump_specifier(expr->DeclRef.NameSpecifier, indentation + 4);
             }
             return;
         } else if (expr->Kind == ExprKind::Member) {
-            m_Output += fmt::format("MemberExpr '{}' '{}' {}\n", expr->Member.Member, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
-            DumpExpr(expr->Member.Parent, indentation + 4);
+            m_Output += fmt::format("MemberExpr '{}' '{}' {}\n", expr->Member.Member, type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
+            dump_expr(expr->Member.Parent, indentation + 4);
             return;
         } else if (expr->Kind == ExprKind::BuiltinMember) {
-            m_Output += fmt::format("BuiltinMemberExpr '{}' '{}' {}\n", expr->Member.Member, TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
-            DumpExpr(expr->Member.Parent, indentation + 4);
+            m_Output += fmt::format("BuiltinMemberExpr '{}' '{}' {}\n", expr->Member.Member, type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
+            dump_expr(expr->Member.Parent, indentation + 4);
             return;
         } else if (expr->Kind == ExprKind::Self) {
-            m_Output += fmt::format("SelfExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
+            m_Output += fmt::format("SelfExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
         } else if (expr->Kind == ExprKind::Temporary) {
-            m_Output += fmt::format("TemporaryExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
-            DumpExpr(expr->Temporary.Expression, indentation + 4);
+            m_Output += fmt::format("TemporaryExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
+            dump_expr(expr->Temporary.Expression, indentation + 4);
             return;
         } else if (expr->Kind == ExprKind::Copy) {
-            m_Output += fmt::format("CopyExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
-            DumpExpr(expr->Copy.Expression, indentation + 4);
+            m_Output += fmt::format("CopyExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
+            dump_expr(expr->Copy.Expression, indentation + 4);
             return;
         } else if (expr->Kind == ExprKind::Call) {
-            m_Output += fmt::format("CallExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
+            m_Output += fmt::format("CallExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
             for (Expr* e : expr->Call.Arguments) {
-                DumpExpr(e, indentation + 4);
+                dump_expr(e, indentation + 4);
             }
-            DumpExpr(expr->Call.Callee, indentation + 4);
+            dump_expr(expr->Call.Callee, indentation + 4);
             return;
         } else if (expr->Kind == ExprKind::Construct) {
-            m_Output += fmt::format("ConstructExpr '{}' {} {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind), reinterpret_cast<void*>(expr->Construct.Ctor));
+            m_Output += fmt::format("ConstructExpr '{}' {} {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind), reinterpret_cast<void*>(expr->Construct.Ctor));
             for (Expr* e : expr->Construct.Arguments) {
-                DumpExpr(e, indentation + 4);
+                dump_expr(e, indentation + 4);
             }
             return;
         } else if (expr->Kind == ExprKind::MethodCall) {
-            m_Output += fmt::format("MethodCallExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
+            m_Output += fmt::format("MethodCallExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
             for (Expr* e : expr->MethodCall.Arguments) {
-                DumpExpr(e, indentation + 4);
+                dump_expr(e, indentation + 4);
             }
-            DumpExpr(expr->MethodCall.Callee, indentation + 4);
+            dump_expr(expr->MethodCall.Callee, indentation + 4);
             return;
         } else if (expr->Kind == ExprKind::ToSlice) {
-            m_Output += fmt::format("ToSliceExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
-            DumpExpr(expr->ToSlice.Source, indentation + 4);
-            DumpExpr(expr->ToSlice.Len, indentation + 4);
+            m_Output += fmt::format("ToSliceExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
+            dump_expr(expr->ToSlice.Source, indentation + 4);
+            dump_expr(expr->ToSlice.Len, indentation + 4);
             return;
         }  else if (expr->Kind == ExprKind::ArraySubscript) {
-            m_Output += fmt::format("ArraySubscriptExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
-            DumpExpr(expr->ArraySubscript.Array, indentation + 4);
-            DumpExpr(expr->ArraySubscript.Index, indentation + 4);
+            m_Output += fmt::format("ArraySubscriptExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
+            dump_expr(expr->ArraySubscript.Array, indentation + 4);
+            dump_expr(expr->ArraySubscript.Index, indentation + 4);
             return;
         } else if (expr->Kind == ExprKind::New) {
-            m_Output += fmt::format("NewExpr {}'{}' {}\n", expr->New.Array ? "array " : "", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
+            m_Output += fmt::format("NewExpr {}'{}' {}\n", expr->New.Array ? "array " : "", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
             if (expr->New.Initializer) {
-                DumpExpr(expr->New.Initializer, indentation + 4);
+                dump_expr(expr->New.Initializer, indentation + 4);
             }
             return;
         } else if (expr->Kind == ExprKind::Delete) {
-            m_Output += fmt::format("DeleteExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
-            DumpExpr(expr->Delete.Expression, indentation + 4);
+            m_Output += fmt::format("DeleteExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
+            dump_expr(expr->Delete.Expression, indentation + 4);
             return;
         } else if (expr->Kind == ExprKind::Format) {
-            m_Output += fmt::format("FormatExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
+            m_Output += fmt::format("FormatExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
             for (auto& arg : expr->Format.ResolvedArgs) {
-                DumpExpr(arg.Arg, indentation + 4);
+                dump_expr(arg.Arg, indentation + 4);
             }
             return;
         } else if (expr->Kind == ExprKind::Paren) {
-            m_Output += fmt::format("ParenExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
-            DumpExpr(expr->Paren.Expression, indentation + 4);
+            m_Output += fmt::format("ParenExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
+            dump_expr(expr->Paren.Expression, indentation + 4);
             return;
         } else if (expr->Kind == ExprKind::Cast) {
-            m_Output += fmt::format("CastExpr '{}' {}\n", TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
-            DumpExpr(expr->Cast.Expression, indentation + 4);
+            m_Output += fmt::format("CastExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
+            dump_expr(expr->Cast.Expression, indentation + 4);
             return;
         } else if (expr->Kind == ExprKind::ImplicitCast) {
-            m_Output += fmt::format("ImplicitCastExpr '{}' <{}> {}\n", TypeInfoToString(expr->Type), CastKindToString(expr->ImplicitCast.Kind), ExprValueKindToString(expr->ValueKind));
-            DumpExpr(expr->ImplicitCast.Expression, indentation + 4);
+            m_Output += fmt::format("ImplicitCastExpr '{}' <{}> {}\n", type_info_to_string(expr->Type), CastKindToString(expr->ImplicitCast.Kind), ExprValueKindToString(expr->ValueKind));
+            dump_expr(expr->ImplicitCast.Expression, indentation + 4);
             return;
         } else if (expr->Kind == ExprKind::UnaryOperator) {
-            m_Output += fmt::format("UnaryOperatorExpr '{}' '{}' {}\n", UnaryOperatorKindToString(expr->UnaryOperator.Operator), TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
-            DumpExpr(expr->UnaryOperator.Expression, indentation + 4);
+            m_Output += fmt::format("UnaryOperatorExpr '{}' '{}' {}\n", UnaryOperatorKindToString(expr->UnaryOperator.Operator), type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
+            dump_expr(expr->UnaryOperator.Expression, indentation + 4);
             return;
         } else if (expr->Kind == ExprKind::BinaryOperator) {
-            m_Output += fmt::format("BinaryOperatorExpr '{}' '{}' {}\n", BinaryOperatorKindToString(expr->BinaryOperator.Operator), TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
-            DumpExpr(expr->BinaryOperator.LHS, indentation + 4);
-            DumpExpr(expr->BinaryOperator.RHS, indentation + 4);
+            m_Output += fmt::format("BinaryOperatorExpr '{}' '{}' {}\n", BinaryOperatorKindToString(expr->BinaryOperator.Operator), type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
+            dump_expr(expr->BinaryOperator.LHS, indentation + 4);
+            dump_expr(expr->BinaryOperator.RHS, indentation + 4);
             return;
         } else if (expr->Kind == ExprKind::CompoundAssign) {
-            m_Output += fmt::format("CompoundAssignExpr '{}' '{}' {}\n", BinaryOperatorKindToString(expr->BinaryOperator.Operator), TypeInfoToString(expr->Type), ExprValueKindToString(expr->ValueKind));
-            DumpExpr(expr->BinaryOperator.LHS, indentation + 4);
-            DumpExpr(expr->BinaryOperator.RHS, indentation + 4);
+            m_Output += fmt::format("CompoundAssignExpr '{}' '{}' {}\n", BinaryOperatorKindToString(expr->BinaryOperator.Operator), type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
+            dump_expr(expr->BinaryOperator.LHS, indentation + 4);
+            dump_expr(expr->BinaryOperator.RHS, indentation + 4);
             return;
         }
 
         ARIA_UNREACHABLE();
     }
 
-    void ASTDumper::DumpDecl(Decl* decl, size_t indentation) {
+    void ASTDumper::dump_decl(Decl* decl, size_t indentation) {
         std::string ident;
         ident.append(indentation, ' ');
         m_Output += ident;
@@ -155,66 +155,66 @@ namespace Aria::Internal {
             m_Output += "TranslationUnitDecl\n";
 
             for (Stmt* stmt : decl->TranslationUnit.Stmts) {
-                DumpStmt(stmt, indentation + 4);
+                dump_stmt(stmt, indentation + 4);
             }
             return;
         } else if (decl->Kind == DeclKind::Module) {
             m_Output += fmt::format("ModuleDecl '{}'\n", decl->Module.Name);
             return;
         } else if (decl->Kind == DeclKind::Var) {
-            m_Output += fmt::format("VarDecl '{}' '{}'\n", decl->Var.Identifier, TypeInfoToString(decl->Var.Type));
+            m_Output += fmt::format("VarDecl '{}' '{}'\n", decl->Var.Identifier, type_info_to_string(decl->Var.Type));
             if (decl->Var.Initializer) {
-                DumpExpr(decl->Var.Initializer, indentation + 4);
+                dump_expr(decl->Var.Initializer, indentation + 4);
             }
             return;
         } else if (decl->Kind == DeclKind::Param) {
-            m_Output += fmt::format("ParamDecl '{}' '{}'\n", decl->Param.Identifier, TypeInfoToString(decl->Param.Type));
+            m_Output += fmt::format("ParamDecl '{}' '{}'\n", decl->Param.Identifier, type_info_to_string(decl->Param.Type));
             return;
         } else if (decl->Kind == DeclKind::Function) {
-            m_Output += fmt::format("FunctionDecl '{}' '{}'\n", decl->Function.Identifier, TypeInfoToString(decl->Function.Type));
+            m_Output += fmt::format("FunctionDecl '{}' '{}'\n", decl->Function.Identifier, type_info_to_string(decl->Function.Type));
             for (auto& attr : decl->Function.Attributes) {
-                DumpFunctionAttr(attr, indentation + 4);
+                dump_function_attr(attr, indentation + 4);
             }
 
             for (Decl* p : decl->Function.Parameters) {
-                DumpDecl(p, indentation + 4);
+                dump_decl(p, indentation + 4);
             }
 
             if (decl->Function.Body) {
-                DumpStmt(decl->Function.Body, indentation + 4);
+                dump_stmt(decl->Function.Body, indentation + 4);
             }
             return;
         } else if (decl->Kind == DeclKind::Struct) {
             m_Output += fmt::format("StructDecl '{}'\n", decl->Struct.Identifier);
 
             for (Decl* field : decl->Struct.Fields) {
-                DumpDecl(field, indentation + 4);
+                dump_decl(field, indentation + 4);
             }
             return;
         } else if (decl->Kind == DeclKind::Field) {
-            m_Output += fmt::format("FieldDecl '{}' '{}'\n", decl->Field.Identifier, TypeInfoToString(decl->Field.Type));
+            m_Output += fmt::format("FieldDecl '{}' '{}'\n", decl->Field.Identifier, type_info_to_string(decl->Field.Type));
             return;
         } else if (decl->Kind == DeclKind::Constructor) {
             m_Output += "ConstructorDecl\n";
 
             for (Decl* param : decl->Constructor.Parameters) {
-                DumpDecl(param, indentation + 4);
+                dump_decl(param, indentation + 4);
             }
 
-            DumpStmt(decl->Constructor.Body, indentation + 4);
+            dump_stmt(decl->Constructor.Body, indentation + 4);
             return;
         } else if (decl->Kind == DeclKind::Destructor) {
             m_Output += "DestructorDecl\n";
 
-            DumpStmt(decl->Destructor.Body, indentation + 4);
+            dump_stmt(decl->Destructor.Body, indentation + 4);
             return;
         } else if (decl->Kind == DeclKind::Method) {
-            m_Output += fmt::format("MethodDecl '{}' '{}'\n", decl->Method.Identifier, TypeInfoToString(decl->Method.Type));
+            m_Output += fmt::format("MethodDecl '{}' '{}'\n", decl->Method.Identifier, type_info_to_string(decl->Method.Type));
             for (Decl* p : decl->Method.Parameters) {
-                DumpDecl(p, indentation + 4);
+                dump_decl(p, indentation + 4);
             }
             if (decl->Method.Body) {
-                DumpStmt(decl->Method.Body, indentation + 4);
+                dump_stmt(decl->Method.Body, indentation + 4);
             }
             return;
         }
@@ -222,14 +222,14 @@ namespace Aria::Internal {
         ARIA_UNREACHABLE();
     }
 
-    void ASTDumper::DumpStmt(Stmt* stmt, size_t indentation) {
+    void ASTDumper::dump_stmt(Stmt* stmt, size_t indentation) {
         if (stmt == nullptr) { m_Output += "<<NULL>>\n"; return; };
 
         if (stmt->Kind == StmtKind::Decl) {
-            DumpDecl(stmt->DeclStmt, indentation);
+            dump_decl(stmt->DeclStmt, indentation);
             return;
         } else if (stmt->Kind == StmtKind::Expr) {
-            DumpExpr(stmt->ExprStmt, indentation);
+            dump_expr(stmt->ExprStmt, indentation);
             return;
         }
 
@@ -250,31 +250,31 @@ namespace Aria::Internal {
         } else if (stmt->Kind == StmtKind::Block) {
             m_Output += fmt::format("BlockStmt {}\n", stmt->Block.Unsafe ? "unsafe" : "");
             for (Stmt* stmt : stmt->Block.Stmts) {
-                DumpStmt(stmt, indentation + 4);
+                dump_stmt(stmt, indentation + 4);
             }
             return;
         } else if (stmt->Kind == StmtKind::While) {
             m_Output += "WhileStmt\n";
-            DumpExpr(stmt->While.Condition, indentation + 4);
-            DumpStmt(stmt->While.Body, indentation + 4);
+            dump_expr(stmt->While.Condition, indentation + 4);
+            dump_stmt(stmt->While.Body, indentation + 4);
             return;
         } else if (stmt->Kind == StmtKind::DoWhile) {
             m_Output += "DoWhileStmt\n";
-            DumpExpr(stmt->DoWhile.Condition, indentation + 4);
-            DumpStmt(stmt->DoWhile.Body, indentation + 4);
+            dump_expr(stmt->DoWhile.Condition, indentation + 4);
+            dump_stmt(stmt->DoWhile.Body, indentation + 4);
             return;
         } else if (stmt->Kind == StmtKind::For) {
             m_Output += "ForStmt\n";
-            DumpDecl(stmt->For.Prologue, indentation + 4);
-            DumpExpr(stmt->For.Condition, indentation + 4);
-            DumpExpr(stmt->For.Step, indentation + 4);
-            DumpStmt(stmt->For.Body, indentation + 4);
+            dump_decl(stmt->For.Prologue, indentation + 4);
+            dump_expr(stmt->For.Condition, indentation + 4);
+            dump_expr(stmt->For.Step, indentation + 4);
+            dump_stmt(stmt->For.Body, indentation + 4);
             return;
         } else if (stmt->Kind == StmtKind::If) {
             m_Output += "IfStmt\n";
-            DumpExpr(stmt->If.Condition, indentation + 4);
-            DumpStmt(stmt->If.Body, indentation + 4);
-            if (stmt->If.ElseBody) DumpStmt(stmt->If.ElseBody, indentation + 4);
+            dump_expr(stmt->If.Condition, indentation + 4);
+            dump_stmt(stmt->If.Body, indentation + 4);
+            if (stmt->If.ElseBody) dump_stmt(stmt->If.ElseBody, indentation + 4);
             return;
         } else if (stmt->Kind == StmtKind::Break) {
             m_Output += "BreakStmt\n";
@@ -284,14 +284,14 @@ namespace Aria::Internal {
             return;
         } else if (stmt->Kind == StmtKind::Return) {
             m_Output += "ReturnStmt\n";
-            DumpExpr(stmt->Return.Value, indentation + 4);
+            dump_expr(stmt->Return.Value, indentation + 4);
             return;
         } 
 
         ARIA_UNREACHABLE();
     }
 
-    void ASTDumper::DumpSpecifier(Specifier* spec, size_t indentation) {
+    void ASTDumper::dump_specifier(Specifier* spec, size_t indentation) {
         if (spec == nullptr) { m_Output += "<<NULL>>\n"; return; };
 
         std::string ident;
@@ -306,7 +306,7 @@ namespace Aria::Internal {
         ARIA_UNREACHABLE();
     }
 
-    void ASTDumper::DumpFunctionAttr(FunctionDecl::Attribute attr, size_t indentation) {
+    void ASTDumper::dump_function_attr(FunctionDecl::Attribute attr, size_t indentation) {
         std::string ident;
         ident.append(indentation, ' ');
         m_Output += ident;

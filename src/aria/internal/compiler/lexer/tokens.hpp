@@ -1,10 +1,11 @@
 #pragma once
 
 #include "aria/internal/compiler/core/source_location.hpp"
-#include "aria/internal/compiler/core/string_view.hpp"
 #include "aria/internal/types.hpp"
+#include "aria/core.hpp"
 
 #include <vector>
+#include <string_view>
 
 namespace Aria::Internal {
 
@@ -215,7 +216,7 @@ namespace Aria::Internal {
         TokenKind Kind = TokenKind::Semi;
         SourceRange Range;
 
-        StringView String;
+        std::string_view String;
         u64 Integer = 0;
         f64 Number = 0.0;
     };

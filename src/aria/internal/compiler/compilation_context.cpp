@@ -6,7 +6,7 @@
 
 namespace Aria::Internal {
 
-    void CompilationContext::CompileFile(const std::string& source) {
+    void CompilationContext::compile_file(const std::string& source) {
         CompilationUnit* unit = new CompilationUnit(source);
 
         if (CompilationUnits.size() > 0) { unit->Index = CompilationUnits[CompilationUnits.size() - 1]->Index + 1; }
@@ -14,24 +14,21 @@ namespace Aria::Internal {
         CompilationUnits.push_back(unit);
         ActiveCompUnit = unit;
 
-        Lex();
-        Parse();
+        lex();
+        parse();
     }
 
-    void CompilationContext::FinishCompilation() {
-        Analyze();
-
-        if (!HasErrors) {
-            Emit();
-        }
+    void CompilationContext::finish_compilation() {
+        analyze();
+        if (!HasErrors) { emit(); }
     }
 
-    void CompilationContext::Lex() { Lexer l(this); }
-    void CompilationContext::Parse() { Parser p(this); }
-    void CompilationContext::Analyze() { SemanticAnalyzer s(this); }
-    void CompilationContext::Emit() { Emitter e(this); }
+    void CompilationContext::lex() { Lexer l(this); }
+    void CompilationContext::parse() { Parser p(this); }
+    void CompilationContext::analyze() { SemanticAnalyzer s(this); }
+    void CompilationContext::emit() { Emitter e(this); }
 
-    Module* CompilationContext::FindOrCreateModule(const std::string& name) {
+    Module* CompilationContext::find_or_create_module(const std::string& name) {
         for (Module* mod : Modules) {
             if (mod->Name == name) {
                 return mod;

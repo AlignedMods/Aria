@@ -3,7 +3,7 @@
 namespace Aria::Internal {
 
     TypeInfo* TypeInfo::Create(CompilationContext* ctx, TypeKind kind, bool isReference) {
-        TypeInfo* t = ctx->Allocate<TypeInfo>();
+        TypeInfo* t = ctx->allocate<TypeInfo>();
         t->Kind = kind;
         t->Reference = isReference;
     
@@ -11,7 +11,7 @@ namespace Aria::Internal {
     }
 
     TypeInfo* TypeInfo::Dup(CompilationContext* ctx, TypeInfo* type) {
-        TypeInfo* t = ctx->Allocate<TypeInfo>();
+        TypeInfo* t = ctx->allocate<TypeInfo>();
         memcpy(reinterpret_cast<void*>(t), type, sizeof(TypeInfo));
         return t;
     }

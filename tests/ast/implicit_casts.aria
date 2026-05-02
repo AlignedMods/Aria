@@ -1,3 +1,5 @@
+module implicit_casts;
+
 let a: int = 9; // Should have an implicit cast for LongToInt
 let aa: int = a; // Should have an implicit cast for LValueToRValue
 let b: float = a; // Should have an implicit cast for IntToFloat

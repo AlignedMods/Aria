@@ -2,10 +2,10 @@
 
 namespace Aria::Internal {
 
-    void SemanticAnalyzer::ResolveType(SourceLocation loc, SourceRange range, TypeInfo* type) {
+    void SemanticAnalyzer::resolve_type(SourceLocation loc, SourceRange range, TypeInfo* type) {
         if (type->Kind == TypeKind::Unresolved) {
             UnresolvedType& t = type->Unresolved;
-            ResolveExpr(t.Ident);
+            resolve_expr(t.Ident);
 
             if (!t.Ident->DeclRef.ReferencedDecl) {
                 return;
@@ -15,48 +15,48 @@ namespace Aria::Internal {
                 type->Kind = TypeKind::Structure;
                 type->Struct = StructDeclaration(t.Ident->DeclRef.Identifier, t.Ident->DeclRef.ReferencedDecl);
             } else {
-                m_Context->ReportCompilerDiagnostic(loc, range, fmt::format("'{}' is not a type", t.Ident->DeclRef.Identifier));
+                m_Context->report_compiler_diagnostic(loc, range, fmt::format("'{}' is not a type", t.Ident->DeclRef.Identifier));
                 return;
             }
         } else if (type->Kind == TypeKind::Ptr) {
-            ResolveType(loc, range, type->Base);
+            resolve_type(loc, range, type->Base);
         } else if (type->Kind == TypeKind::Array) {
             ARIA_TODO("Resolving array types");
         } else if (type->Kind == TypeKind::Function) {
             FunctionDeclaration& fn = type->Function;
 
             for (TypeInfo* param : fn.ParamTypes) {
-                ResolveType(loc, range, param);
+                resolve_type(loc, range, param);
             }
 
-            ResolveType(loc, range, fn.ReturnType);
+            resolve_type(loc, range, fn.ReturnType);
         }
     }
 
-    ConversionCost SemanticAnalyzer::GetConversionCost(TypeInfo* dst, TypeInfo* src) {
+    ConversionCost SemanticAnalyzer::get_conversion_cost(TypeInfo* dst, TypeInfo* src) {
         ConversionCost cost{};
         cost.CastNeeded = true;
         cost.ExplicitCastPossible = true;
         cost.ImplicitCastPossible = true;
 
-        if (TypeIsEqual(src, dst)) {
+        if (type_is_equal(src, dst)) {
             cost.CastNeeded = false;
             return cost;
         }
 
-        if (src->IsIntegral()) {
-            if (dst->IsIntegral()) { // Int to int
-                if (TypeGetSize(src) != TypeGetSize(dst)) {
+        if (src->is_integral()) {
+            if (dst->is_integral()) { // Int to int
+                if (type_get_size(src) != type_get_size(dst)) {
                     cost.Kind = CastKind::Integral;
                 } else {
-                    if (src->IsSigned() == dst->IsSigned()) {
+                    if (src->is_signed() == dst->is_signed()) {
                         cost.CastNeeded = false;
                     } else {
                         cost.Kind = CastKind::Integral;
                         cost.CastNeeded = true;
                     }
                 }
-            } else if (dst->IsFloatingPoint()) { // Int to float
+            } else if (dst->is_floating_point()) { // Int to float
                 cost.Kind = CastKind::IntegralToFloating;
             } else {
                 cost.ImplicitCastPossible = false;
@@ -66,14 +66,14 @@ namespace Aria::Internal {
             return cost;
         }
 
-        if (src->IsFloatingPoint()) {
-            if (dst->IsFloatingPoint()) { // Float to float
-                if (TypeGetSize(src) != TypeGetSize(dst)) {
+        if (src->is_floating_point()) {
+            if (dst->is_floating_point()) { // Float to float
+                if (type_get_size(src) != type_get_size(dst)) {
                     cost.Kind = CastKind::Floating;
                 } else {
                     cost.CastNeeded = false;
                 }
-            } else if (dst->IsIntegral()) { // Float to int
+            } else if (dst->is_integral()) { // Float to int
                 cost.ImplicitCastPossible = false;
                 cost.Kind = CastKind::FloatingToIntegral;
             } else {
@@ -83,17 +83,17 @@ namespace Aria::Internal {
             return cost;
         }
 
-        if (src->IsPointer()) {
-            if (dst->IsPointer()) { // Ptr to ptr
-                if (src->Base->IsVoid() || dst->Base->IsVoid()) { // Allow void* conversions
+        if (src->is_pointer()) {
+            if (dst->is_pointer()) { // Ptr to ptr
+                if (src->Base->is_void() || dst->Base->is_void()) { // Allow void* conversions
                     cost.Kind = CastKind::BitCast;
                     return cost;
                 }
             }
         }
 
-        if (src->IsArray()) {
-            if (dst->IsSlice()) {
+        if (src->is_array()) {
+            if (dst->is_slice()) {
                 cost.Kind = CastKind::ArrayToSlice;
                 return cost;
             }
@@ -104,31 +104,31 @@ namespace Aria::Internal {
         return cost;
     }
 
-    bool SemanticAnalyzer::TypeIsEqual(TypeInfo* lhs, TypeInfo* rhs) {
-        if (lhs->IsPrimitive() && rhs->IsPrimitive()) {
-            if (lhs->IsPointer() && rhs->IsPointer()) { return TypeIsEqual(lhs->Base, rhs->Base); }
+    bool SemanticAnalyzer::type_is_equal(TypeInfo* lhs, TypeInfo* rhs) {
+        if (lhs->is_primitive() && rhs->is_primitive()) {
+            if (lhs->is_pointer() && rhs->is_pointer()) { return type_is_equal(lhs->Base, rhs->Base); }
             return lhs->Kind == rhs->Kind;
         }
 
-        if (lhs->IsString() && rhs->IsString()) {
+        if (lhs->is_string() && rhs->is_string()) {
             return true;
         }
 
-        if (lhs->IsFunction() && rhs->IsFunction()) {
+        if (lhs->is_function() && rhs->is_function()) {
             FunctionDeclaration& fLhs = lhs->Function;
             FunctionDeclaration& fRhs = rhs->Function;
 
-            if (!TypeIsEqual(fLhs.ReturnType, fRhs.ReturnType)) { return false; }
+            if (!type_is_equal(fLhs.ReturnType, fRhs.ReturnType)) { return false; }
             if (fLhs.ParamTypes.Size != fRhs.ParamTypes.Size) { return false; }
 
             for (size_t i = 0; i < fLhs.ParamTypes.Size; i++) {
-                if (!TypeIsEqual(fLhs.ParamTypes.Items[i], fRhs.ParamTypes.Items[i])) { return false; }
+                if (!type_is_equal(fLhs.ParamTypes.Items[i], fRhs.ParamTypes.Items[i])) { return false; }
             }
 
             return true;
         }
 
-        if (lhs->IsStructure() && rhs->IsStructure()) {
+        if (lhs->is_structure() && rhs->is_structure()) {
             StructDeclaration& sLhs = lhs->Struct;
             StructDeclaration& sRhs = rhs->Struct;
 
@@ -138,7 +138,7 @@ namespace Aria::Internal {
         return false;
     }
 
-    size_t SemanticAnalyzer::TypeGetSize(TypeInfo* t) {
+    size_t SemanticAnalyzer::type_get_size(TypeInfo* t) {
         switch (t->Kind) {
             case TypeKind::Void:   return 0;
 
@@ -156,11 +156,11 @@ namespace Aria::Internal {
             case TypeKind::Float:  return 4;
             case TypeKind::Double: return 8;
 
-            default: ARIA_ASSERT(false, "SemanticAnalyzer::TypeGetSize() only supports trivial (non structure) types");
+            default: ARIA_ASSERT(false, "SemanticAnalyzer::type_get_size() only supports trivial (non structure) types");
         }
     }
 
-    bool SemanticAnalyzer::TypeIsTrivial(TypeInfo* t) {
+    bool SemanticAnalyzer::type_is_trivial(TypeInfo* t) {
         switch (t->Kind) {
             case TypeKind::String:
                 return false;

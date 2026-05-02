@@ -10,7 +10,6 @@
 
 namespace Aria::Internal {
 
-
     struct ConversionCost {
         CastKind Kind = CastKind::Invalid;
 
@@ -31,118 +30,120 @@ namespace Aria::Internal {
             std::unordered_map<std::string, Declaration> Declarations;
             bool AllowBreakStmt = false;
             bool AllowContinueStmt = false;
+            bool ReachesEnd = true;
         };
 
     public:
         SemanticAnalyzer(CompilationContext* ctx);
 
     private:
-        void SemaImpl();
+        void sema_impl();
 
         // Passes
-        void PassImports();
-        void PassDecls();
-        void PassCode();
+        void pass_imports();
+        void pass_decls();
+        void pass_code();
 
-        void AddUnitToModule(Module* module, CompilationUnit* unit);
-        void ResolveModuleImports(Module* module);
-        void ResolveUnitImports(Module* module, CompilationUnit* unit);
+        void add_unit_to_module(Module* module, CompilationUnit* unit);
+        void resolve_module_imports(Module* module);
+        void resolve_unit_imports(Module* module, CompilationUnit* unit);
 
-        void ResolveModuleDecls(Module* module);
-        void ResolveUnitDecls(Module* module, CompilationUnit* unit);
+        void resolve_module_decls(Module* module);
+        void resolve_unit_decls(Module* module, CompilationUnit* unit);
 
-        void ResolveModuleCode(Module* module);
-        void ResolveUnitCode(Module* module, CompilationUnit* unit);
+        void resolve_module_code(Module* module);
+        void resolve_unit_code(Module* module, CompilationUnit* unit);
 
-        void ResolveBooleanConstantExpr(Expr* expr);
-        void ResolveCharacterConstantExpr(Expr* expr);
-        void ResolveIntegerConstantExpr(Expr* expr);
-        void ResolveFloatingConstantExpr(Expr* expr);
-        void ResolveStringConstantExpr(Expr* expr);
-        void ResolveNullExpr(Expr* expr);
-        void ResolveDeclRefExpr(Expr* expr);
-        void ResolveMemberExpr(Expr* expr);
-        void ResolveBuiltinMemberExpr(Expr* expr);
-        void ResolveTemporaryExpr(Expr* expr);
-        void ResolveCopyExpr(Expr* expr);
-        void ResolveCallExpr(Expr* expr);
-        void ResolveConstructExpr(Expr* expr);
-        void ResolveMethodCallExpr(Expr* expr);
-        void ResolveArraySubscriptExpr(Expr* expr);
-        void ResolveToSliceExpr(Expr* expr);
-        void ResolveNewExpr(Expr* expr);
-        void ResolveDeleteExpr(Expr* expr);
-        void ResolveFormatExpr(Expr* expr);
-        void ResolveParenExpr(Expr* expr);
-        void ResolveCastExpr(Expr* expr);
-        void ResolveImplicitCastExpr(Expr* expr);
-        void ResolveUnaryOperatorExpr(Expr* expr);
-        void ResolveBinaryOperatorExpr(Expr* expr);
-        void ResolveCompoundAssignExpr(Expr* expr);
+        void resolve_BooleanConstant_expr(Expr* expr);
+        void resolve_CharacterConstant_expr(Expr* expr);
+        void resolve_IntegerConstant_expr(Expr* expr);
+        void resolve_FloatingConstant_expr(Expr* expr);
+        void resolve_StringConstant_expr(Expr* expr);
+        void resolve_Null_expr(Expr* expr);
+        void resolve_DeclRef_expr(Expr* expr);
+        void resolve_Member_expr(Expr* expr);
+        void resolve_BuiltinMember_expr(Expr* expr);
+        void resolve_Temporary_expr(Expr* expr);
+        void resolve_Copy_expr(Expr* expr);
+        void resolve_Call_expr(Expr* expr);
+        void resolve_Construct_expr(Expr* expr);
+        void resolve_MethodCall_expr(Expr* expr);
+        void resolve_ArraySubscript_expr(Expr* expr);
+        void resolve_ToSlice_expr(Expr* expr);
+        void resolve_New_expr(Expr* expr);
+        void resolve_Delete_expr(Expr* expr);
+        void resolve_Format_expr(Expr* expr);
+        void resolve_Paren_expr(Expr* expr);
+        void resolve_Cast_expr(Expr* expr);
+        void resolve_ImplicitCast_expr(Expr* expr);
+        void resolve_UnaryOperator_expr(Expr* expr);
+        void resolve_BinaryOperator_expr(Expr* expr);
+        void resolve_CompoundAssign_expr(Expr* expr);
 
-        void ResolveExpr(Expr* expr);
+        void resolve_expr(Expr* expr);
 
-        void ResolveTranslationUnitDecl(Decl* decl);
-        void ResolveModuleDecl(Decl* decl);
-        void ResolveVarDecl(Decl* decl);
-        void ResolveParamDecl(Decl* decl);
-        void ResolveFunctionDecl(Decl* decl);
-        void ResolveOverloadedFunctionDecl(Decl* decl);
-        void ResolveStructDecl(Decl* decl);
-        void ResolveFieldDecl(Decl* decl);
-        void ResolveConstructorDecl(Decl* decl);
-        void ResolveDestructorDecl(Decl* decl);
-        void ResolveMethodDecl(Decl* decl);
-        void ResolveBuiltinCopyConstructorDecl(Decl* decl);
-        void ResolveBuiltinDestructorDecl(Decl* decl);
+        void resolve_TranslationUnit_decl(Decl* decl);
+        void resolve_Module_decl(Decl* decl);
+        void resolve_Var_decl(Decl* decl);
+        void resolve_Param_decl(Decl* decl);
+        void resolve_Function_decl(Decl* decl);
+        void resolve_OverloadedFunction_decl(Decl* decl);
+        void resolve_Struct_decl(Decl* decl);
+        void resolve_Field_decl(Decl* decl);
+        void resolve_Constructor_decl(Decl* decl);
+        void resolve_Destructor_decl(Decl* decl);
+        void resolve_Method_decl(Decl* decl);
+        void resolve_BuiltinCopyConstructor_decl(Decl* decl);
+        void resolve_BuiltinDestructor_decl(Decl* decl);
 
-        void ResolveDecl(Decl* decl);
+        void resolve_decl(Decl* decl);
 
-        void ResolveNopStmt(Stmt* stmt);
-        void ResolveImportStmt(Stmt* stmt);
-        void ResolveBlockStmt(Stmt* stmt);
-        void ResolveWhileStmt(Stmt* stmt);
-        void ResolveDoWhileStmt(Stmt* stmt);
-        void ResolveForStmt(Stmt* stmt);
-        void ResolveIfStmt(Stmt* stmt);
-        void ResolveBreakStmt(Stmt* stmt);
-        void ResolveContinueStmt(Stmt* stmt);
-        void ResolveReturnStmt(Stmt* stmt);
-        void ResolveExprStmt(Stmt* stmt);
-        void ResolveDeclStmt(Stmt* stmt);
+        void resolve_Nop_stmt(Stmt* stmt);
+        void resolve_Import_stmt(Stmt* stmt);
+        void resolve_Block_stmt(Stmt* stmt);
+        void resolve_While_stmt(Stmt* stmt);
+        void resolve_DoWhile_stmt(Stmt* stmt);
+        void resolve_For_stmt(Stmt* stmt);
+        void resolve_If_stmt(Stmt* stmt);
+        void resolve_Break_stmt(Stmt* stmt);
+        void resolve_Continue_stmt(Stmt* stmt);
+        void resolve_Return_stmt(Stmt* stmt);
+        void resolve_Expr_stmt(Stmt* stmt);
+        void resolve_Decl_stmt(Stmt* stmt);
 
-        void ResolveStmt(Stmt* stmt);
+        void resolve_stmt(Stmt* stmt);
 
-        void ResolveType(SourceLocation loc, SourceRange range, TypeInfo* type);
+        void resolve_type(SourceLocation loc, SourceRange range, TypeInfo* type);
 
-        void ResolveVarInitializer(Decl* decl);
-        void ResolveParamInitializer(TypeInfo* paramType, Expr* arg);
-        void CreateDefaultInitializer(Expr** expr, TypeInfo* type, SourceLocation loc, SourceRange range);
+        void resolve_var_initializer(Decl* decl);
+        void resolve_param_initializer(TypeInfo* paramType, Expr* arg);
+        void create_default_initializer(Expr** expr, TypeInfo* type, SourceLocation loc, SourceRange range);
 
-        void PushScope(bool allowBreak = false, bool allowContinue = false);
-        void PopScope();
+        bool is_const_expr(Expr* expr);
+        bool eval_expr_bool(Expr* expr);
 
-        ConversionCost GetConversionCost(TypeInfo* dst, TypeInfo* src);
-        void InsertImplicitCast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastKind castKind);
-        void RequireRValue(Expr* expr);
-        void InsertArithmeticPromotion(Expr* lhs, Expr* rhs);
+        void push_scope(bool allowBreak = false, bool allowContinue = false);
+        void pop_scope();
 
-        void ReplaceExpr(Expr* src, Expr* newExpr);
-        void ReplaceDecl(Decl* src, Decl* newDecl);
+        ConversionCost get_conversion_cost(TypeInfo* dst, TypeInfo* src);
+        void insert_implicit_cast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastKind castKind);
+        void require_rvalue(Expr* expr);
+        void insert_arithmetic_promotion(Expr* lhs, Expr* rhs);
 
-        bool TypeIsEqual(TypeInfo* lhs, TypeInfo* rhs);
-        size_t TypeGetSize(TypeInfo* t);
-        bool TypeIsTrivial(TypeInfo* t);
+        void replace_expr(Expr* src, Expr* newExpr);
+        void replace_decl(Decl* src, Decl* newDecl);
 
-        std::string MangleFunction(FunctionDecl* fn);
+        bool type_is_equal(TypeInfo* lhs, TypeInfo* rhs);
+        size_t type_get_size(TypeInfo* t);
+        bool type_is_trivial(TypeInfo* t);
+
+        std::string mangle_function(FunctionDecl* fn);
 
     private:
         std::unordered_map<std::string, bool> m_ImportedModules;
 
         bool m_TemporaryContext = false;
         bool m_UnsafeContext = false;
-
-        bool m_CanReachEndOfFunction = true;
 
         Decl* m_BuiltInStringDestructor = nullptr;
         Decl* m_BuiltInStringCopyConstructor = nullptr;
