@@ -3,10 +3,10 @@
 namespace Aria::Internal {
 
     SemanticAnalyzer::SemanticAnalyzer(CompilationContext* ctx) {
-        m_Context = ctx;
+        m_context = ctx;
 
-        m_BuiltInStringDestructor = Decl::Create(m_Context, {}, {}, DeclKind::BuiltinDestructor, BuiltinDestructorDecl(BuiltinKind::String));
-        m_BuiltInStringCopyConstructor = Decl::Create(m_Context, {}, {}, DeclKind::BuiltinCopyConstructor, BuiltinCopyConstructorDecl(BuiltinKind::String));
+        m_builtin_string_destructor = Decl::Create(m_context, {}, {}, DeclKind::BuiltinDestructor, BuiltinDestructorDecl(BuiltinKind::String));
+        m_builtin_string_copy_constructor = Decl::Create(m_context, {}, {}, DeclKind::BuiltinCopyConstructor, BuiltinCopyConstructorDecl(BuiltinKind::String));
 
         sema_impl();
     }
@@ -17,35 +17,35 @@ namespace Aria::Internal {
         pass_code();
     }
 
-    void SemanticAnalyzer::push_scope(bool allowBreak, bool allowContinue) {
+    void SemanticAnalyzer::push_scope(bool allow_break, bool allow_continue) {
         Scope s;
 
-        if (m_Scopes.size() > 0) {
-            if (m_Scopes.back().AllowBreakStmt) { s.AllowBreakStmt = true; }
-            else { s.AllowBreakStmt = allowBreak; }
+        if (m_scopes.size() > 0) {
+            if (m_scopes.back().allow_break_stmt) { s.allow_break_stmt = true; }
+            else { s.allow_break_stmt = allow_break; }
 
-            if (m_Scopes.back().AllowContinueStmt) { s.AllowContinueStmt = true; }
-            else { s.AllowContinueStmt = allowContinue; }
+            if (m_scopes.back().allow_continue_stmt) { s.allow_continue_stmt = true; }
+            else { s.allow_continue_stmt = allow_continue; }
         } else {
-            s.AllowBreakStmt = allowBreak;
-            s.AllowContinueStmt = allowContinue;
+            s.allow_break_stmt = allow_break;
+            s.allow_continue_stmt = allow_continue;
         }
 
-        m_Scopes.push_back(s);
+        m_scopes.push_back(s);
     }
 
     void SemanticAnalyzer::pop_scope() {
-        m_Scopes.pop_back();
+        m_scopes.pop_back();
     }
 
-    void SemanticAnalyzer::replace_expr(Expr* src, Expr* newExpr) {
-        bool resultDiscarded = src->ResultDiscarded;
-        *src = *newExpr;
-        src->ResultDiscarded = resultDiscarded;
+    void SemanticAnalyzer::replace_expr(Expr* src, Expr* new_expr) {
+        bool resultDiscarded = src->result_discarded;
+        *src = *new_expr;
+        src->result_discarded = resultDiscarded;
     }
 
-    void SemanticAnalyzer::replace_decl(Decl* src, Decl* newDecl) {
-        *src = *newDecl;
+    void SemanticAnalyzer::replace_decl(Decl* src, Decl* new_decl) {
+        *src = *new_decl;
     }
 
 } // namespace Aria::Internal

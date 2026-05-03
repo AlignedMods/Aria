@@ -13,13 +13,13 @@ namespace Aria {
     class ArenaAllocator {
     public:
         inline ArenaAllocator(size_t bytes)
-            : m_Capacity(bytes), m_Data(new uint8_t[bytes]) {}
+            : m_capacity(bytes), m_data(new uint8_t[bytes]) {}
 
         inline ~ArenaAllocator() {
-            delete[] m_Data;
-            m_Data = nullptr;
-            m_Capacity = 0;
-            m_Index = 0;
+            delete[] m_data;
+            m_data = nullptr;
+            m_capacity = 0;
+            m_index = 0;
         }
 
         // Copying/moving an allocator is not valid
@@ -30,11 +30,10 @@ namespace Aria {
         void operator=(ArenaAllocator&& other) = delete;
 
         [[nodiscard]] inline void* allocate(size_t bytes) {
-            ARIA_ASSERT(m_Index + bytes < m_Capacity, "Too much memory allocated!");
-            uint8_t* mem = &m_Data[m_Index];
+            ARIA_ASSERT(m_index + bytes < m_capacity, "Too much memory allocated!");
+            uint8_t* mem = &m_data[m_index];
 
-            m_Index += bytes;
-
+            m_index += bytes;
             return reinterpret_cast<void*>(mem);
         }
 
@@ -42,7 +41,6 @@ namespace Aria {
         [[nodiscard]] inline T* allocate_named() {
             T* mem = reinterpret_cast<T*>(allocate(sizeof(T)));
 
-            // return mem;
             return new (mem) T{};
         }
 
@@ -54,9 +52,9 @@ namespace Aria {
         }
 
     private:
-        uint8_t* m_Data = nullptr;
-        size_t m_Capacity = 0;
-        size_t m_Index = 0;
+        uint8_t* m_data = nullptr;
+        size_t m_capacity = 0;
+        size_t m_index = 0;
     };
 
 } // namespace Aria

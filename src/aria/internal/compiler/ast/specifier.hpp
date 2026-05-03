@@ -14,27 +14,27 @@ namespace Aria::Internal {
 
     struct ScopeSpecifier {
         ScopeSpecifier(std::string_view identifier)
-            : Identifier(identifier) {}
+            : identifier(identifier) {}
 
-        std::string_view Identifier;
-        Module* ReferencedModule = nullptr;
+        std::string_view identifier;
+        Module* referenced_module = nullptr;
     };
 
     struct Specifier {
         template <typename T>
         static inline Specifier* Create(CompilationContext* ctx, SourceLocation loc, SourceRange range, SpecifierKind kind, T t) { return ctx->allocate<Specifier>(loc, range, kind, t); }
 
-        SpecifierKind Kind = SpecifierKind::Invalid;
+        SpecifierKind kind = SpecifierKind::Invalid;
 
-        SourceLocation Loc;
-        SourceRange Range;
+        SourceLocation loc;
+        SourceRange range;
 
         union {
-            ScopeSpecifier Scope;
+            ScopeSpecifier scope;
         };
 
         Specifier(SourceLocation loc, SourceRange range, SpecifierKind kind, ScopeSpecifier scope)
-            : Loc(loc), Range(range), Kind(kind), Scope(scope) {}
+            : loc(loc), range(range), kind(kind), scope(scope) {}
     };
 
 } // namespace Aria::Internal

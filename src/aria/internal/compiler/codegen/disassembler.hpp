@@ -10,19 +10,18 @@ namespace Aria::Internal {
     public:
         Disassembler(const OpCodes& ops);
 
-        std::string& GetDisassembly();
+        std::string& get_dissasembly();
 
     private:
-        void DisassembleImpl();
+        void dissasemble_impl();
 
-        std::string VMTypeToString(const VMType& type);
+        std::string vm_type_to_string(const VMType& type);
 
     private:
-        const OpCodes* m_OpCodes = nullptr;
-        const OpCode* m_ProgramCounter = nullptr;
+        const OpCodes* m_op_codes = nullptr;
+        const OpCode* m_program_counter = nullptr;
 
-        std::string m_Output;
-        std::string m_Indentation;
+        std::string m_output;
     };
 
 } // namespace Aria::Internal

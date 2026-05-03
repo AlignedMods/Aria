@@ -19,15 +19,10 @@ namespace Aria {
 
     using RuntimeErrorHandlerFn = void(*)(const std::string& error);
     using CompilerErrorHandlerFn = void(*)(size_t line, size_t column, 
-                                           size_t startLine, size_t startColumn, 
-                                           size_t endLine, size_t endColumn, const std::string& file, const std::string& error);
+                                           size_t start_line, size_t start_column, 
+                                           size_t end_line, size_t end_column, const std::string& file, const std::string& error);
 
     using ExternFn = void(*)(Context* ctx);
-
-    struct StackSlot {
-        void* Memory = nullptr;
-        size_t Size = 0;
-    };
 
     struct Context {
         Context();
@@ -83,7 +78,7 @@ namespace Aria {
         int32_t          get_int      (int32_t index);
         uint32_t         get_uint     (int32_t index);
         int64_t          get_long     (int32_t index);
-        uint64_t         get_ulong   (int32_t index);
+        uint64_t         get_ulong    (int32_t index);
         float            get_float    (int32_t index);
         double           get_double   (int32_t index);
         void*            get_pointer  (int32_t index);
@@ -106,11 +101,11 @@ namespace Aria {
         friend class Internal::VM;
 
     private:
-        std::unordered_map<std::string, Module*> m_Modules;
-        Module* m_ActiveModule = nullptr;
+        std::unordered_map<std::string, Module*> m_modules;
+        Module* m_active_module = nullptr;
 
-        RuntimeErrorHandlerFn m_RuntimeErrorHandler = nullptr;
-        CompilerErrorHandlerFn m_CompilerErrorHandler = nullptr;
+        RuntimeErrorHandlerFn m_runtime_error_handler = nullptr;
+        CompilerErrorHandlerFn m_compiler_error_handler = nullptr;
     };
 
 } // namespace Aria

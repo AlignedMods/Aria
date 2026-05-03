@@ -13,12 +13,12 @@ namespace Aria::Internal {
     };
 
     struct CompilerReflectionDeclaration {
-        size_t TypeIndex = 0;
-        ReflectionKind Kind = ReflectionKind::Variable;
+        size_t type_index = 0;
+        ReflectionKind kind = ReflectionKind::Variable;
     };
 
     struct CompilerReflectionData {
-        std::unordered_map<std::string, CompilerReflectionDeclaration> Declarations;
+        std::unordered_map<std::string, CompilerReflectionDeclaration> declarations;
     };
 
 } // namespace Aria::Internal

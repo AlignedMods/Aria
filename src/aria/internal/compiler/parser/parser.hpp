@@ -88,20 +88,20 @@ namespace Aria::Internal {
         bool decl_ok(Decl* decl);
 
     private:
-        size_t m_Index = 0;
-        Tokens m_Tokens;
+        size_t m_index = 0;
+        Tokens m_tokens;
 
-        bool m_DeclaredModule = false;
+        bool m_declared_module = false;
 
         using ParseExprFn = std::function<Expr*(Expr*)>;
         struct ParseExprRule {
-            ParseExprFn Prefix = nullptr;
-            ParseExprFn Infix = nullptr;
-            size_t Precedence = 0;
+            ParseExprFn prefix = nullptr;
+            ParseExprFn infix = nullptr;
+            size_t precedence = 0;
         };
-        std::unordered_map<TokenKind, ParseExprRule> m_ExprRules;
+        std::unordered_map<TokenKind, ParseExprRule> m_expr_rules;
 
-        CompilationContext* m_Context = nullptr;
+        CompilationContext* m_context = nullptr;
     };
 
 } // namespace Aria::Internal

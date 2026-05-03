@@ -213,12 +213,12 @@ namespace Aria::Internal {
     }
 
     struct Token {
-        TokenKind Kind = TokenKind::Semi;
-        SourceRange Range;
+        TokenKind kind = TokenKind::Semi;
+        SourceRange range;
 
-        std::string_view String;
-        u64 Integer = 0;
-        f64 Number = 0.0;
+        std::string_view string;
+        u64 integer = 0;
+        f64 number = 0.0;
     };
 
     using Tokens = std::vector<Token>;

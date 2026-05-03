@@ -5,27 +5,25 @@
 namespace Aria::Internal {
 
     struct SourceLocation {
-        size_t Line = 0;
-        size_t Column = 0;
+        size_t line = 0;
+        size_t column = 0;
 
         SourceLocation() = default;
         SourceLocation(size_t line, size_t column)
-            : Line(line), Column(column) {}
+            : line(line), column(column) {}
 
-        inline bool IsValid() const { return Column != 0; }
+        bool is_valid() { return column != 0; }
     };
 
     struct SourceRange {
-        SourceLocation Start;
-        SourceLocation End;
+        SourceLocation start;
+        SourceLocation end;
 
         SourceRange() = default;
         SourceRange(SourceLocation start, SourceLocation end)
-            : Start(start), End(end) {}
-        SourceRange(size_t startLine, size_t startColumn, size_t endLine, size_t endColumn)
-            : Start(startLine, startColumn), End(endLine, endColumn) {}
-
-        inline bool IsValid() const { return Start.IsValid() && End.IsValid(); }
+            : start(start), end(end) {}
+        SourceRange(size_t sl, size_t sc, size_t el, size_t ec)
+            : start(sl, sc), end(el, ec) {}
     };
 
 } // namespace Aria::Internal

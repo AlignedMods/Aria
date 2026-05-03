@@ -30,13 +30,13 @@ namespace Aria::Internal {
     };
 
     struct VMStruct {
-        std::string_view Name;
-        std::vector<size_t> Fields;
+        std::string_view name;
+        std::vector<size_t> fields;
     };
 
     struct VMType {
-        VMTypeKind Kind = VMTypeKind::Void;
-        std::variant<bool, VMStruct> Data;
+        VMTypeKind kind = VMTypeKind::Void;
+        std::variant<bool, VMStruct> data;
     };
 
     enum OpCode : u16 {
@@ -146,10 +146,10 @@ namespace Aria::Internal {
     };
 
     struct OpCodes {
-        std::vector<std::string> StringTable;
-        std::vector<VMType> TypeTable;
-        std::vector<std::variant<u64, float, double>> ConstantTable;
-        std::vector<OpCode> Program;
+        std::vector<std::string> string_table;
+        std::vector<VMType> type_table;
+        std::vector<std::variant<u64, float, double>> constant_table;
+        std::vector<OpCode> program;
     };
 
 } // namespace Aria::Internal

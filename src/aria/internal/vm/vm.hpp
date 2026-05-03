@@ -15,46 +15,45 @@ namespace Aria::Internal {
 
     // A struct the VM uses when referencing memory (stack, global, heap)
     struct VMSlice {
-        void* Memory = nullptr;
-        size_t Size = 0;
-        VMType Type;
+        void* memory = nullptr;
+        size_t size = 0;
+        VMType type;
     };
 
     // Used exlusively to represent a stack slot,
     // While VMSlice could be used for this, VMSlice holds a pointer
     // However if the stack grows the memory gets reallocated so we need to store indices
     struct StackSlot {
-        size_t Index = 0;
-        size_t Size = 0;
-        VMType Type;
+        size_t index = 0;
+        size_t size = 0;
+        VMType type;
     };
 
     // A function that is not external, AKA implemented in the language itself
     struct VMFunction {
-        std::string_view Signature;
-        size_t ParamCount = 0;
-        std::unordered_map<std::string_view, const OpCode*> Labels;
+        std::string_view signature;
+        std::unordered_map<std::string_view, const OpCode*> labels;
     };
 
     // A structure which has a linear block of memory (the stack)
     // And stack slots which can be used to access the raw stack memory
     struct Stack {
         // The raw stack memory
-        std::vector<u8> Stack;
-        size_t StackPointer = 0;
+        std::vector<u8> stack;
+        size_t stack_pointer = 0;
 
         // Stack slots are essentially an abstraction over raw stack memory
         // They store basic things like an index into stack memory and the size of the slot
-        std::vector<StackSlot> StackSlots;
-        size_t StackSlotPointer = 0;
+        std::vector<StackSlot> stack_slots;
+        size_t stack_slot_pointer = 0;
 
-        inline void reserve(size_t size, size_t slotCount) { Stack.resize(size); StackSlots.resize(slotCount); }
+        inline void reserve(size_t size, size_t slot_count) { stack.resize(size); stack_slots.resize(slot_count); }
     };
 
     struct VMStackFrame {
-        VMFunction* Function = nullptr;
-        Stack Locals;
-        const OpCode* ReturnAddress = nullptr;
+        VMFunction* function = nullptr;
+        Stack locals;
+        const OpCode* return_address = nullptr;
     };
 
     class VM {
@@ -69,7 +68,7 @@ namespace Aria::Internal {
 
         void add_extern(std::string_view signature, ExternFn fn);
 
-        void call(const std::string& signature, size_t argCount);
+        void call(const std::string& signature, size_t arg_count);
         
         void store_bool   (i32 slot, bool b,                Stack& stack);
         void store_char   (i32 slot, int8_t c,              Stack& stack);
@@ -111,21 +110,20 @@ namespace Aria::Internal {
         size_t align_to_eight(size_t size);
         
     private:
-        Stack m_Stack;
-        Stack m_Globals;
+        Stack m_stack;
+        Stack m_globals;
 
-        std::unordered_map<std::string_view, i32> m_GlobalMap;
+        std::unordered_map<std::string_view, i32> m_global_map;
 
-        const OpCodes* m_OpCodes = nullptr;
-        const OpCode* m_ProgramCounter = nullptr;
+        const OpCodes* m_op_codes = nullptr;
+        const OpCode* m_program_counter = nullptr;
 
-        std::vector<VMStackFrame> m_StackFrames;
+        std::vector<VMStackFrame> m_stack_frames;
 
-        std::unordered_map<size_t, size_t> m_CachedStructSize;
-        std::unordered_map<std::string_view, VMFunction> m_Functions;
-        std::unordered_map<std::string_view, ExternFn> m_ExternalFunctions;
+        std::unordered_map<std::string_view, VMFunction> m_functions;
+        std::unordered_map<std::string_view, ExternFn> m_external_functions;
 
-        Context* m_Context = nullptr;
+        Context* m_context = nullptr;
 
         friend Aria::Context;
     };

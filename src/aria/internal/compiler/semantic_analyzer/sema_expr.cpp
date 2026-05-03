@@ -3,51 +3,51 @@
 
 namespace Aria::Internal {
 
-    void SemanticAnalyzer::resolve_BooleanConstant_expr(Expr* expr) {
-        if (expr->ResultDiscarded) {
-            m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Discarding result of boolean literal", CompilerDiagKind::Warning);
+    void SemanticAnalyzer::resolve_boolean_literal_expr(Expr* expr) {
+        if (expr->result_discarded) {
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, "Discarding result of boolean literal", CompilerDiagKind::Warning);
         }
     }
 
-    void SemanticAnalyzer::resolve_CharacterConstant_expr(Expr* expr) {
-        if (expr->ResultDiscarded) {
-            m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Discarding result of character literal", CompilerDiagKind::Warning);
+    void SemanticAnalyzer::resolve_character_literal_expr(Expr* expr) {
+        if (expr->result_discarded) {
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, "Discarding result of character literal", CompilerDiagKind::Warning);
         }
     }
 
-    void SemanticAnalyzer::resolve_IntegerConstant_expr(Expr* expr) {
-        if (expr->ResultDiscarded) {
-            m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Discarding result of integer literal", CompilerDiagKind::Warning);
+    void SemanticAnalyzer::resolve_integer_literal_expr(Expr* expr) {
+        if (expr->result_discarded) {
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, "Discarding result of integer literal", CompilerDiagKind::Warning);
         }
     }
 
-    void SemanticAnalyzer::resolve_FloatingConstant_expr(Expr* expr) {
-        if (expr->ResultDiscarded) {
-            m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Discarding result of floating point literal", CompilerDiagKind::Warning);
+    void SemanticAnalyzer::resolve_floating_literal_expr(Expr* expr) {
+        if (expr->result_discarded) {
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, "Discarding result of floating point literal", CompilerDiagKind::Warning);
         }
     }
 
-    void SemanticAnalyzer::resolve_StringConstant_expr(Expr* expr) {
-        if (expr->ResultDiscarded) {
-            m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Discarding result of string literal is not allowed");
+    void SemanticAnalyzer::resolve_string_literal_expr(Expr* expr) {
+        if (expr->result_discarded) {
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, "Discarding result of string literal is not allowed");
         }
     }
 
-    void SemanticAnalyzer::resolve_Null_expr(Expr* expr) {
-        if (expr->ResultDiscarded) {
-            m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Discarding result of null", CompilerDiagKind::Warning);
+    void SemanticAnalyzer::resolve_null_expr(Expr* expr) {
+        if (expr->result_discarded) {
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, "Discarding result of null", CompilerDiagKind::Warning);
         }
     }
 
-    void SemanticAnalyzer::resolve_DeclRef_expr(Expr* expr) {
-        DeclRefExpr& ref = expr->DeclRef;
-        std::string ident = fmt::format("{}", ref.Identifier);
+    void SemanticAnalyzer::resolve_decl_ref_expr(Expr* expr) {
+        DeclRefExpr& ref = expr->decl_ref;
+        std::string ident = fmt::format("{}", ref.identifier);
 
         auto getType = [](Decl* d) -> TypeInfo* {
-            switch (d->Kind) {
-                case DeclKind::Var: { return d->Var.Type; }
-                case DeclKind::Param: { return d->Param.Type; }
-                case DeclKind::Function: { return d->Function.Type; }
+            switch (d->kind) {
+                case DeclKind::Var: { return d->var.type; }
+                case DeclKind::Param: { return d->param.type; }
+                case DeclKind::Function: { return d->function.type; }
                 case DeclKind::OverloadedFunction: { return &error_type; }
                 case DeclKind::Struct: { return &error_type; }
 
@@ -55,105 +55,102 @@ namespace Aria::Internal {
             }      
         };
 
-        if (expr->ResultDiscarded) {
-            m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Discarding result of identifier", CompilerDiagKind::Warning);
+        if (expr->result_discarded) {
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, "Discarding result of identifier", CompilerDiagKind::Warning);
         }
 
         Module* mod = nullptr;
 
-        if (!ref.NameSpecifier) {
-            for (auto& scope : m_Scopes) {
-                if (scope.Declarations.contains(ident)) {
-                    Decl* d = scope.Declarations.at(ident).SourceDeclaration;
-                    expr->Type = getType(d);
-                    ref.ReferencedDecl = d;
+        if (!ref.name_specifier) {
+            for (auto& scope : m_scopes) {
+                if (scope.declarations.contains(ident)) {
+                    Decl* d = scope.declarations.at(ident).source_decl;
+                    expr->type = getType(d);
+                    ref.referenced_decl = d;
                     return;
                 }
             }
         }
 
-        if (ref.NameSpecifier) {
-            ARIA_ASSERT(ref.NameSpecifier->Kind == SpecifierKind::Scope, "Invalid specifier");
+        if (ref.name_specifier) {
+            ARIA_ASSERT(ref.name_specifier->kind == SpecifierKind::Scope, "Invalid specifier");
 
             // We may be referencing ourselves
-            if (ref.NameSpecifier->Scope.Identifier == m_Context->ActiveCompUnit->Parent->Name) {
-                mod = m_Context->ActiveCompUnit->Parent;
+            if (ref.name_specifier->scope.identifier == m_context->active_comp_unit->parent->name) {
+                mod = m_context->active_comp_unit->parent;
             }
 
-            for (Stmt* import : m_Context->ActiveCompUnit->Imports) {
-                ARIA_ASSERT(import->Kind == StmtKind::Import, "Invalid import stmt");
-                if (import->Import.Name == ref.NameSpecifier->Scope.Identifier) {
-                    mod = import->Import.ResolvedModule;
+            for (Stmt* import : m_context->active_comp_unit->imports) {
+                ARIA_ASSERT(import->kind == StmtKind::Import, "Invalid import stmt");
+                if (import->import.name == ref.name_specifier->scope.identifier) {
+                    mod = import->import.resolved_module;
                 }
             }
 
             if (!mod) {
-                m_Context->report_compiler_diagnostic(ref.NameSpecifier->Loc, ref.NameSpecifier->Range, fmt::format("Could not find module '{}'", ref.NameSpecifier->Scope.Identifier));
-                expr->Type = &error_type;
-                ref.ReferencedDecl = &error_decl;
+                m_context->report_compiler_diagnostic(ref.name_specifier->loc, ref.name_specifier->range, fmt::format("Could not find module '{}'", ref.name_specifier->scope.identifier));
+                expr->type = &error_type;
+                ref.referenced_decl = &error_decl;
                 return;
             } else {
-                ref.NameSpecifier->Scope.ReferencedModule = mod;
+                ref.name_specifier->scope.referenced_module = mod;
             }
         } else {
-            mod = m_Context->ActiveCompUnit->Parent;
+            mod = m_context->active_comp_unit->parent;
         }
 
-        if (m_Context->ActiveCompUnit->LocalSymbols.contains(ident)) {
-            Decl* d = m_Context->ActiveCompUnit->LocalSymbols.at(ident);
-            ref.ReferencedDecl = d;
-            expr->Type = getType(d);
+        if (m_context->active_comp_unit->local_symbols.contains(ident)) {
+            Decl* d = m_context->active_comp_unit->local_symbols.at(ident);
+            ref.referenced_decl = d;
+            expr->type = getType(d);
             return;
         }
 
-        if (mod->Symbols.contains(ident)) {
-            Decl* d = mod->Symbols.at(ident);
+        if (mod->symbols.contains(ident)) {
+            Decl* d = mod->symbols.at(ident);
 
-            ref.ReferencedDecl = d;
-            expr->Type = getType(d);
+            ref.referenced_decl = d;
+            expr->type = getType(d);
             return;
         }
 
-        for (Stmt* import : m_Context->ActiveCompUnit->Imports) {
-            ARIA_ASSERT(import->Kind == StmtKind::Import, "Invalid import");
+        for (Stmt* import : m_context->active_comp_unit->imports) {
+            ARIA_ASSERT(import->kind == StmtKind::Import, "Invalid import");
 
-            if (import->Import.ResolvedModule->Symbols.contains(ident)) {
-                m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, fmt::format("Symbols from other modules must be prefixed with the module name ({}::{})", import->Import.Name, ref.Identifier));
-                expr->Type = &error_type;
-                ref.ReferencedDecl = &error_decl;
+            if (import->import.resolved_module->symbols.contains(ident)) {
+                m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Symbols from other modules must be prefixed with the module name ({}::{})", import->import.name, ref.identifier));
+                expr->type = &error_type;
+                ref.referenced_decl = &error_decl;
                 return;
             }
         }
 
-        expr->Type = &error_type;
-        ref.ReferencedDecl = &error_decl;
-        m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, fmt::format("Unknown identifier '{}'", ref.Identifier));
+        expr->type = &error_type;
+        ref.referenced_decl = &error_decl;
+        m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Unknown identifier '{}'", ref.identifier));
     }
 
-    void SemanticAnalyzer::resolve_Member_expr(Expr* expr) {
-        MemberExpr& mem = expr->Member;
+    void SemanticAnalyzer::resolve_member_expr(Expr* expr) {
+        MemberExpr& mem = expr->member;
 
-        resolve_expr(mem.Parent);
-        TypeInfo* parentType = mem.Parent->Type;
+        resolve_expr(mem.parent);
+        TypeInfo* parentType = mem.parent->type;
         TypeInfo* memberType = nullptr;
 
-        switch (parentType->Kind) {
+        switch (parentType->kind) {
             case TypeKind::Structure: {
-                StructDeclaration& sd = parentType->Struct;
+                StructDeclaration& sd = parentType->struct_;
 
-                StructDecl s = sd.SourceDecl->Struct;
+                StructDecl s = sd.source_decl->struct_;
 
-                for (Decl* field : s.Fields) {
-                    if (field->Kind == DeclKind::Field) {
-                        FieldDecl fd = field->Field;
-                        if (fd.Identifier == mem.Member) {
-                            memberType = fd.Type;
+                for (Decl* field : s.fields) {
+                    if (field->kind == DeclKind::Field) {
+                        FieldDecl fd = field->field;
+                        if (fd.identifier == mem.member) {
+                            memberType = fd.type;
                         }
-                    } else if (field->Kind == DeclKind::Method) {
-                        MethodDecl md = field->Method;
-                        if (md.Identifier == mem.Member) {
-                            memberType = md.Type;
-                        }
+                    } else {
+                        ARIA_UNREACHABLE();
                     }
                 }
 
@@ -161,68 +158,64 @@ namespace Aria::Internal {
             }
 
             case TypeKind::Slice: {
-                if (mem.Member == "mem") {
-                    memberType = TypeInfo::Create(m_Context, TypeKind::Ptr, false);
-                    memberType->Base = parentType->Base;
-                    expr->Kind = ExprKind::BuiltinMember;
-                } else if (mem.Member == "len") {
+                if (mem.member == "mem") {
+                    memberType = TypeInfo::Create(m_context, TypeKind::Ptr, false);
+                    memberType->base = parentType->base;
+                    expr->kind = ExprKind::BuiltinMember;
+                } else if (mem.member == "len") {
                     memberType = &ulong_type;
-                    expr->Kind = ExprKind::BuiltinMember;
+                    expr->kind = ExprKind::BuiltinMember;
                 }
 
                 break;
             }
 
             default: {
-                m_Context->report_compiler_diagnostic(mem.Parent->Loc, mem.Parent->Range, fmt::format("Expression must be of slice or struct type but is '{}'", type_info_to_string(parentType)));
-                expr->Type = &error_type;
+                m_context->report_compiler_diagnostic(mem.parent->loc, mem.parent->range, fmt::format("Expression must be of slice or struct type but is '{}'", type_info_to_string(parentType)));
+                expr->type = &error_type;
                 return;
             }
         }
 
         if (!memberType) {
-            m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, fmt::format("Unknown member \"{}\" in '{}'", mem.Member, type_info_to_string(parentType)));
-            expr->Type = &error_type;
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Unknown member \"{}\" in '{}'", mem.member, type_info_to_string(parentType)));
+            expr->type = &error_type;
             return;
         }
 
-        expr->Type = memberType;
+        expr->type = memberType;
 
-        if (expr->ResultDiscarded) {
-            m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Discarding result of member access", CompilerDiagKind::Warning);
+        if (expr->result_discarded) {
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, "Discarding result of member access", CompilerDiagKind::Warning);
         }
     }
 
-    void SemanticAnalyzer::resolve_BuiltinMember_expr(Expr* expr) { ARIA_UNREACHABLE(); }
-    void SemanticAnalyzer::resolve_Temporary_expr(Expr* expr) { ARIA_UNREACHABLE(); }
-    void SemanticAnalyzer::resolve_Copy_expr(Expr* expr) { ARIA_UNREACHABLE(); }
+    void SemanticAnalyzer::resolve_call_expr(Expr* expr) {
+        CallExpr& call = expr->call;
 
-    void SemanticAnalyzer::resolve_Call_expr(Expr* expr) {
-        CallExpr& call = expr->Call;
+        resolve_expr(call.callee);
+        TypeInfo* calleeType = call.callee->type;
 
-        resolve_expr(call.Callee);
-        TypeInfo* calleeType = call.Callee->Type;
-
-        if (calleeType->Kind != TypeKind::Function && !calleeType->is_error()) {
-            m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Cannot call an object of non-function type");
-            expr->Type = &error_type;
+        if (calleeType->kind != TypeKind::Function && !calleeType->is_error()) {
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, "Cannot call an object of non-function type");
+            expr->type = &error_type;
             return;
         }
 
-        if (call.Callee->DeclRef.ReferencedDecl->Kind != DeclKind::Error) {
-            if (call.Callee->Kind == ExprKind::DeclRef && call.Callee->DeclRef.ReferencedDecl->Kind == DeclKind::OverloadedFunction) { // Overloaded function
-                m_TemporaryContext = true;
-                for (Expr* arg : call.Arguments) {
+        if (call.callee->decl_ref.referenced_decl->kind != DeclKind::Error) {
+            if (call.callee->kind == ExprKind::DeclRef && call.callee->decl_ref.referenced_decl->kind == DeclKind::OverloadedFunction) { // Overloaded function
+                m_temporary_context = true;
+                for (Expr* arg : call.arguments) {
                     resolve_expr(arg);
                 }
-                m_TemporaryContext = false;
+                m_temporary_context = false;
 
                 Decl* resolved = nullptr;
-                Module* mod = call.Callee->DeclRef.NameSpecifier ? call.Callee->DeclRef.NameSpecifier->Scope.ReferencedModule : m_Context->ActiveCompUnit->Parent;
+                Module* mod = call.callee->decl_ref.name_specifier ? call.callee->decl_ref.name_specifier->scope.referenced_module : m_context->active_comp_unit->parent;
 
-                for (Decl* func : mod->OverloadedFuncs.at(fmt::format("{}", call.Callee->DeclRef.Identifier))) {
-                    for (size_t i = 0; i < func->Function.Type->Function.ParamTypes.Size; i++) {
-                        if (!type_is_equal(func->Function.Type->Function.ParamTypes.Items[i], call.Arguments.Items[i]->Type)) { goto again; }
+                for (Decl* func : mod->overloaded_funcs.at(fmt::format("{}", call.callee->decl_ref.identifier))) {
+                    for (size_t i = 0; i < func->function.type->function.param_types.size; i++) {
+                        if (!type_is_equal(func->function.type->function.param_types.items[i], call.arguments.items[i]->type)) { goto again; }
                     }
 
                     goto done;
@@ -236,223 +229,217 @@ namespace Aria::Internal {
                 }
 
                 if (!resolved) {
-                    m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, fmt::format("No matching overloaded function '{}' to call", call.Callee->DeclRef.Identifier));
-                    for (size_t i = 0; i < call.Arguments.Size; i++) {
-                        call.Arguments.Items[i]->Type = &error_type;
+                    m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("No matching overloaded function '{}' to call", call.callee->decl_ref.identifier));
+                    for (size_t i = 0; i < call.arguments.size; i++) {
+                        call.arguments.items[i]->type = &error_type;
                     }
                 }
 
-                call.Callee->DeclRef.ReferencedDecl = resolved;
-                expr->Type = resolved->Function.Type->Function.ReturnType;
+                call.callee->decl_ref.referenced_decl = resolved;
+                expr->type = resolved->function.type->function.return_type;
                 return;
-            } else if (!call.Callee->Type->is_error()) { // Normal function
-                FunctionDeclaration& fnDecl = calleeType->Function;
+            } else if (!call.callee->type->is_error()) { // Normal function
+                FunctionDeclaration& fnDecl = calleeType->function;
 
-                for (auto& attr : call.Callee->DeclRef.ReferencedDecl->Function.Attributes) {
-                    if (attr.Kind == FunctionDecl::AttributeKind::Unsafe && !m_UnsafeContext) {
-                        m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Cannot call unsafe function in safe context");
+                for (auto& attr : call.callee->decl_ref.referenced_decl->function.attributes) {
+                    if (attr.kind == FunctionDecl::AttributeKind::Unsafe && !m_unsafe_context) {
+                        m_context->report_compiler_diagnostic(expr->loc, expr->range, "Cannot call unsafe function in safe context");
                     }
                 }
 
-                if (fnDecl.ParamTypes.Size != call.Arguments.Size) {
-                    m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, fmt::format("Mismatched argument count, function expects {} but got {}", fnDecl.ParamTypes.Size, call.Arguments.Size));
-                    for (size_t i = 0; i < call.Arguments.Size; i++) {
-                        call.Arguments.Items[i]->Type = &error_type;
+                if (fnDecl.param_types.size != call.arguments.size) {
+                    m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Mismatched argument count, function expects {} but got {}", fnDecl.param_types.size, call.arguments.size));
+                    for (size_t i = 0; i < call.arguments.size; i++) {
+                        call.arguments.items[i]->type = &error_type;
                     }
                 } else {
-                    for (size_t i = 0; i < fnDecl.ParamTypes.Size; i++) {
-                        resolve_param_initializer(fnDecl.ParamTypes.Items[i], call.Arguments.Items[i]);
+                    for (size_t i = 0; i < fnDecl.param_types.size; i++) {
+                        resolve_param_initializer(fnDecl.param_types.items[i], call.arguments.items[i]);
                     }
                 }
 
-                expr->Type = fnDecl.ReturnType;
-                expr->ValueKind = (fnDecl.ReturnType->is_reference()) ? ExprValueKind::LValue : ExprValueKind::RValue;
+                expr->type = fnDecl.return_type;
+                expr->value_kind = (fnDecl.return_type->is_reference()) ? ExprValueKind::LValue : ExprValueKind::RValue;
 
                 // We may need to create a temporary if a function returns a non-trivial type and it is discarded
-                if (expr->ResultDiscarded && !fnDecl.ReturnType->is_reference()) {
-                    if (fnDecl.ReturnType->is_string()) {
-                        replace_expr(expr, Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::Temporary,
-                            ExprValueKind::RValue, expr->Type,
-                            TemporaryExpr(Expr::Dup(m_Context, expr), m_BuiltInStringDestructor)));
+                if (expr->result_discarded && !fnDecl.return_type->is_reference()) {
+                    if (fnDecl.return_type->is_string()) {
+                        replace_expr(expr, Expr::Create(m_context, expr->loc, expr->range, ExprKind::Temporary,
+                            ExprValueKind::RValue, expr->type,
+                            TemporaryExpr(Expr::Dup(m_context, expr), m_builtin_string_destructor)));
                     }
                 }
 
                 return;
             }
         } else {
-            for (Expr* arg : call.Arguments) {
+            for (Expr* arg : call.arguments) {
                 resolve_expr(arg);
             }
         }
 
-        expr->Type = &error_type;
+        expr->type = &error_type;
     }
 
-    void SemanticAnalyzer::resolve_Construct_expr(Expr* expr) { ARIA_UNREACHABLE(); }
+    void SemanticAnalyzer::resolve_array_subscript_expr(Expr* expr) {
+        ArraySubscriptExpr& subs = expr->array_subscript;
 
-    void SemanticAnalyzer::resolve_MethodCall_expr(Expr* expr) {
-        ARIA_ASSERT(false, "todo!");
-    }
+        resolve_expr(subs.array);
+        resolve_expr(subs.index);
+        require_rvalue(subs.index);
 
-    void SemanticAnalyzer::resolve_ArraySubscript_expr(Expr* expr) {
-        ArraySubscriptExpr& subs = expr->ArraySubscript;
+        if (subs.array->type->is_error()) { expr->type = &error_type; return; }
 
-        resolve_expr(subs.Array);
-        resolve_expr(subs.Index);
-        require_rvalue(subs.Index);
-
-        if (subs.Array->Type->is_error()) { expr->Type = &error_type; return; }
-
-        switch (subs.Array->Type->Kind) {
+        switch (subs.array->type->kind) {
             case TypeKind::Ptr: {
-                require_rvalue(subs.Array);
-                expr->Type = subs.Array->Type->Base;
+                require_rvalue(subs.array);
+                expr->type = subs.array->type->base;
                 break;
             }
 
             case TypeKind::Slice: {
-                expr->Type = subs.Array->Type->Base;
+                expr->type = subs.array->type->base;
                 break;
             }
 
             case TypeKind::Array: {
-                expr->Type = subs.Array->Type->Array.Type;
+                expr->type = subs.array->type->array.type;
                 break;
             }
 
-            default: m_Context->report_compiler_diagnostic(subs.Array->Loc, subs.Array->Range, "'[' operator can only be used with a pointer/slice/array"); break;
+            default: m_context->report_compiler_diagnostic(subs.array->loc, subs.array->range, "'[' operator can only be used with a pointer/slice/array"); break;
         }
 
-        ConversionCost cost = get_conversion_cost(&ulong_type, subs.Index->Type);
-        if (cost.CastNeeded) {
-            if (cost.ImplicitCastPossible) {
-                insert_implicit_cast(&ulong_type, subs.Index->Type, subs.Index, cost.Kind);
+        ConversionCost cost = get_conversion_cost(&ulong_type, subs.index->type);
+        if (cost.cast_needed) {
+            if (cost.implicit_cast_possible) {
+                insert_implicit_cast(&ulong_type, subs.index->type, subs.index, cost.kind);
             } else {
-                m_Context->report_compiler_diagnostic(subs.Index->Loc, subs.Index->Range, fmt::format("Array index cannot be implicitly converted from '{}' to 'ulong'", type_info_to_string(subs.Index->Type)));
+                m_context->report_compiler_diagnostic(subs.index->loc, subs.index->range, fmt::format("Array index cannot be implicitly converted from '{}' to 'ulong'", type_info_to_string(subs.index->type)));
             }
         }
     }
 
-    void SemanticAnalyzer::resolve_ToSlice_expr(Expr* expr) {
-        ToSliceExpr& tos = expr->ToSlice;
+    void SemanticAnalyzer::resolve_to_slice_expr(Expr* expr) {
+        ToSliceExpr& tos = expr->to_slice;
 
-        resolve_expr(tos.Source);
-        resolve_expr(tos.Len);
-        require_rvalue(tos.Len);
+        resolve_expr(tos.source);
+        resolve_expr(tos.len);
+        require_rvalue(tos.len);
 
-        if (tos.Source->Type->is_error()) { expr->Type = &error_type; return; }
+        if (tos.source->type->is_error()) { expr->type = &error_type; return; }
 
-        switch (tos.Source->Type->Kind) {
+        switch (tos.source->type->kind) {
             case TypeKind::Ptr: {
-                require_rvalue(tos.Source);
-                expr->Type = TypeInfo::Create(m_Context, TypeKind::Slice, false);
-                expr->Type->Base = tos.Source->Type->Base;
+                require_rvalue(tos.source);
+                expr->type = TypeInfo::Create(m_context, TypeKind::Slice, false);
+                expr->type->base = tos.source->type->base;
                 break;
             }
 
             case TypeKind::Slice: {
                 ARIA_TODO("slice to slice");
                 // require_rvalue(subs.Array);
-                // expr->Type = subs.Array->Type->Base;
+                // expr->type = subs.Array->type->Base;
                 // break;
             }
 
             case TypeKind::Array: {
                 ARIA_TODO("array to slice");
-                // expr->Type = subs.Array->Type->Array.Type;
+                // expr->type = subs.Array->type->Array.Type;
                 // break;
             }
 
-            default: m_Context->report_compiler_diagnostic(tos.Source->Loc, tos.Source->Range, "Only a pointer/slice/array can be converted to a slice"); expr->Type = &error_type; break;
+            default: m_context->report_compiler_diagnostic(tos.source->loc, tos.source->range, "Only a pointer/slice/array can be converted to a slice"); expr->type = &error_type; break;
         }
 
-        ConversionCost cost = get_conversion_cost(&ulong_type, tos.Len->Type);
-        if (cost.CastNeeded) {
-            if (cost.ImplicitCastPossible) {
-                insert_implicit_cast(&ulong_type, tos.Len->Type, tos.Len, cost.Kind);
+        ConversionCost cost = get_conversion_cost(&ulong_type, tos.len->type);
+        if (cost.cast_needed) {
+            if (cost.implicit_cast_possible) {
+                insert_implicit_cast(&ulong_type, tos.len->type, tos.len, cost.kind);
             } else {
-                m_Context->report_compiler_diagnostic(tos.Len->Loc, tos.Len->Range, fmt::format("Slice length cannot be implicitly converted from '{}' to 'ulong'", type_info_to_string(tos.Len->Type)));
+                m_context->report_compiler_diagnostic(tos.len->loc, tos.len->range, fmt::format("Slice length cannot be implicitly converted from '{}' to 'ulong'", type_info_to_string(tos.len->type)));
             }
         }
     }
 
-    void SemanticAnalyzer::resolve_New_expr(Expr* expr) {
-        NewExpr& n = expr->New;
+    void SemanticAnalyzer::resolve_new_expr(Expr* expr) {
+        NewExpr& n = expr->new_;
         
-        if (expr->ResultDiscarded) {
-            m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Discarding result of 'new' expression is not allowed");
+        if (expr->result_discarded) {
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, "Discarding result of 'new' expression is not allowed");
         }
 
-        if (!m_UnsafeContext) {
-            m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "'new' is only allowed in unsafe context");
+        if (!m_unsafe_context) {
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, "'new' is only allowed in unsafe context");
         }
 
-        if (!n.Initializer) {
-            create_default_initializer(&n.Initializer, expr->Type->Base, expr->Loc, expr->Range);
+        if (!n.initializer) {
+            create_default_initializer(&n.initializer, expr->type->base, expr->loc, expr->range);
         } else {
-            if (n.Array) {
-                m_TemporaryContext = true;
-                resolve_expr(n.Initializer);
-                require_rvalue(n.Initializer);
-                m_TemporaryContext = false;
+            if (n.array) {
+                m_temporary_context = true;
+                resolve_expr(n.initializer);
+                require_rvalue(n.initializer);
+                m_temporary_context = false;
 
-                ConversionCost cost = get_conversion_cost(&ulong_type, n.Initializer->Type);
-                if (cost.CastNeeded) {
-                    if (cost.ImplicitCastPossible) {
-                        insert_implicit_cast(&ulong_type, n.Initializer->Type, n.Initializer, cost.Kind);
+                ConversionCost cost = get_conversion_cost(&ulong_type, n.initializer->type);
+                if (cost.cast_needed) {
+                    if (cost.implicit_cast_possible) {
+                        insert_implicit_cast(&ulong_type, n.initializer->type, n.initializer, cost.kind);
                     } else {
-                        m_Context->report_compiler_diagnostic(n.Initializer->Loc, n.Initializer->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(n.Initializer->Type), type_info_to_string(&ulong_type)));
+                        m_context->report_compiler_diagnostic(n.initializer->loc, n.initializer->range, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(n.initializer->type), type_info_to_string(&ulong_type)));
                     }
                 }
             } else {
-                m_TemporaryContext = true;
-                resolve_expr(n.Initializer);
-                require_rvalue(n.Initializer);
-                m_TemporaryContext = false;
+                m_temporary_context = true;
+                resolve_expr(n.initializer);
+                require_rvalue(n.initializer);
+                m_temporary_context = false;
 
-                ConversionCost cost = get_conversion_cost(expr->Type->Base, n.Initializer->Type);
-                if (cost.CastNeeded) {
-                    if (cost.ImplicitCastPossible) {
-                        insert_implicit_cast(expr->Type->Base, n.Initializer->Type, n.Initializer, cost.Kind);
+                ConversionCost cost = get_conversion_cost(expr->type->base, n.initializer->type);
+                if (cost.cast_needed) {
+                    if (cost.implicit_cast_possible) {
+                        insert_implicit_cast(expr->type->base, n.initializer->type, n.initializer, cost.kind);
                     } else {
-                        m_Context->report_compiler_diagnostic(n.Initializer->Loc, n.Initializer->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(n.Initializer->Type), type_info_to_string(expr->Type->Base)));
+                        m_context->report_compiler_diagnostic(n.initializer->loc, n.initializer->range, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(n.initializer->type), type_info_to_string(expr->type->base)));
                     }
                 }
             }
         }
     }
 
-    void SemanticAnalyzer::resolve_Delete_expr(Expr* expr) {
-        DeleteExpr& d = expr->Delete;
+    void SemanticAnalyzer::resolve_delete_expr(Expr* expr) {
+        DeleteExpr& d = expr->delete_;
 
-        if (!m_UnsafeContext) {
-            m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "'delete' is only allowed in unsafe context");
+        if (!m_unsafe_context) {
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, "'delete' is only allowed in unsafe context");
         }
 
-        resolve_expr(d.Expression);
-        require_rvalue(d.Expression);
+        resolve_expr(d.expression);
+        require_rvalue(d.expression);
 
-        if (!d.Expression->Type->is_pointer()) {
-            m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "'delete' can only be used with pointer types");
+        if (!d.expression->type->is_pointer()) {
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, "'delete' can only be used with pointer types");
         }
     }
 
-    void SemanticAnalyzer::resolve_Format_expr(Expr* expr) {
+    void SemanticAnalyzer::resolve_format_expr(Expr* expr) {
         ARIA_TODO("SemanticAnalyzer::resolve_Format_expr()");
         // FormatExpr& format = expr->Format;
         // 
         // if (format.Args.Size == 0) {
-        //     m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Format expression must have a format string");
+        //     m_context->report_compiler_diagnostic(expr->loc, expr->range, "Format expression must have a format string");
         //     return;
         // }
         // 
-        // if (format.Args.Items[0]->Kind != ExprKind::StringConstant) {
-        //     m_Context->report_compiler_diagnostic(format.Args.Items[0]->Loc, format.Args.Items[0]->Range, "Format string must be a string literal");
+        // if (format.Args.Items[0]->kind != ExprKind::StringConstant) {
+        //     m_context->report_compiler_diagnostic(format.Args.Items[0]->loc, format.Args.Items[0]->range, "Format string must be a string literal");
         //     return;
         // }
         // 
         // if (expr->ResultDiscarded) {
-        //     m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Discarding result of format is not allowed");
+        //     m_context->report_compiler_diagnostic(expr->loc, expr->range, "Discarding result of format is not allowed");
         //     return;
         // }
         // 
@@ -477,7 +464,7 @@ namespace Aria::Internal {
         //             needsClosing = false;
         //             continue;
         //         } else {
-        //             m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Missing closing curly brace in format string");
+        //             m_context->report_compiler_diagnostic(expr->loc, expr->range, "Missing closing curly brace in format string");
         //             return;
         //         }
         //     }
@@ -485,154 +472,152 @@ namespace Aria::Internal {
         //     if (fmtStr.at(i) == '{') {
         //         if (scratch_buffer_size() > 0) {
         //             StringBuilder tmpB;
-        //             tmpB.Append(m_Context, buf);
+        //             tmpB.Append(m_context, buf);
         //             buf.Clear();
         // 
-        //             Expr* str = Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::StringConstant,
+        //             Expr* str = Expr::Create(m_context, expr->loc, expr->range, ExprKind::StringConstant,
         //                 ExprValueKind::RValue, &StringType,
         //                 StringConstantExpr(tmpB));
         // 
-        //             formattedArgs.Append(m_Context, { Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::Temporary,
+        //             formattedArgs.Append(m_context, { Expr::Create(m_context, expr->loc, expr->range, ExprKind::Temporary,
         //                 ExprValueKind::RValue, &StringType,
         //                 TemporaryExpr(str, m_BuiltInStringDestructor)) });
         //         }
         //         
         //         if (idx + 1 >= format.Args.Size) {
-        //             m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Format string specifies more arguments than are provided");
+        //             m_context->report_compiler_diagnostic(expr->loc, expr->range, "Format string specifies more arguments than are provided");
         //             return;
         //         }
         // 
-        //         formattedArgs.Append(m_Context, { format.Args.Items[idx + 1] });
+        //         formattedArgs.Append(m_context, { format.Args.Items[idx + 1] });
         //         needsClosing = true;
         //         idx++;
         //     } else {
-        //         buf.Append(m_Context, fmtStr.At(i));
+        //         buf.Append(m_context, fmtStr.At(i));
         //     }
         // }
         // 
         // if (buf.Size() > 0) {
         //     StringBuilder tmpB;
-        //     tmpB.Append(m_Context, buf);
+        //     tmpB.Append(m_context, buf);
         //     buf.Clear();
         // 
-        //     Expr* str = Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::StringConstant,
+        //     Expr* str = Expr::Create(m_context, expr->loc, expr->range, ExprKind::StringConstant,
         //         ExprValueKind::RValue, &StringType,
         //         StringConstantExpr(tmpB));
         // 
-        //     formattedArgs.Append(m_Context, { Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::Temporary,
+        //     formattedArgs.Append(m_context, { Expr::Create(m_context, expr->loc, expr->range, ExprKind::Temporary,
         //         ExprValueKind::RValue, &StringType,
         //         TemporaryExpr(str, m_BuiltInStringDestructor)) });
         // }
         // 
         // format.ResolvedArgs = formattedArgs;
         // if (m_TemporaryContext) {
-        //     replace_expr(expr, Expr::Create(m_Context, expr->Loc, expr->Range, ExprKind::Temporary,
-        //         ExprValueKind::RValue, expr->Type,
-        //         TemporaryExpr(Expr::Dup(m_Context, expr), m_BuiltInStringDestructor)));
+        //     replace_expr(expr, Expr::Create(m_context, expr->loc, expr->range, ExprKind::Temporary,
+        //         ExprValueKind::RValue, expr->type,
+        //         TemporaryExpr(Expr::Dup(m_context, expr), m_BuiltInStringDestructor)));
         // }
     }
 
-    void SemanticAnalyzer::resolve_Paren_expr(Expr* expr) {
-        ParenExpr& paren = expr->Paren;
-        resolve_expr(paren.Expression);
+    void SemanticAnalyzer::resolve_paren_expr(Expr* expr) {
+        ParenExpr& paren = expr->paren;
+        resolve_expr(paren.expression);
 
-        expr->Type = paren.Expression->Type;
-        expr->ValueKind = paren.Expression->ValueKind;
+        expr->type = paren.expression->type;
+        expr->value_kind = paren.expression->value_kind;
 
-        if (expr->ResultDiscarded) {
-            m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Discarding result of expression", CompilerDiagKind::Warning);
+        if (expr->result_discarded) {
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, "Discarding result of expression", CompilerDiagKind::Warning);
         }
     }
 
-    void SemanticAnalyzer::resolve_Cast_expr(Expr* expr) {
-        CastExpr& cast = expr->Cast;
+    void SemanticAnalyzer::resolve_cast_expr(Expr* expr) {
+        CastExpr& cast = expr->cast;
         
-        resolve_expr(cast.Expression);
-        require_rvalue(cast.Expression);
-        expr->Type = cast.Type;
+        resolve_expr(cast.expression);
+        require_rvalue(cast.expression);
+        expr->type = cast.type;
 
-        TypeInfo* srcType = cast.Expression->Type;
-        TypeInfo* dstType = cast.Type;
+        TypeInfo* srcType = cast.expression->type;
+        TypeInfo* dstType = cast.type;
 
         ConversionCost cost = get_conversion_cost(dstType, srcType);
 
-        if (cost.CastNeeded) {
-            if (cost.ExplicitCastPossible) {
-                insert_implicit_cast(dstType, srcType, cast.Expression, cost.Kind);
+        if (cost.cast_needed) {
+            if (cost.explicit_cast_possible) {
+                insert_implicit_cast(dstType, srcType, cast.expression, cost.kind);
             } else {
-                m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, fmt::format("Cannot cast '{}' to '{}'", type_info_to_string(srcType), type_info_to_string(dstType)));
+                m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Cannot cast '{}' to '{}'", type_info_to_string(srcType), type_info_to_string(dstType)));
             }
         }
 
-        if (expr->ResultDiscarded) {
-            m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Discarding result of explicit cast", CompilerDiagKind::Warning);
+        if (expr->result_discarded) {
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, "Discarding result of explicit cast", CompilerDiagKind::Warning);
         }
     }
 
-    void SemanticAnalyzer::resolve_ImplicitCast_expr(Expr* expr) { ARIA_UNREACHABLE(); }
-
-    void SemanticAnalyzer::resolve_UnaryOperator_expr(Expr* expr) {
-        UnaryOperatorExpr& unop = expr->UnaryOperator;
+    void SemanticAnalyzer::resolve_unary_operator_expr(Expr* expr) {
+        UnaryOperatorExpr& unop = expr->unary_operator;
         
-        resolve_expr(unop.Expression);
-        TypeInfo* type = unop.Expression->Type;
+        resolve_expr(unop.expression);
+        TypeInfo* type = unop.expression->type;
         
-        switch (unop.Operator) {
+        switch (unop.op) {
             case UnaryOperatorKind::Negate: {
-                require_rvalue(unop.Expression);
+                require_rvalue(unop.expression);
                 ARIA_ASSERT(type->is_numeric(), "todo: add error message");
 
                 if (type->is_integral()) {
                     if (type->is_unsigned()) {
-                        m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, fmt::format("Cannot negate expression of unsigned type '{}'", type_info_to_string(type)));
+                        m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Cannot negate expression of unsigned type '{}'", type_info_to_string(type)));
                     }
                 }
 
-                expr->Type = type;
+                expr->type = type;
                 break;
             }
 
             case UnaryOperatorKind::AddressOf: {
-                if (type->is_error()) { expr->Type = type; break; }
+                if (type->is_error()) { expr->type = type; break; }
 
-                if (!m_UnsafeContext) {
-                    m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Address of operation ('&') must be in an unsafe context");
+                if (!m_unsafe_context) {
+                    m_context->report_compiler_diagnostic(expr->loc, expr->range, "Address of operation ('&') must be in an unsafe context");
                 }
 
-                if (unop.Expression->ValueKind != ExprValueKind::LValue) {
-                    m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Address of operation ('&') requries an lvalue");
+                if (unop.expression->value_kind != ExprValueKind::LValue) {
+                    m_context->report_compiler_diagnostic(expr->loc, expr->range, "Address of operation ('&') requries an lvalue");
                 }
 
-                TypeInfo* newType = TypeInfo::Create(m_Context, TypeKind::Ptr, false);
-                newType->Base = type;
-                expr->Type = newType;
+                TypeInfo* newType = TypeInfo::Create(m_context, TypeKind::Ptr, false);
+                newType->base = type;
+                expr->type = newType;
                 break;
             }
 
             case UnaryOperatorKind::Dereference: {
-                if (type->is_error()) { expr->Type = type; break; }
+                if (type->is_error()) { expr->type = type; break; }
 
-                if (!m_UnsafeContext) {
-                    m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Dereferencing of pointer must be in an unsafe context");
+                if (!m_unsafe_context) {
+                    m_context->report_compiler_diagnostic(expr->loc, expr->range, "Dereferencing of pointer must be in an unsafe context");
                 }
 
-                if (unop.Expression->ValueKind != ExprValueKind::LValue) {
-                    m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Dereferencing requires an lvalue");
+                if (unop.expression->value_kind != ExprValueKind::LValue) {
+                    m_context->report_compiler_diagnostic(expr->loc, expr->range, "Dereferencing requires an lvalue");
                 }
 
-                require_rvalue(unop.Expression);
+                require_rvalue(unop.expression);
 
                 if (type->is_pointer()) {
-                    if (type->Base->is_void()) {
-                        m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Cannot dereference a void*");
+                    if (type->base->is_void()) {
+                        m_context->report_compiler_diagnostic(expr->loc, expr->range, "Cannot dereference a void*");
                     }
                 } else {
-                    m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Dereferencing requires a pointer type");
+                    m_context->report_compiler_diagnostic(expr->loc, expr->range, "Dereferencing requires a pointer type");
                     break;
                 }
 
-                expr->Type = type->Base;
-                expr->ValueKind = ExprValueKind::LValue;
+                expr->type = type->base;
+                expr->value_kind = ExprValueKind::LValue;
                 break;
             }
 
@@ -640,16 +625,16 @@ namespace Aria::Internal {
         }
     }
 
-    void SemanticAnalyzer::resolve_BinaryOperator_expr(Expr* expr) {
-        BinaryOperatorExpr& binop = expr->BinaryOperator;
+    void SemanticAnalyzer::resolve_binary_operator_expr(Expr* expr) {
+        BinaryOperatorExpr& binop = expr->binary_operator;
 
-        resolve_expr(binop.LHS);
-        resolve_expr(binop.RHS);
+        resolve_expr(binop.lhs);
+        resolve_expr(binop.rhs);
 
-        Expr* LHS = binop.LHS;
-        Expr* RHS = binop.RHS;
+        Expr* LHS = binop.lhs;
+        Expr* RHS = binop.rhs;
 
-        switch (binop.Operator) {
+        switch (binop.op) {
             case BinaryOperatorKind::Add:
             case BinaryOperatorKind::Sub:
             case BinaryOperatorKind::Mul:
@@ -661,39 +646,39 @@ namespace Aria::Internal {
             case BinaryOperatorKind::GreaterOrEq:
             case BinaryOperatorKind::IsEq: 
             case BinaryOperatorKind::IsNotEq: {
-                if (!LHS->Type->is_error()) {
-                    if (!LHS->Type->is_numeric()) {
-                        m_Context->report_compiler_diagnostic(LHS->Loc, LHS->Range, fmt::format("Expression must be of a numeric type but is of type '{}'", type_info_to_string(LHS->Type)));
+                if (!LHS->type->is_error()) {
+                    if (!LHS->type->is_numeric()) {
+                        m_context->report_compiler_diagnostic(LHS->loc, LHS->range, fmt::format("Expression must be of a numeric type but is of type '{}'", type_info_to_string(LHS->type)));
                     }
 
-                    if (!LHS->Type->is_numeric()) {
-                        m_Context->report_compiler_diagnostic(RHS->Loc, RHS->Range, fmt::format("Expression must be of a numeric type but is of type '{}'", type_info_to_string(RHS->Type)));
+                    if (!LHS->type->is_numeric()) {
+                        m_context->report_compiler_diagnostic(RHS->loc, RHS->range, fmt::format("Expression must be of a numeric type but is of type '{}'", type_info_to_string(RHS->type)));
                     }
                 }
 
                 insert_arithmetic_promotion(LHS, RHS);
 
-                if (binop.Operator == BinaryOperatorKind::Less ||
-                    binop.Operator == BinaryOperatorKind::LessOrEq ||
-                    binop.Operator == BinaryOperatorKind::Greater ||
-                    binop.Operator == BinaryOperatorKind::GreaterOrEq ||
-                    binop.Operator == BinaryOperatorKind::IsEq ||
-                    binop.Operator == BinaryOperatorKind::IsNotEq) 
+                if (binop.op == BinaryOperatorKind::Less ||
+                    binop.op == BinaryOperatorKind::LessOrEq ||
+                    binop.op == BinaryOperatorKind::Greater ||
+                    binop.op == BinaryOperatorKind::GreaterOrEq ||
+                    binop.op == BinaryOperatorKind::IsEq ||
+                    binop.op == BinaryOperatorKind::IsNotEq) 
                 {
-                    expr->Type = &bool_type;
-                    expr->ValueKind = ExprValueKind::RValue;
+                    expr->type = &bool_type;
+                    expr->value_kind = ExprValueKind::RValue;
 
-                    if (expr->ResultDiscarded) {
-                        m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Discarding result of relational operator", CompilerDiagKind::Warning);
+                    if (expr->result_discarded) {
+                        m_context->report_compiler_diagnostic(expr->loc, expr->range, "Discarding result of relational operator", CompilerDiagKind::Warning);
                     }
                     return;
                 }
 
-                expr->Type = LHS->Type;
-                expr->ValueKind = ExprValueKind::RValue;
+                expr->type = LHS->type;
+                expr->value_kind = ExprValueKind::RValue;
 
-                if (expr->ResultDiscarded) {
-                    m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Discarding result of binary operator", CompilerDiagKind::Warning);
+                if (expr->result_discarded) {
+                    m_context->report_compiler_diagnostic(expr->loc, expr->range, "Discarding result of binary operator", CompilerDiagKind::Warning);
                 }
                 return;
             }
@@ -703,80 +688,80 @@ namespace Aria::Internal {
             case BinaryOperatorKind::BitXor:
             case BinaryOperatorKind::Shl:
             case BinaryOperatorKind::Shr: {
-                if (!LHS->Type->is_error()) {
-                    if (!LHS->Type->is_integral() && !LHS->Type->is_string()) {
-                        m_Context->report_compiler_diagnostic(LHS->Loc, LHS->Range, fmt::format("Expression must be of a integral type but is of type '{}'", type_info_to_string(LHS->Type)));
+                if (!LHS->type->is_error()) {
+                    if (!LHS->type->is_integral() && !LHS->type->is_string()) {
+                        m_context->report_compiler_diagnostic(LHS->loc, LHS->range, fmt::format("Expression must be of a integral type but is of type '{}'", type_info_to_string(LHS->type)));
                     }
 
-                    if (!LHS->Type->is_integral()) {
-                        m_Context->report_compiler_diagnostic(RHS->Loc, RHS->Range, fmt::format("Expression must be of a integral type but is of type '{}'", type_info_to_string(RHS->Type)));
+                    if (!LHS->type->is_integral()) {
+                        m_context->report_compiler_diagnostic(RHS->loc, RHS->range, fmt::format("Expression must be of a integral type but is of type '{}'", type_info_to_string(RHS->type)));
                     }
                 }
 
                 insert_arithmetic_promotion(LHS, RHS);
 
-                expr->Type = LHS->Type;
-                expr->ValueKind = ExprValueKind::RValue;
+                expr->type = LHS->type;
+                expr->value_kind = ExprValueKind::RValue;
 
-                if (expr->ResultDiscarded) {
-                    m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Discarding result of bitwise operator", CompilerDiagKind::Warning);
+                if (expr->result_discarded) {
+                    m_context->report_compiler_diagnostic(expr->loc, expr->range, "Discarding result of bitwise operator", CompilerDiagKind::Warning);
                 }
                 return;
             }
 
             case BinaryOperatorKind::Eq: {
-                if (LHS->ValueKind != ExprValueKind::LValue) {
-                    m_Context->report_compiler_diagnostic(LHS->Loc, LHS->Range, "Expression must be a modifiable lvalue");
+                if (LHS->value_kind != ExprValueKind::LValue) {
+                    m_context->report_compiler_diagnostic(LHS->loc, LHS->range, "Expression must be a modifiable lvalue");
                 }
 
                 require_rvalue(RHS);
 
-                ConversionCost cost = get_conversion_cost(LHS->Type, RHS->Type);
+                ConversionCost cost = get_conversion_cost(LHS->type, RHS->type);
 
-                if (cost.CastNeeded) {
-                    if (cost.ImplicitCastPossible) {
-                        insert_implicit_cast(LHS->Type, RHS->Type, RHS, cost.Kind);
+                if (cost.cast_needed) {
+                    if (cost.implicit_cast_possible) {
+                        insert_implicit_cast(LHS->type, RHS->type, RHS, cost.kind);
                     } else {
-                        m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(RHS->Type), type_info_to_string(LHS->Type)));
+                        m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(RHS->type), type_info_to_string(LHS->type)));
                     }
                 }
 
-                expr->Type = LHS->Type;
-                expr->ValueKind = ExprValueKind::LValue;
+                expr->type = LHS->type;
+                expr->value_kind = ExprValueKind::LValue;
                 return;
             }
 
             case BinaryOperatorKind::LogAnd:
             case BinaryOperatorKind::LogOr: {
-                TypeInfo* boolType = TypeInfo::Create(m_Context, TypeKind::Bool, false);
+                TypeInfo* boolType = TypeInfo::Create(m_context, TypeKind::Bool, false);
 
                 require_rvalue(LHS);
                 require_rvalue(RHS);
 
-                ConversionCost costLHS = get_conversion_cost(boolType, LHS->Type);
-                ConversionCost costRHS = get_conversion_cost(boolType, RHS->Type);
+                ConversionCost costLHS = get_conversion_cost(boolType, LHS->type);
+                ConversionCost costRHS = get_conversion_cost(boolType, RHS->type);
 
-                if (costLHS.CastNeeded) {
-                    if (costLHS.ImplicitCastPossible) {
-                        insert_implicit_cast(boolType, LHS->Type, LHS, costLHS.Kind);
+                if (costLHS.cast_needed) {
+                    if (costLHS.implicit_cast_possible) {
+                        insert_implicit_cast(boolType, LHS->type, LHS, costLHS.kind);
                     } else {
-                        m_Context->report_compiler_diagnostic(LHS->Loc, LHS->Range, fmt::format("Cannot implicitly convert from '{}' to 'bool'", type_info_to_string(LHS->Type)));
+                        m_context->report_compiler_diagnostic(LHS->loc, LHS->range, fmt::format("Cannot implicitly convert from '{}' to 'bool'", type_info_to_string(LHS->type)));
                     }
                 }
 
-                if (costRHS.CastNeeded) {
-                    if (costRHS.ImplicitCastPossible) {
-                        insert_implicit_cast(boolType, RHS->Type, RHS, costRHS.Kind);
+                if (costRHS.cast_needed) {
+                    if (costRHS.implicit_cast_possible) {
+                        insert_implicit_cast(boolType, RHS->type, RHS, costRHS.kind);
                     } else {
-                        m_Context->report_compiler_diagnostic(LHS->Loc, LHS->Range, fmt::format("Cannot implicitly convert from '{}' to 'bool'", type_info_to_string(RHS->Type)));
+                        m_context->report_compiler_diagnostic(LHS->loc, LHS->range, fmt::format("Cannot implicitly convert from '{}' to 'bool'", type_info_to_string(RHS->type)));
                     }
                 }
 
-                expr->Type = boolType;
-                expr->ValueKind = ExprValueKind::RValue;
+                expr->type = boolType;
+                expr->value_kind = ExprValueKind::RValue;
 
-                if (expr->ResultDiscarded) {
-                    m_Context->report_compiler_diagnostic(expr->Loc, expr->Range, "Discarding result of logical operator", CompilerDiagKind::Warning);
+                if (expr->result_discarded) {
+                    m_context->report_compiler_diagnostic(expr->loc, expr->range, "Discarding result of logical operator", CompilerDiagKind::Warning);
                 }
                 return;
             }
@@ -785,64 +770,83 @@ namespace Aria::Internal {
         }
     }
 
-    void SemanticAnalyzer::resolve_CompoundAssign_expr(Expr* expr) {
-        CompoundAssignExpr& compAss = expr->CompoundAssign;
+    void SemanticAnalyzer::resolve_compound_assign_expr(Expr* expr) {
+        CompoundAssignExpr& compAss = expr->compound_assign;
         
-        resolve_expr(compAss.LHS);
-        resolve_expr(compAss.RHS);
+        resolve_expr(compAss.lhs);
+        resolve_expr(compAss.rhs);
 
-        require_rvalue(compAss.RHS);
+        require_rvalue(compAss.rhs);
         
-        Expr* LHS = compAss.LHS;
-        Expr* RHS = compAss.RHS;
+        Expr* LHS = compAss.lhs;
+        Expr* RHS = compAss.rhs;
         
-        TypeInfo* LHSType = LHS->Type;
-        TypeInfo* RHSType = RHS->Type;
+        TypeInfo* LHSType = LHS->type;
+        TypeInfo* RHSType = RHS->type;
         
-        if (LHS->ValueKind != ExprValueKind::LValue) {
-            m_Context->report_compiler_diagnostic(compAss.LHS->Loc, compAss.LHS->Range, "Expression must be a modifiable lvalue");
+        if (LHS->value_kind != ExprValueKind::LValue) {
+            m_context->report_compiler_diagnostic(compAss.lhs->loc, compAss.lhs->range, "Expression must be a modifiable lvalue");
         }
         
         ConversionCost cost = get_conversion_cost(LHSType, RHSType);
         
-        if (cost.CastNeeded) {
-            if (cost.ImplicitCastPossible) {
-                insert_implicit_cast(LHSType, RHSType, RHS, cost.Kind);
+        if (cost.cast_needed) {
+            if (cost.implicit_cast_possible) {
+                insert_implicit_cast(LHSType, RHSType, RHS, cost.kind);
                 RHSType = LHSType;
             } else {
-                m_Context->report_compiler_diagnostic(compAss.RHS->Loc, compAss.RHS->Range, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(RHSType), type_info_to_string(LHSType)));
+                m_context->report_compiler_diagnostic(compAss.rhs->loc, compAss.rhs->range, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(RHSType), type_info_to_string(LHSType)));
             }
         }
         
-        expr->Type = LHSType;
-        expr->ValueKind = ExprValueKind::LValue;
+        expr->type = LHSType;
+        expr->value_kind = ExprValueKind::LValue;
     }
 
     void SemanticAnalyzer::resolve_expr(Expr* expr) {
-        #define EXPR_CASE(kind) resolve_##kind##_expr(expr)
-        #include "aria/internal/compiler/ast/expr_switch.hpp"
-        #undef EXPR_CASE
+        switch (expr->kind) {
+            case ExprKind::BooleanLiteral: resolve_boolean_literal_expr(expr); break;
+            case ExprKind::CharacterLiteral: resolve_character_literal_expr(expr); break;
+            case ExprKind::IntegerLiteral: resolve_integer_literal_expr(expr); break;
+            case ExprKind::FloatingLiteral: resolve_floating_literal_expr(expr); break;
+            case ExprKind::StringLiteral: resolve_string_literal_expr(expr); break;
+            case ExprKind::Null: resolve_null_expr(expr); break;
+            case ExprKind::DeclRef: resolve_decl_ref_expr(expr); break;
+            case ExprKind::Member: resolve_member_expr(expr); break;
+            case ExprKind::Call: resolve_call_expr(expr); break;
+            case ExprKind::ArraySubscript: resolve_array_subscript_expr(expr); break;
+            case ExprKind::ToSlice: resolve_to_slice_expr(expr); break;
+            case ExprKind::New: resolve_new_expr(expr); break;
+            case ExprKind::Delete: resolve_delete_expr(expr); break;
+            case ExprKind::Format: resolve_format_expr(expr); break;
+            case ExprKind::Paren: resolve_paren_expr(expr); break;
+            case ExprKind::Cast: resolve_cast_expr(expr); break;
+            case ExprKind::UnaryOperator: resolve_unary_operator_expr(expr); break;
+            case ExprKind::BinaryOperator: resolve_binary_operator_expr(expr); break;
+            case ExprKind::CompoundAssign: resolve_compound_assign_expr(expr); break;
+            default: ARIA_UNREACHABLE();
+        }
     }
 
     bool SemanticAnalyzer::is_const_expr(Expr* expr) {
-        switch (expr->Kind) {
+        switch (expr->kind) {
             case ExprKind::Error:
-            case ExprKind::BooleanConstant:
-            case ExprKind::CharacterConstant:
-            case ExprKind::IntegerConstant:
-            case ExprKind::FloatingConstant:
-            case ExprKind::StringConstant:
+            case ExprKind::BooleanLiteral:
+            case ExprKind::CharacterLiteral:
+            case ExprKind::IntegerLiteral:
+            case ExprKind::FloatingLiteral:
+            case ExprKind::StringLiteral:
             case ExprKind::Null:
                 return true;
 
             case ExprKind::Paren:
-                return is_const_expr(expr->Paren.Expression);
+                return is_const_expr(expr->paren.expression);
 
             case ExprKind::UnaryOperator:
-                return is_const_expr(expr->UnaryOperator.Expression);
+                return is_const_expr(expr->unary_operator.expression);
 
             case ExprKind::BinaryOperator:
-                return is_const_expr(expr->BinaryOperator.LHS) && is_const_expr(expr->BinaryOperator.RHS);
+                return is_const_expr(expr->binary_operator.lhs) && is_const_expr(expr->binary_operator.rhs);
 
             default: return false;
         }
@@ -850,18 +854,18 @@ namespace Aria::Internal {
 
     bool SemanticAnalyzer::eval_expr_bool(Expr* expr) {
         ARIA_ASSERT(is_const_expr(expr), "Cannot evaulate a non-constant expression");
-        ARIA_ASSERT(expr->Type->is_boolean(), "Type of expression must be bool");
+        ARIA_ASSERT(expr->type->is_boolean(), "Type of expression must be bool");
 
-        switch (expr->Kind) {
-            case ExprKind::BooleanConstant: return expr->BooleanConstant.Value;
+        switch (expr->kind) {
+            case ExprKind::BooleanLiteral: return expr->boolean_literal.value;
 
-            case ExprKind::Paren: return eval_expr_bool(expr->Paren.Expression);
+            case ExprKind::Paren: return eval_expr_bool(expr->paren.expression);
 
             case ExprKind::BinaryOperator: {
-                bool lhs = eval_expr_bool(expr->BinaryOperator.LHS);
-                bool rhs = eval_expr_bool(expr->BinaryOperator.RHS);
+                bool lhs = eval_expr_bool(expr->binary_operator.lhs);
+                bool rhs = eval_expr_bool(expr->binary_operator.rhs);
 
-                switch (expr->BinaryOperator.Operator) {
+                switch (expr->binary_operator.op) {
                     case BinaryOperatorKind::Eq: return lhs == rhs;
                     case BinaryOperatorKind::IsNotEq: return lhs != rhs;
                     case BinaryOperatorKind::LogAnd: return lhs && rhs;
@@ -877,35 +881,35 @@ namespace Aria::Internal {
     }
 
     void SemanticAnalyzer::insert_implicit_cast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastKind castKind) {
-        Expr* src = Expr::Dup(m_Context, srcExpr); // We must copy the original expression to avoid overwriting the same memory
-        Expr* implicitCast = Expr::Create(m_Context, src->Loc, src->Range, ExprKind::ImplicitCast, ExprValueKind::RValue, dstType, ImplicitCastExpr(src, castKind));
+        Expr* src = Expr::Dup(m_context, srcExpr); // We must copy the original expression to avoid overwriting the same memory
+        Expr* implicitCast = Expr::Create(m_context, src->loc, src->range, ExprKind::ImplicitCast, ExprValueKind::RValue, dstType, ImplicitCastExpr(src, castKind));
 
         replace_expr(srcExpr, implicitCast);
     }
 
     void SemanticAnalyzer::require_rvalue(Expr* expr) {
-        if (expr->ValueKind == ExprValueKind::LValue) {
-            if (expr->Type->Kind == TypeKind::String) {
-                replace_expr(expr, Expr::Create(m_Context, expr->Loc, expr->Range, 
-                    ExprKind::Copy, ExprValueKind::RValue, expr->Type, 
-                    CopyExpr(Expr::Dup(m_Context, expr), m_BuiltInStringCopyConstructor)));
+        if (expr->value_kind == ExprValueKind::LValue) {
+            if (expr->type->kind == TypeKind::String) {
+                replace_expr(expr, Expr::Create(m_context, expr->loc, expr->range, 
+                    ExprKind::Copy, ExprValueKind::RValue, expr->type, 
+                    CopyExpr(Expr::Dup(m_context, expr), m_builtin_string_copy_constructor)));
 
-                if (m_TemporaryContext) {
-                    replace_expr(expr, Expr::Create(m_Context, expr->Loc, expr->Range,
-                        ExprKind::Temporary, ExprValueKind::RValue, expr->Type,
-                        TemporaryExpr(Expr::Dup(m_Context, expr), m_BuiltInStringDestructor)));
+                if (m_temporary_context) {
+                    replace_expr(expr, Expr::Create(m_context, expr->loc, expr->range,
+                        ExprKind::Temporary, ExprValueKind::RValue, expr->type,
+                        TemporaryExpr(Expr::Dup(m_context, expr), m_builtin_string_destructor)));
                 }
             } else {
-                insert_implicit_cast(expr->Type, expr->Type, expr, CastKind::LValueToRValue);
+                insert_implicit_cast(expr->type, expr->type, expr, CastKind::LValueToRValue);
             }
         }
     }
 
     void SemanticAnalyzer::insert_arithmetic_promotion(Expr* lhs, Expr* rhs) {
-        TypeInfo* lhsType = lhs->Type;
-        TypeInfo* rhsType = rhs->Type;
+        TypeInfo* lhsType = lhs->type;
+        TypeInfo* rhsType = rhs->type;
 
-        if (lhsType->Kind == TypeKind::Error || rhsType->Kind == TypeKind::Error) {
+        if (lhsType->kind == TypeKind::Error || rhsType->kind == TypeKind::Error) {
             return;
         }
 
@@ -926,7 +930,7 @@ namespace Aria::Internal {
                 insert_implicit_cast(rhsType, lhsType, lhs, CastKind::Integral);
             } else if (lSize == rSize) {
                 // We know that the types are not equal so we likely have a signed/unsigned mismatch
-                m_Context->report_compiler_diagnostic(lhs->Loc, SourceRange(lhs->Range.Start, rhs->Range.End), fmt::format("Mismatched types '{}' and '{}' (implicit signedness conversions are not allowed here)", type_info_to_string(lhsType), type_info_to_string(rhsType)));
+                m_context->report_compiler_diagnostic(lhs->loc, SourceRange(lhs->range.start, rhs->range.end), fmt::format("Mismatched types '{}' and '{}' (implicit signedness conversions are not allowed here)", type_info_to_string(lhsType), type_info_to_string(rhsType)));
             }
 
             return;

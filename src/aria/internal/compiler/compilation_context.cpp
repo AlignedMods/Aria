@@ -9,10 +9,10 @@ namespace Aria::Internal {
     void CompilationContext::compile_file(const std::string& source) {
         CompilationUnit* unit = new CompilationUnit(source);
 
-        if (CompilationUnits.size() > 0) { unit->Index = CompilationUnits[CompilationUnits.size() - 1]->Index + 1; }
+        if (compilation_units.size() > 0) { unit->index = compilation_units[compilation_units.size() - 1]->index + 1; }
 
-        CompilationUnits.push_back(unit);
-        ActiveCompUnit = unit;
+        compilation_units.push_back(unit);
+        active_comp_unit = unit;
 
         lex();
         parse();
@@ -20,7 +20,7 @@ namespace Aria::Internal {
 
     void CompilationContext::finish_compilation() {
         analyze();
-        if (!HasErrors) { emit(); }
+        if (!has_errors) { emit(); }
     }
 
     void CompilationContext::lex() { Lexer l(this); }
@@ -29,15 +29,15 @@ namespace Aria::Internal {
     void CompilationContext::emit() { Emitter e(this); }
 
     Module* CompilationContext::find_or_create_module(const std::string& name) {
-        for (Module* mod : Modules) {
-            if (mod->Name == name) {
+        for (Module* mod : modules) {
+            if (mod->name == name) {
                 return mod;
             }
         }
 
         Module* mod = new Module();
-        mod->Name = name;
-        Modules.push_back(mod);
+        mod->name = name;
+        modules.push_back(mod);
         return mod;
     }
 

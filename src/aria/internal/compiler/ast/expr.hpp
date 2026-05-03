@@ -14,11 +14,11 @@ namespace Aria::Internal {
         Invalid = 0,
 
         Error,
-        BooleanConstant,
-        CharacterConstant,
-        IntegerConstant,
-        FloatingConstant,
-        StringConstant,
+        BooleanLiteral,
+        CharacterLiteral,
+        IntegerLiteral,
+        FloatingLiteral,
+        StringLiteral,
         Null,
         DeclRef,
         Member,
@@ -53,7 +53,7 @@ namespace Aria::Internal {
 
         LValueToRValue
     };
-    inline const char* CastKindToString(CastKind kind) {
+    inline const char* cast_kind_to_string(CastKind kind) {
         switch (kind) {
             case CastKind::Invalid: return "Invalid";
             case CastKind::Integral: return "Integral";
@@ -75,7 +75,7 @@ namespace Aria::Internal {
         AddressOf, // "&x"
         Dereference // "*ptr"
     };
-    inline const char* UnaryOperatorKindToString(UnaryOperatorKind kind) {
+    inline const char* unary_op_kind_to_string(UnaryOperatorKind kind) {
         switch (kind) {
             case UnaryOperatorKind::Invalid: return "invalid";
             
@@ -111,7 +111,7 @@ namespace Aria::Internal {
         IsEq,
         IsNotEq,
     };
-    inline const char* BinaryOperatorKindToString(BinaryOperatorKind kind) {
+    inline const char* binary_op_kind_to_string(BinaryOperatorKind kind) {
         switch (kind) {
             case BinaryOperatorKind::Invalid: return "invalid";
             case BinaryOperatorKind::Add: return "+";
@@ -155,7 +155,7 @@ namespace Aria::Internal {
         LValue,
         RValue
     };
-    inline const char* ExprValueKindToString(ExprValueKind type) {
+    inline const char* expr_value_kind_to_string(ExprValueKind type) {
         switch (type) {
             case ExprValueKind::LValue: return "lvalue";
             case ExprValueKind::RValue: return "rvalue";
@@ -172,56 +172,56 @@ namespace Aria::Internal {
         ErrorExpr() = default;
     };
 
-    struct BooleanConstantExpr {
-        BooleanConstantExpr(bool value)
-            : Value(value) {}
+    struct BooleanLiteralExpr {
+        BooleanLiteralExpr(bool value)
+            : value(value) {}
 
-        bool Value = false;
+        bool value = false;
     };
     
-    struct CharacterConstantExpr {
-        CharacterConstantExpr(i8 value)
-            : Value(value) {}
+    struct CharacterLiteralExpr {
+        CharacterLiteralExpr(i8 value)
+            : value(value) {}
 
-        i8 Value = 0;
+        i8 value = 0;
     };
     
-    struct IntegerConstantExpr {
-        IntegerConstantExpr(u64 value)
-            : Value(value) {}
+    struct IntegerLiteralExpr {
+        IntegerLiteralExpr(u64 value)
+            : value(value) {}
 
-        u64 Value = 0;
+        u64 value = 0;
     };
     
-    struct FloatingConstantExpr {
-        FloatingConstantExpr(f64 value)
-            : Value(value) {}
+    struct FloatingLiteralExpr {
+        FloatingLiteralExpr(f64 value)
+            : value(value) {}
 
-        f64 Value = 0.0;
+        f64 value = 0.0;
     };
 
-    struct StringConstantExpr {
-        StringConstantExpr(std::string_view value)
-            : Value(value) {}
+    struct StringLiteralExpr {
+        StringLiteralExpr(std::string_view value)
+            : value(value) {}
 
-        std::string_view Value;
+        std::string_view value;
     };
 
     struct DeclRefExpr {
         DeclRefExpr(std::string_view identifier, Specifier* specifier)
-            : Identifier(identifier), NameSpecifier(specifier) {}
+            : identifier(identifier), name_specifier(specifier) {}
 
-        std::string_view Identifier;
-        Specifier* NameSpecifier = nullptr;
-        Decl* ReferencedDecl = nullptr;
+        std::string_view identifier;
+        Specifier* name_specifier = nullptr;
+        Decl* referenced_decl = nullptr;
     };
 
     struct MemberExpr {
         MemberExpr(std::string_view member, Expr* parent)
-            : Member(member), Parent(parent) {}
+            : member(member), parent(parent) {}
 
-        std::string_view Member;
-        Expr* Parent = nullptr;
+        std::string_view member;
+        Expr* parent = nullptr;
     };
 
     // TemporaryExpr
@@ -230,87 +230,87 @@ namespace Aria::Internal {
     // Here "Hello world" will call a constructor that allocates memory and therefore its destructor needs to be called
     struct TemporaryExpr {
         TemporaryExpr(Expr* expr, Decl* destructor)
-            : Expression(expr), Destructor(destructor) {}
+            : expression(expr), destructor(destructor) {}
 
-        Expr* Expression = nullptr;
-        Decl* Destructor = nullptr;
+        Expr* expression = nullptr;
+        Decl* destructor = nullptr;
     };
 
     struct CopyExpr {
         CopyExpr(Expr* expr, Decl* constructor)
-            : Expression(expr), Constructor(constructor) {}
+            : expression(expr), constructor(constructor) {}
 
-        Expr* Expression = nullptr;
-        Decl* Constructor = nullptr;
+        Expr* expression = nullptr;
+        Decl* constructor = nullptr;
     };
 
     struct CallExpr {
         CallExpr(Expr* callee, TinyVector<Expr*> args)
-            : Callee(callee), Arguments(args) {}
+            : callee(callee), arguments(args) {}
 
-        Expr* Callee;
-        TinyVector<Expr*> Arguments;
+        Expr* callee;
+        TinyVector<Expr*> arguments;
     };
 
     struct ConstructExpr {
         ConstructExpr(ConstructorDecl* ctor, TinyVector<Expr*> args)
-            : Ctor(ctor), Arguments(args) {}
+            : ctor(ctor), arguments(args) {}
 
-        ConstructorDecl* Ctor = nullptr;
-        TinyVector<Expr*> Arguments;
+        ConstructorDecl* ctor = nullptr;
+        TinyVector<Expr*> arguments;
     };
 
     struct MethodCallExpr {
         MethodCallExpr(Expr* callee, TinyVector<Expr*> args)
-            : Callee(callee), Arguments(args) {}
+            : callee(callee), arguments(args) {}
     
-        Expr* Callee;
-        TinyVector<Expr*> Arguments;
+        Expr* callee;
+        TinyVector<Expr*> arguments;
     };
 
     struct ArraySubscriptExpr {
         ArraySubscriptExpr(Expr* array, Expr* index)
-            : Array(array), Index(index) {}
+            : array(array), index(index) {}
 
-        Expr* Array = nullptr;
-        Expr* Index = nullptr;
+        Expr* array = nullptr;
+        Expr* index = nullptr;
     };
 
     struct ToSliceExpr {
         ToSliceExpr(Expr* source, Expr* len)
-            : Source(source), Len(len) {}
+            : source(source), len(len) {}
 
-        Expr* Source = nullptr;
-        Expr* Len = nullptr;
+        Expr* source = nullptr;
+        Expr* len = nullptr;
     };
 
     struct NewExpr {
         NewExpr(Expr* initializer, bool array)
-            : Initializer(initializer), Array(array) {}
+            : initializer(initializer), array(array) {}
 
-        Expr* Initializer = nullptr;
-        bool Array = false;
+        Expr* initializer = nullptr;
+        bool array = false;
     };
 
     struct DeleteExpr {
         DeleteExpr(Expr* expr)
-            : Expression(expr) {}
+            : expression(expr) {}
 
-        Expr* Expression = nullptr;
+        Expr* expression = nullptr;
     };
     
     struct FormatExpr {
         struct FormatArg {
-            Expr* Arg = nullptr;
+            Expr* arg = nullptr;
         };
 
         FormatExpr(TinyVector<Expr*> args)
-            : Args(args) {}
+            : args(args) {}
 
-        TinyVector<Expr*> Args;
-        TinyVector<FormatArg> ResolvedArgs; // Properly ordered args, ordered during semantic analysis
-                                            // eg. $format("Hello, {}, Nice to meet you", name); ->
-                                            // "Hello, " name, ", Nice to meet you"
+        TinyVector<Expr*> args;
+        TinyVector<FormatArg> resolved_args; // Properly ordered args, ordered during semantic analysis
+                                             // eg. $format("Hello, {}, Nice to meet you", name); ->
+                                             // "Hello, " name, ", Nice to meet you"
     };
 
     // ParenExpr
@@ -319,9 +319,9 @@ namespace Aria::Internal {
     // eg. 1 + (2 - 3)
     struct ParenExpr {
         ParenExpr(Expr* expr)
-            :  Expression(expr) {}
+            :  expression(expr) {}
 
-        Expr* Expression = nullptr;
+        Expr* expression = nullptr;
     };
 
     // CastExpr
@@ -330,10 +330,10 @@ namespace Aria::Internal {
     // eg. int a = <int>5.5;
     struct CastExpr {
         CastExpr(Expr* expr, TypeInfo* type)
-            : Expression(expr), Type(type) {}
+            : expression(expr), type(type) {}
 
-        Expr* Expression = nullptr;
-        TypeInfo* Type = nullptr;
+        Expr* expression = nullptr;
+        TypeInfo* type = nullptr;
     };
 
     // ImplicitCastExpr
@@ -341,27 +341,27 @@ namespace Aria::Internal {
     // eg. float a = 5; -> here "5" is implicitly converted to a float
     struct ImplicitCastExpr {
         ImplicitCastExpr(Expr* expr, CastKind castKind)
-            : Expression(expr), Kind(castKind) {}
+            : expression(expr), kind(castKind) {}
 
-        Expr* Expression = nullptr;
-        CastKind Kind = CastKind::Invalid;
+        Expr* expression = nullptr;
+        CastKind kind = CastKind::Invalid;
     };
     
     struct UnaryOperatorExpr {
         UnaryOperatorExpr(Expr* expr, UnaryOperatorKind op)
-            : Expression(expr), Operator(op) {}
+            : expression(expr), op(op) {}
 
-        Expr* Expression = nullptr;
-        UnaryOperatorKind Operator = UnaryOperatorKind::Invalid;
+        Expr* expression = nullptr;
+        UnaryOperatorKind op = UnaryOperatorKind::Invalid;
     };
     
     struct BinaryOperatorExpr {
         BinaryOperatorExpr(Expr* lhs, Expr* rhs, BinaryOperatorKind op)
-            : LHS(lhs), RHS(rhs), Operator(op) {}
+            : lhs(lhs), rhs(rhs), op(op) {}
 
-        Expr* LHS = nullptr;
-        Expr* RHS = nullptr;
-        BinaryOperatorKind Operator = BinaryOperatorKind::Invalid;
+        Expr* lhs = nullptr;
+        Expr* rhs = nullptr;
+        BinaryOperatorKind op = BinaryOperatorKind::Invalid;
     };
 
     // CompoundAssignExpr
@@ -370,11 +370,11 @@ namespace Aria::Internal {
     // foo += bar;
     struct CompoundAssignExpr {
         CompoundAssignExpr(Expr* lhs, Expr* rhs, BinaryOperatorKind op)
-            : LHS(lhs), RHS(rhs), Operator(op) {}
+            : lhs(lhs), rhs(rhs), op(op) {}
 
-        Expr* LHS = nullptr;
-        Expr* RHS = nullptr;
-        BinaryOperatorKind Operator = BinaryOperatorKind::Invalid;
+        Expr* lhs = nullptr;
+        Expr* rhs = nullptr;
+        BinaryOperatorKind op = BinaryOperatorKind::Invalid;
     };
 
     struct Expr {
@@ -382,8 +382,8 @@ namespace Aria::Internal {
         static inline Expr* Create(CompilationContext* ctx, 
             SourceLocation loc, SourceRange range,
             ExprKind kind, 
-            ExprValueKind valueKind, TypeInfo* type, 
-            T t = ErrorExpr()) { return ctx->allocate<Expr>(loc, range, kind, valueKind, type, t); }
+            ExprValueKind value_kind, TypeInfo* type, 
+            T t = ErrorExpr()) { return ctx->allocate<Expr>(loc, range, kind, value_kind, type, t); }
 
         static inline Expr* Dup(CompilationContext* ctx, Expr* other) {
             Expr* newExpr = ctx->allocate<Expr>();
@@ -391,116 +391,116 @@ namespace Aria::Internal {
             return newExpr;
         }
 
-        ExprKind Kind = ExprKind::Invalid;
-        ExprValueKind ValueKind = ExprValueKind::RValue;
-        TypeInfo* Type = nullptr;
+        ExprKind kind = ExprKind::Invalid;
+        ExprValueKind value_kind = ExprValueKind::RValue;
+        TypeInfo* type = nullptr;
 
-        bool ResultDiscarded = false;
+        bool result_discarded = false;
 
-        SourceLocation Loc;
-        SourceRange Range;
+        SourceLocation loc;
+        SourceRange range;
 
         union {
-            ErrorExpr Error;
-            BooleanConstantExpr BooleanConstant;
-            CharacterConstantExpr CharacterConstant;
-            IntegerConstantExpr IntegerConstant;
-            FloatingConstantExpr FloatingConstant;
-            StringConstantExpr StringConstant;
-            DeclRefExpr DeclRef;
-            MemberExpr Member;
-            TemporaryExpr Temporary;
-            CopyExpr Copy;
-            CallExpr Call;
-            ConstructExpr Construct;
-            MethodCallExpr MethodCall;
-            ArraySubscriptExpr ArraySubscript;
-            ToSliceExpr ToSlice;
-            NewExpr New;
-            DeleteExpr Delete;
-            FormatExpr Format;
-            ParenExpr Paren;
-            CastExpr Cast;
-            ImplicitCastExpr ImplicitCast;
-            UnaryOperatorExpr UnaryOperator;
-            BinaryOperatorExpr BinaryOperator;
-            CompoundAssignExpr CompoundAssign;
+            ErrorExpr error;
+            BooleanLiteralExpr boolean_literal;
+            CharacterLiteralExpr character_literal;
+            IntegerLiteralExpr integer_literal;
+            FloatingLiteralExpr floating_literal;
+            StringLiteralExpr string_literal;
+            DeclRefExpr decl_ref;
+            MemberExpr member;
+            TemporaryExpr temporary;
+            CopyExpr copy;
+            CallExpr call;
+            ConstructExpr construct;
+            MethodCallExpr method_call;
+            ArraySubscriptExpr array_subscript;
+            ToSliceExpr to_slice;
+            NewExpr new_;
+            DeleteExpr delete_;
+            FormatExpr format;
+            ParenExpr paren;
+            CastExpr cast;
+            ImplicitCastExpr implicit_cast;
+            UnaryOperatorExpr unary_operator;
+            BinaryOperatorExpr binary_operator;
+            CompoundAssignExpr compound_assign;
         };
 
         Expr()
-            : BooleanConstant(false) {}
+            : boolean_literal(false) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, ErrorExpr error)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Error(error) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ErrorExpr error)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), error(error) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, BooleanConstantExpr booleanConstant)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), BooleanConstant(booleanConstant) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, BooleanLiteralExpr boolean_literal)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), boolean_literal(boolean_literal) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, CharacterConstantExpr characterConstant)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), CharacterConstant(characterConstant) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, CharacterLiteralExpr character_literal)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), character_literal(character_literal) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, IntegerConstantExpr integerConstant)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), IntegerConstant(integerConstant) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, IntegerLiteralExpr integer_literal)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), integer_literal(integer_literal) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, FloatingConstantExpr floatingConstant)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), FloatingConstant(floatingConstant) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, FloatingLiteralExpr floating_literal)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), floating_literal(floating_literal) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, StringConstantExpr stringConstant)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), StringConstant(stringConstant) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, StringLiteralExpr string_literal)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), string_literal(string_literal) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, DeclRefExpr declRef)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), DeclRef(declRef) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, DeclRefExpr decl_ref)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), decl_ref(decl_ref) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, MemberExpr member)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Member(member) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, MemberExpr member)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), member(member) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, TemporaryExpr temporary)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Temporary(temporary) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, TemporaryExpr temporary)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), temporary(temporary) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, CopyExpr copy)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Copy(copy) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, CopyExpr copy)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), copy(copy) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, CallExpr call)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Call(call) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, CallExpr call)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), call(call) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, ConstructExpr construct)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Construct(construct) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ConstructExpr construct)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), construct(construct) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, MethodCallExpr methodCall)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), MethodCall(methodCall) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, MethodCallExpr method_call)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), method_call(method_call) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, ArraySubscriptExpr arrSubs)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), ArraySubscript(arrSubs) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ArraySubscriptExpr arr_subs)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), array_subscript(arr_subs) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, ToSliceExpr toSlice)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), ToSlice(toSlice) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ToSliceExpr to_slice)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), to_slice(to_slice) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, NewExpr new_)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), New(new_) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, NewExpr new_)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), new_(new_) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, DeleteExpr delete_)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Delete(delete_) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, DeleteExpr delete_)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), delete_(delete_) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, FormatExpr format)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Format(format) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, FormatExpr format)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), format(format) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, ParenExpr paren)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Paren(paren) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ParenExpr paren)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), paren(paren) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, CastExpr cast)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), Cast(cast) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, CastExpr cast)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), cast(cast) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, ImplicitCastExpr implicitCast)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), ImplicitCast(implicitCast) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ImplicitCastExpr implicit_cast)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), implicit_cast(implicit_cast) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, UnaryOperatorExpr unaryOperator)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), UnaryOperator(unaryOperator) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, UnaryOperatorExpr unary_operator)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), unary_operator(unary_operator) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, BinaryOperatorExpr binaryOperator)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), BinaryOperator(binaryOperator) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, BinaryOperatorExpr binary_operator)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), binary_operator(binary_operator) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind valueKind, TypeInfo* type, CompoundAssignExpr compoundAssign)
-            : Loc(loc), Range(range), Kind(kind), ValueKind(valueKind), Type(type), CompoundAssign(compoundAssign) {}
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, CompoundAssignExpr compound_assign)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), compound_assign(compound_assign) {}
     };
 
     inline Expr error_expr = Expr(SourceLocation(), SourceRange(), ExprKind::Error, ExprValueKind::RValue, nullptr, ErrorExpr());

@@ -13,39 +13,39 @@ namespace Aria::Internal {
         using iterator = T*;
         using const_iterator = T*;
 
-        T* Items = nullptr;
-        size_t Capacity = 0;
-        size_t Size = 0;
+        T* items = nullptr;
+        size_t capacity = 0;
+        size_t size = 0;
     
         inline void append(CompilationContext* ctx, T t) {
-            if (Capacity == 0) {
-                Items = reinterpret_cast<T*>(alloc_arena(ctx, sizeof(T) * 32));
-                Capacity = 32;
+            if (capacity == 0) {
+                items = reinterpret_cast<T*>(alloc_arena(ctx, sizeof(T) * 32));
+                capacity = 32;
             }
     
-            if (Size >= Capacity) {
-                Capacity *= 2;
+            if (size >= capacity) {
+                capacity *= 2;
     
-                T* newItems = reinterpret_cast<T*>(alloc_arena(ctx, sizeof(T) * Capacity));
-                memcpy(newItems, Items, sizeof(T) * Size);
-                Items = newItems;
+                T* newitems = reinterpret_cast<T*>(alloc_arena(ctx, sizeof(T) * capacity));
+                memcpy(newitems, items, sizeof(T) * size);
+                items = newitems;
             }
     
-            Items[Size] = t;
-            Size++;
+            items[size] = t;
+            size++;
         }
 
-        inline iterator begin() { return Items; }
-        inline const_iterator begin() const { return Items; }
+        inline iterator begin() { return items; }
+        inline const_iterator begin() const { return items; }
 
-        inline iterator end() { return Items + Size; }
-        inline const_iterator end() const { return Items + Size; }
+        inline iterator end() { return items + size; }
+        inline const_iterator end() const { return items + size; }
 
-        inline iterator rbegin() { return Items + Size - 1; }
-        inline const_iterator rbegin() const { return Items + Size - 1; }
+        inline iterator rbegin() { return items + size - 1; }
+        inline const_iterator rbegin() const { return items + size - 1; }
 
-        inline iterator rend() { return Items - 1; }
-        inline const_iterator rend() const { return Items - 1; }
+        inline iterator rend() { return items - 1; }
+        inline const_iterator rend() const { return items - 1; }
     };
 
 } // namespace Aria::Internal

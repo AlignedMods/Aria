@@ -17,92 +17,92 @@ namespace Aria::Internal {
     };
 
     struct CompilerDiagnostic {
-        CompilerDiagKind Kind = CompilerDiagKind::Warning;
+        CompilerDiagKind kind = CompilerDiagKind::Warning;
 
-        size_t Line = 0; size_t Column = 0;
-        size_t StartLine = 0; size_t StartColumn = 0;
+        size_t line = 0; size_t column = 0;
+        size_t start_line = 0; size_t start_column = 0;
 
-        size_t EndLine = 0; size_t EndColumn = 0;
-        std::string Message;
+        size_t end_line = 0; size_t end_column = 0;
+        std::string message;
     };
 
     struct CompilationUnit;
 
     struct Module {
-        std::unordered_map<std::string, Decl*> Symbols;
-        std::unordered_map<std::string, std::vector<Decl*>> OverloadedFuncs;
-        std::vector<CompilationUnit*> Units;
-        std::string Name;
-        OpCodes Ops;
-        CompilerReflectionData ReflectionData;
+        std::unordered_map<std::string, Decl*> symbols;
+        std::unordered_map<std::string, std::vector<Decl*>> overloaded_funcs;
+        std::vector<CompilationUnit*> units;
+        std::string name;
+        OpCodes ops;
+        CompilerReflectionData reflection_data;
     };
 
     struct CompilationUnit {
         inline CompilationUnit(const std::string& source)
-            : Source(source) {}
+            : source(source) {}
 
-        size_t Index = 0;
+        size_t index = 0;
 
-        std::string Source;
-        std::vector<Token> Tokens;
-        Stmt* RootASTNode = nullptr;
+        std::string source;
+        std::vector<Token> tokens;
+        Stmt* root_ast_node = nullptr;
 
-        std::vector<CompilerDiagnostic> Diagnostics;
+        std::vector<CompilerDiagnostic> diagnostics;
 
-        std::vector<Decl*> Globals;
-        std::vector<Decl*> Funcs;
-        std::vector<Decl*> Structs;
+        std::vector<Decl*> globals;
+        std::vector<Decl*> funcs;
+        std::vector<Decl*> structs;
 
-        std::vector<Stmt*> Imports;
+        std::vector<Stmt*> imports;
 
-        std::unordered_map<std::string, Decl*> LocalSymbols;
+        std::unordered_map<std::string, Decl*> local_symbols;
 
-        Module* Parent = nullptr;
+        Module* parent = nullptr;
     };
 
     struct CompilationContext {
         inline CompilationContext()
-            : Arena(new ArenaAllocator(10 * 1024 * 1024)) {}
+            : arena(new ArenaAllocator(10 * 1024 * 1024)) {}
 
         inline CompilationContext(const CompilationContext& other) = delete; // Disallow copying
         inline CompilationContext(const CompilationContext&& other) = delete; // Disallow moving
 
         inline ~CompilationContext() {
-            delete Arena;
+            delete arena;
 
             // Free all the modules and compilation units
-            for (CompilationUnit* unit : CompilationUnits) { delete unit; }
-            for (Module* mod : Modules) { delete mod; }
+            for (CompilationUnit* unit : compilation_units) { delete unit; }
+            for (Module* mod : modules) { delete mod; }
         }
 
         template <typename T>
         inline T* allocate() {
-            return Arena->allocate_named<T>();
+            return arena->allocate_named<T>();
         }
 
         template <typename T, typename... Args>
         inline T* allocate(Args&&... args) {
-            return Arena->allocate_named<T>(std::forward<Args>(args)...);
+            return arena->allocate_named<T>(std::forward<Args>(args)...);
         }
 
         inline void* allocate_sized(size_t size) {
-            return Arena->allocate(size);
+            return arena->allocate(size);
         }
 
         inline void report_compiler_diagnostic(SourceLocation loc, SourceRange range, const std::string& error, CompilerDiagKind kind = CompilerDiagKind::Error) {
             CompilerDiagnostic d;
-            d.Kind = kind;
-            d.Line = loc.Line;
-            d.Column = loc.Column;
-            d.StartLine = range.Start.Line;
-            d.StartColumn = range.Start.Column;
-            d.EndLine = range.End.Line;
-            d.EndColumn = range.End.Column;
-            d.Message = error;
-            ActiveCompUnit->Diagnostics.push_back(d);
+            d.kind = kind;
+            d.line = loc.line;
+            d.column = loc.column;
+            d.start_line = range.start.line;
+            d.start_column = range.start.column;
+            d.end_line = range.end.line;
+            d.end_column = range.end.column;
+            d.message = error;
+            active_comp_unit->diagnostics.push_back(d);
 
             if (kind == CompilerDiagKind::Error) {
-                HasErrors = true;
+                has_errors = true;
             }
         }
     
@@ -116,16 +116,16 @@ namespace Aria::Internal {
 
         Module* find_or_create_module(const std::string& name);
 
-        ArenaAllocator* Arena = nullptr;
+        ArenaAllocator* arena = nullptr;
 
-        std::vector<CompilationUnit*> CompilationUnits;
-        CompilationUnit* ActiveCompUnit = nullptr;
+        std::vector<CompilationUnit*> compilation_units;
+        CompilationUnit* active_comp_unit = nullptr;
 
-        std::vector<Module*> Modules;
+        std::vector<Module*> modules;
 
-        OpCodes Ops;
-        CompilerReflectionData ReflectionData;
-        bool HasErrors = false;
+        OpCodes ops;
+        CompilerReflectionData reflection_data;
+        bool has_errors = false;
     };
 
 } // namespace Aria::Internal

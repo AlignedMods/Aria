@@ -27,7 +27,7 @@ namespace Aria::Internal {
         BuiltinDestructor
     };
 
-    inline const char* DeclKindToString(DeclKind kind) {
+    inline const char* decl_kind_to_string(DeclKind kind) {
         switch (kind) {
             case DeclKind::Error: return "Error";
 
@@ -56,34 +56,34 @@ namespace Aria::Internal {
     // This should always be the root node of the AST
     struct TranslationUnitDecl {
         TranslationUnitDecl(TinyVector<Stmt*> stmts)
-            : Stmts(stmts) {}
+            : stmts(stmts) {}
 
-        TinyVector<Stmt*> Stmts;
+        TinyVector<Stmt*> stmts;
     };
 
     struct ModuleDecl {
         ModuleDecl(std::string_view name)
-            : Name(name) {}
+            : name(name) {}
 
-        std::string_view Name;
+        std::string_view name;
     };
 
     struct VarDecl {
         VarDecl(std::string_view identifier, TypeInfo* type, Expr* initializer, bool global)
-            : Identifier(identifier), Type(type), Initializer(initializer), GlobalVar(global) {}
+            : identifier(identifier), type(type), initializer(initializer), global_var(global) {}
 
-        std::string_view Identifier;
-        TypeInfo* Type = nullptr;
-        Expr* Initializer = nullptr;
-        bool GlobalVar = false;
+        std::string_view identifier;
+        TypeInfo* type = nullptr;
+        Expr* initializer = nullptr;
+        bool global_var = false;
     };
 
     struct ParamDecl {
         ParamDecl(std::string_view identifier, TypeInfo* type)
-            : Identifier(identifier), Type(type) {}
+            : identifier(identifier), type(type) {}
 
-        std::string_view Identifier;
-        TypeInfo* Type = nullptr;
+        std::string_view identifier;
+        TypeInfo* type = nullptr;
     };
 
     struct FunctionDecl {
@@ -95,148 +95,133 @@ namespace Aria::Internal {
         };
 
         struct Attribute {
-            AttributeKind Kind = AttributeKind::None;
-            std::string_view Arg;
+            AttributeKind kind = AttributeKind::None;
+            std::string_view arg;
         };
 
         FunctionDecl(std::string_view identifier, TypeInfo* type, TinyVector<Decl*> params, Stmt* body, TinyVector<Attribute> attrs)
-            : Identifier(identifier), Type(type), Parameters(params), Body(body), Attributes(attrs) {}
+            : identifier(identifier), type(type), parameters(params), body(body), attributes(attrs) {}
 
-        std::string_view Identifier;
-        TypeInfo* Type = nullptr;
-        TinyVector<Decl*> Parameters;
-        Stmt* Body = nullptr;
-        TinyVector<Attribute> Attributes;
+        std::string_view identifier;
+        TypeInfo* type = nullptr;
+        TinyVector<Decl*> parameters;
+        Stmt* body = nullptr;
+        TinyVector<Attribute> attributes;
     };
 
     struct StructDecl {
         struct DefinitionData {
-            bool HasDefaultCtor : 1;
-            bool HasUserDefaultCtor : 1;
+            bool has_default_ctor : 1;
+            bool has_user_default_ctor : 1;
 
-            bool HasUserDtor : 1;
-            bool TrivialDtor : 1;
+            bool has_user_dtor : 1;
+            bool trivial_dtor : 1;
         };
 
         StructDecl(std::string_view identifier, DefinitionData defd, TinyVector<Decl*> fields)
-            : Identifier(identifier), Definition(defd), Fields(fields) {}
+            : identifier(identifier), definition(defd), fields(fields) {}
 
-        std::string_view Identifier;
-        DefinitionData Definition;
-        TinyVector<Decl*> Fields;
+        std::string_view identifier;
+        DefinitionData definition;
+        TinyVector<Decl*> fields;
     };
 
     struct FieldDecl {
         FieldDecl(std::string_view identifier, TypeInfo* type)
-            : Identifier(identifier), Type(type) {}
+            : identifier(identifier), type(type) {}
 
-        std::string_view Identifier;
-        TypeInfo* Type = nullptr;
+        std::string_view identifier;
+        TypeInfo* type = nullptr;
     };
 
     struct ConstructorDecl {
         ConstructorDecl(TinyVector<Decl*> parameters, Stmt* body)
-            : Parameters(parameters), Body(body) {}
+            : parameters(parameters), body(body) {}
 
-        TinyVector<Decl*> Parameters;
-        Stmt* Body = nullptr;
+        TinyVector<Decl*> parameters;
+        Stmt* body = nullptr;
     };
 
     struct DestructorDecl {
         DestructorDecl(Stmt* body)
-            : Body(body) {}
+            : body(body) {}
 
-        Stmt* Body = nullptr;
-    };
-
-    struct MethodDecl {
-        MethodDecl(std::string_view identifier, std::string_view parsedType, TinyVector<Decl*> parameters, Stmt* body)
-            : Identifier(identifier), Parameters(parameters), ParsedType(parsedType), Body(body) {}
-
-        std::string_view Identifier;
-        std::string_view ParsedType;
-        TinyVector<Decl*> Parameters;
-        Stmt* Body = nullptr;
-        TypeInfo* Type = nullptr;
+        Stmt* body = nullptr;
     };
 
     struct BuiltinCopyConstructorDecl {
         BuiltinCopyConstructorDecl(BuiltinKind kind)
-            : Kind(kind) {}
+            : kind(kind) {}
 
-        BuiltinKind Kind = BuiltinKind::String;
+        BuiltinKind kind = BuiltinKind::String;
     };
 
     struct BuiltinDestructorDecl {
         BuiltinDestructorDecl(BuiltinKind kind)
-            : Kind(kind) {}
+            : kind(kind) {}
 
-        BuiltinKind Kind = BuiltinKind::String;
+        BuiltinKind kind = BuiltinKind::String;
     };
 
     struct Decl {
         template <typename T>
         static inline Decl* Create(CompilationContext* ctx, SourceLocation loc, SourceRange range, DeclKind kind, T t = ErrorDecl{}) { return ctx->allocate<Decl>(loc, range, kind, t); }
 
-        DeclKind Kind = DeclKind::Invalid;
+        DeclKind kind = DeclKind::Invalid;
 
-        SourceLocation Loc;
-        SourceRange Range;
+        SourceLocation loc;
+        SourceRange range;
 
         union {
-            ErrorDecl Error;
-            TranslationUnitDecl TranslationUnit;
-            ModuleDecl Module;
-            VarDecl Var;
-            ParamDecl Param;
-            FunctionDecl Function;
-            StructDecl Struct;
-            FieldDecl Field;
-            ConstructorDecl Constructor;
-            DestructorDecl Destructor;
-            MethodDecl Method;
-            BuiltinCopyConstructorDecl BuiltinCopyConstructor;
-            BuiltinDestructorDecl BuiltinDestructor;
+            ErrorDecl error;
+            TranslationUnitDecl translation_unit;
+            ModuleDecl module;
+            VarDecl var;
+            ParamDecl param;
+            FunctionDecl function;
+            StructDecl struct_;
+            FieldDecl field;
+            ConstructorDecl constructor;
+            DestructorDecl destructor;
+            BuiltinCopyConstructorDecl built_in_copy_constructor;
+            BuiltinDestructorDecl built_in_destructor;
         };
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, ErrorDecl error)
-            : Loc(loc), Range(range), Kind(kind), Error(error) {}
+            : loc(loc), range(range), kind(kind), error(error) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, TranslationUnitDecl translationUnit)
-            : Loc(loc), Range(range), Kind(kind), TranslationUnit(translationUnit) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, TranslationUnitDecl translation_unit)
+            : loc(loc), range(range), kind(kind), translation_unit(translation_unit) {}
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, ModuleDecl module)
-            : Loc(loc), Range(range), Kind(kind), Module(module) {}
+            : loc(loc), range(range), kind(kind), module(module) {}
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, VarDecl var)
-            : Loc(loc), Range(range), Kind(kind), Var(var) {}
+            : loc(loc), range(range), kind(kind), var(var) {}
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, ParamDecl param)
-            : Loc(loc), Range(range), Kind(kind), Param(param) {}
+            : loc(loc), range(range), kind(kind), param(param) {}
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, FunctionDecl function)
-            : Loc(loc), Range(range), Kind(kind), Function(function) {}
+            : loc(loc), range(range), kind(kind), function(function) {}
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, StructDecl struc)
-            : Loc(loc), Range(range), Kind(kind), Struct(struc) {}
+            : loc(loc), range(range), kind(kind), struct_(struc) {}
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, FieldDecl field)
-            : Loc(loc), Range(range), Kind(kind), Field(field) {}
+            : loc(loc), range(range), kind(kind), field(field) {}
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, ConstructorDecl ctor)
-            : Loc(loc), Range(range), Kind(kind), Constructor(ctor) {}
+            : loc(loc), range(range), kind(kind), constructor(ctor) {}
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, DestructorDecl dtor)
-            : Loc(loc), Range(range), Kind(kind), Destructor(dtor) {}
+            : loc(loc), range(range), kind(kind), destructor(dtor) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, MethodDecl method)
-            : Loc(loc), Range(range), Kind(kind), Method(method) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, BuiltinCopyConstructorDecl bicc)
+            : loc(loc), range(range), kind(kind), built_in_copy_constructor(bicc) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, BuiltinCopyConstructorDecl builtinCopyConstructor)
-            : Loc(loc), Range(range), Kind(kind), BuiltinCopyConstructor(builtinCopyConstructor) {}
-
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, BuiltinDestructorDecl builtinDestructor)
-            : Loc(loc), Range(range), Kind(kind), BuiltinDestructor(builtinDestructor) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, BuiltinDestructorDecl bid)
+            : loc(loc), range(range), kind(kind), built_in_destructor(bid) {}
     };
 
     inline Decl error_decl = Decl(SourceLocation(), SourceRange(), DeclKind::Error, ErrorDecl());

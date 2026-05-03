@@ -17,7 +17,7 @@ workspace "Aria"
         includedirs { "src/", "src/vendor/fmt/include/" }
 
         filter { "action:vs*" }
-            buildoptions { "/utf-8" }
+            buildoptions { "/utf-8", "/Zc:preprocessor" }
 
         filter {}
 
@@ -42,7 +42,7 @@ workspace "Aria"
         links { "AriaLib", "fmt" }
 
         filter { "action:vs*" }
-            buildoptions { "/utf-8" }
+            buildoptions { "/utf-8", "/Zc:preprocessor" }
 
         filter {}
 
@@ -67,7 +67,7 @@ workspace "Aria"
         links { "AriaLib", "fmt" }
 
         filter { "action:vs*" }
-            buildoptions { "/utf-8" }
+            buildoptions { "/utf-8", "/Zc:preprocessor" }
 
         filter {}
 

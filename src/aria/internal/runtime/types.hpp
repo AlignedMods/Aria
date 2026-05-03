@@ -5,12 +5,12 @@
 namespace Aria::Internal {
     
     struct RuntimeSlice {
-        void* Mem = nullptr;
-        u64 Size = 0;
+        void* mem = nullptr;
+        u64 size = 0;
     };
 
     static_assert(sizeof(RuntimeSlice) == 16, "Invalid size of RuntimeSlice");
-    static_assert(offsetof(RuntimeSlice, Mem) == 0, "Invalid offset of RuntimeSlice::Mem");
-    static_assert(offsetof(RuntimeSlice, Size) == 8, "Invalid offset of RuntimeSlice::Size");
+    static_assert(offsetof(RuntimeSlice, mem) == 0, "Invalid offset of RuntimeSlice::mem");
+    static_assert(offsetof(RuntimeSlice, size) == 8, "Invalid offset of RuntimeSlice::size");
 
 } // namespace Aria::Internal

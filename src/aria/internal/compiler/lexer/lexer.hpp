@@ -41,15 +41,15 @@ namespace Aria::Internal {
         size_t get_column(size_t index);
 
     private:
-        Tokens m_Tokens;
+        Tokens m_tokens;
 
-        size_t m_Index = 0;
-        std::string_view m_Source;
+        size_t m_index = 0;
+        std::string_view m_source;
 
-        size_t m_CurrentLine = 1;
-        size_t m_CurrentLineStart = 0; // The number of characters it takes to get to this line (from the start of the file)
+        size_t m_current_line = 1;
+        size_t m_current_line_start = 0; // The number of characters it takes to get to this line (from the start of the file)
     
-        CompilationContext* m_Context = nullptr;
+        CompilationContext* m_context = nullptr;
     };
 
 } // namespace Aria::Internal

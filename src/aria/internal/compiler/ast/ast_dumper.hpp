@@ -24,12 +24,8 @@ namespace Aria::Internal {
         void dump_function_attr(FunctionDecl::Attribute attr, size_t indentation);
 
     private:
-        Stmt* m_RootASTNode = nullptr;
-
-        std::string m_Output;
-        std::string m_Indentation;
-
-        size_t m_CurrentLine = 1;
+        Stmt* m_root_ast_node = nullptr;
+        std::string m_output;
     };
 
 } // namespace Aria::Internal

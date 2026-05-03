@@ -2,122 +2,118 @@
 
 namespace Aria::Internal {
 
-    void SemanticAnalyzer::resolve_TranslationUnit_decl(Decl* decl) {
-        TranslationUnitDecl tu = decl->TranslationUnit;
+    void SemanticAnalyzer::resolve_translation_unit_decl(Decl* decl) {
+        TranslationUnitDecl tu = decl->translation_unit;
 
-        for (Stmt* stmt : tu.Stmts) {
+        for (Stmt* stmt : tu.stmts) {
             resolve_stmt(stmt);
         }
     }
 
-    void SemanticAnalyzer::resolve_Module_decl(Decl* decl) {}
+    void SemanticAnalyzer::resolve_var_decl(Decl* decl) {
+        VarDecl& varDecl = decl->var;
+        std::string ident = fmt::format("{}", varDecl.identifier);
 
-    void SemanticAnalyzer::resolve_Var_decl(Decl* decl) {
-        VarDecl& varDecl = decl->Var;
-        std::string ident = fmt::format("{}", varDecl.Identifier);
+        if (varDecl.type) {
+            resolve_type(decl->loc, decl->range, varDecl.type);
 
-        if (varDecl.Type) {
-            resolve_type(decl->Loc, decl->Range, varDecl.Type);
-
-            if (varDecl.Type->is_void()) {
-                m_Context->report_compiler_diagnostic(decl->Loc, decl->Range, "Cannot declare variable of 'void' type");
+            if (varDecl.type->is_void()) {
+                m_context->report_compiler_diagnostic(decl->loc, decl->range, "Cannot declare variable of 'void' type");
             }
         }
 
         resolve_var_initializer(decl);
 
-        if (m_Scopes.size() > 0) {
-            if (m_Scopes.back().Declarations.contains(ident)) {
-                m_Context->report_compiler_diagnostic(decl->Loc, decl->Range, fmt::format("Redeclaring symbol '{}'", ident));
+        if (m_scopes.size() > 0) {
+            if (m_scopes.back().declarations.contains(ident)) {
+                m_context->report_compiler_diagnostic(decl->loc, decl->range, fmt::format("Redeclaring symbol '{}'", ident));
             }
 
-            m_Scopes.back().Declarations[ident] = { varDecl.Type, decl, DeclKind::Var };
+            m_scopes.back().declarations[ident] = { varDecl.type, decl, DeclKind::Var };
         }
     }
 
-    void SemanticAnalyzer::resolve_Param_decl(Decl* decl) {
-        ParamDecl& paramDecl = decl->Param;
-        resolve_type(decl->Loc, decl->Range, paramDecl.Type);
-        m_Scopes.back().Declarations[fmt::format("{}", paramDecl.Identifier)] = { paramDecl.Type, decl, DeclKind::Param };
+    void SemanticAnalyzer::resolve_param_decl(Decl* decl) {
+        ParamDecl& paramDecl = decl->param;
+        resolve_type(decl->loc, decl->range, paramDecl.type);
+        m_scopes.back().declarations[fmt::format("{}", paramDecl.identifier)] = { paramDecl.type, decl, DeclKind::Param };
     }
 
-    void SemanticAnalyzer::resolve_Function_decl(Decl* decl) {
-        FunctionDecl fnDecl = decl->Function;
+    void SemanticAnalyzer::resolve_function_decl(Decl* decl) {
+        FunctionDecl fnDecl = decl->function;
 
-        for (auto& attr : fnDecl.Attributes) {
-            if (attr.Kind == FunctionDecl::AttributeKind::Unsafe) {
-                m_UnsafeContext = true;
+        for (auto& attr : fnDecl.attributes) {
+            if (attr.kind == FunctionDecl::AttributeKind::Unsafe) {
+                m_unsafe_context = true;
             }
         }
 
-        std::string ident = fmt::format("{}", fnDecl.Identifier);
-        resolve_type(decl->Loc, decl->Range, fnDecl.Type);
+        std::string ident = fmt::format("{}", fnDecl.identifier);
+        resolve_type(decl->loc, decl->range, fnDecl.type);
         
-        if (fnDecl.Body) {
-            m_ActiveReturnType = fnDecl.Type->Function.ReturnType;
+        if (fnDecl.body) {
+            m_active_return_type = fnDecl.type->function.return_type;
             push_scope();
             
-            for (Decl* p : fnDecl.Parameters) {
-                resolve_Param_decl(p);
+            for (Decl* p : fnDecl.parameters) {
+                resolve_param_decl(p);
             }
             
-            if (fnDecl.Body) {
-                resolve_Block_stmt(fnDecl.Body);
+            if (fnDecl.body) {
+                resolve_block_stmt(fnDecl.body);
             }
 
-            if (m_Scopes.back().ReachesEnd && !fnDecl.Type->Function.ReturnType->is_void()) {
-                m_Context->report_compiler_diagnostic(decl->Loc, decl->Range, "Control flow reaches end of function with a non void return type");
+            if (m_scopes.back().reaches_end && !fnDecl.type->function.return_type->is_void()) {
+                m_context->report_compiler_diagnostic(decl->loc, decl->range, "Control flow reaches end of function with a non void return type");
             }
 
             pop_scope();
-            m_ActiveReturnType = nullptr;
+            m_active_return_type = nullptr;
         }
 
-        m_UnsafeContext = false;
+        m_unsafe_context = false;
     }
 
-    void SemanticAnalyzer::resolve_OverloadedFunction_decl(Decl* decl) {}
-
-    void SemanticAnalyzer::resolve_Struct_decl(Decl* decl) {
-        StructDecl& s = decl->Struct;
-        std::string ident = fmt::format("{}", s.Identifier);
+    void SemanticAnalyzer::resolve_struct_decl(Decl* decl) {
+        StructDecl& s = decl->struct_;
+        std::string ident = fmt::format("{}", s.identifier);
 
         StructDeclaration d;
-        d.Identifier = s.Identifier;
-        d.SourceDecl = decl;
+        d.identifier = s.identifier;
+        d.source_decl = decl;
         
-        TypeInfo* structType = TypeInfo::Create(m_Context, TypeKind::Structure, false);
-        structType->Struct = d;
+        TypeInfo* structType = TypeInfo::Create(m_context, TypeKind::Structure, false);
+        structType->struct_ = d;
         std::vector<Decl*> methods;
 
-        for (Decl* field : s.Fields) {
-            if (field->Kind == DeclKind::Field) {
-                resolve_type(field->Loc, field->Range, field->Field.Type);
+        for (Decl* field : s.fields) {
+            if (field->kind == DeclKind::Field) {
+                resolve_type(field->loc, field->range, field->field.type);
 
-                if (!type_is_trivial(field->Field.Type)) {
-                    s.Definition.TrivialDtor = false;
+                if (!type_is_trivial(field->field.type)) {
+                    s.definition.trivial_dtor = false;
                 }
-            } else if (field->Kind == DeclKind::Constructor) {
+            } else if (field->kind == DeclKind::Constructor) {
                 methods.push_back(field);
             }
         }
 
         for (Decl* method : methods) {
-            if (method->Kind == DeclKind::Constructor) {
+            if (method->kind == DeclKind::Constructor) {
                 TinyVector<Stmt*> newBody;
 
-                for (Decl* field : s.Fields) {
-                    if (field->Kind == DeclKind::Field) {
-                        if (!type_is_trivial(field->Field.Type)) {
+                for (Decl* field : s.fields) {
+                    if (field->kind == DeclKind::Field) {
+                        if (!type_is_trivial(field->field.type)) {
                             ARIA_TODO("Propagating constructors");
                         }
                     }
                 }
-                resolve_stmt(method->Constructor.Body);
+                resolve_stmt(method->constructor.body);
             }
         }
 
-        m_ActiveStruct = TypeInfo::Dup(m_Context, structType);
+        m_active_struct = TypeInfo::Dup(m_context, structType);
         
         // for (MethodDecl* md : methods) {
         //     TypeInfo* returnType = GetTypeInfoFromString(md->GetParsedType());
@@ -152,29 +148,38 @@ namespace Aria::Internal {
         //     m_ActiveReturnType = nullptr;
         // }
         
-        m_ActiveStruct = nullptr;
+        m_active_struct = nullptr;
     }
 
-    void SemanticAnalyzer::resolve_Field_decl(Decl* decl) { ARIA_UNREACHABLE(); }
-    void SemanticAnalyzer::resolve_Constructor_decl(Decl* decl) { ARIA_UNREACHABLE(); }
-    void SemanticAnalyzer::resolve_Destructor_decl(Decl* decl) { ARIA_UNREACHABLE(); }
-    void SemanticAnalyzer::resolve_Method_decl(Decl* decl) { ARIA_UNREACHABLE(); }
-    void SemanticAnalyzer::resolve_BuiltinCopyConstructor_decl(Decl* decl) { ARIA_UNREACHABLE(); }
-    void SemanticAnalyzer::resolve_BuiltinDestructor_decl(Decl* decl) { ARIA_UNREACHABLE(); }
-
     void SemanticAnalyzer::resolve_decl(Decl* decl) {
-        #define DECL_CASE(kind) resolve_##kind##_decl(decl)
-        #include "aria/internal/compiler/ast/decl_switch.hpp"
-        #undef DECL_CASE
+        switch (decl->kind) {
+            case DeclKind::Error:
+            case DeclKind::Module:
+            case DeclKind::OverloadedFunction:
+            case DeclKind::Field:
+            case DeclKind::Constructor:
+            case DeclKind::Destructor:
+            case DeclKind::Method:
+            case DeclKind::BuiltinCopyConstructor:
+            case DeclKind::BuiltinDestructor: return;
+
+            case DeclKind::TranslationUnit: return resolve_translation_unit_decl(decl);
+            case DeclKind::Var: return resolve_var_decl(decl);
+            case DeclKind::Param: return resolve_param_decl(decl);
+            case DeclKind::Function: return resolve_function_decl(decl);
+            case DeclKind::Struct: return resolve_struct_decl(decl);
+
+            default: ARIA_UNREACHABLE();
+        }
     }
 
     std::string SemanticAnalyzer::mangle_function(FunctionDecl* fn) {
-        std::string ident = fmt::format("{}(", fn->Identifier);
+        std::string ident = fmt::format("{}(", fn->identifier);
 
-        for (size_t i = 0; i < fn->Parameters.Size; i++) {
-            ident += type_info_to_string(fn->Parameters.Items[i]->Param.Type);
+        for (size_t i = 0; i < fn->parameters.size; i++) {
+            ident += type_info_to_string(fn->parameters.items[i]->param.type);
 
-            if (i != fn->Parameters.Size - 1) {
+            if (i != fn->parameters.size - 1) {
                 ident += ", ";
             }
         }

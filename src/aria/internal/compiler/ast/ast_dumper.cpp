@@ -5,301 +5,307 @@
 namespace Aria::Internal {
 
     ASTDumper::ASTDumper(Stmt* rootASTNode) {
-        m_RootASTNode = rootASTNode;
+        m_root_ast_node = rootASTNode;
 
         dump_ast_impl();
     }
 
     std::string& ASTDumper::get_output() {
-        return m_Output;
+        return m_output;
     }
 
     void ASTDumper::dump_ast_impl() {
-        dump_stmt(m_RootASTNode, 0);
+        dump_stmt(m_root_ast_node, 0);
     }
 
     void ASTDumper::dump_expr(Expr* expr, size_t indentation) {
         std::string ident;
         ident.append(indentation, ' ');
-        m_Output += ident;
+        m_output += ident;
 
-        if (expr == nullptr) { m_Output += "<<NULL>>\n"; return; };
-        
-        if (expr->Kind == ExprKind::Error) {
-            m_Output += fmt::format("ErrorExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
-        } else if (expr->Kind == ExprKind::BooleanConstant) {
-            m_Output += fmt::format("BooleanConstantExpr {} '{}' {}\n", expr->BooleanConstant.Value, type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
-        } else if (expr->Kind == ExprKind::CharacterConstant) {
-            m_Output += fmt::format("CharacterConstant 0x{:x} '{}' {}\n", expr->CharacterConstant.Value, type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
-        } else if (expr->Kind == ExprKind::IntegerConstant) {
-            m_Output += fmt::format("IntegerConstantExpr {} '{}' {}\n", expr->IntegerConstant.Value, type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
-        } else if (expr->Kind == ExprKind::FloatingConstant) {
-            m_Output += fmt::format("FloatingConstantExpr {} '{}' {}\n", expr->FloatingConstant.Value, type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
-        } else if (expr->Kind == ExprKind::StringConstant) {
-            m_Output += fmt::format("StringConstantExpr {:?} '{}' {}\n", expr->StringConstant.Value, type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
-        } else if (expr->Kind == ExprKind::Null) {
-            m_Output += fmt::format("NullExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
-        } else if (expr->Kind == ExprKind::DeclRef) {
-            m_Output += fmt::format("DeclRefExpr '{}' '{}' {} {} {}\n", expr->DeclRef.Identifier, type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind), DeclKindToString(expr->DeclRef.ReferencedDecl->Kind), static_cast<void*>(expr->DeclRef.ReferencedDecl));
-            if (expr->DeclRef.NameSpecifier) {
-                dump_specifier(expr->DeclRef.NameSpecifier, indentation + 4);
-            }
-            return;
-        } else if (expr->Kind == ExprKind::Member) {
-            m_Output += fmt::format("MemberExpr '{}' '{}' {}\n", expr->Member.Member, type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
-            dump_expr(expr->Member.Parent, indentation + 4);
-            return;
-        } else if (expr->Kind == ExprKind::BuiltinMember) {
-            m_Output += fmt::format("BuiltinMemberExpr '{}' '{}' {}\n", expr->Member.Member, type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
-            dump_expr(expr->Member.Parent, indentation + 4);
-            return;
-        } else if (expr->Kind == ExprKind::Self) {
-            m_Output += fmt::format("SelfExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind)); return;
-        } else if (expr->Kind == ExprKind::Temporary) {
-            m_Output += fmt::format("TemporaryExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
-            dump_expr(expr->Temporary.Expression, indentation + 4);
-            return;
-        } else if (expr->Kind == ExprKind::Copy) {
-            m_Output += fmt::format("CopyExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
-            dump_expr(expr->Copy.Expression, indentation + 4);
-            return;
-        } else if (expr->Kind == ExprKind::Call) {
-            m_Output += fmt::format("CallExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
-            for (Expr* e : expr->Call.Arguments) {
-                dump_expr(e, indentation + 4);
-            }
-            dump_expr(expr->Call.Callee, indentation + 4);
-            return;
-        } else if (expr->Kind == ExprKind::Construct) {
-            m_Output += fmt::format("ConstructExpr '{}' {} {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind), reinterpret_cast<void*>(expr->Construct.Ctor));
-            for (Expr* e : expr->Construct.Arguments) {
-                dump_expr(e, indentation + 4);
-            }
-            return;
-        } else if (expr->Kind == ExprKind::MethodCall) {
-            m_Output += fmt::format("MethodCallExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
-            for (Expr* e : expr->MethodCall.Arguments) {
-                dump_expr(e, indentation + 4);
-            }
-            dump_expr(expr->MethodCall.Callee, indentation + 4);
-            return;
-        } else if (expr->Kind == ExprKind::ToSlice) {
-            m_Output += fmt::format("ToSliceExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
-            dump_expr(expr->ToSlice.Source, indentation + 4);
-            dump_expr(expr->ToSlice.Len, indentation + 4);
-            return;
-        }  else if (expr->Kind == ExprKind::ArraySubscript) {
-            m_Output += fmt::format("ArraySubscriptExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
-            dump_expr(expr->ArraySubscript.Array, indentation + 4);
-            dump_expr(expr->ArraySubscript.Index, indentation + 4);
-            return;
-        } else if (expr->Kind == ExprKind::New) {
-            m_Output += fmt::format("NewExpr {}'{}' {}\n", expr->New.Array ? "array " : "", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
-            if (expr->New.Initializer) {
-                dump_expr(expr->New.Initializer, indentation + 4);
-            }
-            return;
-        } else if (expr->Kind == ExprKind::Delete) {
-            m_Output += fmt::format("DeleteExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
-            dump_expr(expr->Delete.Expression, indentation + 4);
-            return;
-        } else if (expr->Kind == ExprKind::Format) {
-            m_Output += fmt::format("FormatExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
-            for (auto& arg : expr->Format.ResolvedArgs) {
-                dump_expr(arg.Arg, indentation + 4);
-            }
-            return;
-        } else if (expr->Kind == ExprKind::Paren) {
-            m_Output += fmt::format("ParenExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
-            dump_expr(expr->Paren.Expression, indentation + 4);
-            return;
-        } else if (expr->Kind == ExprKind::Cast) {
-            m_Output += fmt::format("CastExpr '{}' {}\n", type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
-            dump_expr(expr->Cast.Expression, indentation + 4);
-            return;
-        } else if (expr->Kind == ExprKind::ImplicitCast) {
-            m_Output += fmt::format("ImplicitCastExpr '{}' <{}> {}\n", type_info_to_string(expr->Type), CastKindToString(expr->ImplicitCast.Kind), ExprValueKindToString(expr->ValueKind));
-            dump_expr(expr->ImplicitCast.Expression, indentation + 4);
-            return;
-        } else if (expr->Kind == ExprKind::UnaryOperator) {
-            m_Output += fmt::format("UnaryOperatorExpr '{}' '{}' {}\n", UnaryOperatorKindToString(expr->UnaryOperator.Operator), type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
-            dump_expr(expr->UnaryOperator.Expression, indentation + 4);
-            return;
-        } else if (expr->Kind == ExprKind::BinaryOperator) {
-            m_Output += fmt::format("BinaryOperatorExpr '{}' '{}' {}\n", BinaryOperatorKindToString(expr->BinaryOperator.Operator), type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
-            dump_expr(expr->BinaryOperator.LHS, indentation + 4);
-            dump_expr(expr->BinaryOperator.RHS, indentation + 4);
-            return;
-        } else if (expr->Kind == ExprKind::CompoundAssign) {
-            m_Output += fmt::format("CompoundAssignExpr '{}' '{}' {}\n", BinaryOperatorKindToString(expr->BinaryOperator.Operator), type_info_to_string(expr->Type), ExprValueKindToString(expr->ValueKind));
-            dump_expr(expr->BinaryOperator.LHS, indentation + 4);
-            dump_expr(expr->BinaryOperator.RHS, indentation + 4);
-            return;
+        if (expr == nullptr) { m_output += "<<NULL>>\n"; return; };
+
+        switch (expr->kind) {
+            case ExprKind::Error: m_output += fmt::format("ErrorExpr '{}' {}\n", 
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind)); 
+                return;
+
+            case ExprKind::BooleanLiteral: m_output += fmt::format("BooleanLiteralExpr {} '{}' {}\n", 
+                expr->boolean_literal.value, 
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind)); 
+                return;
+
+            case ExprKind::CharacterLiteral: m_output += fmt::format("CharacterLiteralExpr 0x{:x} '{}' {}\n", 
+                expr->character_literal.value, 
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind)); 
+                return;
+
+            case ExprKind::IntegerLiteral: m_output += fmt::format("IntegerLiteralExpr {} '{}' {}\n", 
+                expr->integer_literal.value, 
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind)); 
+                return;
+
+            case ExprKind::FloatingLiteral: m_output += fmt::format("FloatingLiteralExpr {} '{}' {}\n", 
+                expr->floating_literal.value, 
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind)); 
+                return;
+
+            case ExprKind::StringLiteral: m_output += fmt::format("StringLiteralExpr {:?} '{}' {}\n", 
+                expr->string_literal.value, 
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind)); 
+                return;
+
+            case ExprKind::Null: m_output += fmt::format("NullExpr '{}' {}\n", 
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind)); 
+                return;
+
+            case ExprKind::DeclRef: m_output += fmt::format("DeclRefExpr '{}' {} {} '{}' {}\n", 
+                expr->decl_ref.identifier, decl_kind_to_string(expr->decl_ref.referenced_decl->kind),  reinterpret_cast<void*>(expr->decl_ref.referenced_decl),
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+                return;
+
+            case ExprKind::Member: m_output += fmt::format("MemberExpr '{}' '{}' {}\n",
+                expr->member.member,
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+
+                dump_expr(expr->member.parent, indentation + 4);
+                return;
+
+            case ExprKind::BuiltinMember: m_output += fmt::format("BuiltinMemberExpr '{}' '{}' {}\n",
+                expr->member.member,
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+
+                dump_expr(expr->member.parent, indentation + 4);
+                return;
+
+            case ExprKind::Self: m_output += fmt::format("SelfExpr '{}' {}\n", 
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind)); 
+                return;
+
+            case ExprKind::Temporary: m_output += fmt::format("TemporaryExpr '{}' {}\n", 
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind)); 
+                
+                dump_expr(expr->temporary.expression, indentation + 4);
+                return;
+
+            case ExprKind::Copy: m_output += fmt::format("CopyExpr '{}' {}\n", 
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind)); 
+                
+                dump_expr(expr->copy.expression, indentation + 4);
+                return;
+
+            case ExprKind::Call: m_output += fmt::format("CallExpr '{}' {}\n",
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+
+                dump_expr(expr->call.callee, indentation + 4);
+                for (Expr* arg : expr->call.arguments) {
+                    dump_expr(arg, indentation + 4);
+                }
+                return;
+
+            case ExprKind::ArraySubscript: m_output += fmt::format("ArraySubscriptExpr '{}' {}\n",
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+
+                dump_expr(expr->array_subscript.array, indentation + 4);
+                dump_expr(expr->array_subscript.index, indentation + 4);
+                return;
+
+            case ExprKind::ToSlice: m_output += fmt::format("ToSliceExpr '{}' {}\n",
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+
+                dump_expr(expr->to_slice.len, indentation + 4);
+                dump_expr(expr->to_slice.source, indentation + 4);
+                return;
+
+            case ExprKind::New: m_output += fmt::format("NewExpr {}'{}' {}\n",
+                expr->new_.array ? "array " : "",
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+
+                dump_expr(expr->new_.initializer, indentation + 4);
+                return;
+
+            case ExprKind::Delete: m_output += fmt::format("DeleteExpr '{}' {}\n",
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+
+                dump_expr(expr->delete_.expression, indentation + 4);
+                return;
+
+            case ExprKind::Paren: m_output += fmt::format("ParenExpr '{}' {}\n",
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+
+                dump_expr(expr->paren.expression, indentation + 4);
+                return;
+
+            case ExprKind::Cast: m_output += fmt::format("CastExpr '{}' {}\n",
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+
+                dump_expr(expr->cast.expression, indentation + 4);
+                return;
+
+            case ExprKind::ImplicitCast: m_output += fmt::format("ImplicitCastExpr <{}> '{}' {}\n",
+                cast_kind_to_string(expr->implicit_cast.kind),
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+
+                dump_expr(expr->implicit_cast.expression, indentation + 4);
+                return;
+
+            case ExprKind::UnaryOperator: m_output += fmt::format("UnaryOperatorExpr '{}' '{}' {}\n",
+                unary_op_kind_to_string(expr->unary_operator.op),
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+
+                dump_expr(expr->unary_operator.expression, indentation + 4);
+                return;
+
+            case ExprKind::BinaryOperator: m_output += fmt::format("BinaryOperatorExpr '{}' '{}' {}\n",
+                binary_op_kind_to_string(expr->binary_operator.op),
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+
+                dump_expr(expr->binary_operator.lhs, indentation + 4);
+                dump_expr(expr->binary_operator.rhs, indentation + 4);
+                return;
+
+            case ExprKind::CompoundAssign: m_output += fmt::format("CompoundAssignExpr '{}' '{}' {}\n",
+                binary_op_kind_to_string(expr->compound_assign.op),
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+
+                dump_expr(expr->compound_assign.lhs, indentation + 4);
+                dump_expr(expr->compound_assign.rhs, indentation + 4);
+                return;
+
+            default: ARIA_UNREACHABLE();
         }
-
-        ARIA_UNREACHABLE();
     }
 
     void ASTDumper::dump_decl(Decl* decl, size_t indentation) {
         std::string ident;
         ident.append(indentation, ' ');
-        m_Output += ident;
+        m_output += ident;
 
-        if (decl == nullptr) { m_Output += "<<NULL>>\n"; return; };
+        if (decl == nullptr) { m_output += "<<NULL>>\n"; return; };
 
-        if (decl->Kind == DeclKind::Error) {
-            m_Output += "ErrorDecl\n";
-            return;
+        switch (decl->kind) {
+            case DeclKind::Error: m_output += "ErrorDecl\n";
+                return;
+
+            case DeclKind::TranslationUnit: m_output += "TranslationUnitDecl\n";
+                for (Stmt* stmt : decl->translation_unit.stmts) {
+                    dump_stmt(stmt, indentation + 4);
+                }
+                return;
+
+            case DeclKind::Module: m_output += fmt::format("ModuleDecl '{}'\n",
+                decl->module.name);
+                return;
+
+            case DeclKind::Var: m_output += fmt::format("VarDecl {}'{}' '{}'\n",
+                decl->var.global_var ? "global " : "", decl->var.identifier, type_info_to_string(decl->var.type));
+                if (decl->var.initializer) {
+                    dump_expr(decl->var.initializer, indentation + 4);
+                }
+                return;
+
+            case DeclKind::Param: m_output += fmt::format("ParamDecl '{}' '{}'\n",
+                decl->param.identifier, type_info_to_string(decl->param.type));
+                return;
+
+            case DeclKind::Function: m_output += fmt::format("FunctionDecl '{}' '{}'\n",
+                decl->function.identifier, type_info_to_string(decl->function.type));
+
+                for (auto& attr : decl->function.attributes) {
+                    dump_function_attr(attr, indentation + 4);
+                }
+
+                for (Decl* param : decl->function.parameters) {
+                    dump_decl(param, indentation + 4);
+                }
+
+                if (decl->function.body) {
+                    dump_stmt(decl->function.body, indentation + 4);
+                }
+                return;
+
+            default: ARIA_UNREACHABLE();
         }
-        else if (decl->Kind == DeclKind::TranslationUnit) {
-            m_Output += "TranslationUnitDecl\n";
-
-            for (Stmt* stmt : decl->TranslationUnit.Stmts) {
-                dump_stmt(stmt, indentation + 4);
-            }
-            return;
-        } else if (decl->Kind == DeclKind::Module) {
-            m_Output += fmt::format("ModuleDecl '{}'\n", decl->Module.Name);
-            return;
-        } else if (decl->Kind == DeclKind::Var) {
-            m_Output += fmt::format("VarDecl '{}' '{}'\n", decl->Var.Identifier, type_info_to_string(decl->Var.Type));
-            if (decl->Var.Initializer) {
-                dump_expr(decl->Var.Initializer, indentation + 4);
-            }
-            return;
-        } else if (decl->Kind == DeclKind::Param) {
-            m_Output += fmt::format("ParamDecl '{}' '{}'\n", decl->Param.Identifier, type_info_to_string(decl->Param.Type));
-            return;
-        } else if (decl->Kind == DeclKind::Function) {
-            m_Output += fmt::format("FunctionDecl '{}' '{}'\n", decl->Function.Identifier, type_info_to_string(decl->Function.Type));
-            for (auto& attr : decl->Function.Attributes) {
-                dump_function_attr(attr, indentation + 4);
-            }
-
-            for (Decl* p : decl->Function.Parameters) {
-                dump_decl(p, indentation + 4);
-            }
-
-            if (decl->Function.Body) {
-                dump_stmt(decl->Function.Body, indentation + 4);
-            }
-            return;
-        } else if (decl->Kind == DeclKind::Struct) {
-            m_Output += fmt::format("StructDecl '{}'\n", decl->Struct.Identifier);
-
-            for (Decl* field : decl->Struct.Fields) {
-                dump_decl(field, indentation + 4);
-            }
-            return;
-        } else if (decl->Kind == DeclKind::Field) {
-            m_Output += fmt::format("FieldDecl '{}' '{}'\n", decl->Field.Identifier, type_info_to_string(decl->Field.Type));
-            return;
-        } else if (decl->Kind == DeclKind::Constructor) {
-            m_Output += "ConstructorDecl\n";
-
-            for (Decl* param : decl->Constructor.Parameters) {
-                dump_decl(param, indentation + 4);
-            }
-
-            dump_stmt(decl->Constructor.Body, indentation + 4);
-            return;
-        } else if (decl->Kind == DeclKind::Destructor) {
-            m_Output += "DestructorDecl\n";
-
-            dump_stmt(decl->Destructor.Body, indentation + 4);
-            return;
-        } else if (decl->Kind == DeclKind::Method) {
-            m_Output += fmt::format("MethodDecl '{}' '{}'\n", decl->Method.Identifier, type_info_to_string(decl->Method.Type));
-            for (Decl* p : decl->Method.Parameters) {
-                dump_decl(p, indentation + 4);
-            }
-            if (decl->Method.Body) {
-                dump_stmt(decl->Method.Body, indentation + 4);
-            }
-            return;
-        }
-        
-        ARIA_UNREACHABLE();
     }
 
     void ASTDumper::dump_stmt(Stmt* stmt, size_t indentation) {
-        if (stmt == nullptr) { m_Output += "<<NULL>>\n"; return; };
+        if (stmt == nullptr) { m_output += "<<NULL>>\n"; return; };
 
-        if (stmt->Kind == StmtKind::Decl) {
-            dump_decl(stmt->DeclStmt, indentation);
+        if (stmt->kind == StmtKind::Decl) {
+            dump_decl(stmt->decl, indentation);
             return;
-        } else if (stmt->Kind == StmtKind::Expr) {
-            dump_expr(stmt->ExprStmt, indentation);
+        } else if (stmt->kind == StmtKind::Expr) {
+            dump_expr(stmt->expr, indentation);
             return;
         }
-
+        
         std::string ident;
         ident.append(indentation, ' ');
-        m_Output += ident;
+        m_output += ident;
 
-        if (stmt->Kind == StmtKind::Error) {
-            m_Output += fmt::format("ErrorStmt\n");
-            return;
+        switch (stmt->kind) {
+            case StmtKind::Error: m_output += "ErrorStmt\n";
+                return;
+
+            case StmtKind::Nop: m_output += "NopStmt\n";
+                return;
+
+            case StmtKind::Import: m_output += fmt::format("ImportStmt '{}' {}\n",
+                stmt->import.name, reinterpret_cast<void*>(stmt->import.resolved_module));
+                return;
+
+            case StmtKind::Block: m_output += fmt::format("BlockStmt {}\n",
+                stmt->block.unsafe ? "unsafe" : "");
+                for (Stmt* stmt : stmt->block.stmts) {
+                    dump_stmt(stmt, indentation + 4);
+                }
+                return;
+
+            case StmtKind::While: m_output += "WhileStmt\n";
+                dump_expr(stmt->while_.condition, indentation + 4);
+                dump_stmt(stmt->while_.body, indentation + 4);
+                return;
+
+            case StmtKind::DoWhile: m_output += "DoWhileStmt\n";
+                dump_expr(stmt->do_while.condition, indentation + 4);
+                dump_stmt(stmt->do_while.body, indentation + 4);
+                return;
+
+            case StmtKind::For: m_output += "ForStmt\n";
+                dump_decl(stmt->for_.prologue, indentation + 4);
+                dump_expr(stmt->for_.condition, indentation + 4);
+                dump_expr(stmt->for_.step, indentation + 4);
+                dump_stmt(stmt->for_.body, indentation + 4);
+                return;
+
+            case StmtKind::If: m_output += "IfStmt\n";
+                dump_expr(stmt->if_.condition, indentation + 4);
+                dump_stmt(stmt->if_.body, indentation + 4);
+                return;
+
+            case StmtKind::Break: m_output += "BreakStmt\n";
+                return;
+
+            case StmtKind::Continue: m_output += "ContinueStmt\n";
+                return;
+
+            case StmtKind::Return: m_output += "ReturnStmt\n";
+                dump_expr(stmt->return_.value, indentation + 4);
+                return;
+
+            default: ARIA_UNREACHABLE();
         }
-        else if (stmt->Kind == StmtKind::Nop) {
-            m_Output += fmt::format("NopStmt\n");
-            return;
-        } else if (stmt->Kind == StmtKind::Import) {
-            m_Output += fmt::format("ImportStmt '{}'\n", stmt->Import.Name);
-            return;
-        } else if (stmt->Kind == StmtKind::Block) {
-            m_Output += fmt::format("BlockStmt {}\n", stmt->Block.Unsafe ? "unsafe" : "");
-            for (Stmt* stmt : stmt->Block.Stmts) {
-                dump_stmt(stmt, indentation + 4);
-            }
-            return;
-        } else if (stmt->Kind == StmtKind::While) {
-            m_Output += "WhileStmt\n";
-            dump_expr(stmt->While.Condition, indentation + 4);
-            dump_stmt(stmt->While.Body, indentation + 4);
-            return;
-        } else if (stmt->Kind == StmtKind::DoWhile) {
-            m_Output += "DoWhileStmt\n";
-            dump_expr(stmt->DoWhile.Condition, indentation + 4);
-            dump_stmt(stmt->DoWhile.Body, indentation + 4);
-            return;
-        } else if (stmt->Kind == StmtKind::For) {
-            m_Output += "ForStmt\n";
-            dump_decl(stmt->For.Prologue, indentation + 4);
-            dump_expr(stmt->For.Condition, indentation + 4);
-            dump_expr(stmt->For.Step, indentation + 4);
-            dump_stmt(stmt->For.Body, indentation + 4);
-            return;
-        } else if (stmt->Kind == StmtKind::If) {
-            m_Output += "IfStmt\n";
-            dump_expr(stmt->If.Condition, indentation + 4);
-            dump_stmt(stmt->If.Body, indentation + 4);
-            if (stmt->If.ElseBody) dump_stmt(stmt->If.ElseBody, indentation + 4);
-            return;
-        } else if (stmt->Kind == StmtKind::Break) {
-            m_Output += "BreakStmt\n";
-            return;
-        } else if (stmt->Kind == StmtKind::Continue) {
-            m_Output += "ContinueStmt\n";
-            return;
-        } else if (stmt->Kind == StmtKind::Return) {
-            m_Output += "ReturnStmt\n";
-            dump_expr(stmt->Return.Value, indentation + 4);
-            return;
-        } 
-
-        ARIA_UNREACHABLE();
     }
 
     void ASTDumper::dump_specifier(Specifier* spec, size_t indentation) {
-        if (spec == nullptr) { m_Output += "<<NULL>>\n"; return; };
+        if (spec == nullptr) { m_output += "<<NULL>>\n"; return; };
 
         std::string ident;
         ident.append(indentation, ' ');
-        m_Output += ident;
+        m_output += ident;
 
-        if (spec->Kind == SpecifierKind::Scope) {
-            m_Output += fmt::format("ScopeSpecifier '{}' {}\n", spec->Scope.Identifier, static_cast<void*>(spec->Scope.ReferencedModule));
+        if (spec->kind == SpecifierKind::Scope) {
+            m_output += fmt::format("ScopeSpecifier '{}' {}\n", spec->scope.identifier, static_cast<void*>(spec->scope.referenced_module));
             return;
         }
 
@@ -309,12 +315,12 @@ namespace Aria::Internal {
     void ASTDumper::dump_function_attr(FunctionDecl::Attribute attr, size_t indentation) {
         std::string ident;
         ident.append(indentation, ' ');
-        m_Output += ident;
+        m_output += ident;
 
-        switch (attr.Kind) {
-            case FunctionDecl::AttributeKind::Extern: m_Output += fmt::format("ExternAttribute {:?}\n", attr.Arg); break;
-            case FunctionDecl::AttributeKind::NoMangle: m_Output += "NoMangleAttribute\n"; break;
-            case FunctionDecl::AttributeKind::Unsafe: m_Output += "UnsafeAttribute\n"; break;
+        switch (attr.kind) {
+            case FunctionDecl::AttributeKind::Extern: m_output += fmt::format("ExternAttribute {:?}\n", attr.arg); break;
+            case FunctionDecl::AttributeKind::NoMangle: m_output += "NoMangleAttribute\n"; break;
+            case FunctionDecl::AttributeKind::Unsafe: m_output += "UnsafeAttribute\n"; break;
             default: ARIA_UNREACHABLE();
         }
     }

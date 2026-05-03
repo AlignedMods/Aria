@@ -36,140 +36,116 @@ namespace Aria::Internal {
         ErrorStmt() = default;
     };
 
-    struct NopStmt {
-        NopStmt() = default;
-    };
-
     struct ImportStmt {
         ImportStmt(std::string_view name)
-            : Name(name) {}
+            : name(name) {}
 
-        std::string_view Name;
-        Module* ResolvedModule = nullptr;
+        std::string_view name;
+        Module* resolved_module = nullptr;
     };
 
     struct BlockStmt {
         BlockStmt() = default;
         BlockStmt(const TinyVector<Stmt*>& stmts, bool unsafe)
-            : Stmts(stmts), Unsafe(unsafe) {}
+            : stmts(stmts), unsafe(unsafe) {}
 
-        TinyVector<Stmt*> Stmts;
-        bool Unsafe = false;
+        TinyVector<Stmt*> stmts;
+        bool unsafe = false;
     };
 
     struct WhileStmt {
         WhileStmt(Expr* condition, Stmt* body)
-            : Condition(condition), Body(body) {}
+            : condition(condition), body(body) {}
 
-        Expr* Condition = nullptr;
-        Stmt* Body = nullptr;
+        Expr* condition = nullptr;
+        Stmt* body = nullptr;
     };
     
     struct DoWhileStmt {
         DoWhileStmt(Expr* condition, Stmt* body)
-            : Condition(condition), Body(body) {}
+            : condition(condition), body(body) {}
 
-        Expr* Condition = nullptr;
-        Stmt* Body = nullptr;
+        Expr* condition = nullptr;
+        Stmt* body = nullptr;
     };
     
     struct ForStmt {
         ForStmt(Decl* prologue, Expr* condition, Expr* step, Stmt* body)
-            : Prologue(prologue), Condition(condition), Step(step), Body(body) {}
+            : prologue(prologue), condition(condition), step(step), body(body) {}
 
-        Decl* Prologue = nullptr; // int i = 0;
-        Expr* Condition = nullptr; // i < 5;
-        Expr* Step = nullptr; // i += 1;
-        Stmt* Body = nullptr; // { ... }
+        Decl* prologue = nullptr; // int i = 0;
+        Expr* condition = nullptr; // i < 5;
+        Expr* step = nullptr; // i += 1;
+        Stmt* body = nullptr; // { ... }
     };
     
     struct IfStmt {
-        IfStmt(Expr* condition, Stmt* body, Stmt* elseBody)
-            : Condition(condition), Body(body), ElseBody(elseBody) {}
+        IfStmt(Expr* condition, Stmt* body, Stmt* else_body)
+            : condition(condition), body(body), else_body(else_body) {}
 
-        Expr* Condition = nullptr;
-        Stmt* Body = nullptr;
-        Stmt* ElseBody = nullptr;
-    };
-
-    struct BreakStmt {
-        BreakStmt() = default;
-    };
-
-    struct ContinueStmt {
-        ContinueStmt() = default;
+        Expr* condition = nullptr;
+        Stmt* body = nullptr;
+        Stmt* else_body = nullptr;
     };
     
     struct ReturnStmt {
         ReturnStmt(Expr* value)
-            : Value(value) {}
+            : value(value) {}
 
-        Expr* Value = nullptr;
+        Expr* value = nullptr;
     };
 
     struct Stmt {
         template <typename T>
         static inline Stmt* Create(CompilationContext* ctx, SourceLocation loc, SourceRange range, StmtKind kind, T t) { return ctx->allocate<Stmt>(kind, loc, range, t); }
 
-        StmtKind Kind = StmtKind::Invalid;
+        StmtKind kind = StmtKind::Invalid;
 
-        SourceLocation Loc;
-        SourceRange Range;
+        SourceLocation loc;
+        SourceRange range;
 
         union {
-            ErrorStmt Error;
-            NopStmt Nop;
-            ImportStmt Import;
-            BlockStmt Block;
-            WhileStmt While;
-            DoWhileStmt DoWhile;
-            ForStmt For;
-            IfStmt If;
-            BreakStmt Break;
-            ContinueStmt Continue;
-            ReturnStmt Return;
-            Expr* ExprStmt;
-            Decl* DeclStmt;
+            ErrorStmt error;
+            ImportStmt import;
+            BlockStmt block;
+            WhileStmt while_;
+            DoWhileStmt do_while;
+            ForStmt for_;
+            IfStmt if_;
+            ReturnStmt return_;
+            Expr* expr;
+            Decl* decl;
         };
 
         Stmt(StmtKind kind, SourceLocation loc, SourceRange range, ErrorStmt error)
-            : Kind(kind), Loc(loc), Range(range), Error(error) {}
-
-        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, NopStmt nop)
-            : Kind(kind), Loc(loc), Range(range), Nop(nop) {}
+            : kind(kind), loc(loc), range(range), error(error) {}
 
         Stmt(StmtKind kind, SourceLocation loc, SourceRange range, ImportStmt import)
-            : Kind(kind), Loc(loc), Range(range), Import(import) {}
+            : kind(kind), loc(loc), range(range), import(import) {}
 
         Stmt(StmtKind kind, SourceLocation loc, SourceRange range, BlockStmt block)
-            : Kind(kind), Loc(loc), Range(range), Block(block) {}
+            : kind(kind), loc(loc), range(range), block(block) {}
 
         Stmt(StmtKind kind, SourceLocation loc, SourceRange range, WhileStmt wh)
-            : Kind(kind), Loc(loc), Range(range), While(wh) {}
+            : kind(kind), loc(loc), range(range), while_(wh) {}
 
         Stmt(StmtKind kind, SourceLocation loc, SourceRange range, DoWhileStmt dowh)
-            : Kind(kind), Loc(loc), Range(range), DoWhile(dowh) {}
+            : kind(kind), loc(loc), range(range), do_while(dowh) {}
 
         Stmt(StmtKind kind, SourceLocation loc, SourceRange range, ForStmt f)
-            : Kind(kind), Loc(loc), Range(range), For(f) {}
+            : kind(kind), loc(loc), range(range), for_(f) {}
 
         Stmt(StmtKind kind, SourceLocation loc, SourceRange range, IfStmt i)
-            : Kind(kind), Loc(loc), Range(range), If(i) {}
-
-        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, BreakStmt brk)
-            : Kind(kind), Loc(loc), Range(range), Break(brk) {}
-
-        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, ContinueStmt cont)
-            : Kind(kind), Loc(loc), Range(range), Continue(cont) {}
+            : kind(kind), loc(loc), range(range), if_(i) {}
 
         Stmt(StmtKind kind, SourceLocation loc, SourceRange range, ReturnStmt ret)
-            : Kind(kind), Loc(loc), Range(range), Return(ret) {}
+            : kind(kind), loc(loc), range(range), return_(ret) {}
 
         Stmt(StmtKind kind, SourceLocation loc, SourceRange range, Expr* expr)
-            : Kind(kind), Loc(loc), Range(range), ExprStmt(expr) {}
+            : kind(kind), loc(loc), range(range), expr(expr) {}
 
         Stmt(StmtKind kind, SourceLocation loc, SourceRange range, Decl* decl)
-            : Kind(kind), Loc(loc), Range(range), DeclStmt(decl) {}
+            : kind(kind), loc(loc), range(range), decl(decl) {}
     };
 
     inline Stmt error_stmt = Stmt(StmtKind::Error, SourceLocation(), SourceRange(), ErrorStmt());

@@ -3,183 +3,171 @@
 namespace Aria::Internal {
 
     void SemanticAnalyzer::pass_imports() {
-        for (CompilationUnit* unit : m_Context->CompilationUnits) {
-            if (!unit->Parent) { continue; }
+        for (CompilationUnit* unit : m_context->compilation_units) {
+            if (!unit->parent) { continue; }
 
-            m_Context->ActiveCompUnit = unit;
-            resolve_unit_imports(unit->Parent, unit);
+            m_context->active_comp_unit = unit;
+            resolve_unit_imports(unit->parent, unit);
         }
     }
 
     void SemanticAnalyzer::pass_decls() {
-        for (Module* mod : m_Context->Modules) {
+        for (Module* mod : m_context->modules) {
             resolve_module_decls(mod);
         }
     }
 
     void SemanticAnalyzer::pass_code() {
-        for (Module* mod : m_Context->Modules) {
+        for (Module* mod : m_context->modules) {
             resolve_module_code(mod);
         }
     }
 
     void SemanticAnalyzer::add_unit_to_module(Module* module, CompilationUnit* unit) {
-        for (CompilationUnit* comp : module->Units) {
+        for (CompilationUnit* comp : module->units) {
             if (comp == unit) {
                 return;
             }
         }
 
-        module->Units.push_back(unit);
+        module->units.push_back(unit);
     }
 
     void SemanticAnalyzer::resolve_module_imports(Module* module) {
-        std::vector<CompilationUnit*> units = module->Units;
+        std::vector<CompilationUnit*> units = module->units;
 
         for (CompilationUnit* unit : units) {
             resolve_unit_imports(module, unit);
         }
-
-        m_ImportedModules.clear();
     }
 
     void SemanticAnalyzer::resolve_unit_imports(Module* module, CompilationUnit* unit) {
-        m_ImportedModules[module->Name] = true;
+        for (size_t i = 0; i < unit->imports.size(); i++) {
+            Stmt* stmt = unit->imports[i];
 
-        for (size_t i = 0; i < unit->Imports.size(); i++) {
-            Stmt* stmt = unit->Imports[i];
+            if (stmt->kind == StmtKind::Error) { return; }
+            ARIA_ASSERT(stmt->kind == StmtKind::Import, "Invalid stmt in Imports");
 
-            if (stmt->Kind == StmtKind::Error) { return; }
-            ARIA_ASSERT(stmt->Kind == StmtKind::Import, "Invalid stmt in Imports");
-
-            if (stmt->Import.Name == module->Name) {
-                m_Context->report_compiler_diagnostic(stmt->Loc, stmt->Range, "Including self is not allowed");
-                stmt->Kind = StmtKind::Error;
-                return;
-            }
-
-            if (m_ImportedModules.contains(fmt::format("{}", stmt->Import.Name))) {
-                m_Context->report_compiler_diagnostic(stmt->Loc, stmt->Range, "Recursive imports are not allowed");
-                stmt->Kind = StmtKind::Error;
+            if (stmt->import.name == module->name) {
+                m_context->report_compiler_diagnostic(stmt->loc, stmt->range, "Including self is not allowed");
+                stmt->kind = StmtKind::Error;
                 return;
             }
 
             Module* resolvedModule = nullptr;
 
-            for (size_t i = 0; i < m_Context->Modules.size(); i++) {
-                Module* mod = m_Context->Modules[i];
+            for (size_t i = 0; i < m_context->modules.size(); i++) {
+                Module* mod = m_context->modules[i];
 
-                if (mod->Name == stmt->Import.Name) {
-                    resolve_module_imports(mod);
+                if (mod->name == stmt->import.name) {
                     resolvedModule = mod;
                     break;
                 }
             }
 
             if (!resolvedModule) {
-                m_Context->report_compiler_diagnostic(stmt->Loc, stmt->Range, fmt::format("Could not find module '{}'", stmt->Import.Name));
+                m_context->report_compiler_diagnostic(stmt->loc, stmt->range, fmt::format("Could not find module '{}'", stmt->import.name));
             }
 
-            stmt->Import.ResolvedModule = resolvedModule;
+            stmt->import.resolved_module = resolvedModule;
         }
 
         add_unit_to_module(module, unit);
-        m_ImportedModules.clear();
     }
 
     void SemanticAnalyzer::resolve_module_decls(Module* module) {
-        for (CompilationUnit* unit : module->Units) {
+        for (CompilationUnit* unit : module->units) {
             resolve_unit_decls(module, unit);
         }
     }
 
     void SemanticAnalyzer::resolve_unit_decls(Module* module, CompilationUnit* unit) {
-        m_Context->ActiveCompUnit = unit;
+        m_context->active_comp_unit = unit;
 
-        for (Decl* global : unit->Globals) {
-            ARIA_ASSERT(global->Kind == DeclKind::Var, "Invalid global in globals");
+        for (Decl* global : unit->globals) {
+            ARIA_ASSERT(global->kind == DeclKind::Var, "Invalid global in globals");
 
-            VarDecl& var = global->Var;
-            std::string ident = fmt::format("{}", var.Identifier);
+            VarDecl& var = global->var;
+            std::string ident = fmt::format("{}", var.identifier);
 
-            module->Symbols[ident] = global;
-            unit->LocalSymbols[ident] = global;
+            module->symbols[ident] = global;
+            unit->local_symbols[ident] = global;
         }
 
-        for (Decl* func : unit->Funcs) {
-            ARIA_ASSERT(func->Kind == DeclKind::Function, "Invalid func in funcs");
+        for (Decl* func : unit->funcs) {
+            ARIA_ASSERT(func->kind == DeclKind::Function, "Invalid func in funcs");
 
-            FunctionDecl& f = func->Function;
+            FunctionDecl& f = func->function;
 
             // do not mangle the main function
-            if (f.Identifier == "main") { f.Attributes.append(m_Context, { FunctionDecl::AttributeKind::NoMangle }); }
-            std::string ident = fmt::format("{}", f.Identifier);
+            if (f.identifier == "main") { f.attributes.append(m_context, { FunctionDecl::AttributeKind::NoMangle }); }
+            std::string ident = fmt::format("{}", f.identifier);
 
-            if (module->Symbols.contains(ident)) {
-                Decl* d = module->Symbols.at(ident);
+            if (module->symbols.contains(ident)) {
+                Decl* d = module->symbols.at(ident);
                 
                 // Handle overloading the first non-overloaded function
-                if (d->Kind == DeclKind::Function) {
-                    Decl* overloaded = Decl::Create(m_Context, d->Loc, d->Range, DeclKind::OverloadedFunction, ErrorDecl());
-                    module->Symbols[ident] = overloaded;
-                    unit->LocalSymbols[ident] = overloaded;
+                if (d->kind == DeclKind::Function) {
+                    Decl* overloaded = Decl::Create(m_context, d->loc, d->range, DeclKind::OverloadedFunction, ErrorDecl());
+                    module->symbols[ident] = overloaded;
+                    unit->local_symbols[ident] = overloaded;
 
-                    std::string oldMangle = mangle_function(&d->Function);
+                    std::string oldMangle = mangle_function(&d->function);
                     std::string newMangle = mangle_function(&f);
 
                     if (oldMangle == newMangle) {
-                        m_Context->report_compiler_diagnostic(func->Loc, func->Range, fmt::format("Redefining function '{}'", ident));
-                        func->Kind = DeclKind::Error;
+                        m_context->report_compiler_diagnostic(func->loc, func->range, fmt::format("Redefining function '{}'", ident));
+                        func->kind = DeclKind::Error;
                         continue;
                     }
 
-                    module->OverloadedFuncs[ident].push_back(d);
-                    module->OverloadedFuncs[ident].push_back(func);
+                    module->overloaded_funcs[ident].push_back(d);
+                    module->overloaded_funcs[ident].push_back(func);
                     continue;
-                } else if (d->Kind == DeclKind::OverloadedFunction) {
-                    std::string oldMangle = mangle_function(&d->Function);
+                } else if (d->kind == DeclKind::OverloadedFunction) {
+                    std::string oldMangle = mangle_function(&d->function);
                     std::string newMangle = mangle_function(&f);
 
                     if (oldMangle == newMangle) {
-                        m_Context->report_compiler_diagnostic(func->Loc, func->Range, fmt::format("Redefining overloaded function '{}'", ident));
-                        func->Kind = DeclKind::Error;
+                        m_context->report_compiler_diagnostic(func->loc, func->range, fmt::format("Redefining overloaded function '{}'", ident));
+                        func->kind = DeclKind::Error;
                         continue;
                     }
 
-                    module->OverloadedFuncs[ident].push_back(func);
+                    module->overloaded_funcs[ident].push_back(func);
                     continue;
-                } else if (d->Kind == DeclKind::Var) {
-                    m_Context->report_compiler_diagnostic(func->Loc, func->Range, fmt::format("Redefining global variable '{}' as function", ident));
+                } else if (d->kind == DeclKind::Var) {
+                    m_context->report_compiler_diagnostic(func->loc, func->range, fmt::format("Redefining global variable '{}' as function", ident));
                 }
 
-                func->Kind = DeclKind::Error;
+                func->kind = DeclKind::Error;
                 return;
             }
 
-            module->Symbols[ident] = func;
-            unit->LocalSymbols[ident] = func;
+            module->symbols[ident] = func;
+            unit->local_symbols[ident] = func;
         }
 
-        for (Decl* struc : unit->Structs) {
-            ARIA_ASSERT(struc->Kind == DeclKind::Struct, "Invalid struct in structs");
+        for (Decl* struc : unit->structs) {
+            ARIA_ASSERT(struc->kind == DeclKind::Struct, "Invalid struct in structs");
 
-            StructDecl& s = struc->Struct;
-            std::string ident = fmt::format("{}", s.Identifier);
+            StructDecl& s = struc->struct_;
+            std::string ident = fmt::format("{}", s.identifier);
 
-            module->Symbols[ident] = struc;
-            unit->LocalSymbols[ident] = struc;
+            module->symbols[ident] = struc;
+            unit->local_symbols[ident] = struc;
         }
     }
 
     void SemanticAnalyzer::resolve_module_code(Module* module) {
-        for (CompilationUnit* unit : module->Units) {
+        for (CompilationUnit* unit : module->units) {
             resolve_unit_code(module, unit);
         }
     }
 
     void SemanticAnalyzer::resolve_unit_code(Module* module, CompilationUnit* unit) {
-        m_Context->ActiveCompUnit = unit;
-        resolve_stmt(unit->RootASTNode);
+        m_context->active_comp_unit = unit;
+        resolve_stmt(unit->root_ast_node);
     }
 
 } // namespace Aria::Internal
