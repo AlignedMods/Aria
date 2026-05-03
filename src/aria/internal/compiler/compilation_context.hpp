@@ -24,6 +24,7 @@ namespace Aria::Internal {
 
         size_t end_line = 0; size_t end_column = 0;
         std::string message;
+        std::vector<std::string> notes;
     };
 
     struct CompilationUnit;
@@ -32,7 +33,7 @@ namespace Aria::Internal {
         std::unordered_map<std::string, Decl*> symbols;
         std::unordered_map<std::string, std::vector<Decl*>> overloaded_funcs;
         std::vector<CompilationUnit*> units;
-        std::string name;
+        std::string_view name;
         OpCodes ops;
         CompilerReflectionData reflection_data;
     };
@@ -105,6 +106,24 @@ namespace Aria::Internal {
                 has_errors = true;
             }
         }
+
+        inline void report_compiler_diagnostic_with_notes(SourceLocation loc, SourceRange range, const std::string& error, std::initializer_list<std::string> notes, CompilerDiagKind kind = CompilerDiagKind::Error) {
+            CompilerDiagnostic d;
+            d.kind = kind;
+            d.line = loc.line;
+            d.column = loc.column;
+            d.start_line = range.start.line;
+            d.start_column = range.start.column;
+            d.end_line = range.end.line;
+            d.end_column = range.end.column;
+            d.message = error;
+            d.notes = notes;
+            active_comp_unit->diagnostics.push_back(d);
+
+            if (kind == CompilerDiagKind::Error) {
+                has_errors = true;
+            }
+        }
     
         void compile_file(const std::string& source);
         void finish_compilation();
@@ -114,7 +133,7 @@ namespace Aria::Internal {
         void analyze();
         void emit();
 
-        Module* find_or_create_module(const std::string& name);
+        Module* find_or_create_module(std::string_view name);
 
         ArenaAllocator* arena = nullptr;
 

@@ -117,6 +117,8 @@ namespace Aria::Internal {
         void replace_expr(Expr* src, Expr* new_expr);
         void replace_decl(Decl* src, Decl* new_decl);
 
+        bool compare_module_names(std::string_view specifier, std::string_view module_name);
+
         bool type_is_equal(TypeInfo* lhs, TypeInfo* rhs);
         size_t type_get_size(TypeInfo* t);
         bool type_is_trivial(TypeInfo* t);

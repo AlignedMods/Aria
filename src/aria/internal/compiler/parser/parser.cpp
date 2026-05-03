@@ -1,4 +1,5 @@
 #include "aria/internal/compiler/parser/parser.hpp"
+#include "aria/internal/compiler/core/scratch_buffer.hpp"
 
 #include "fmt/format.h"
 
@@ -442,16 +443,38 @@ namespace Aria::Internal {
 
     Expr* Parser::parse_identifier(Token t) {
         if (match(TokenKind::ColonColon)) {
+            scratch_buffer_clear();
+            scratch_buffer_append(t.string);
+            scratch_buffer_append("::");
+
             Token& col = consume();
+            Token* var = nullptr;
 
-            Token* child = try_consume(TokenKind::Identifier, "identifier");
-            if (!child) { return &error_expr; }
+            while (true) {
+                size_t mark = scratch_buffer_size();
 
-            Specifier* specifier = Specifier::Create(m_context, col.range.start, SourceRange(t.range.start, col.range.end), SpecifierKind::Scope, ScopeSpecifier(t.string));
+                Token* child = try_consume(TokenKind::Identifier, "identifier");
+                if (!child) { return &error_expr; }
 
-            Expr* declRef = Expr::Create(m_context, child->range.start, child->range, ExprKind::DeclRef,
+                scratch_buffer_append(child->string);
+
+                if (match(TokenKind::ColonColon)) {
+                    consume();
+                    scratch_buffer_append("::");
+                    continue;
+                }
+
+                scratch_buffer_size(mark - 2);
+                var = child;
+                break;
+            }
+
+            Specifier* specifier = Specifier::Create(m_context, t.range.start, SourceRange(t.range.start, col.range.end), SpecifierKind::Scope, 
+                ScopeSpecifier(scratch_buffer_to_str(m_context)));
+
+            Expr* declRef = Expr::Create(m_context, var->range.start, var->range, ExprKind::DeclRef,
                                 ExprValueKind::LValue, nullptr,
-                                DeclRefExpr(child->string, specifier));
+                                DeclRefExpr(var->string, specifier));
 
             return declRef;
         } else {
@@ -1001,9 +1024,7 @@ namespace Aria::Internal {
     Decl* Parser::parse_module_decl() {
         Token& mod = consume(); // consume "module"
         
-        Token* ident = try_consume(TokenKind::Identifier, "identifier");
-        if (!ident) { return &error_decl; }
-
+        std::string_view path = parse_module_path();
         try_consume(TokenKind::Semi, ";");
 
         if (m_declared_module) {
@@ -1013,21 +1034,19 @@ namespace Aria::Internal {
 
         m_declared_module = true;
 
-        Module* module = m_context->find_or_create_module(fmt::format("{}", ident->string));
+        Module* module = m_context->find_or_create_module(path);
         m_context->active_comp_unit->parent = module;
 
-        return Decl::Create(m_context, ident->range.start, SourceRange(mod.range.start, peek(-1)->range.end), DeclKind::Module, ModuleDecl(ident->string));
+        return Decl::Create(m_context, mod.range.start, SourceRange(mod.range.start, peek(-1)->range.end), DeclKind::Module, ModuleDecl(path));
     }
 
     Stmt* Parser::parse_import_decl() {
         Token& imp = consume(); // consume "import"
 
-        Token* ident = try_consume(TokenKind::Identifier, "identifier");
-        if (!ident) { return &error_stmt; }
-
+        std::string_view path = parse_module_path();
         try_consume(TokenKind::Semi, ";");
 
-        Stmt* import = Stmt::Create(m_context, ident->range.start, SourceRange(ident->range.start, peek(-1)->range.end), StmtKind::Import, ImportStmt(ident->string));
+        Stmt* import = Stmt::Create(m_context, imp.range.start, SourceRange(imp.range.start, peek(-1)->range.end), StmtKind::Import, ImportStmt(path));
         m_context->active_comp_unit->imports.push_back(import);
         return import;
     }
@@ -1235,6 +1254,26 @@ namespace Aria::Internal {
         Decl* decl = Decl::Create(m_context, ident->range.start, SourceRange(s.range.start, peek(-1)->range.end), DeclKind::Struct, StructDecl(ident->string, def, fields));
         m_context->active_comp_unit->structs.push_back(decl);
         return decl;
+    }
+
+    std::string_view Parser::parse_module_path() {
+        scratch_buffer_clear();
+
+        for (;;) {
+            Token* tok = try_consume(TokenKind::Identifier, "identifier");
+            if (!tok) { break; }
+            scratch_buffer_append(tok->string);
+
+            if (match(TokenKind::ColonColon)) {
+                consume();
+                scratch_buffer_append("::");
+                continue;
+            }
+
+            break;
+        }
+
+        return scratch_buffer_to_str(m_context);
     }
 
     TinyVector<FunctionDecl::Attribute> Parser::parse_function_attrs() {

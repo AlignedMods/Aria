@@ -76,14 +76,16 @@ namespace Aria::Internal {
             ARIA_ASSERT(ref.name_specifier->kind == SpecifierKind::Scope, "Invalid specifier");
 
             // We may be referencing ourselves
-            if (ref.name_specifier->scope.identifier == m_context->active_comp_unit->parent->name) {
+            if (compare_module_names(ref.name_specifier->scope.identifier, m_context->active_comp_unit->parent->name)) {
                 mod = m_context->active_comp_unit->parent;
             }
 
             for (Stmt* import : m_context->active_comp_unit->imports) {
                 ARIA_ASSERT(import->kind == StmtKind::Import, "Invalid import stmt");
-                if (import->import.name == ref.name_specifier->scope.identifier) {
+
+                if (compare_module_names(ref.name_specifier->scope.identifier, import->import.name)) {
                     mod = import->import.resolved_module;
+                    break;
                 }
             }
 
@@ -117,8 +119,12 @@ namespace Aria::Internal {
         for (Stmt* import : m_context->active_comp_unit->imports) {
             ARIA_ASSERT(import->kind == StmtKind::Import, "Invalid import");
 
+            if (!import->import.resolved_module) { continue; }
+
             if (import->import.resolved_module->symbols.contains(ident)) {
-                m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Symbols from other modules must be prefixed with the module name ({}::{})", import->import.name, ref.identifier));
+                m_context->report_compiler_diagnostic_with_notes(expr->loc, expr->range, 
+                    "Symbols from other modules must be prefixed with the module name",
+                    { fmt::format("Did you mean to write '{}::{}'?", import->import.name, ref.identifier) });
                 expr->type = &error_type;
                 ref.referenced_decl = &error_decl;
                 return;

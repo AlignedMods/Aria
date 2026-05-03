@@ -2,6 +2,8 @@
 #include "aria/internal/compiler/compilation_context.hpp"
 #include "aria/core.hpp"
 
+#include <cassert>
+
 namespace Aria::Internal {
     
     constexpr size_t SCRATCH_BUF_SIZE = 1024 * 1024;
@@ -30,6 +32,10 @@ namespace Aria::Internal {
 
     size_t scratch_buffer_size() {
         return size;
+    }
+
+    void scratch_buffer_size(size_t new_size) {
+        size = new_size;
     }
 
     std::string_view scratch_buffer_to_str(CompilationContext* ctx) {

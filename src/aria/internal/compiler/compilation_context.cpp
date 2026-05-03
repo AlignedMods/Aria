@@ -28,7 +28,7 @@ namespace Aria::Internal {
     void CompilationContext::analyze() { SemanticAnalyzer s(this); }
     void CompilationContext::emit() { Emitter e(this); }
 
-    Module* CompilationContext::find_or_create_module(const std::string& name) {
+    Module* CompilationContext::find_or_create_module(std::string_view name) {
         for (Module* mod : modules) {
             if (mod->name == name) {
                 return mod;

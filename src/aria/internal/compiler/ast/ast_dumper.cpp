@@ -62,6 +62,11 @@ namespace Aria::Internal {
             case ExprKind::DeclRef: m_output += fmt::format("DeclRefExpr '{}' {} {} '{}' {}\n", 
                 expr->decl_ref.identifier, decl_kind_to_string(expr->decl_ref.referenced_decl->kind),  reinterpret_cast<void*>(expr->decl_ref.referenced_decl),
                 type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+
+                if (expr->decl_ref.name_specifier) {
+                    dump_specifier(expr->decl_ref.name_specifier, indentation + 4);
+                }
+
                 return;
 
             case ExprKind::Member: m_output += fmt::format("MemberExpr '{}' '{}' {}\n",

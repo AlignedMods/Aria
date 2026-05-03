@@ -35,6 +35,28 @@ namespace Aria {
         Internal::VM vm;
     };
 
+    inline static void print_compiler_diagnostic(const std::string& path, const std::string& source, Internal::CompilerDiagnostic* diag) {
+        fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", path, diag->line, diag->column);
+
+        if (diag->kind == Internal::CompilerDiagKind::Error) {
+            fmt::print(fg(fmt::color::pale_violet_red), "error: ");
+        } else if (diag->kind == Internal::CompilerDiagKind::Warning) {
+            fmt::print(fg(fmt::color::yellow), "warning: ");
+        }
+
+        fmt::print("{}\n", diag->message);
+
+        // fmt format strings from: https://hackingcpp.com/cpp/libs/fmt
+        fmt::print(" {:6} | {}\n", diag->line, get_line(source, diag->line));
+        fmt::print("        | {:>{w}}\n", "^", fmt::arg("w", diag->column));
+
+        for (auto& note : diag->notes) {
+            fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", path, diag->line, diag->column);
+            fmt::print(fg(fmt::color::light_blue), "note: ");
+            fmt::print("{}\n", note);
+        }
+    }
+
     Context::Context() {}
 
     Context Context::Create() {
@@ -64,19 +86,7 @@ namespace Aria {
         // Handle compiler diagnostics
         auto& unit = m_active_module->compilation_context.compilation_units.at(0);
         for (auto& diag : unit->diagnostics) {
-            fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", path, diag.line, diag.column);
-
-            if (diag.kind == Internal::CompilerDiagKind::Error) {
-                fmt::print(fg(fmt::color::pale_violet_red), "error: ");
-            } else if (diag.kind == Internal::CompilerDiagKind::Warning) {
-                fmt::print(fg(fmt::color::yellow), "warning: ");
-            }
-
-            fmt::print("{}\n", diag.message);
-
-            // fmt format strings from: https://hackingcpp.com/cpp/libs/fmt
-            fmt::print(" {:6} | {}\n", diag.line, get_line(unit->source, diag.line));
-            fmt::print("        | {:>{w}}\n", "^", fmt::arg("w", diag.column));
+            print_compiler_diagnostic(path, unit->source, &diag);
         }
 
         m_modules[path] = newModule;
@@ -108,19 +118,7 @@ namespace Aria {
             // Handle compiler errors
             auto& unit = m_active_module->compilation_context.compilation_units[i];
             for (auto& diag : unit->diagnostics) {
-                fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", paths[i], diag.line, diag.column);
-
-                if (diag.kind == Internal::CompilerDiagKind::Error) {
-                    fmt::print(fg(fmt::color::pale_violet_red), "error: ");
-                } else if (diag.kind == Internal::CompilerDiagKind::Warning) {
-                    fmt::print(fg(fmt::color::light_golden_rod_yellow), "warning: ");
-                }
-
-                fmt::print("{}\n", diag.message);
-
-                // fmt format strings from: https://hackingcpp.com/cpp/libs/fmt
-                fmt::print(" {:6} | {}\n", diag.line, get_line(unit->source, diag.line));
-                fmt::print("        | {:>{w}}\n", "^", fmt::arg("w", diag.column));
+                print_compiler_diagnostic(paths.at(i), unit->source, &diag);
             }
         }
 
