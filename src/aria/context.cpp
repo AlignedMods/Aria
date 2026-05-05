@@ -1,61 +1,21 @@
 #include "aria/context.hpp"
-#include "aria/internal/compiler/compilation_context.hpp"
-#include "aria/internal/compiler/codegen/disassembler.hpp"
-#include "aria/internal/compiler/ast/ast_dumper.hpp"
-#include "aria/internal/compiler/reflection/compiler_reflection.hpp"
-#include "aria/internal/stdlib/io.hpp"
-#include "aria/internal/stdlib/string.hpp"
-#include "aria/internal/vm/vm.hpp"
-#include "aria/internal/vm/op_codes.hpp"
+#include "aria/vm.hpp"
+#include "aria/deserializer.hpp"
+#include "common/op_codes.hpp"
 
 #include <fstream>
 #include <sstream>
 
 namespace Aria {
 
-    inline static std::string get_line(const std::string& str, size_t line) {
-        std::vector<std::string> lines;
-        std::stringstream ss(str);
-        std::string item;
-
-        while (std::getline(ss, item, '\n')) {
-            lines.push_back(item);
-        }
-
-        return lines.at(line - 1);
-    }
-
     struct Module {
         Module(Context* ctx)
-            : vm(ctx), compilation_context() {}
+            : vm(ctx) {}
 
-        Internal::CompilationContext compilation_context;
         std::string module_name;
-
+        Internal::OpCodes ops;
         Internal::VM vm;
     };
-
-    inline static void print_compiler_diagnostic(const std::string& path, const std::string& source, Internal::CompilerDiagnostic* diag) {
-        fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", path, diag->line, diag->column);
-
-        if (diag->kind == Internal::CompilerDiagKind::Error) {
-            fmt::print(fg(fmt::color::pale_violet_red), "error: ");
-        } else if (diag->kind == Internal::CompilerDiagKind::Warning) {
-            fmt::print(fg(fmt::color::yellow), "warning: ");
-        }
-
-        fmt::print("{}\n", diag->message);
-
-        // fmt format strings from: https://hackingcpp.com/cpp/libs/fmt
-        fmt::print(" {:6} | {}\n", diag->line, get_line(source, diag->line));
-        fmt::print("        | {:>{w}}\n", "^", fmt::arg("w", diag->column));
-
-        for (auto& note : diag->notes) {
-            fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", path, diag->line, diag->column);
-            fmt::print(fg(fmt::color::light_blue), "note: ");
-            fmt::print("{}\n", note);
-        }
-    }
 
     Context::Context() {}
 
@@ -64,65 +24,23 @@ namespace Aria {
         return ctx;
     }
 
-    void Context::compile_file(const std::string& path) {
-        std::ifstream file(path);
-        if (!file.is_open()) {
-            fmt::print(fmt::fg(fmt::color::pale_violet_red), "Failed to open file: {}!\n", path);
+    void Context::load_file(const std::string& path) {
+        std::ifstream f(path);
+        if (!f) {
+            fmt::println("Could not open file '{}'", path);
             return;
         }
-
         std::stringstream ss;
-        ss << file.rdbuf();
-        std::string contents = ss.str();
-        ss.flush();
+        ss << f.rdbuf();
+        std::string source = ss.str();
+        ss.clear();
 
-        Module* newModule = new Module(this);
-        m_active_module = newModule;
+        Module* mod = new Module(this);
+        mod->module_name = path;
 
-        compile_file_raw(contents, path);
-        m_active_module->compilation_context.finish_compilation();
+
+
         add_standard_lib();
-
-        // Handle compiler diagnostics
-        auto& unit = m_active_module->compilation_context.compilation_units.at(0);
-        for (auto& diag : unit->diagnostics) {
-            print_compiler_diagnostic(path, unit->source, &diag);
-        }
-
-        m_modules[path] = newModule;
-    }
-
-    void Context::compile_files(const std::vector<std::string>& paths, const std::string& module) {
-        Module* src = new Module(this);
-        m_active_module = src;
-
-        for (const auto& path : paths) {
-            std::ifstream file(path);
-            if (!file.is_open()) {
-                fmt::print(fmt::fg(fmt::color::pale_violet_red), "Failed to open file: {}!\n", path);
-                return;
-            }
-
-            std::stringstream ss;
-            ss << file.rdbuf();
-            std::string contents = ss.str();
-            ss.flush();
-
-            compile_file_raw(contents, path);
-        }
-
-        m_active_module->compilation_context.finish_compilation();
-        add_standard_lib();
-
-        for (size_t i = 0; i < paths.size(); i++) {
-            // Handle compiler errors
-            auto& unit = m_active_module->compilation_context.compilation_units[i];
-            for (auto& diag : unit->diagnostics) {
-                print_compiler_diagnostic(paths.at(i), unit->source, &diag);
-            }
-        }
-
-        m_modules[module] = src;
     }
 
     void Context::add_standard_lib() {

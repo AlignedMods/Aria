@@ -3,7 +3,7 @@
 
 #include "catch2.hpp"
 
-TEST_CASE("runtime Variable Declaration") {
+TEST_CASE("runtime: variable declaration") {
     Aria::Context ctx = Aria::Context::Create();
     ctx.compile_file("tests/runtime/variable_declaration.aria");
     ctx.run();
@@ -18,7 +18,7 @@ TEST_CASE("runtime Variable Declaration") {
     ctx.pop(3);
 }
 
-TEST_CASE("runtime Basic Expressions") {
+TEST_CASE("runtime: basic expressions") {
     Aria::Context ctx = Aria::Context::Create();
     ctx.compile_file("tests/runtime/basic_expressions.aria");
     ctx.add_external_function("should_never_be_called()", [](Aria::Context* ctx) {
@@ -69,7 +69,7 @@ TEST_CASE("runtime Basic Expressions") {
     REQUIRE(ctx.get_int(-1) == 50);
 }
 
-TEST_CASE("runtime Functions") {
+TEST_CASE("runtime: functions") {
     Aria::Context ctx = Aria::Context::Create();
     ctx.compile_file("tests/runtime/functions.aria");
     ctx.add_external_function("external_function()", [](Aria::Context* ctx) {
@@ -90,7 +90,7 @@ TEST_CASE("runtime Functions") {
     ctx.pop(2);
 }
 
-TEST_CASE("runtime Control Flow") {
+TEST_CASE("runtime: control flow") {
     Aria::Context ctx = Aria::Context::Create();
     ctx.compile_file("tests/runtime/control_flow.aria");
     ctx.run();
@@ -120,7 +120,7 @@ TEST_CASE("runtime Control Flow") {
     ctx.pop(1);
 }
 
-TEST_CASE("runtime Recursion") {
+TEST_CASE("runtime: recursion") {
     Aria::Context ctx = Aria::Context::Create();
     ctx.compile_file("tests/runtime/recursion.aria");
     ctx.run();
@@ -166,7 +166,7 @@ TEST_CASE("runtime Recursion") {
     ctx.pop(1);
 }
 
-TEST_CASE("runtime Casts") {
+TEST_CASE("runtime: casts") {
     Aria::Context ctx = Aria::Context::Create();
     ctx.compile_file("tests/runtime/casts.aria");
     ctx.run();
@@ -183,7 +183,7 @@ TEST_CASE("runtime Casts") {
     ctx.pop(4);
 }
 
-TEST_CASE("runtime Strings") {
+TEST_CASE("runtime: strings") {
     Aria::Context ctx = Aria::Context::Create();
     ctx.compile_file("tests/runtime/strings.aria");
     ctx.run();
@@ -200,7 +200,7 @@ TEST_CASE("runtime Strings") {
     ctx.pop(3);
 }
 
-TEST_CASE("runtime Structs") {
+TEST_CASE("runtime: structs") {
     // Aria::Context ctx = Aria::Context::Create();
     // ctx.compile_file("tests/runtime/structs.aria", "runtime Structs");
     // ctx.run();
@@ -216,7 +216,7 @@ TEST_CASE("runtime Structs") {
     // ctx.pop(1);
 }
 
-TEST_CASE("runtime Arrays") {
+TEST_CASE("runtime: arrays") {
     // Aria::Context ctx = Aria::Context::Create();
     // ctx.compile_file("tests/runtime/arrays.bl", "runtime Arrays");
     // fmt::print("{}\n", ctx.Disassemble("runtime Arrays"));

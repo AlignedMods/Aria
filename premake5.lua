@@ -4,7 +4,7 @@ workspace "Aria"
     configurations { "Debug", "Release" }
     platforms { "x86", "x86_64" }
 
-    project "AriaLib"
+    project "arialib"
         language "C++"
         cppdialect "C++20"
         kind "StaticLib"
@@ -14,7 +14,7 @@ workspace "Aria"
 
         files {"src/aria/**.cpp", "src/aria/**.hpp"}
 
-        includedirs { "src/", "src/vendor/fmt/include/" }
+        includedirs { "src/", "include/", "src/vendor/fmt/include/" }
 
         filter { "action:vs*" }
             buildoptions { "/utf-8", "/Zc:preprocessor" }
@@ -27,7 +27,7 @@ workspace "Aria"
         filter "configurations:Release"
             optimize "On"
 
-    project "AriaTest"
+    project "aria_test"
         language "C++"
         cppdialect "C++20"
         kind "ConsoleApp"
@@ -52,7 +52,7 @@ workspace "Aria"
         filter "configurations:Release"
             optimize "On"
 
-    project "Aria"
+    project "ariac"
         language "C++"
         cppdialect "C++20"
         kind "ConsoleApp"
@@ -60,11 +60,11 @@ workspace "Aria"
         targetdir("build/bin/" .. OutputDir)
         objdir("build/obj/" .. OutputDir)
 
-        files { "frontend/aria.cpp" }
+        files { "src/ariac/**.cpp", "src/ariac/**.hpp" }
 
         includedirs { "src/", "src/vendor/fmt/include/" }
 
-        links { "AriaLib", "fmt" }
+        links { "fmt" }
 
         filter { "action:vs*" }
             buildoptions { "/utf-8", "/Zc:preprocessor" }
