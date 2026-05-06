@@ -1,10 +1,11 @@
-#include "aria/vm.hpp"
+#include "arialib/vm.hpp"
 #include "aria/context.hpp"
-#include "aria/types.hpp"
+#include "arialib/types.hpp"
 
 #define PROG_SIZE() (m_op_codes->program.size())
-#define GET_STR() (std::string_view(m_op_codes->string_table[static_cast<size_t>(*(++m_program_counter))]))
-#define GET_TYPE() (m_op_codes->type_table[static_cast<size_t>(*(++m_program_counter))])
+#define GET_U16() (static_cast<u16>(*(++m_program_counter)) << 8 | static_cast<u16>(*(++m_program_counter)))
+#define GET_STR() (std::string_view(m_op_codes->string_table[static_cast<size_t>(GET_U16())]))
+#define GET_TYPE() (m_op_codes->type_table[static_cast<size_t>(GET_U16())])
 
 namespace Aria::Internal {
 
@@ -356,7 +357,7 @@ namespace Aria::Internal {
 
                 case OP_LD_CONST: {
                     auto& type = GET_TYPE();
-                    size_t idx = static_cast<size_t>(*(++m_program_counter));
+                    size_t idx = static_cast<size_t>(GET_U16());
                     alloc(type, m_stack);
                     VMSlice slice = get_vm_slice(-1, m_stack);
 
@@ -439,7 +440,7 @@ namespace Aria::Internal {
                 }
 
                 case OP_LD_LOCAL: {
-                    size_t index = static_cast<size_t>(*++m_program_counter);
+                    size_t index = static_cast<size_t>(GET_U16());
                     dup(index, m_stack, m_stack_frames.back().locals);
                     break;
                 }
@@ -451,7 +452,7 @@ namespace Aria::Internal {
                 }
 
                 case OP_LD_FIELD: {
-                    size_t idx = static_cast<size_t>(*(++m_program_counter));
+                    size_t idx = static_cast<size_t>(GET_U16());
                     auto& structType = GET_TYPE();
 
                     u8* src = reinterpret_cast<u8*>(get_pointer(-1, m_stack));           
@@ -470,7 +471,7 @@ namespace Aria::Internal {
                 }
 
                 case OP_LD_PTR_LOCAL: {
-                    size_t index = static_cast<size_t>(*++m_program_counter);
+                    size_t index = static_cast<size_t>(GET_U16());
                     VMSlice slice = get_vm_slice(index, m_stack_frames.back().locals);
                     alloc({ VMTypeKind::Ptr }, m_stack);
                     store_pointer(-1, slice.memory, m_stack);
@@ -486,7 +487,7 @@ namespace Aria::Internal {
                 }
 
                 case OP_LD_PTR_FIELD: {
-                    size_t idx = static_cast<size_t>(*(++m_program_counter));
+                    size_t idx = static_cast<size_t>(GET_U16());
                     auto& structType = GET_TYPE();
 
                     u8* src = reinterpret_cast<u8*>(get_pointer(-1, m_stack));           
@@ -508,7 +509,7 @@ namespace Aria::Internal {
                 }
 
                 case OP_ST_LOCAL: {
-                    size_t index = static_cast<size_t>(*++m_program_counter);
+                    size_t index = static_cast<size_t>(GET_U16());
                     VMSlice slice = get_vm_slice(-1, m_stack);
 
                     VMSlice dst = get_vm_slice(static_cast<i32>(index), m_stack_frames.back().locals);
@@ -541,7 +542,7 @@ namespace Aria::Internal {
                 }
 
                 case OP_ST_FIELD: {
-                    size_t idx = static_cast<size_t>(*(++m_program_counter));
+                    size_t idx = static_cast<size_t>(GET_U16());
                     auto& structType = GET_TYPE();
 
                     u8* dst = reinterpret_cast<u8*>(get_pointer(-2, m_stack));           
@@ -568,7 +569,7 @@ namespace Aria::Internal {
                 }
 
                 case OP_DECL_LOCAL: {
-                    size_t index = static_cast<size_t>(*++m_program_counter);
+                    size_t index = static_cast<size_t>(GET_U16());
 
                     VMSlice src = get_vm_slice(-1, m_stack);
 

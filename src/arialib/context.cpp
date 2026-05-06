@@ -1,6 +1,7 @@
 #include "aria/context.hpp"
-#include "aria/vm.hpp"
-#include "aria/deserializer.hpp"
+#include "arialib/vm.hpp"
+#include "arialib/deserializer.hpp"
+#include "arialib/stdlib.hpp"
 #include "common/op_codes.hpp"
 
 #include <fstream>
@@ -37,8 +38,10 @@ namespace Aria {
 
         Module* mod = new Module(this);
         mod->module_name = path;
+        Internal::Deserializer d(source);
+        mod->ops = d.get_ops();
 
-
+        m_active_module = mod;
 
         add_standard_lib();
     }
@@ -46,20 +49,20 @@ namespace Aria {
     void Context::add_standard_lib() {
         Internal::VM& vm = m_active_module->vm;
 
-        vm.add_extern("__aria_raw_print_stdout()", Internal::__aria_print);
-        vm.add_extern("__aria_destruct_str()", Internal::__aria_destruct_str);
-        vm.add_extern("__aria_copy_str()", Internal::__aria_copy_str);
-        vm.add_extern("__aria_append_str<char>()", Internal::__aria_append_str_char);
-        vm.add_extern("__aria_append_str<uchar>()", Internal::__aria_append_str_uchar);
-        vm.add_extern("__aria_append_str<short>()", Internal::__aria_append_str_short);
-        vm.add_extern("__aria_append_str<ushort>()", Internal::__aria_append_str_ushort);
-        vm.add_extern("__aria_append_str<int>()", Internal::__aria_append_str_int);
-        vm.add_extern("__aria_append_str<uint>()", Internal::__aria_append_str_uint);
-        vm.add_extern("__aria_append_str<long>()", Internal::__aria_append_str_long);
-        vm.add_extern("__aria_append_str<ulong>()", Internal::__aria_append_str_ulong);
-        vm.add_extern("__aria_append_str<float>()", Internal::__aria_append_str_float);
-        vm.add_extern("__aria_append_str<double>()", Internal::__aria_append_str_double);
-        vm.add_extern("__aria_append_str<string>()", Internal::__aria_append_str_string);
+        vm.add_extern("__aria_raw_print_stdout()", Internal::print_stdout);
+        // vm.add_extern("__aria_destruct_str()", Internal::__aria_destruct_str);
+        // vm.add_extern("__aria_copy_str()", Internal::__aria_copy_str);
+        // vm.add_extern("__aria_append_str<char>()", Internal::__aria_append_str_char);
+        // vm.add_extern("__aria_append_str<uchar>()", Internal::__aria_append_str_uchar);
+        // vm.add_extern("__aria_append_str<short>()", Internal::__aria_append_str_short);
+        // vm.add_extern("__aria_append_str<ushort>()", Internal::__aria_append_str_ushort);
+        // vm.add_extern("__aria_append_str<int>()", Internal::__aria_append_str_int);
+        // vm.add_extern("__aria_append_str<uint>()", Internal::__aria_append_str_uint);
+        // vm.add_extern("__aria_append_str<long>()", Internal::__aria_append_str_long);
+        // vm.add_extern("__aria_append_str<ulong>()", Internal::__aria_append_str_ulong);
+        // vm.add_extern("__aria_append_str<float>()", Internal::__aria_append_str_float);
+        // vm.add_extern("__aria_append_str<double>()", Internal::__aria_append_str_double);
+        // vm.add_extern("__aria_append_str<string>()", Internal::__aria_append_str_string);
     }
 
     void Context::set_active_module(const std::string& module) {
@@ -74,26 +77,7 @@ namespace Aria {
     }
 
     void Context::run() {
-        if (!m_active_module->compilation_context.has_errors) {
-            m_active_module->vm.run_byte_code(m_active_module->compilation_context.ops);
-        }
-    }
-
-    std::string Context::dump_ast() {
-        std::string output;
-
-        for (Internal::CompilationUnit* unit : m_active_module->compilation_context.compilation_units) {
-            Internal::ASTDumper d(unit->root_ast_node);
-            output += d.get_output();
-            output += '\n';
-        }
-
-        return output;
-    }
-
-    std::string Context::disassemble() {
-        Internal::Disassembler d(m_active_module->compilation_context.ops);
-        return d.get_dissasembly();
+        m_active_module->vm.run_byte_code(m_active_module->ops);
     }
 
     void Context::push_bool(bool b) {
@@ -249,27 +233,16 @@ namespace Aria {
     }
 
     bool Context::has_function(const std::string& str) {
-        Internal::CompilerReflectionData& reflection = m_active_module->compilation_context.reflection_data;
-        return reflection.declarations.contains(str) && reflection.declarations.at(str).kind == Internal::ReflectionKind::Function;
+        return m_active_module->vm.m_functions.contains(str);
     }
 
     void Context::call(const std::string& str, size_t argCount) {
-        Internal::CompilerReflectionData& reflection = m_active_module->compilation_context.reflection_data;
-        ARIA_ASSERT(reflection.declarations.contains(str), "Module does not contain function");
-
+        ARIA_ASSERT(m_active_module->vm.m_functions.contains(str), "Module does not contain function");
         m_active_module->vm.call(str, argCount);
     }
 
     void Context::set_runtime_error_handler(RuntimeErrorHandlerFn fn) {
         m_runtime_error_handler = fn;
-    }
-
-    void Context::set_compiler_error_handler(CompilerErrorHandlerFn fn) {
-        m_compiler_error_handler = fn;
-    }
-
-    void Context::compile_file_raw(const std::string& source, const std::string& filename) {
-        m_active_module->compilation_context.compile_file(source);
     }
 
     void Context::report_runtime_error(const std::string& error) {

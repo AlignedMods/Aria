@@ -23,10 +23,39 @@ namespace Aria::Internal {
         serialize_code();
     }
 
+    void Serialzier::serialize_u32(u32 u) {
+        m_output << static_cast<u8>((u << 24) & 0xff);
+        m_output << static_cast<u8>((u << 16) & 0xff);
+        m_output << static_cast<u8>((u << 8) & 0xff);
+        m_output << static_cast<u8>(u & 0xff);
+    }
+
+    void Serialzier::serialize_u64(u64 u) {
+        m_output << static_cast<u8>((u << 56) & 0xff);
+        m_output << static_cast<u8>((u << 48) & 0xff);
+        m_output << static_cast<u8>((u << 40) & 0xff);
+        m_output << static_cast<u8>((u << 32) & 0xff);
+        m_output << static_cast<u8>((u << 24) & 0xff);
+        m_output << static_cast<u8>((u << 16) & 0xff);
+        m_output << static_cast<u8>((u << 8) & 0xff);
+        m_output << static_cast<u8>(u & 0xff);
+    }
+
+    void Serialzier::serialize_float(float f) {
+        u32 u = 0;
+        memcpy(&u, &f, sizeof(f));
+        serialize_u32(u);
+    }
+
+    void Serialzier::serialize_double(double d) {
+        u64 u = 0;
+        memcpy(&u, &d, sizeof(d));
+        serialize_u64(u);
+    }
+
     void Serialzier::serialize_header() {
-        m_output << "ARIAC";
+        m_output << "AR";
         m_output << m_current_version;
-        m_output << '\0';
         
         u32 const_size = 0;
         u32 type_size = 0;
@@ -35,53 +64,42 @@ namespace Aria::Internal {
         for (auto& _ : m_op_codes->type_table) { type_size += 1; }
         for (auto& _ : m_op_codes->string_table) { string_size += 1; }
 
-        m_output << const_size; m_output << '\0';
-        m_output << type_size; m_output << '\0';
-        m_output << string_size; m_output << '\0';
+        serialize_u32(const_size);
+        serialize_u32(type_size);
+        serialize_u32(string_size);
     }
 
     void Serialzier::serialize_constants() {
         for (auto& c : m_op_codes->constant_table) {
             if (std::holds_alternative<u64>(c)) {
                 m_output << '\0';
-                m_output << std::get<u64>(c);
-                m_output << '\0';
+                serialize_u64(std::get<u64>(c));
             } else if (std::holds_alternative<float>(c)) {
                 m_output << '\1';
-                m_output << std::get<float>(c);
-                m_output << '\0';
+                serialize_float(std::get<float>(c));
             } else if (std::holds_alternative<double>(c)) {
                 m_output << '\2';
-                m_output << std::get<double>(c);
-                m_output << '\0';
+                serialize_double(std::get<double>(c));
             }
         }
     }
 
     void Serialzier::serialize_types() {
         for (auto& t : m_op_codes->type_table) {
-            m_output << static_cast<u64>(t.kind);
-            if (std::holds_alternative<VMStruct>(t.data)) {
-                m_output << '\1';
-            } else {
-                m_output << '\0';
-            }
+            serialize_u64(static_cast<u64>(t.kind));
         }
     }
 
     void Serialzier::serialize_strings() {
         for (auto& s : m_op_codes->string_table) {
-            m_output << static_cast<u64>(s.length());
-            m_output << '\0';
-            
+            serialize_u64(static_cast<u64>(s.length()));
             m_output << s;
         }
     }
 
     void Serialzier::serialize_code() {
         for (OpCode op : m_op_codes->program) {
-            m_output << static_cast<u16>(op);
-            m_output << '\0';
+            m_output << static_cast<u8>(op);
         }
     }
 

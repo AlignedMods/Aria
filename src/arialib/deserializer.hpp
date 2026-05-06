@@ -16,7 +16,12 @@ namespace Aria::Internal {
     private:
         void deserialze_impl();
 
-        std::string
+        u8 deserialize_u8();
+        u32 deserialize_u32();
+        u64 deserialize_u64();
+        float deserialize_float();
+        double deserialize_double();
+        std::string_view deserialize_string(size_t length);
 
         void deserialize_header();
         void deserialize_constants();
@@ -25,7 +30,7 @@ namespace Aria::Internal {
         void deserialize_code();
 
     private:
-        u32 m_version_number = 0;
+        u8 m_version_number = 0;
         u32 m_const_size = 0;
         u32 m_types_size = 0;
         u32 m_strings_size = 0;

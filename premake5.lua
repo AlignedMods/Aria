@@ -12,7 +12,7 @@ workspace "Aria"
         targetdir("build/bin/" .. OutputDir)
         objdir("build/obj/" .. OutputDir)
 
-        files {"src/aria/**.cpp", "src/aria/**.hpp"}
+        files {"src/arialib/**.cpp", "src/arialib/**.hpp"}
 
         includedirs { "src/", "include/", "src/vendor/fmt/include/" }
 
@@ -65,6 +65,31 @@ workspace "Aria"
         includedirs { "src/", "src/vendor/fmt/include/" }
 
         links { "fmt" }
+
+        filter { "action:vs*" }
+            buildoptions { "/utf-8", "/Zc:preprocessor" }
+
+        filter {}
+
+        filter "configurations:Debug"
+            symbols "On"
+
+        filter "configurations:Release"
+            optimize "On"
+
+    project "aria"
+        language "C++"
+        cppdialect "C++20"
+        kind "ConsoleApp"
+
+        targetdir("build/bin/" .. OutputDir)
+        objdir("build/obj/" .. OutputDir)
+
+        files { "src/aria/**.cpp", "src/aria/**.hpp" }
+
+        includedirs { "src/", "include/", "src/vendor/fmt/include/" }
+
+        links { "fmt", "arialib" }
 
         filter { "action:vs*" }
             buildoptions { "/utf-8", "/Zc:preprocessor" }

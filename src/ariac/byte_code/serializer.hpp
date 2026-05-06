@@ -13,6 +13,11 @@ namespace Aria::Internal {
     private:
         void serialize_impl();
 
+        void serialize_u32(u32 u);
+        void serialize_u64(u64 u);
+        void serialize_float(float f);
+        void serialize_double(double d);
+
         void serialize_header();
         void serialize_constants();
         void serialize_types();
@@ -23,7 +28,7 @@ namespace Aria::Internal {
         OpCodes* m_op_codes;
         std::ofstream m_output;
 
-        const u32 m_current_version = 1;
+        const u8 m_current_version = 1;
 
         CompilationContext* m_context = nullptr;
     };

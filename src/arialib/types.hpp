@@ -1,6 +1,6 @@
 #pragma once
 
-#include "aria/types.hpp"
+#include "arialib/types.hpp"
 
 namespace Aria::Internal {
     

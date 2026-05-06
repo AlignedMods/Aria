@@ -40,9 +40,6 @@ namespace Aria {
         // Dissasemble the byte emitted byte code
         void run();
 
-        std::string dump_ast();
-        std::string disassemble();
-
         void push_bool   (bool b);
         void push_char   (int8_t c);
         void push_short  (int16_t s);
