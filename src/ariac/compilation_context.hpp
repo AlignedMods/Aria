@@ -13,6 +13,7 @@ namespace Aria::Internal {
     struct Decl;
 
     enum class CompilerDiagKind {
+        Note,
         Warning,
         Error
     };
@@ -31,8 +32,8 @@ namespace Aria::Internal {
     struct CompilationUnit;
 
     struct Module {
-        std::unordered_map<std::string, Decl*> symbols;
-        std::unordered_map<std::string, std::vector<Decl*>> overloaded_funcs;
+        std::unordered_map<std::string_view, Decl*> symbols;
+        std::unordered_map<std::string_view, std::vector<Decl*>> overloaded_funcs;
         std::vector<CompilationUnit*> units;
         std::string_view name;
         OpCodes ops;
@@ -58,7 +59,7 @@ namespace Aria::Internal {
 
         std::vector<Stmt*> imports;
 
-        std::unordered_map<std::string, Decl*> local_symbols;
+        std::unordered_map<std::string_view, Decl*> local_symbols;
 
         Module* parent = nullptr;
     };
@@ -146,6 +147,7 @@ namespace Aria::Internal {
         CompilationUnit* active_comp_unit = nullptr;
 
         std::vector<Module*> modules;
+        Decl* main_func = nullptr;
 
         OpCodes ops;
         CompilerReflectionData reflection_data;

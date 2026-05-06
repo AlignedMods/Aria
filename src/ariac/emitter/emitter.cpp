@@ -991,9 +991,11 @@ namespace Aria::Internal {
             if (attr.kind == FunctionDecl::AttributeKind::NoMangle) { sig = fmt::format("{}()", fnDecl.identifier); break; }
         }
 
-        if (sig.empty()) {
-            sig = fmt::format("{}::{}", m_active_namespace, mangle_function(&fnDecl));
+        if (fnDecl.identifier == "main") {
+            sig = "_main$()";
         }
+
+        if (sig.empty()) { sig = fmt::format("{}::{}", m_active_namespace, mangle_function(&fnDecl)); }
 
         if (fnDecl.body) {
             ADD_STR(sig);
@@ -1353,7 +1355,6 @@ namespace Aria::Internal {
         }
 
         ident += ")";
-
         return ident;
     }
 

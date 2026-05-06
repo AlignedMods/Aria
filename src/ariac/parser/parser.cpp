@@ -693,7 +693,7 @@ namespace Aria::Internal {
             default: ARIA_UNREACHABLE(); break;
         }
 
-        if (match(TokenKind::LeftBracket)) {
+        while (match(TokenKind::LeftBracket)) {
             consume();
 
             if (is_expression()) {

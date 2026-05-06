@@ -68,8 +68,9 @@ namespace Aria::Internal {
 
     void CompilationContext::finish_compilation(const CompilerFlags& flags) {
         analyze();
-        if (!has_errors) { emit(); }
-        else {
+        if (!has_errors) {
+            emit();
+        } else {
             for (CompilationUnit* unit : compilation_units) {
                 for (auto& diag : unit->diagnostics) {
                     print_diag(unit->filename, unit->source, &diag);
@@ -79,22 +80,30 @@ namespace Aria::Internal {
     }
 
     void CompilationContext::print_diag(const std::string& path, const std::string& source, Internal::CompilerDiagnostic* diag) {
-        fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", path, diag->line, diag->column);
+        if (diag->line && diag->column) {
+            fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", path, diag->line, diag->column);
+        }
 
-        if (diag->kind == Internal::CompilerDiagKind::Error) {
+        if (diag->kind == CompilerDiagKind::Error) {
             fmt::print(fg(fmt::color::pale_violet_red), "error: ");
-        } else if (diag->kind == Internal::CompilerDiagKind::Warning) {
+        } else if (diag->kind == CompilerDiagKind::Warning) {
             fmt::print(fg(fmt::color::yellow), "warning: ");
+        } else if (diag->kind == CompilerDiagKind::Note) {
+            fmt::print(fg(fmt::color::light_blue), "note: ");
         }
 
         fmt::print("{}\n", diag->message);
 
-        // fmt format strings from: https://hackingcpp.com/cpp/libs/fmt
-        fmt::print(" {:6} | {}\n", diag->line, get_line(source, diag->line));
-        fmt::print("        | {:>{w}}\n", "^", fmt::arg("w", diag->column));
+        if (diag->line && diag->column) {
+            // fmt format strings from: https://hackingcpp.com/cpp/libs/fmt
+            fmt::print(" {:6} | {}\n", diag->line, get_line(source, diag->line));
+            fmt::print("        | {:>{w}}\n", "^", fmt::arg("w", diag->column));
+        }
 
         for (auto& note : diag->notes) {
-            fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", path, diag->line, diag->column);
+            if (diag->line && diag->column) {
+                fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", path, diag->line, diag->column);
+            }
             fmt::print(fg(fmt::color::light_blue), "note: ");
             fmt::print("{}\n", note);
         }

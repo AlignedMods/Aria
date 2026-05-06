@@ -17,8 +17,8 @@ int main(int argc, char** argv) {
     ctx.load_file(argv[1]);
     ctx.run();
 
-    if (ctx.has_function("main()")) {
-        ctx.call("main()", 0);
+    if (ctx.has_function("_main$()")) {
+        ctx.call("_main$()", 0);
     }
 
     return 0;

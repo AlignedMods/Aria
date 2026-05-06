@@ -15,6 +15,10 @@ namespace Aria::Internal {
         for (Module* mod : m_context->modules) {
             resolve_module_decls(mod);
         }
+
+        if (!m_context->main_func) {
+            fmt::println(stderr, "No main function was found for this executable, please add it.\n");
+        }
     }
 
     void SemanticAnalyzer::pass_code() {
@@ -88,64 +92,75 @@ namespace Aria::Internal {
             ARIA_ASSERT(global->kind == DeclKind::Var, "Invalid global in globals");
 
             VarDecl& var = global->var;
-            std::string ident = fmt::format("{}", var.identifier);
-
-            module->symbols[ident] = global;
-            unit->local_symbols[ident] = global;
+            module->symbols[var.identifier] = global;
+            unit->local_symbols[var.identifier] = global;
         }
 
         for (Decl* func : unit->funcs) {
             ARIA_ASSERT(func->kind == DeclKind::Function, "Invalid func in funcs");
-
             FunctionDecl& f = func->function;
 
-            // do not mangle the main function
-            if (f.identifier == "main") { f.attributes.append(m_context, { FunctionDecl::AttributeKind::NoMangle }); }
-            std::string ident = fmt::format("{}", f.identifier);
+            if (f.identifier == "main") {
+                if (m_context->main_func) {
+                    m_context->report_compiler_diagnostic(func->loc, func->range, "Redefining main function");
+                    m_context->report_compiler_diagnostic(m_context->main_func->loc, m_context->main_func->range, "Previous declaration here", CompilerDiagKind::Note);
+                    func->kind = DeclKind::Error;
+                    continue;
+                }
 
-            if (module->symbols.contains(ident)) {
-                Decl* d = module->symbols.at(ident);
+                if (f.parameters.size != 0) {
+                    m_context->report_compiler_diagnostic(func->loc, func->range, "Main function must't have any parameters");
+                }
+
+                module->symbols[f.identifier] = func;
+                unit->local_symbols[f.identifier] = func;
+                m_context->main_func = func;
+                continue;
+            }
+
+            if (module->symbols.contains(f.identifier)) {
+                Decl* d = module->symbols.at(f.identifier);
                 
                 // Handle overloading the first non-overloaded function
                 if (d->kind == DeclKind::Function) {
                     Decl* overloaded = Decl::Create(m_context, d->loc, d->range, DeclKind::OverloadedFunction, ErrorDecl());
-                    module->symbols[ident] = overloaded;
-                    unit->local_symbols[ident] = overloaded;
+                    module->symbols[f.identifier] = overloaded;
+                    unit->local_symbols[f.identifier] = overloaded;
 
                     std::string oldMangle = mangle_function(&d->function);
                     std::string newMangle = mangle_function(&f);
 
                     if (oldMangle == newMangle) {
-                        m_context->report_compiler_diagnostic(func->loc, func->range, fmt::format("Redefining function '{}'", ident));
+                        m_context->report_compiler_diagnostic(func->loc, func->range, fmt::format("Redefining function '{}'", f.identifier));
                         func->kind = DeclKind::Error;
                         continue;
                     }
 
-                    module->overloaded_funcs[ident].push_back(d);
-                    module->overloaded_funcs[ident].push_back(func);
+                    module->overloaded_funcs[f.identifier].push_back(d);
+                    module->overloaded_funcs[f.identifier].push_back(func);
                     continue;
                 } else if (d->kind == DeclKind::OverloadedFunction) {
                     std::string oldMangle = mangle_function(&d->function);
                     std::string newMangle = mangle_function(&f);
 
                     if (oldMangle == newMangle) {
-                        m_context->report_compiler_diagnostic(func->loc, func->range, fmt::format("Redefining overloaded function '{}'", ident));
+                        m_context->report_compiler_diagnostic(func->loc, func->range, fmt::format("Redefining overloaded function '{}'", f.identifier));
                         func->kind = DeclKind::Error;
                         continue;
                     }
 
-                    module->overloaded_funcs[ident].push_back(func);
+                    module->overloaded_funcs[f.identifier].push_back(func);
                     continue;
                 } else if (d->kind == DeclKind::Var) {
-                    m_context->report_compiler_diagnostic(func->loc, func->range, fmt::format("Redefining global variable '{}' as function", ident));
+                    m_context->report_compiler_diagnostic(func->loc, func->range, fmt::format("Redefining global variable '{}' as function", f.identifier));
                 }
 
                 func->kind = DeclKind::Error;
                 return;
             }
 
-            module->symbols[ident] = func;
-            unit->local_symbols[ident] = func;
+            module->symbols[f.identifier] = func;
+            unit->local_symbols[f.identifier] = func;
         }
 
         for (Decl* struc : unit->structs) {
