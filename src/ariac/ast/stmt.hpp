@@ -73,7 +73,7 @@ namespace Aria::Internal {
         ForStmt(Decl* prologue, Expr* condition, Expr* step, Stmt* body)
             : prologue(prologue), condition(condition), step(step), body(body) {}
 
-        Decl* prologue = nullptr; // int i = 0;
+        Decl* prologue = nullptr; // let i = 0;
         Expr* condition = nullptr; // i < 5;
         Expr* step = nullptr; // i += 1;
         Stmt* body = nullptr; // { ... }

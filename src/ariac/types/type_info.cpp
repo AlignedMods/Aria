@@ -2,10 +2,9 @@
 
 namespace Aria::Internal {
 
-    TypeInfo* TypeInfo::Create(CompilationContext* ctx, TypeKind kind, bool is_reference) {
+    TypeInfo* TypeInfo::Create(CompilationContext* ctx, TypeKind kind) {
         TypeInfo* t = ctx->allocate<TypeInfo>();
         t->kind = kind;
-        t->reference = is_reference;
     
         return t;
     }

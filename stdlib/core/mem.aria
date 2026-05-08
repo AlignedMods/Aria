@@ -1,0 +1,7 @@
+module std::core::mem;
+
+fn memcpy(dst: void*, src: void*, size: ulong) -> void @unsafe {
+    for (let i: ulong = 0; i < size; i += 1) {
+        (<uchar*>dst)[i] = (<uchar*>src)[i];
+    }
+}

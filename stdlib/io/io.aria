@@ -1,22 +1,13 @@
 module std::io;
 
-struct Stream {
-    Stream() {
-        data = null;
-        size = 0;
-        capacity = 0;
+import std::core::stream;
 
-        io::print("Stream ctor called");
-    }
+fn raw_print_stdout(s: char[]) -> void @extern("__aria_raw_print_stdout()");
 
-    data: char*;
-    size: ulong;
-    capacity: ulong;
-}
-
-fn print(s: char[]) -> void @extern("__aria_raw_print_stdout()");
-
-fn ok() -> void {
+fn println(str: char[]) -> void {
     let s: Stream;
-    s->data = null;
+    stream::append(s, str);
+    stream::append(s, '\n');
+
+    raw_print_stdout(s.data[:s.size]);
 }

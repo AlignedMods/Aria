@@ -21,6 +21,12 @@ namespace Aria::Internal {
         }
     }
 
+    void SemanticAnalyzer::pass_types() {
+        for (Module* mod : m_context->modules) {
+            resolve_module_types(mod);
+        }
+    }
+
     void SemanticAnalyzer::pass_code() {
         for (Module* mod : m_context->modules) {
             resolve_module_code(mod);
@@ -109,7 +115,7 @@ namespace Aria::Internal {
                 }
 
                 if (f.parameters.size != 0) {
-                    m_context->report_compiler_diagnostic(func->loc, func->range, "Main function must't have any parameters");
+                    m_context->report_compiler_diagnostic(func->loc, func->range, "Main function mustn't have any parameters");
                 }
 
                 module->symbols[f.identifier] = func;
@@ -171,6 +177,24 @@ namespace Aria::Internal {
 
             module->symbols[ident] = struc;
             unit->local_symbols[ident] = struc;
+        }
+    }
+
+    void SemanticAnalyzer::resolve_module_types(Module* module) {
+        for (CompilationUnit* unit : module->units) {
+            resolve_unit_types(module, unit);
+        }
+    }
+
+    void SemanticAnalyzer::resolve_unit_types(Module* module, CompilationUnit* unit) {
+        m_context->active_comp_unit = unit;
+
+        for (Decl* func : unit->funcs) {
+            FunctionDecl& fn = func->function;
+            resolve_type(func->loc, func->range, fn.type);
+            for (Decl* param : fn.parameters) {
+                resolve_type(param->loc, param->range, param->param.type);
+            }
         }
     }
 

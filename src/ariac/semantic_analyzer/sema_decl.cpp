@@ -35,8 +35,7 @@ namespace Aria::Internal {
 
     void SemanticAnalyzer::resolve_param_decl(Decl* decl) {
         ParamDecl& paramDecl = decl->param;
-        resolve_type(decl->loc, decl->range, paramDecl.type);
-        m_scopes.back().declarations[fmt::format("{}", paramDecl.identifier)] = { paramDecl.type, decl, DeclKind::Param };
+        m_scopes.back().declarations[paramDecl.identifier] = { paramDecl.type, decl, DeclKind::Param };
     }
 
     void SemanticAnalyzer::resolve_function_decl(Decl* decl) {
@@ -82,7 +81,7 @@ namespace Aria::Internal {
         d.identifier = s.identifier;
         d.source_decl = decl;
         
-        TypeInfo* structType = TypeInfo::Create(m_context, TypeKind::Structure, false);
+        TypeInfo* structType = TypeInfo::Create(m_context, TypeKind::Structure);
         structType->struct_ = d;
         std::vector<Decl*> methods;
 
@@ -94,6 +93,8 @@ namespace Aria::Internal {
                     s.definition.trivial_dtor = false;
                 }
             } else if (field->kind == DeclKind::Constructor) {
+                methods.push_back(field);
+            } else if (field->kind == DeclKind::Destructor) {
                 methods.push_back(field);
             }
         }
@@ -112,6 +113,17 @@ namespace Aria::Internal {
                     }
                 }
                 resolve_stmt(method->constructor.body);
+            } else if (method->kind == DeclKind::Destructor) {
+                TinyVector<Stmt*> newBody;
+
+                for (Decl* field : s.fields) {
+                    if (field->kind == DeclKind::Field) {
+                        if (!type_is_trivial(field->field.type)) {
+                            ARIA_TODO("Propagating destructors");
+                        }
+                    }
+                }
+                resolve_stmt(method->destructor.body);
             }
         }
 

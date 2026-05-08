@@ -28,6 +28,7 @@ namespace Aria::Internal {
         Ptr,
         Array,
         Slice,
+        Ref,
 
         Function,
 
@@ -68,15 +69,14 @@ namespace Aria::Internal {
             StructDeclaration struct_;
             UnresolvedType unresolved;
         };
-        bool reference = false;
 
-        static TypeInfo* Create(CompilationContext* ctx, TypeKind kind, bool is_reference);
+        static TypeInfo* Create(CompilationContext* ctx, TypeKind kind);
         static TypeInfo* Dup(CompilationContext* ctx, TypeInfo* type);
 
         bool is_error() const { return kind == TypeKind::Error; }
 
         bool is_primitive() const {
-            return is_void() || is_boolean() || is_numeric() || is_pointer() || is_slice() || is_string();
+            return is_void() || is_boolean() || is_numeric() || is_pointer() || is_slice() || is_string() || is_reference();
         }
 
         bool is_void() const {
@@ -137,7 +137,7 @@ namespace Aria::Internal {
         }
 
         bool is_reference() const {
-            return reference;
+            return kind == TypeKind::Ref;
         }
     };
 
@@ -180,6 +180,12 @@ namespace Aria::Internal {
                 break;
             }
 
+            case TypeKind::Ref: {
+                TypeInfo* t = type->base;
+                str = fmt::format("{}&", type_info_to_string(t));
+                break;
+            }
+
             case TypeKind::String: str = "string"; break;
 
             case TypeKind::Function: {
@@ -212,10 +218,6 @@ namespace Aria::Internal {
             }
 
             default: ARIA_UNREACHABLE();
-        }
-
-        if (type->is_reference()) {
-            str += "&";
         }
 
         return str;

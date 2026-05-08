@@ -22,6 +22,8 @@ namespace Aria::Internal {
             resolve_type(loc, range, type->base);
         } else if (type->kind == TypeKind::Array) {
             ARIA_TODO("Resolving array types");
+        } else if (type->kind == TypeKind::Ref) {
+            resolve_type(loc, range, type->base);
         } else if (type->kind == TypeKind::Function) {
             FunctionDeclaration& fn = type->function;
 
@@ -105,6 +107,9 @@ namespace Aria::Internal {
     }
 
     bool SemanticAnalyzer::type_is_equal(TypeInfo* lhs, TypeInfo* rhs) {
+        if (lhs->is_reference()) { lhs = lhs->base; }
+        if (rhs->is_reference()) { rhs = rhs->base; }
+
         if (lhs->is_primitive() && rhs->is_primitive()) {
             if (lhs->is_pointer() && rhs->is_pointer()) { return type_is_equal(lhs->base, rhs->base); }
             return lhs->kind == rhs->kind;

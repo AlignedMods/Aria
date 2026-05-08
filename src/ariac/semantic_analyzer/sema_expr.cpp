@@ -138,6 +138,12 @@ namespace Aria::Internal {
             if (!import->import.resolved_module) { continue; }
 
             if (import->import.resolved_module->symbols.contains(ident)) {
+                if (import->import.resolved_module->symbols.at(ident)->kind == DeclKind::Struct) {
+                    expr->type = &error_type;
+                    ref.referenced_decl = import->import.resolved_module->symbols.at(ident);
+                    return;
+                }
+                
                 m_context->report_compiler_diagnostic_with_notes(expr->loc, expr->range, 
                     "Symbols from other modules must be prefixed with the module name",
                     { fmt::format("Did you mean to write '{}::{}'?", import->import.name, ref.identifier) });
@@ -159,46 +165,55 @@ namespace Aria::Internal {
         TypeInfo* parentType = mem.parent->type;
         TypeInfo* memberType = nullptr;
 
-        switch (parentType->kind) {
-            case TypeKind::Structure: {
-                StructDeclaration& sd = parentType->struct_;
+        bool searching = true;
+        while (searching) {
+            switch (parentType->kind) {
+                case TypeKind::Structure: {
+                    StructDeclaration& sd = parentType->struct_;
 
-                StructDecl s = sd.source_decl->struct_;
+                    StructDecl s = sd.source_decl->struct_;
 
-                for (Decl* field : s.fields) {
-                    if (field->kind == DeclKind::Field) {
-                        FieldDecl fd = field->field;
-                        if (fd.identifier == mem.member) {
-                            memberType = fd.type;
+                    for (Decl* field : s.fields) {
+                        if (field->kind == DeclKind::Field) {
+                            FieldDecl fd = field->field;
+                            if (fd.identifier == mem.member) {
+                                memberType = fd.type;
+                            }
+                        } else if (field->kind == DeclKind::Constructor) {
+                        } else if (field->kind == DeclKind::Destructor) {
+                        } else {
+                            ARIA_UNREACHABLE();
                         }
-                    } else if (field->kind == DeclKind::Constructor) {}
-                    else {
-                        ARIA_UNREACHABLE();
                     }
+
+                    searching = false;
+                    break;
                 }
 
-                break;
-            }
+                case TypeKind::Slice: {
+                    if (mem.member == "mem") {
+                        memberType = TypeInfo::Create(m_context, TypeKind::Ptr);
+                        memberType->base = parentType->base;
+                        expr->kind = ExprKind::BuiltinMember;
+                    } else if (mem.member == "len") {
+                        memberType = &ulong_type;
+                        expr->kind = ExprKind::BuiltinMember;
+                    }
 
-            case TypeKind::Slice: {
-                if (mem.member == "mem") {
-                    memberType = TypeInfo::Create(m_context, TypeKind::Ptr, false);
-                    memberType->base = parentType->base;
-                    expr->kind = ExprKind::BuiltinMember;
-                } else if (mem.member == "len") {
-                    memberType = &ulong_type;
-                    expr->kind = ExprKind::BuiltinMember;
+                    searching = false;
+                    break;
                 }
 
-                break;
-            }
+                case TypeKind::Ref: { parentType = parentType->base; break; }
 
-            default: {
-                m_context->report_compiler_diagnostic(mem.parent->loc, mem.parent->range, fmt::format("Expression must be of slice or struct type but is '{}'", type_info_to_string(parentType)));
-                expr->type = &error_type;
-                return;
+                default: {
+                    m_context->report_compiler_diagnostic(mem.parent->loc, mem.parent->range, fmt::format("Expression must be of slice or struct type but is '{}'", type_info_to_string(parentType)));
+                    expr->type = &error_type;
+                    return;
+                }
             }
         }
+        
 
         if (!memberType) {
             m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Unknown member \"{}\" in '{}'", mem.member, type_info_to_string(parentType)));
@@ -237,6 +252,8 @@ namespace Aria::Internal {
                 Module* mod = call.callee->decl_ref.name_specifier ? call.callee->decl_ref.name_specifier->scope.referenced_module : m_context->active_comp_unit->parent;
 
                 for (Decl* func : mod->overloaded_funcs.at(fmt::format("{}", call.callee->decl_ref.identifier))) {
+                    if (func->function.type->function.param_types.size != call.arguments.size) { goto again; }
+
                     for (size_t i = 0; i < func->function.type->function.param_types.size; i++) {
                         if (!type_is_equal(func->function.type->function.param_types.items[i], call.arguments.items[i]->type)) { goto again; }
                     }
@@ -256,6 +273,13 @@ namespace Aria::Internal {
                     for (size_t i = 0; i < call.arguments.size; i++) {
                         call.arguments.items[i]->type = &error_type;
                     }
+
+                    expr->type = &error_type;
+                    return;
+                }
+
+                for (size_t i = 0; i < resolved->function.type->function.param_types.size; i++) {
+                    if (!resolved->function.type->function.param_types.items[i]->is_reference()) { require_rvalue(call.arguments.items[i]); }
                 }
 
                 call.callee->decl_ref.referenced_decl = resolved;
@@ -317,6 +341,13 @@ namespace Aria::Internal {
         switch (subs.array->type->kind) {
             case TypeKind::Ptr: {
                 require_rvalue(subs.array);
+
+                if (subs.array->type->base->is_void()) {
+                    m_context->report_compiler_diagnostic(expr->loc, expr->range, "Cannot index into 'void*' because it would dereference to 'void'");
+                    expr->type = &error_type;
+                    break;
+                }
+
                 expr->type = subs.array->type->base;
                 break;
             }
@@ -356,7 +387,7 @@ namespace Aria::Internal {
         switch (tos.source->type->kind) {
             case TypeKind::Ptr: {
                 require_rvalue(tos.source);
-                expr->type = TypeInfo::Create(m_context, TypeKind::Slice, false);
+                expr->type = TypeInfo::Create(m_context, TypeKind::Slice);
                 expr->type->base = tos.source->type->base;
                 break;
             }
@@ -565,6 +596,8 @@ namespace Aria::Internal {
         TypeInfo* srcType = cast.expression->type;
         TypeInfo* dstType = cast.type;
 
+        if (srcType->is_error() || dstType->is_error()) { return; }
+
         ConversionCost cost = get_conversion_cost(dstType, srcType);
 
         if (cost.cast_needed) {
@@ -612,7 +645,7 @@ namespace Aria::Internal {
                     m_context->report_compiler_diagnostic(expr->loc, expr->range, "Address of operation ('&') requries an lvalue");
                 }
 
-                TypeInfo* newType = TypeInfo::Create(m_context, TypeKind::Ptr, false);
+                TypeInfo* newType = TypeInfo::Create(m_context, TypeKind::Ptr);
                 newType->base = type;
                 expr->type = newType;
                 break;
@@ -673,10 +706,14 @@ namespace Aria::Internal {
                 if (!LHS->type->is_error()) {
                     if (!LHS->type->is_numeric()) {
                         m_context->report_compiler_diagnostic(LHS->loc, LHS->range, fmt::format("Expression must be of a numeric type but is of type '{}'", type_info_to_string(LHS->type)));
+                        expr->type = &error_type;
+                        break;
                     }
 
-                    if (!LHS->type->is_numeric()) {
+                    if (!RHS->type->is_numeric()) {
                         m_context->report_compiler_diagnostic(RHS->loc, RHS->range, fmt::format("Expression must be of a numeric type but is of type '{}'", type_info_to_string(RHS->type)));
+                        expr->type = &error_type;
+                        break;
                     }
                 }
 
@@ -757,17 +794,15 @@ namespace Aria::Internal {
 
             case BinaryOperatorKind::LogAnd:
             case BinaryOperatorKind::LogOr: {
-                TypeInfo* boolType = TypeInfo::Create(m_context, TypeKind::Bool, false);
-
                 require_rvalue(LHS);
                 require_rvalue(RHS);
 
-                ConversionCost costLHS = get_conversion_cost(boolType, LHS->type);
-                ConversionCost costRHS = get_conversion_cost(boolType, RHS->type);
+                ConversionCost costLHS = get_conversion_cost(&bool_type, LHS->type);
+                ConversionCost costRHS = get_conversion_cost(&bool_type, RHS->type);
 
                 if (costLHS.cast_needed) {
                     if (costLHS.implicit_cast_possible) {
-                        insert_implicit_cast(boolType, LHS->type, LHS, costLHS.kind);
+                        insert_implicit_cast(&bool_type, LHS->type, LHS, costLHS.kind);
                     } else {
                         m_context->report_compiler_diagnostic(LHS->loc, LHS->range, fmt::format("Cannot implicitly convert from '{}' to 'bool'", type_info_to_string(LHS->type)));
                     }
@@ -775,13 +810,13 @@ namespace Aria::Internal {
 
                 if (costRHS.cast_needed) {
                     if (costRHS.implicit_cast_possible) {
-                        insert_implicit_cast(boolType, RHS->type, RHS, costRHS.kind);
+                        insert_implicit_cast(&bool_type, RHS->type, RHS, costRHS.kind);
                     } else {
                         m_context->report_compiler_diagnostic(LHS->loc, LHS->range, fmt::format("Cannot implicitly convert from '{}' to 'bool'", type_info_to_string(RHS->type)));
                     }
                 }
 
-                expr->type = boolType;
+                expr->type = &bool_type;
                 expr->value_kind = ExprValueKind::RValue;
 
                 if (expr->result_discarded) {

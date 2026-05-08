@@ -13,7 +13,9 @@
 namespace Aria::Internal {
 
     static const char* stdlib_files[] = {
-        "io/io.aria"
+        "io/io.aria",
+        "core/stream.aria",
+        "core/mem.aria"
     };
 
     inline static std::string get_line(const std::string& str, size_t line) {

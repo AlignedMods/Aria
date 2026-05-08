@@ -350,7 +350,7 @@ namespace Aria::Internal {
 
                 case OP_FREE: {
                    void* mem = get_pointer(-1, m_stack);
-                   ARIA_ASSERT(mem, "Trying to free a null pointer");
+                   if (!mem) { break; }
                    free(mem);
                    break;
                 }
@@ -2672,7 +2672,7 @@ namespace Aria::Internal {
                     break;
                 }
 
-                case OP_LABEL: m_program_counter++; break;
+                case OP_LABEL: GET_STR(); break;
 
                 default: ARIA_UNREACHABLE(); break;
             }

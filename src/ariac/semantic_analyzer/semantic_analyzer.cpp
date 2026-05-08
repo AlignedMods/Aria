@@ -14,6 +14,7 @@ namespace Aria::Internal {
     void SemanticAnalyzer::sema_impl() {
         pass_imports();
         pass_decls();
+        pass_types();
         pass_code();
     }
 

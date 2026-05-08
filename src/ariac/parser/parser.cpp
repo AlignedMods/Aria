@@ -68,7 +68,6 @@ namespace Aria::Internal {
         m_expr_rules[TokenKind::Dot] =               { nullptr, BIND_PARSE_RULE(parse_member), PREC_CALL };
         m_expr_rules[TokenKind::Arrow] =             { nullptr, BIND_PARSE_RULE(parse_member), PREC_CALL };
                                                     
-        m_expr_rules[TokenKind::Self] =              { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::True] =              { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::False] =             { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::CharLit] =           { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
@@ -663,7 +662,7 @@ namespace Aria::Internal {
     TypeInfo* Parser::parse_type() {
         ARIA_ASSERT(is_primitive_type() || match(TokenKind::Identifier), "Cannot parse a type out of a non type");
 
-        TypeInfo* type = TypeInfo::Create(m_context, TypeKind::Error, false);
+        TypeInfo* type = TypeInfo::Create(m_context, TypeKind::Error);
 
         switch (consume().kind) {
             case TokenKind::Void:       type->kind = TypeKind::Void; break;
@@ -716,7 +715,8 @@ namespace Aria::Internal {
 
         if (match(TokenKind::Ampersand)) {
             consume();
-            type->reference = true;
+            type->base = TypeInfo::Dup(m_context, type);
+            type->kind = TypeKind::Ref;
         }
 
         return type;
@@ -881,9 +881,9 @@ namespace Aria::Internal {
             case TokenKind::LeftParen:
             case TokenKind::Minus:
             case TokenKind::Ampersand:
+            case TokenKind::Less:
             case TokenKind::Star:
             case TokenKind::Bang:
-            case TokenKind::Self:
             case TokenKind::True:
             case TokenKind::False:
             case TokenKind::CharLit:
@@ -963,7 +963,6 @@ namespace Aria::Internal {
             case TokenKind::Eq:
             case TokenKind::EqEq:
             case TokenKind::BangEq:
-            case TokenKind::Less:
             case TokenKind::LessEq:
             case TokenKind::Greater:
             case TokenKind::GreaterEq: {
@@ -1136,7 +1135,7 @@ namespace Aria::Internal {
         typeDecl.return_type = type;
         typeDecl.param_types = paramTypes;
 
-        TypeInfo* finalType = TypeInfo::Create(m_context, TypeKind::Function, false);
+        TypeInfo* finalType = TypeInfo::Create(m_context, TypeKind::Function);
         finalType->function = typeDecl;
         Decl* decl = Decl::Create(m_context, ident->range.start, SourceRange(start, peek(-1)->range.end), DeclKind::Function, FunctionDecl(ident->string, finalType, params, body, attrs));
 
@@ -1384,6 +1383,8 @@ namespace Aria::Internal {
     }
 
     void Parser::sync_global() {
+        consume();
+
         while (peek()) {
             TokenKind kind = peek()->kind;
 
@@ -1396,6 +1397,8 @@ namespace Aria::Internal {
     }
 
     void Parser::sync_local() {
+        consume();
+
         while (peek()) {
             TokenKind type = peek()->kind;
 
@@ -1408,6 +1411,8 @@ namespace Aria::Internal {
     }
 
     void Parser::sync_params() {
+        consume();
+
         while (peek()) {
             TokenKind kind = peek()->kind;
 

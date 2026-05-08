@@ -249,7 +249,14 @@ namespace Aria {
         if (m_runtime_error_handler) {
             m_runtime_error_handler(error);
         } else {
-            fmt::print(stderr, "A runtime error occurred!\nError message: {}", error);
+            fmt::println(stderr, "\n\nA runtime error has occurred!\nError message: {}\n", error);
+            fmt::println("Call stack:");
+
+            size_t count = 0;
+            for (auto it = m_active_module->vm.m_stack_frames.rbegin(); it != m_active_module->vm.m_stack_frames.rend(); it++) {
+                fmt::println("{:04}:  {}", count, it->function->signature);
+                count++;
+            }
         }
 
         m_active_module->vm.stop_execution();

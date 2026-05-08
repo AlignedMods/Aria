@@ -42,6 +42,7 @@ namespace Aria::Internal {
         // Passes
         void pass_imports();
         void pass_decls();
+        void pass_types();
         void pass_code();
 
         void add_unit_to_module(Module* module, CompilationUnit* unit);
@@ -50,6 +51,9 @@ namespace Aria::Internal {
 
         void resolve_module_decls(Module* module);
         void resolve_unit_decls(Module* module, CompilationUnit* unit);
+
+        void resolve_module_types(Module* module);
+        void resolve_unit_types(Module* module, CompilationUnit* unit);
 
         void resolve_module_code(Module* module);
         void resolve_unit_code(Module* module, CompilationUnit* unit);

@@ -68,7 +68,6 @@ namespace Aria::Internal {
         Break,
         Continue,
         Return,
-        Self,
         Fn,
         Struct,
         New,
@@ -177,7 +176,6 @@ namespace Aria::Internal {
             case TokenKind::Break: return "break";
             case TokenKind::Continue: return "continue";
             case TokenKind::Return: return "return";
-            case TokenKind::Self: return "self";
             case TokenKind::Fn: return "fn";
             case TokenKind::Struct: return "struct";
             case TokenKind::New: return "new";

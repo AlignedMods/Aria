@@ -40,7 +40,7 @@ namespace Aria::Internal {
         resolve_expr(arg);
 
         TypeInfo* argType = arg->type;
-        require_rvalue(arg);
+        if (!param_type->is_reference()) { require_rvalue(arg); }
         m_temporary_context = false;
 
         ConversionCost cost = get_conversion_cost(param_type, argType);

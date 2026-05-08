@@ -108,6 +108,10 @@ namespace Aria::Internal {
                 }
                 return;
 
+            case ExprKind::Construct: m_output += fmt::format("ConstructExpr {} '{}' {}\n",
+                reinterpret_cast<void*>(expr->construct.ctor), type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+                return;
+
             case ExprKind::ArraySubscript: m_output += fmt::format("ArraySubscriptExpr '{}' {}\n",
                 type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
 
