@@ -41,11 +41,12 @@ namespace Aria::Internal {
     };
 
     struct CompilationUnit {
-        inline CompilationUnit(const std::string& filename, const std::string& source)
-            : filename(filename), source(source) {}
+        inline CompilationUnit(const std::string& filename, const std::string& source, bool is_stdlib)
+            : filename(filename), source(source), is_stdlib(is_stdlib) {}
 
         size_t index = 0;
         std::string filename;
+        bool is_stdlib = false;
 
         std::string source;
         std::vector<Token> tokens;
@@ -129,7 +130,8 @@ namespace Aria::Internal {
         }
     
         void compile_files(const std::vector<std::string>& files, const CompilerFlags& flags);
-        void compile_file(const std::string& file, const CompilerFlags& flags);
+        void compile_file(const std::string& file, const CompilerFlags& flags, bool std);
+        void compile_stdlib(const CompilerFlags& flags);
         void finish_compilation(const CompilerFlags& flags);
 
         void print_diag(const std::string& path, const std::string& source, Internal::CompilerDiagnostic* diag);

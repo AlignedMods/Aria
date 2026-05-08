@@ -5,7 +5,7 @@ namespace Aria::Internal {
     Serialzier::Serialzier(CompilationContext* ctx) {
         m_context = ctx;
         m_op_codes = &ctx->ops;
-        m_output = std::ofstream("output.ariac");
+        m_output = std::ofstream("output.ariac", std::ios::binary);
 
         if (!m_output) {
             fmt::println("Failed to open file '{}' for writing", "output.ariac");
@@ -87,6 +87,16 @@ namespace Aria::Internal {
     void Serialzier::serialize_types() {
         for (auto& t : m_op_codes->type_table) {
             serialize_u64(static_cast<u64>(t.kind));
+            if (std::holds_alternative<VMStruct>(t.data)) {
+                m_output << '\1';
+                serialize_u64((static_cast<u64>(std::get<VMStruct>(t.data).fields.size())));
+
+                for (size_t field : std::get<VMStruct>(t.data).fields) {
+                    serialize_u64(static_cast<u64>(field));
+                }
+            } else {
+                m_output << '\0';
+            }
         }
     }
 

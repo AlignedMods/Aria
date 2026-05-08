@@ -30,7 +30,7 @@ namespace Aria::Internal {
     };
 
     struct VMStruct {
-        std::string_view name;
+        std::string name;
         std::vector<size_t> fields;
     };
 

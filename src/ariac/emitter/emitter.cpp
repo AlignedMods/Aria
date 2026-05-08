@@ -233,7 +233,7 @@ namespace Aria::Internal {
         std::string ident;
 
         if (declRef.name_specifier) {
-            ident = fmt::format("{}::{}", declRef.name_specifier->scope.identifier, declRef.identifier);
+            ident = fmt::format("{}::{}", declRef.name_specifier->scope.referenced_module->name, declRef.identifier);
         } else {
             ident = fmt::format("{}::{}", m_active_namespace, declRef.identifier);
         }
@@ -325,32 +325,21 @@ namespace Aria::Internal {
     }
 
     void Emitter::emit_member_expr(Expr* expr, ExprValueKind value_kind) {
-        // MemberExpr* mem = GetNode<MemberExpr>(expr);
-        // 
-        // StructDeclaration& sd = std::get<StructDeclaration>(mem->GetParentType()->Data);
-        // StructDecl* s = GetNode<StructDecl>(sd.SourceDecl);
-        // 
-        // for (Decl* field : s->GetFields()) {
-        //     if (FieldDecl* fd = GetNode<FieldDecl>(field)) {
-        //         if (fd->GetRawIdentifier() == mem->GetMember()) {
-        //             RuntimeStructDeclaration& sdecl = m_Structs.at(s->GetIdentifier());
-        // 
-        //             emit_expr(mem->GetParent(), ExprValueKind::LValue);
-        // 
-        //             if (value_kind == ExprValueKind::LValue) {
-        //                 PUSH_PENDING_OP(OpCodeKind::LdPtrMember, OpCodeMember(sdecl.FieldIndices.at(fd->GetIdentifier()), {VMTypeKind::Ptr}, TypeInfoToVMType(mem->GetParentType())));
-        //             } else if (value_kind == ExprValueKind::RValue) {
-        //                 PUSH_PENDING_OP(OpCodeKind::LdMember, OpCodeMember(sdecl.FieldIndices.at(fd->GetIdentifier()), TypeInfoToVMType(fd->GetResolvedType()), TypeInfoToVMType(mem->GetParentType())));
-        //             }
-        //         }
-        //     } else if (MethodDecl* md = GetNode<MethodDecl>(field)) {
-        //         if (md->GetRawIdentifier() == mem->GetMember()) {
-        //             PUSH_PENDING_OP(OpCodeKind::LdFunc, fmt::format("{}::{}()", sd.Identifier, md->GetIdentifier()));
-        //         }
-        //     }  
-        // }
+        MemberExpr mem = expr->member;
+        ARIA_ASSERT(mem.parent->type->is_structure(), "Invalid MemberExpr");
+        RuntimeStructDeclaration& s = m_structs.at(mem.parent->type->struct_.source_decl);
 
-        ARIA_ASSERT(false, "todo!");
+        emit_expr(mem.parent, ExprValueKind::LValue);
+
+        if (value_kind == ExprValueKind::LValue) {
+            PUSH_PENDING_OP(OP_LD_PTR_FIELD);
+            PUSH_PENDING_U16(static_cast<u16>(s.field_indices.at(mem.member)));
+            PUSH_PENDING_U16(type_info_to_vm_type_idx(mem.parent->type));
+        } else {
+            PUSH_PENDING_OP(OP_LD_FIELD);
+            PUSH_PENDING_U16(static_cast<u16>(s.field_indices.at(mem.member)));
+            PUSH_PENDING_U16(type_info_to_vm_type_idx(mem.parent->type));
+        }
     }
 
     void Emitter::emit_builtin_member_expr(Expr* expr, ExprValueKind value_kind) {
@@ -383,7 +372,8 @@ namespace Aria::Internal {
     }
 
     void Emitter::emit_self_expr(Expr* expr, ExprValueKind value_kind) {
-        ARIA_TODO("Emitter::emit_self_expr()");
+        PUSH_PENDING_OP(OP_LD_LOCAL);
+        PUSH_PENDING_U16(static_cast<u16>(0));
     }
 
     void Emitter::emit_temporary_expr(Expr* expr, ExprValueKind value_kind) {
@@ -447,7 +437,7 @@ namespace Aria::Internal {
 
         if (ident.empty()) {
             if (call.callee->decl_ref.name_specifier) {
-                ident = fmt::format("{}::{}", call.callee->decl_ref.name_specifier->scope.identifier, mangle_function(&call.callee->decl_ref.referenced_decl->function));
+                ident = fmt::format("{}::{}", call.callee->decl_ref.name_specifier->scope.referenced_module->name, mangle_function(&call.callee->decl_ref.referenced_decl->function));
             } else {
                 ident = fmt::format("{}::{}", m_active_namespace, mangle_function(&call.callee->decl_ref.referenced_decl->function));
             }
@@ -459,25 +449,14 @@ namespace Aria::Internal {
     }
 
     void Emitter::emit_construct_expr(Expr* expr, ExprValueKind value_kind) {
-        ARIA_TODO("Emitter::emit_construct_expr()");
-        // ConstructExpr& ct = expr->Construct;
-        // 
-        // PUSH_OP(OpCodeKind::Alloca, { type_info_to_vm_type_idx(expr->type) });
-        // PUSH_OP(OpCodeKind::DeclareLocal, { m_ActiveStackFrame.LocalCount });
-        // ADD_STR(fmt::format("{}::<ctor>()", type_info_to_string(expr->type)));
-        // PUSH_PENDING_OP(OpCodeKind::LdFunc, { STR_IDX(-1) });
-        // PUSH_PENDING_OP(OpCodeKind::LdPtrLocal, { m_ActiveStackFrame.LocalCount });
-        // PUSH_PENDING_OP(OpCodeKind::DeclareArg, { static_cast<size_t>(0) });
-        // PUSH_PENDING_OP(OpCodeKind::Call, { static_cast<size_t>(1), static_cast<size_t>(0) });
-        // PUSH_PENDING_OP(OpCodeKind::LdLocal, { m_ActiveStackFrame.LocalCount });
-        // 
-        // Declaration d;
-        // d.Type = expr->type;
-        // d.Data = m_ActiveStackFrame.LocalCount;
-        // d.Destructor = nullptr;
-        // m_ActiveStackFrame.LocalCount++;
-        // 
-        // m_ActiveStackFrame.Scopes.back().DeclaredSymbols.push_back(d);
+        ConstructExpr ct = expr->construct;
+
+        PUSH_PENDING_OP(OP_ALLOCA);
+        PUSH_PENDING_U16(type_info_to_vm_type_idx(expr->type));
+        ADD_STR(fmt::format("{}::<ctor>()", type_info_to_string(expr->type)));
+        PUSH_PENDING_OP(OP_LD_PTR);
+        PUSH_PENDING_OP(OP_CALL);
+        PUSH_PENDING_U16(STR_IDX(-1));
     }
 
     void Emitter::emit_array_subscript_expr(Expr* expr, ExprValueKind value_kind) {
@@ -876,6 +855,7 @@ namespace Aria::Internal {
             case ExprKind::Null: emit_null_expr(expr, value_kind); break;
             case ExprKind::DeclRef: emit_decl_ref_expr(expr, value_kind); break;
             case ExprKind::Member: emit_member_expr(expr, value_kind); break;
+            case ExprKind::Self: emit_self_expr(expr, value_kind); break;
             case ExprKind::Call: emit_call_expr(expr, value_kind); break;
             case ExprKind::Construct: emit_construct_expr(expr, value_kind); break;
             case ExprKind::ArraySubscript: emit_array_subscript_expr(expr, value_kind); break;
@@ -1031,57 +1011,70 @@ namespace Aria::Internal {
     }
 
     void Emitter::emit_struct_decl(Decl* decl) {
-        ARIA_TODO("Emitter::emit_struct_decl()");
+        StructDecl& sDecl = decl->struct_;
+        std::string ident = fmt::format("{}::{}", m_active_namespace, sDecl.identifier);
+        
+        RuntimeStructDeclaration sd;
+        sd.index = m_struct_index++;
 
-        // StructDecl& sDecl = decl->Struct;
-        // std::string ident = fmt::format("{}::{}", m_ActiveNamespace, sDecl.Identifier);
-        // 
-        // RuntimeStructDeclaration sd;
-        // sd.Index = m_StructIndex++;
-        // 
-        // for (Decl* field : sDecl.Fields) {
-        //     if (field->kind == DeclKind::Field) {
-        //         sd.FieldIndices[ident] = sd.FieldIndices.size();
-        //     }
-        // }
-        // 
-        // VMStruct str;
-        // str.Name = ident;
-        // str.Fields.reserve(decl->Struct.Fields.Size);
-        // 
-        // for (Decl* field : decl->Struct.Fields) {
-        //     if (field->kind == DeclKind::Field) {
-        //         str.Fields.push_back(type_info_to_vm_type_idx(field->Field.Type));
-        //     } else if (field->kind == DeclKind::Constructor) {
-        //         ADD_STR(fmt::format("struct {}::<ctor>()", sDecl.Identifier));
-        //         ADD_STR("_entry$");
-        //         PUSH_OP(OpCodeKind::Function, { STR_IDX(-2) });
-        //         PUSH_OP(OpCodeKind::Label, { STR_IDX(-1) });
-        //         PUSH_OP(OpCodeKind::PushSF);
-        // 
-        //         emit_stmt(field->Constructor.Body);
-        //         merge_pending_op_codes();
-        // 
-        //         PUSH_OP(OpCodeKind::PopSF);
-        //         PUSH_OP(OpCodeKind::Ret);
-        //     } else if (field->kind == DeclKind::Destructor) {
-        //         ADD_STR(fmt::format("struct {}::<dtor>()", sDecl.Identifier));
-        //         ADD_STR("_entry$");
-        //         PUSH_OP(OpCodeKind::Function, { STR_IDX(-2) });
-        //         PUSH_OP(OpCodeKind::Label, { STR_IDX(-1) });
-        //         PUSH_OP(OpCodeKind::PushSF);
-        // 
-        //         emit_stmt(field->Destructor.Body);
-        //         merge_pending_op_codes();
-        // 
-        //         PUSH_OP(OpCodeKind::PopSF);
-        //         PUSH_OP(OpCodeKind::Ret);
-        //     }
-        // }
-        // 
-        // m_OpCodes.TypeTable.push_back(VMType(VMTypeKind::Struct, m_OpCodes.StructTable.size()));
-        // m_OpCodes.StructTable.push_back(str);
-        // m_Structs[decl] = sd;
+        VMStruct str;
+        str.name = ident;
+        str.fields.reserve(decl->struct_.fields.size);
+        
+        for (Decl* field : sDecl.fields) {
+            if (field->kind == DeclKind::Field) {
+                sd.field_indices[field->field.identifier] = sd.field_indices.size();
+                str.fields.push_back(type_info_to_vm_type_idx(field->field.type));
+            }
+        }
+
+        m_structs[decl] = sd;
+        m_op_codes.type_table.push_back(VMType(VMTypeKind::Struct, str));
+                
+        for (Decl* field : decl->struct_.fields) {
+            if (field->kind == DeclKind::Constructor) {
+                std::string name = fmt::format("struct {}::<ctor>()", sDecl.identifier);
+                push_stack_frame(name);
+
+                ADD_STR(name);
+                ADD_STR("_entry$");
+                PUSH_OP(OP_FUNCTION);
+                PUSH_U16(STR_IDX(-2));
+                PUSH_OP(OP_LABEL);
+                PUSH_U16(STR_IDX(-1));
+                
+                // self
+                PUSH_OP(OP_ALLOCA);
+                PUSH_U16(m_basic_types.at(TypeKind::Ptr));
+                PUSH_OP(OP_DECL_LOCAL);
+                PUSH_U16(static_cast<u16>(m_active_stack_frame.local_count));
+                PUSH_OP(OP_ST_LOCAL);
+                PUSH_U16(static_cast<u16>(m_active_stack_frame.local_count));
+
+                m_active_stack_frame.parameters[fmt::format("{}::{}", m_active_namespace, "$self")] = m_active_stack_frame.local_count++;
+                
+                emit_stmt(field->constructor.body);
+                merge_pending_op_codes();
+                
+                PUSH_OP(OP_RET);
+                PUSH_OP(OP_ENDFUNCTION);
+
+                pop_stack_frame();
+            } else if (field->kind == DeclKind::Destructor) {
+                ARIA_TODO("struct destructors");
+                // ADD_STR(fmt::format("struct {}::<dtor>()", sDecl.Identifier));
+                // ADD_STR("_entry$");
+                // PUSH_OP(OpCodeKind::Function, { STR_IDX(-2) });
+                // PUSH_OP(OpCodeKind::Label, { STR_IDX(-1) });
+                // PUSH_OP(OpCodeKind::PushSF);
+                // 
+                // emit_stmt(field->Destructor.Body);
+                // merge_pending_op_codes();
+                // 
+                // PUSH_OP(OpCodeKind::PopSF);
+                // PUSH_OP(OpCodeKind::Ret);
+            }
+        }
     }
 
     void Emitter::emit_decl(Decl* decl) {

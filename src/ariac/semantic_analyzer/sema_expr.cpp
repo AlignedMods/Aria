@@ -41,7 +41,7 @@ namespace Aria::Internal {
 
     void SemanticAnalyzer::resolve_decl_ref_expr(Expr* expr) {
         DeclRefExpr& ref = expr->decl_ref;
-        std::string ident = fmt::format("{}", ref.identifier);
+        std::string_view ident = ref.identifier;
 
         auto getType = [](Decl* d) -> TypeInfo* {
             switch (d->kind) {
@@ -116,6 +116,22 @@ namespace Aria::Internal {
             return;
         }
 
+        if (m_active_struct) {
+            for (auto& field : m_active_struct->struct_.source_decl->struct_.fields) {
+                if (field->kind == DeclKind::Field && field->field.identifier == ident) {
+                    Expr* self = Expr::Create(m_context, expr->loc, expr->range, ExprKind::Self,
+                        ExprValueKind::LValue, m_active_struct, ErrorExpr());
+
+                    Expr* member = Expr::Create(m_context, expr->loc, expr->range, ExprKind::Member,
+                        ExprValueKind::LValue, field->field.type,
+                        MemberExpr(ident, self, false));
+
+                    replace_expr(expr, member);
+                    return;
+                }
+            }
+        }
+
         for (Stmt* import : m_context->active_comp_unit->imports) {
             ARIA_ASSERT(import->kind == StmtKind::Import, "Invalid import");
 
@@ -155,7 +171,8 @@ namespace Aria::Internal {
                         if (fd.identifier == mem.member) {
                             memberType = fd.type;
                         }
-                    } else {
+                    } else if (field->kind == DeclKind::Constructor) {}
+                    else {
                         ARIA_UNREACHABLE();
                     }
                 }
@@ -256,7 +273,7 @@ namespace Aria::Internal {
                 if (fnDecl.param_types.size != call.arguments.size) {
                     m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Mismatched argument count, function expects {} but got {}", fnDecl.param_types.size, call.arguments.size));
                     for (size_t i = 0; i < call.arguments.size; i++) {
-                        call.arguments.items[i]->type = &error_type;
+                        resolve_expr(call.arguments.items[i]);
                     }
                 } else {
                     for (size_t i = 0; i < fnDecl.param_types.size; i++) {
@@ -285,6 +302,7 @@ namespace Aria::Internal {
         }
 
         expr->type = &error_type;
+        call.callee->kind = ExprKind::Error;
     }
 
     void SemanticAnalyzer::resolve_array_subscript_expr(Expr* expr) {

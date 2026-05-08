@@ -95,6 +95,21 @@ namespace Aria::Internal {
     void Deserializer::deserialize_types() {
         for (u32 i = 0; i < m_types_size; i++) {
             u64 kind = deserialize_u64();
+            u8 extra = deserialize_u8();
+
+            if (extra == '\1') {
+                VMStruct str;
+                u64 size = deserialize_u64();
+
+                for (u64 i = 0; i < size; i++) {
+                    str.fields.push_back(static_cast<size_t>(deserialize_u64()));
+                }
+
+                m_op_codes.type_table.push_back({ static_cast<VMTypeKind>(kind), str });
+                continue;
+            }
+
+            ARIA_ASSERT(extra == '\0', "Invalid bytecode");
             m_op_codes.type_table.push_back({ static_cast<VMTypeKind>(kind) });
         }
     }

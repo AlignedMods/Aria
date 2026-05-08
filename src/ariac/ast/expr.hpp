@@ -217,11 +217,12 @@ namespace Aria::Internal {
     };
 
     struct MemberExpr {
-        MemberExpr(std::string_view member, Expr* parent)
-            : member(member), parent(parent) {}
+        MemberExpr(std::string_view member, Expr* parent, bool is_arrow)
+            : member(member), parent(parent), is_arrow(is_arrow) {}
 
         std::string_view member;
         Expr* parent = nullptr;
+        bool is_arrow = false;
     };
 
     // TemporaryExpr

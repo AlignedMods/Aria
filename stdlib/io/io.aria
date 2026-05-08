@@ -1,9 +1,22 @@
-module io;
+module std::io;
 
-void* stdin;
-void* stdout;
-void* stderr;
+struct Stream {
+    Stream() {
+        data = null;
+        size = 0;
+        capacity = 0;
 
-fn print(string s) -> void { __aria_raw_print_stdout(s); }
+        io::print("Stream ctor called");
+    }
 
-fn __aria_raw_print_stdout(string s) -> void @extern @nomangle;
+    data: char*;
+    size: ulong;
+    capacity: ulong;
+}
+
+fn print(s: char[]) -> void @extern("__aria_raw_print_stdout()");
+
+fn ok() -> void {
+    let s: Stream;
+    s->data = null;
+}

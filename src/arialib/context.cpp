@@ -26,7 +26,7 @@ namespace Aria {
     }
 
     void Context::load_file(const std::string& path) {
-        std::ifstream f(path);
+        std::ifstream f(path, std::ios::binary);
         if (!f) {
             fmt::println("Could not open file '{}'", path);
             return;

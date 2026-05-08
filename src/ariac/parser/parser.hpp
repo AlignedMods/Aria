@@ -81,6 +81,7 @@ namespace Aria::Internal {
 
         void sync_global(); // Syncs the parser to a common sync point in a global context
         void sync_local(); // Syncs the parser to a common sync point in a local (block) context
+        void sync_params(); // Syncs the parser to a common sync point in a function parameter context
 
         void error_expected(const std::string& expect, SourceLocation loc, SourceRange range);
 

@@ -12,6 +12,10 @@
 
 namespace Aria::Internal {
 
+    static const char* stdlib_files[] = {
+        "io/io.aria"
+    };
+
     inline static std::string get_line(const std::string& str, size_t line) {
         std::vector<std::string> lines;
         std::stringstream ss(str);
@@ -25,16 +29,17 @@ namespace Aria::Internal {
     }
 
     void CompilationContext::compile_files(const std::vector<std::string>& files, const CompilerFlags& flags) {
-        for (auto& file : files) {
-            compile_file(file, flags);
-        }
+        compile_stdlib(flags);
 
+        for (auto& file : files) { compile_file(file, flags, false); }
         finish_compilation(flags);
 
         if (flags.dump_ast) {
             for (CompilationUnit* unit : compilation_units) {
-                ASTDumper d(unit->root_ast_node);
-                fmt::println("'{}'\n\n{}", unit->filename, d.get_output());
+                if (!unit->is_stdlib) {
+                    ASTDumper d(unit->root_ast_node);
+                    fmt::println("'{}'\n\n{}", unit->filename, d.get_output());
+                }
             }
         }
 
@@ -44,7 +49,7 @@ namespace Aria::Internal {
         }
     }
 
-    void CompilationContext::compile_file(const std::string& file, const CompilerFlags& flags) {
+    void CompilationContext::compile_file(const std::string& file, const CompilerFlags& flags, bool std) {
         std::ifstream f(file);
         if (!f) {
             fmt::println("Could not open file '{}'", file);
@@ -55,7 +60,7 @@ namespace Aria::Internal {
         std::string source = ss.str();
         ss.clear();
 
-        CompilationUnit* unit = new CompilationUnit(file, source);
+        CompilationUnit* unit = new CompilationUnit(file, source, std);
 
         if (compilation_units.size() > 0) { unit->index = compilation_units[compilation_units.size() - 1]->index + 1; }
 
@@ -64,6 +69,17 @@ namespace Aria::Internal {
 
         lex();
         parse();
+    }
+
+    void CompilationContext::compile_stdlib(const CompilerFlags& flags) {
+        if (!std::filesystem::exists("stdlib/")) {
+            fmt::print(stderr, "Could not find standard library");
+            return;
+        }
+
+        for (const char* file : stdlib_files) {
+            compile_file(fmt::format("stdlib/{}", file), flags, true);
+        }
     }
 
     void CompilationContext::finish_compilation(const CompilerFlags& flags) {

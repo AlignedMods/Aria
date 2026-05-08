@@ -123,7 +123,7 @@ namespace Aria::Internal {
                 
                 // Handle overloading the first non-overloaded function
                 if (d->kind == DeclKind::Function) {
-                    Decl* overloaded = Decl::Create(m_context, d->loc, d->range, DeclKind::OverloadedFunction, ErrorDecl());
+                    Decl* overloaded = Decl::Create(m_context, d->loc, d->range, DeclKind::OverloadedFunction, d->function);
                     module->symbols[f.identifier] = overloaded;
                     unit->local_symbols[f.identifier] = overloaded;
 
@@ -167,7 +167,7 @@ namespace Aria::Internal {
             ARIA_ASSERT(struc->kind == DeclKind::Struct, "Invalid struct in structs");
 
             StructDecl& s = struc->struct_;
-            std::string ident = fmt::format("{}", s.identifier);
+            std::string_view ident = s.identifier;
 
             module->symbols[ident] = struc;
             unit->local_symbols[ident] = struc;

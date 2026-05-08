@@ -69,8 +69,8 @@ namespace Aria::Internal {
 
                 return;
 
-            case ExprKind::Member: m_output += fmt::format("MemberExpr '{}' '{}' {}\n",
-                expr->member.member,
+            case ExprKind::Member: m_output += fmt::format("MemberExpr '{}{}' '{}' {}\n",
+                (expr->member.is_arrow) ? "->" : ".", expr->member.member,
                 type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->member.parent, indentation + 4);

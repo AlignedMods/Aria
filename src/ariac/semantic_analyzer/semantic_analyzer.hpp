@@ -27,7 +27,7 @@ namespace Aria::Internal {
         };
 
         struct Scope {
-            std::unordered_map<std::string, Declaration> declarations;
+            std::unordered_map<std::string_view, Declaration> declarations;
             bool allow_break_stmt = false;
             bool allow_continue_stmt = false;
             bool reaches_end = true;

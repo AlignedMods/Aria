@@ -66,6 +66,7 @@ namespace Aria::Internal {
         m_expr_rules[TokenKind::GreaterGreaterEq] =  { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
 
         m_expr_rules[TokenKind::Dot] =               { nullptr, BIND_PARSE_RULE(parse_member), PREC_CALL };
+        m_expr_rules[TokenKind::Arrow] =             { nullptr, BIND_PARSE_RULE(parse_member), PREC_CALL };
                                                     
         m_expr_rules[TokenKind::Self] =              { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::True] =              { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
@@ -359,13 +360,13 @@ namespace Aria::Internal {
     Expr* Parser::parse_member(Expr* left) {
         ARIA_ASSERT(left, "Parser::parse_member() expects a left side");
 
-        Token d = consume(); // consume "."
+        Token d = consume(); // consume "."/"->"
         Token* ident = try_consume(TokenKind::Identifier, "identifier");
         if (!ident) { return &error_expr; }
 
         return Expr::Create(m_context, d.range.start, SourceRange(left->range.start, ident->range.end), ExprKind::Member,
             ExprValueKind::LValue, nullptr,
-            MemberExpr(ident->string, left));
+            MemberExpr(ident->string, left, d.kind == TokenKind::Arrow));
     }
 
     Expr* Parser::parse_primary(Expr* left) {
@@ -1152,14 +1153,14 @@ namespace Aria::Internal {
         while (!match(TokenKind::RightParen)) {
             if (is_primitive_type()) {
                 m_context->report_compiler_diagnostic(peek()->range.start, peek()->range, "Expected an identifier but got a type (<name>: <type>)");
-                consume();
+                sync_params();
                 continue;
             }
 
             Token* paramIdent = try_consume(TokenKind::Identifier, "identifier");
             
             if (!paramIdent) {
-                consume();
+                sync_params();
                 continue;
             }
 
@@ -1167,7 +1168,7 @@ namespace Aria::Internal {
 
             if (!(is_primitive_type() || match(TokenKind::Identifier))) {
                 m_context->report_compiler_diagnostic(peek()->range.start, peek()->range, "Expected a type");
-                consume();
+                sync_params();
                 continue;
             }
 
@@ -1179,7 +1180,7 @@ namespace Aria::Internal {
             if (match(TokenKind::Comma)) { consume(); continue; }
             if (match(TokenKind::RightParen)) { break; }
 
-            sync_local();
+            sync_params();
             m_context->report_compiler_diagnostic(peek()->range.start, peek()->range, "Expected either ',' or ')'");
         }
 
@@ -1195,6 +1196,7 @@ namespace Aria::Internal {
         TinyVector<Decl*> fields;
 
         StructDecl::DefinitionData def{};
+        def.has_default_ctor = true;
         
         try_consume(TokenKind::LeftCurly, "{");
         while (!match(TokenKind::RightCurly)) {
@@ -1208,7 +1210,6 @@ namespace Aria::Internal {
                     
                     Stmt* body = parse_block();
 
-                    def.has_default_ctor = true;
                     def.has_user_default_ctor = true;
 
                     fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Constructor, ConstructorDecl({}, body)));
@@ -1247,6 +1248,7 @@ namespace Aria::Internal {
             } else {
                 m_context->report_compiler_diagnostic(start, SourceRange(start, start), "Expected identifier or '~'");
                 sync_local();
+                if (match(TokenKind::Semi)) { consume(); }
             }
         }
         try_consume(TokenKind::RightCurly, "}");
@@ -1398,6 +1400,18 @@ namespace Aria::Internal {
             TokenKind type = peek()->kind;
 
             if (type == TokenKind::Semi || type == TokenKind::LeftCurly || type == TokenKind::Comma) {
+                return;
+            }
+
+            consume();
+        }
+    }
+
+    void Parser::sync_params() {
+        while (peek()) {
+            TokenKind kind = peek()->kind;
+
+            if (kind == TokenKind::Comma || kind == TokenKind::RightParen) {
                 return;
             }
 

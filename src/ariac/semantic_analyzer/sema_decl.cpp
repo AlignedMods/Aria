@@ -12,7 +12,7 @@ namespace Aria::Internal {
 
     void SemanticAnalyzer::resolve_var_decl(Decl* decl) {
         VarDecl& varDecl = decl->var;
-        std::string ident = fmt::format("{}", varDecl.identifier);
+        std::string_view ident = varDecl.identifier;
 
         if (varDecl.type) {
             resolve_type(decl->loc, decl->range, varDecl.type);
@@ -98,6 +98,8 @@ namespace Aria::Internal {
             }
         }
 
+        m_active_struct = TypeInfo::Dup(m_context, structType);
+
         for (Decl* method : methods) {
             if (method->kind == DeclKind::Constructor) {
                 TinyVector<Stmt*> newBody;
@@ -113,8 +115,6 @@ namespace Aria::Internal {
             }
         }
 
-        m_active_struct = TypeInfo::Dup(m_context, structType);
-        
         // for (MethodDecl* md : methods) {
         //     TypeInfo* returnType = GetTypeInfoFromString(md->GetParsedType());
         //     TinyVector<TypeInfo*> paramTypes;
