@@ -605,8 +605,8 @@ namespace Aria::Internal {
 
                     switch (lhs.type.kind) {
                         case VMTypeKind::I32: {
-                            i32 lhsVal = 0;
-                            i32 rhsVal = 0;
+                            u32 lhsVal = 0;
+                            u32 rhsVal = 0;
 
                             memcpy(&lhsVal, lhs.memory, lhs.size);
                             memcpy(&rhsVal, rhs.memory, rhs.size);
@@ -615,13 +615,13 @@ namespace Aria::Internal {
                             auto result = lhsVal + rhsVal;
 
                             alloc(lhs.type, m_stack);
-                            store_int(-1, result, m_stack);
+                            store_int(-1, static_cast<i32>(result), m_stack);
                             break;
                         }
 
                         case VMTypeKind::I64: {
-                            i64 lhsVal = 0;
-                            i64 rhsVal = 0;
+                            u64 lhsVal = 0;
+                            u64 rhsVal = 0;
 
                             memcpy(&lhsVal, lhs.memory, lhs.size);
                             memcpy(&rhsVal, rhs.memory, rhs.size);
@@ -630,7 +630,7 @@ namespace Aria::Internal {
                             auto result = lhsVal + rhsVal;
 
                             alloc(lhs.type, m_stack);
-                            store_long(-1, result, m_stack);
+                            store_long(-1, static_cast<u64>(result), m_stack);
                             break;
                         }
 
@@ -734,8 +734,8 @@ namespace Aria::Internal {
 
                     switch (lhs.type.kind) {
                         case VMTypeKind::I32: {
-                            i32 lhsVal = 0;
-                            i32 rhsVal = 0;
+                            u32 lhsVal = 0;
+                            u32 rhsVal = 0;
 
                             memcpy(&lhsVal, lhs.memory, lhs.size);
                             memcpy(&rhsVal, rhs.memory, rhs.size);
@@ -744,13 +744,13 @@ namespace Aria::Internal {
                             auto result = lhsVal - rhsVal;
 
                             alloc(lhs.type, m_stack);
-                            store_int(-1, result, m_stack);
+                            store_int(-1, static_cast<i32>(result), m_stack);
                             break;
                         }
 
                         case VMTypeKind::I64: {
-                            i64 lhsVal = 0;
-                            i64 rhsVal = 0;
+                            u64 lhsVal = 0;
+                            u64 rhsVal = 0;
 
                             memcpy(&lhsVal, lhs.memory, lhs.size);
                             memcpy(&rhsVal, rhs.memory, rhs.size);
@@ -759,7 +759,7 @@ namespace Aria::Internal {
                             auto result = lhsVal - rhsVal;
 
                             alloc(lhs.type, m_stack);
-                            store_long(-1, result, m_stack);
+                            store_long(-1, static_cast<i64>(result), m_stack);
                             break;
                         }
 
