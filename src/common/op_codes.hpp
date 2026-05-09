@@ -115,6 +115,14 @@ namespace Aria::Internal {
         OP_XORI,
         OP_XORU,
 
+        OP_INCI,
+        OP_INCU,
+        OP_INCF,
+
+        OP_DECI,
+        OP_DECU,
+        OP_DECF,
+
         OP_NEGI,
         OP_NEGF,
 

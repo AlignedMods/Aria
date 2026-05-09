@@ -678,6 +678,46 @@ namespace Aria::Internal {
                 break;
             }
 
+            case UnaryOperatorKind::Increment: {
+                if (!unop.expression->type->is_error()) {
+                    if (!unop.expression->type->is_numeric()) {
+                        m_context->report_compiler_diagnostic(unop.expression->loc, unop.expression->range, fmt::format("Expression must be of a numeric type but is of type '{}'", type_info_to_string(unop.expression->type)));
+                        expr->type = &error_type;
+                        break;
+                    }
+                }
+
+                if (unop.expression->value_kind != ExprValueKind::LValue) {
+                    m_context->report_compiler_diagnostic(unop.expression->loc, unop.expression->range, "Expression must be a modifiable lvalue");
+                    expr->type = &error_type;
+                    break;
+                }
+
+                expr->type = unop.expression->type;
+                expr->value_kind = ExprValueKind::RValue;
+                break;
+            }
+
+            case UnaryOperatorKind::Decrement: {
+                if (!unop.expression->type->is_error()) {
+                    if (!unop.expression->type->is_numeric()) {
+                        m_context->report_compiler_diagnostic(unop.expression->loc, unop.expression->range, fmt::format("Expression must be of a numeric type but is of type '{}'", type_info_to_string(unop.expression->type)));
+                        expr->type = &error_type;
+                        break;
+                    }
+                }
+
+                if (unop.expression->value_kind != ExprValueKind::LValue) {
+                    m_context->report_compiler_diagnostic(unop.expression->loc, unop.expression->range, "Expression must be a modifiable lvalue");
+                    expr->type = &error_type;
+                    break;
+                }
+
+                expr->type = unop.expression->type;
+                expr->value_kind = ExprValueKind::RValue;
+                break;
+            }
+
             default: ARIA_UNREACHABLE();
         }
     }

@@ -73,7 +73,9 @@ namespace Aria::Internal {
         Not, // "!"
         Negate, // "-8.7f"
         AddressOf, // "&x"
-        Dereference // "*ptr"
+        Dereference, // "*ptr"
+        Increment, // ++i, i++
+        Decrement // --i, i--
     };
     inline const char* unary_op_kind_to_string(UnaryOperatorKind kind) {
         switch (kind) {
@@ -83,6 +85,8 @@ namespace Aria::Internal {
             case UnaryOperatorKind::Negate: return "-";
             case UnaryOperatorKind::AddressOf: return "&";
             case UnaryOperatorKind::Dereference: return "*";
+            case UnaryOperatorKind::Increment: return "++";
+            case UnaryOperatorKind::Decrement: return "--";
 
             default: ARIA_UNREACHABLE();
         }
@@ -349,11 +353,12 @@ namespace Aria::Internal {
     };
     
     struct UnaryOperatorExpr {
-        UnaryOperatorExpr(Expr* expr, UnaryOperatorKind op)
-            : expression(expr), op(op) {}
+        UnaryOperatorExpr(Expr* expr, UnaryOperatorKind op, bool infix)
+            : expression(expr), op(op), infix(infix) {}
 
         Expr* expression = nullptr;
         UnaryOperatorKind op = UnaryOperatorKind::Invalid;
+        bool infix = false;
     };
     
     struct BinaryOperatorExpr {

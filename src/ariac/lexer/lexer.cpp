@@ -59,10 +59,12 @@ namespace Aria::Internal {
                 // Operators
                 case '+': {
                     if (try_consume('=')) { add_token(TokenKind::PlusEq, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "+="); break; }
+                    else if (try_consume('+')) { add_token(TokenKind::PlusPlus, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "++"); break; }
                     else { add_token(TokenKind::Plus, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "+"); break; }
                 }
                 case '-': {
                     if (try_consume('=')) { add_token(TokenKind::MinusEq, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "-="); break; }
+                    else if (try_consume('-')) { add_token(TokenKind::MinusMinus, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "--"); break; }
                     else if (try_consume('>')) { add_token(TokenKind::Arrow, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "->"); break; }
                     else { add_token(TokenKind::Minus, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "-"); break; }
                 }

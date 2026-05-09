@@ -2332,6 +2332,174 @@ namespace Aria::Internal {
                 }
                 // ^^^ SHL, SHR, AND, OR, XOR ^^^ //
 
+                case OP_INCI: {
+                    VMSlice val = get_vm_slice(-1, m_stack);
+
+                    switch (val.type.kind) {
+                        case VMTypeKind::I32: {
+                            u32 v = 0;
+                            memcpy(&v, val.memory, sizeof(i32));
+
+                            auto result = ++v;
+                            store_int(-1, static_cast<i32>(result), m_stack);
+                            break;
+                        }
+
+                        case VMTypeKind::I64: {
+                            u64 v = 0;
+                            memcpy(&v, val.memory, sizeof(i64));
+
+                            auto result = ++v;
+                            store_long(-1, static_cast<i64>(result), m_stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to inci instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_INCU: {
+                    VMSlice val = get_vm_slice(-1, m_stack);
+
+                    switch (val.type.kind) {
+                        case VMTypeKind::U32: {
+                            u32 v = 0;
+                            memcpy(&v, val.memory, sizeof(u32));
+
+                            auto result = ++v;
+                            store_uint(-1, result, m_stack);
+                            break;
+                        }
+
+                        case VMTypeKind::U64: {
+                            u64 v = 0;
+                            memcpy(&v, val.memory, sizeof(u64));
+
+                            auto result = ++v;
+                            store_ulong(-1, result, m_stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to incu instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_INCF: {
+                    VMSlice val = get_vm_slice(-1, m_stack);
+
+                    switch (val.type.kind) {
+                        case VMTypeKind::Float: {
+                            float v = 0;
+                            memcpy(&v, val.memory, sizeof(float));
+
+                            auto result = ++v;
+                            store_float(-1, result, m_stack);
+                            break;
+                        }
+
+                        case VMTypeKind::Double: {
+                            double v = 0;
+                            memcpy(&v, val.memory, sizeof(double));
+
+                            auto result = ++v;
+                            store_double(-1, result, m_stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to incf instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_DECI: {
+                    VMSlice val = get_vm_slice(-1, m_stack);
+
+                    switch (val.type.kind) {
+                        case VMTypeKind::I32: {
+                            u32 v = 0;
+                            memcpy(&v, val.memory, sizeof(i32));
+
+                            auto result = --v;
+                            store_int(-1, static_cast<i32>(result), m_stack);
+                            break;
+                        }
+
+                        case VMTypeKind::I64: {
+                            u64 v = 0;
+                            memcpy(&v, val.memory, sizeof(i64));
+
+                            auto result = --v;
+                            store_long(-1, static_cast<i64>(result), m_stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to deci instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_DECU: {
+                    VMSlice val = get_vm_slice(-1, m_stack);
+
+                    switch (val.type.kind) {
+                        case VMTypeKind::U32: {
+                            u32 v = 0;
+                            memcpy(&v, val.memory, sizeof(u32));
+
+                            auto result = --v;
+                            store_uint(-1, result, m_stack);
+                            break;
+                        }
+
+                        case VMTypeKind::U64: {
+                            u64 v = 0;
+                            memcpy(&v, val.memory, sizeof(u64));
+
+                            auto result = --v;
+                            store_ulong(-1, result, m_stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to decu instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_DECF: {
+                    VMSlice val = get_vm_slice(-1, m_stack);
+
+                    switch (val.type.kind) {
+                        case VMTypeKind::Float: {
+                            float v = 0;
+                            memcpy(&v, val.memory, sizeof(float));
+
+                            auto result = --v;
+                            store_float(-1, result, m_stack);
+                            break;
+                        }
+
+                        case VMTypeKind::Double: {
+                            double v = 0;
+                            memcpy(&v, val.memory, sizeof(double));
+
+                            auto result = --v;
+                            store_double(-1, result, m_stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to decf instruction");
+                    }
+
+                    break;
+                }
+
                 case OP_NEGI: {
                     VMSlice val = get_vm_slice(-1, m_stack);
 

@@ -27,8 +27,8 @@ namespace Aria::Internal {
         // ^^^ Punctuation ^^^ //
 
         // VVV Operators VVV //
-        Plus, PlusEq,
-        Minus, MinusEq,
+        Plus, PlusEq, PlusPlus,
+        Minus, MinusEq, MinusMinus,
         Star, StarEq,
         Slash, SlashEq,
         Percent, PercentEq,
@@ -121,8 +121,10 @@ namespace Aria::Internal {
             // VVV Operators VVV //
             case TokenKind::Plus: return "+";
             case TokenKind::PlusEq: return "+=";
+            case TokenKind::PlusPlus: return "++";
             case TokenKind::Minus: return "-";
             case TokenKind::MinusEq: return "-=";
+            case TokenKind::MinusMinus: return "--";
             case TokenKind::Star: return "*";
             case TokenKind::StarEq: return "*=";
             case TokenKind::Slash: return "/";

@@ -25,7 +25,7 @@ fn increase_capacity(self: Stream&, cap: ulong) -> void {
     unsafe {
         let newData = new char[cap];
         
-        for (let i: ulong = 0; i < self.size; i += 1) {
+        for (let i: ulong = 0; i < self.size; i++) {
             newData[i] = self.data[i];
         }
     
@@ -36,7 +36,7 @@ fn increase_capacity(self: Stream&, cap: ulong) -> void {
 }
 
 fn append(self: Stream&, s: char[]) -> void {
-    for (let i: ulong = 0; i < s.len; i += 1) {
+    for (let i: ulong = 0; i < s.len; i++) {
         append(self, s[i]);
     }
 }

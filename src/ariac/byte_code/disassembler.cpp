@@ -427,6 +427,36 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case OP_INCI: {
+                    m_output += "    inci";
+                    break;
+                }
+
+                case OP_INCU: {
+                    m_output += "    incu";
+                    break;
+                }
+
+                case OP_INCF: {
+                    m_output += "    incf";
+                    break;
+                }
+
+                case OP_DECI: {
+                    m_output += "    deci";
+                    break;
+                }
+
+                case OP_DECU: {
+                    m_output += "    decu";
+                    break;
+                }
+
+                case OP_DECF: {
+                    m_output += "    decf";
+                    break;
+                }
+
                 case OP_NEGI: {
                     m_output += "    negi";
                     break;

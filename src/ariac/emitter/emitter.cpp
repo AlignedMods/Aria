@@ -677,6 +677,40 @@ namespace Aria::Internal {
                 break;
             }
 
+            case UnaryOperatorKind::Increment: {
+                if (unop.infix) { emit_expr(unop.expression, value_kind); }
+                emit_expr(unop.expression, ExprValueKind::LValue);
+                emit_expr(unop.expression, ExprValueKind::RValue);
+
+                if (expr->type->is_integral()) {
+                    if (expr->type->is_signed()) { PUSH_PENDING_OP(OP_INCI); }
+                    else if (expr->type->is_unsigned()) { PUSH_PENDING_OP(OP_INCU); }
+                } else {
+                    PUSH_PENDING_OP(OP_INCF);
+                }
+
+                PUSH_PENDING_OP(OP_ST_ADDR);
+                if (!unop.infix) { emit_expr(unop.expression, value_kind); }
+                break;
+            }
+
+            case UnaryOperatorKind::Decrement: {
+                if (unop.infix) { emit_expr(unop.expression, value_kind); }
+                emit_expr(unop.expression, ExprValueKind::LValue);
+                emit_expr(unop.expression, ExprValueKind::RValue);
+
+                if (expr->type->is_integral()) {
+                    if (expr->type->is_signed()) { PUSH_PENDING_OP(OP_DECI); }
+                    else if (expr->type->is_unsigned()) { PUSH_PENDING_OP(OP_DECU); }
+                } else {
+                    PUSH_PENDING_OP(OP_DECF);
+                }
+
+                PUSH_PENDING_OP(OP_ST_ADDR);
+                if (!unop.infix) { emit_expr(unop.expression, value_kind); }
+                break;
+            }
+
             default: ARIA_UNREACHABLE();
         }
     }

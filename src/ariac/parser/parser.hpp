@@ -32,6 +32,7 @@ namespace Aria::Internal {
         UnaryOperatorKind get_unary_operator_from_token(Token* token);
         BinaryOperatorKind get_binary_operator_from_token(Token* token);
         Expr* parse_unary(Expr* left);
+        Expr* parse_infix_unary(Expr* left);
         Expr* parse_binary(Expr* left);
         Expr* parse_array_subscript(Expr* left);
         Expr* parse_compound_assignment(Expr* left);

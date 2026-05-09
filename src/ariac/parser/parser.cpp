@@ -12,7 +12,7 @@
 static constexpr size_t PREC_NONE = 0;
 static constexpr size_t PREC_ASSIGNMENT = 10;
 static constexpr size_t PREC_RELATIONAL = 20;
-static constexpr size_t PREC_ADDITIVE = 20;
+static constexpr size_t PREC_ADDITIVE = 30;
 static constexpr size_t PREC_BIT = 40;
 static constexpr size_t PREC_MULTIPLICATIVE = 50;
 static constexpr size_t PREC_CALL = 60;
@@ -64,6 +64,9 @@ namespace Aria::Internal {
         m_expr_rules[TokenKind::UpArrowEq] =         { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
         m_expr_rules[TokenKind::LessLessEq] =        { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
         m_expr_rules[TokenKind::GreaterGreaterEq] =  { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
+
+        m_expr_rules[TokenKind::PlusPlus] =          { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_infix_unary), PREC_ADDITIVE };
+        m_expr_rules[TokenKind::MinusMinus] =        { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_infix_unary), PREC_ADDITIVE };
 
         m_expr_rules[TokenKind::Dot] =               { nullptr, BIND_PARSE_RULE(parse_member), PREC_CALL };
         m_expr_rules[TokenKind::Arrow] =             { nullptr, BIND_PARSE_RULE(parse_member), PREC_CALL };
@@ -234,6 +237,8 @@ namespace Aria::Internal {
             case TokenKind::Minus: return UnaryOperatorKind::Negate;
             case TokenKind::Ampersand: return UnaryOperatorKind::AddressOf;
             case TokenKind::Star: return UnaryOperatorKind::Dereference;
+            case TokenKind::PlusPlus: return UnaryOperatorKind::Increment;
+            case TokenKind::MinusMinus: return UnaryOperatorKind::Decrement;
             default: return UnaryOperatorKind::Invalid;
         }
     }
@@ -297,7 +302,17 @@ namespace Aria::Internal {
 
         return Expr::Create(m_context, op.range.start, SourceRange(op.range.start, expr->range.end), ExprKind::UnaryOperator,
             ExprValueKind::RValue, expr->type,
-            UnaryOperatorExpr(expr, get_unary_operator_from_token(&op)));
+            UnaryOperatorExpr(expr, get_unary_operator_from_token(&op), false));
+    }
+
+    Expr* Parser::parse_infix_unary(Expr* left) {
+        ARIA_ASSERT(left, "Parser::parse_infix_unary() expects a left side");
+
+        Token op = consume();
+
+        return Expr::Create(m_context, op.range.start, SourceRange(left->range.start, op.range.end), ExprKind::UnaryOperator,
+            ExprValueKind::RValue, left->type,
+            UnaryOperatorExpr(left, get_unary_operator_from_token(&op), true));
     }
 
     Expr* Parser::parse_binary(Expr* left) {
