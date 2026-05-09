@@ -7,7 +7,7 @@ fn raw_print_stdout(s: char[]) -> void @extern("__aria_raw_print_stdout()");
 fn println(str: char[]) -> void {
     let s: Stream;
     stream::append(s, str);
-    stream::append(s, '\n');
+    // stream::append(s, '\n');
 
     raw_print_stdout(s.data[:s.size]);
 }

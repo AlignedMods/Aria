@@ -11,11 +11,14 @@
 
 static constexpr size_t PREC_NONE = 0;
 static constexpr size_t PREC_ASSIGNMENT = 10;
-static constexpr size_t PREC_RELATIONAL = 20;
-static constexpr size_t PREC_ADDITIVE = 30;
-static constexpr size_t PREC_BIT = 40;
-static constexpr size_t PREC_MULTIPLICATIVE = 50;
-static constexpr size_t PREC_CALL = 60;
+static constexpr size_t PREC_OR = 20;
+static constexpr size_t PREC_AND = 30;
+static constexpr size_t PREC_RELATIONAL = 40;
+static constexpr size_t PREC_ADDITIVE = 50;
+static constexpr size_t PREC_BIT = 60;
+static constexpr size_t PREC_SHIFT = 70;
+static constexpr size_t PREC_MULTIPLICATIVE = 80;
+static constexpr size_t PREC_CALL = 90;
 
 namespace Aria::Internal {
 
@@ -32,27 +35,47 @@ namespace Aria::Internal {
     void Parser::add_expr_rules() {
         m_expr_rules.reserve(static_cast<size_t>(TokenKind::Last));
 
+        // PREC_CALL
         m_expr_rules[TokenKind::LeftParen] =         { BIND_PARSE_RULE(parse_grouping), BIND_PARSE_RULE(parse_call), PREC_CALL };
-        m_expr_rules[TokenKind::Plus] =              { nullptr, BIND_PARSE_RULE(parse_binary), PREC_ADDITIVE };
-        m_expr_rules[TokenKind::Minus] =             { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_binary), PREC_ADDITIVE };
+        m_expr_rules[TokenKind::LeftBracket] =       { nullptr, BIND_PARSE_RULE(parse_array_subscript), PREC_CALL };
+        m_expr_rules[TokenKind::Dot] =               { nullptr, BIND_PARSE_RULE(parse_member), PREC_CALL };
+        m_expr_rules[TokenKind::Arrow] =             { nullptr, BIND_PARSE_RULE(parse_member), PREC_CALL };
+        m_expr_rules[TokenKind::PlusPlus] =          { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_infix_unary), PREC_CALL };
+        m_expr_rules[TokenKind::MinusMinus] =        { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_infix_unary), PREC_CALL };
+
+        // PREC_MULTIPLICATIVE
         m_expr_rules[TokenKind::Star] =              { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_binary), PREC_MULTIPLICATIVE };
         m_expr_rules[TokenKind::Slash] =             { nullptr, BIND_PARSE_RULE(parse_binary), PREC_MULTIPLICATIVE };
         m_expr_rules[TokenKind::Percent] =           { nullptr, BIND_PARSE_RULE(parse_binary), PREC_MULTIPLICATIVE };
+
+        // PREC_SHIFT
+        m_expr_rules[TokenKind::LessLess] =          { nullptr, BIND_PARSE_RULE(parse_binary), PREC_SHIFT };
+        m_expr_rules[TokenKind::GreaterGreater] =    { nullptr, BIND_PARSE_RULE(parse_binary), PREC_SHIFT };
+
+        // PREC_BIT
         m_expr_rules[TokenKind::Ampersand] =         { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_binary), PREC_BIT };
-        m_expr_rules[TokenKind::DoubleAmpersand] =   { nullptr, BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
         m_expr_rules[TokenKind::Pipe] =              { nullptr, BIND_PARSE_RULE(parse_binary), PREC_BIT };
-        m_expr_rules[TokenKind::DoublePipe] =        { nullptr, BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
         m_expr_rules[TokenKind::UpArrow] =           { nullptr, BIND_PARSE_RULE(parse_binary), PREC_BIT };
+
+        // PREC_ADDITIVE
+        m_expr_rules[TokenKind::Plus] =              { nullptr, BIND_PARSE_RULE(parse_binary), PREC_ADDITIVE };
+        m_expr_rules[TokenKind::Minus] =             { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_binary), PREC_ADDITIVE };
+
+        // PREC_RELATIONAL
         m_expr_rules[TokenKind::EqEq] =              { nullptr, BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
         m_expr_rules[TokenKind::BangEq] =            { nullptr, BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
         m_expr_rules[TokenKind::Less] =              { BIND_PARSE_RULE(parse_cast), BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
         m_expr_rules[TokenKind::LessEq] =            { nullptr, BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
         m_expr_rules[TokenKind::Greater] =           { nullptr, BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
         m_expr_rules[TokenKind::GreaterEq] =         { nullptr, BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
-        m_expr_rules[TokenKind::LessLess] =          { nullptr, BIND_PARSE_RULE(parse_binary), PREC_BIT };
-        m_expr_rules[TokenKind::GreaterGreater] =    { nullptr, BIND_PARSE_RULE(parse_binary), PREC_BIT };
-        m_expr_rules[TokenKind::LeftBracket] =       { nullptr, BIND_PARSE_RULE(parse_array_subscript), PREC_BIT };
-                                                    
+        
+        // PREC_AND
+        m_expr_rules[TokenKind::DoubleAmpersand] =   { nullptr, BIND_PARSE_RULE(parse_binary), PREC_AND };
+
+        // PREC_OR
+        m_expr_rules[TokenKind::DoublePipe] =        { nullptr, BIND_PARSE_RULE(parse_binary), PREC_OR };
+               
+        // PREC_ASSIGNMENT
         m_expr_rules[TokenKind::Eq] =                { nullptr, BIND_PARSE_RULE(parse_binary), PREC_ASSIGNMENT };
         m_expr_rules[TokenKind::PlusEq] =            { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
         m_expr_rules[TokenKind::MinusEq] =           { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
@@ -65,12 +88,7 @@ namespace Aria::Internal {
         m_expr_rules[TokenKind::LessLessEq] =        { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
         m_expr_rules[TokenKind::GreaterGreaterEq] =  { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
 
-        m_expr_rules[TokenKind::PlusPlus] =          { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_infix_unary), PREC_ADDITIVE };
-        m_expr_rules[TokenKind::MinusMinus] =        { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_infix_unary), PREC_ADDITIVE };
-
-        m_expr_rules[TokenKind::Dot] =               { nullptr, BIND_PARSE_RULE(parse_member), PREC_CALL };
-        m_expr_rules[TokenKind::Arrow] =             { nullptr, BIND_PARSE_RULE(parse_member), PREC_CALL };
-                                                    
+        // PREC_NONE                                     
         m_expr_rules[TokenKind::True] =              { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::False] =             { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::CharLit] =           { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
@@ -82,10 +100,8 @@ namespace Aria::Internal {
         m_expr_rules[TokenKind::StrLit] =            { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Null] =              { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Identifier] =        { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
-
         m_expr_rules[TokenKind::New] =               { BIND_PARSE_RULE(parse_new), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Delete] =            { BIND_PARSE_RULE(parse_delete), nullptr, PREC_NONE };
-
         m_expr_rules[TokenKind::DollarFormat] =      { BIND_PARSE_RULE(parse_format),  nullptr, PREC_NONE };
     }
 

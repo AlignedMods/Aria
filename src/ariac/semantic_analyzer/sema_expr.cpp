@@ -362,7 +362,7 @@ namespace Aria::Internal {
                 break;
             }
 
-            default: m_context->report_compiler_diagnostic(subs.array->loc, subs.array->range, "'[' operator can only be used with a pointer/slice/array"); break;
+            default: m_context->report_compiler_diagnostic(subs.array->loc, subs.array->range, "'[' operator can only be used with a pointer/slice/array"); expr->type = &error_type; break;
         }
 
         ConversionCost cost = get_conversion_cost(&ulong_type, subs.index->type);
