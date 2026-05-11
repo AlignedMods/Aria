@@ -111,6 +111,10 @@ namespace Aria::Internal {
         if (mod->symbols.contains(ident)) {
             Decl* d = mod->symbols.at(ident);
 
+            if (mod != m_context->active_comp_unit->parent && d->visibility == DeclVisibility::Private) {
+                m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Symbol '{}' (declared in '{}') is private and cannot be accessed", ref.identifier, mod->name));
+            }
+
             ref.referenced_decl = d;
             expr->type = getType(d);
             return;
@@ -168,6 +172,11 @@ namespace Aria::Internal {
         bool searching = true;
         while (searching) {
             switch (parentType->kind) {
+                case TypeKind::Error: {
+                    expr->type = &error_type;
+                    return;
+                }
+
                 case TypeKind::Structure: {
                     StructDeclaration& sd = parentType->struct_;
 
@@ -242,6 +251,7 @@ namespace Aria::Internal {
 
         if (call.callee->decl_ref.referenced_decl->kind != DeclKind::Error) {
             if (call.callee->kind == ExprKind::DeclRef && call.callee->decl_ref.referenced_decl->kind == DeclKind::OverloadedFunction) { // Overloaded function
+                resolve_decl(call.callee->decl_ref.referenced_decl);
                 m_temporary_context = true;
                 for (Expr* arg : call.arguments) {
                     resolve_expr(arg);
@@ -286,6 +296,7 @@ namespace Aria::Internal {
                 expr->type = resolved->function.type->function.return_type;
                 return;
             } else if (!call.callee->type->is_error()) { // Normal function
+                resolve_decl(call.callee->decl_ref.referenced_decl);
                 FunctionDeclaration& fnDecl = calleeType->function;
 
                 for (auto& attr : call.callee->decl_ref.referenced_decl->function.attributes) {

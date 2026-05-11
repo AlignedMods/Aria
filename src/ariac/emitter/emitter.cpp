@@ -938,7 +938,7 @@ namespace Aria::Internal {
         d.type = varDecl.type;
         
         if (varDecl.type->is_string()) {
-            d.destructor = Decl::Create(m_context, SourceLocation(), SourceRange(), DeclKind::BuiltinDestructor, BuiltinDestructorDecl(BuiltinKind::String));
+            d.destructor = Decl::Create(m_context, SourceLocation(), SourceRange(), DeclKind::BuiltinDestructor, DeclVisibility::Public, BuiltinDestructorDecl(BuiltinKind::String));
         } else if (varDecl.type->is_structure()) {
             StructDeclaration& sDecl = varDecl.type->struct_;
             Decl* dtor = nullptr;
@@ -1069,33 +1069,38 @@ namespace Aria::Internal {
                 
         for (Decl* field : decl->struct_.fields) {
             if (field->kind == DeclKind::Constructor) {
-                std::string name = fmt::format("struct {}::<ctor>()", sDecl.identifier);
-                push_stack_frame(name);
+                if (!field->constructor.disabled) {
+                    std::string name = mangle_ctor(&field->constructor);
+                    push_stack_frame(name);
 
-                ADD_STR(name);
-                ADD_STR("_entry$");
-                PUSH_OP(OP_FUNCTION);
-                PUSH_U16(STR_IDX(-2));
-                PUSH_OP(OP_LABEL);
-                PUSH_U16(STR_IDX(-1));
-                
-                // self
-                PUSH_OP(OP_ALLOCA);
-                PUSH_U16(m_basic_types.at(TypeKind::Ptr));
-                PUSH_OP(OP_DECL_LOCAL);
-                PUSH_U16(static_cast<u16>(m_active_stack_frame.local_count));
-                PUSH_OP(OP_ST_LOCAL);
-                PUSH_U16(static_cast<u16>(m_active_stack_frame.local_count));
+                    ADD_STR(name);
+                    ADD_STR("_entry$");
+                    PUSH_OP(OP_FUNCTION);
+                    PUSH_U16(STR_IDX(-2));
+                    PUSH_OP(OP_LABEL);
+                    PUSH_U16(STR_IDX(-1));
+                    
+                    // self
+                    PUSH_OP(OP_ALLOCA);
+                    PUSH_U16(m_basic_types.at(TypeKind::Ptr));
+                    PUSH_OP(OP_DECL_LOCAL);
+                    PUSH_U16(static_cast<u16>(m_active_stack_frame.local_count));
+                    PUSH_OP(OP_ST_LOCAL);
+                    PUSH_U16(static_cast<u16>(m_active_stack_frame.local_count));
+                    m_active_stack_frame.parameters[fmt::format("{}::{}", m_active_namespace, "$self")] = m_active_stack_frame.local_count++;
 
-                m_active_stack_frame.parameters[fmt::format("{}::{}", m_active_namespace, "$self")] = m_active_stack_frame.local_count++;
-                
-                emit_stmt(field->constructor.body);
-                merge_pending_op_codes();
-                
-                PUSH_OP(OP_RET);
-                PUSH_OP(OP_ENDFUNCTION);
+                    for (Decl* param : field->constructor.parameters) {
+                        emit_param_decl(param);
+                    }
+                    
+                    emit_stmt(field->constructor.body);
+                    merge_pending_op_codes();
+                    
+                    PUSH_OP(OP_RET);
+                    PUSH_OP(OP_ENDFUNCTION);
 
-                pop_stack_frame();
+                    pop_stack_frame();
+                }
             } else if (field->kind == DeclKind::Destructor) {
                 std::string name = fmt::format("struct {}::<dtor>()", sDecl.identifier);
                 push_stack_frame(name);
@@ -1396,6 +1401,21 @@ namespace Aria::Internal {
             ident += type_info_to_string(fn->parameters.items[i]->param.type);
 
             if (i != fn->parameters.size - 1) {
+                ident += ", ";
+            }
+        }
+
+        ident += ")";
+        return ident;
+    }
+
+    std::string Emitter::mangle_ctor(ConstructorDecl* ctor) {
+        std::string ident = fmt::format("struct {}::<ctor>(", ctor->parent->struct_.identifier);
+
+        for (size_t i = 0; i < ctor->parameters.size; i++) {
+            ident += type_info_to_string(ctor->parameters.items[i]->param.type);
+
+            if (i != ctor->parameters.size - 1) {
                 ident += ", ";
             }
         }

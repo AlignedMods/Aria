@@ -1,12 +1,14 @@
 #include "ariac/semantic_analyzer/semantic_analyzer.hpp"
 
+#include <fstream>
+
 namespace Aria::Internal {
 
     SemanticAnalyzer::SemanticAnalyzer(CompilationContext* ctx) {
         m_context = ctx;
 
-        m_builtin_string_destructor = Decl::Create(m_context, {}, {}, DeclKind::BuiltinDestructor, BuiltinDestructorDecl(BuiltinKind::String));
-        m_builtin_string_copy_constructor = Decl::Create(m_context, {}, {}, DeclKind::BuiltinCopyConstructor, BuiltinCopyConstructorDecl(BuiltinKind::String));
+        m_builtin_string_destructor = Decl::Create(m_context, {}, {}, DeclKind::BuiltinDestructor, DeclVisibility::Public, BuiltinDestructorDecl(BuiltinKind::String));
+        m_builtin_string_copy_constructor = Decl::Create(m_context, {}, {}, DeclKind::BuiltinCopyConstructor, DeclVisibility::Public, BuiltinCopyConstructorDecl(BuiltinKind::String));
 
         sema_impl();
     }
@@ -14,7 +16,6 @@ namespace Aria::Internal {
     void SemanticAnalyzer::sema_impl() {
         pass_imports();
         pass_decls();
-        pass_types();
         pass_code();
     }
 

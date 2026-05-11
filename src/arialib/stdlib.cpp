@@ -10,4 +10,10 @@ namespace Aria::Internal {
         ctx->pop(1);
     }
 
+    void close_file(Context* ctx) {
+        void* handle = ctx->get_pointer(-1);
+        fclose(reinterpret_cast<FILE*>(handle));
+        ctx->pop(1);
+    }
+
 } // namespace Aria::Internal

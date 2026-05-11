@@ -50,3 +50,7 @@ fn append(self: Stream&, c: char) -> void {
     self.data[self.size] = c;
     self.size += 1;
 }
+
+fn to_slice(self: Stream&) -> char[] {
+    return self.data[:self.size];
+}

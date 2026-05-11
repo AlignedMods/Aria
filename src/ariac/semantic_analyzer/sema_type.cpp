@@ -7,11 +7,19 @@ namespace Aria::Internal {
             UnresolvedType& t = type->unresolved;
             resolve_expr(t.ident);
 
-            if (!t.ident->decl_ref.referenced_decl) {
+            if (t.ident->decl_ref.referenced_decl->kind == DeclKind::Error) {
+                type->kind = TypeKind::Error;
                 return;
             }
 
             if (t.ident->decl_ref.referenced_decl->kind == DeclKind::Struct) {
+                if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) { resolve_struct_decl(t.ident->decl_ref.referenced_decl); }
+                else if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::InProgress) {
+                    m_context->report_compiler_diagnostic(loc, range, "Recursive definition of struct");
+                    type->kind = TypeKind::Error;
+                    return;
+                }
+
                 type->kind = TypeKind::Structure;
                 type->struct_ = StructDeclaration(t.ident->decl_ref.identifier, t.ident->decl_ref.referenced_decl);
             } else {

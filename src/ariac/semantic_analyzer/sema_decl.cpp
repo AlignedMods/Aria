@@ -35,10 +35,13 @@ namespace Aria::Internal {
 
     void SemanticAnalyzer::resolve_param_decl(Decl* decl) {
         ParamDecl& paramDecl = decl->param;
+        resolve_type(decl->loc, decl->range, paramDecl.type);
         m_scopes.back().declarations[paramDecl.identifier] = { paramDecl.type, decl, DeclKind::Param };
     }
 
     void SemanticAnalyzer::resolve_function_decl(Decl* decl) {
+        if (decl->resolve_status == ResolveStatus::Done) { return; }
+        decl->resolve_status = ResolveStatus::InProgress;
         FunctionDecl fnDecl = decl->function;
 
         for (auto& attr : fnDecl.attributes) {
@@ -48,7 +51,6 @@ namespace Aria::Internal {
         }
 
         std::string ident = fmt::format("{}", fnDecl.identifier);
-        resolve_type(decl->loc, decl->range, fnDecl.type);
         
         if (fnDecl.body) {
             m_active_return_type = fnDecl.type->function.return_type;
@@ -71,9 +73,13 @@ namespace Aria::Internal {
         }
 
         m_unsafe_context = false;
+        decl->resolve_status = ResolveStatus::Done;
     }
 
     void SemanticAnalyzer::resolve_struct_decl(Decl* decl) {
+        if (decl->resolve_status == ResolveStatus::Done) { return; }
+        decl->resolve_status = ResolveStatus::InProgress;
+
         StructDecl& s = decl->struct_;
         std::string ident = fmt::format("{}", s.identifier);
 
@@ -88,10 +94,7 @@ namespace Aria::Internal {
         for (Decl* field : s.fields) {
             if (field->kind == DeclKind::Field) {
                 resolve_type(field->loc, field->range, field->field.type);
-
-                if (!type_is_trivial(field->field.type)) {
-                    s.definition.trivial_dtor = false;
-                }
+                if (!type_is_trivial(field->field.type)) { s.definition.trivial_dtor = false; }
             } else if (field->kind == DeclKind::Constructor) {
                 methods.push_back(field);
             } else if (field->kind == DeclKind::Destructor) {
@@ -112,7 +115,12 @@ namespace Aria::Internal {
                         }
                     }
                 }
-                resolve_stmt(method->constructor.body);
+
+                if (!method->constructor.disabled) {
+                    resolve_stmt(method->constructor.body);
+
+                    if (method->constructor.parameters.size == 0) { s.definition.has_default_ctor = true; }
+                }
             } else if (method->kind == DeclKind::Destructor) {
                 TinyVector<Stmt*> newBody;
 
@@ -161,6 +169,8 @@ namespace Aria::Internal {
         // }
         
         m_active_struct = nullptr;
+
+        decl->resolve_status = ResolveStatus::Done;
     }
 
     void SemanticAnalyzer::resolve_decl(Decl* decl) {

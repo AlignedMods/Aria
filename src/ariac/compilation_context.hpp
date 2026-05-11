@@ -33,6 +33,7 @@ namespace Aria::Internal {
 
     struct Module {
         std::unordered_map<std::string_view, Decl*> symbols;
+        std::unordered_map<std::string_view, Decl*> private_symbols;
         std::unordered_map<std::string_view, std::vector<Decl*>> overloaded_funcs;
         std::vector<CompilationUnit*> units;
         std::string_view name;
@@ -147,6 +148,7 @@ namespace Aria::Internal {
 
         std::vector<CompilationUnit*> compilation_units;
         CompilationUnit* active_comp_unit = nullptr;
+        Module* active_module = nullptr;
 
         std::vector<Module*> modules;
         Decl* main_func = nullptr;

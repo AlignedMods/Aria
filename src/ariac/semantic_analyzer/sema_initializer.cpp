@@ -77,7 +77,7 @@ namespace Aria::Internal {
 
                 if (sDecl.source_decl) {
                     ARIA_ASSERT(sDecl.source_decl->kind == DeclKind::Struct, "Invalid source decl");
-                    if (sDecl.source_decl->struct_.definition.has_user_default_ctor) {
+                    if (sDecl.source_decl->struct_.definition.has_default_ctor) {
                         ConstructorDecl* ctor = nullptr;
                         for (auto& field : sDecl.source_decl->struct_.fields) {
                             if (field->kind == DeclKind::Constructor && field->constructor.parameters.size == 0) {

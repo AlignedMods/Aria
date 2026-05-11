@@ -121,7 +121,7 @@ namespace Aria::Internal {
         }
 
         TranslationUnitDecl root(stmts);
-        Decl* decl = Decl::Create(m_context, SourceLocation(), SourceRange(), DeclKind::TranslationUnit, root);
+        Decl* decl = Decl::Create(m_context, SourceLocation(), SourceRange(), DeclKind::TranslationUnit, DeclVisibility::Public, root);
         m_context->active_comp_unit->root_ast_node = Stmt::Create(m_context, SourceLocation(), SourceRange(), StmtKind::Decl, decl);
     }
 
@@ -1068,7 +1068,7 @@ namespace Aria::Internal {
         Module* module = m_context->find_or_create_module(path);
         m_context->active_comp_unit->parent = module;
 
-        return Decl::Create(m_context, mod.range.start, SourceRange(mod.range.start, peek(-1)->range.end), DeclKind::Module, ModuleDecl(path));
+        return Decl::Create(m_context, mod.range.start, SourceRange(mod.range.start, peek(-1)->range.end), DeclKind::Module, DeclVisibility::Public, ModuleDecl(path));
     }
 
     Stmt* Parser::parse_import_decl() {
@@ -1115,7 +1115,7 @@ namespace Aria::Internal {
 
         try_consume(TokenKind::Semi, ";");
 
-        Decl* decl = Decl::Create(m_context, ident->range.start, SourceRange(start, peek(-1)->range.end), DeclKind::Var, VarDecl(ident->string, type, value, global));
+        Decl* decl = Decl::Create(m_context, ident->range.start, SourceRange(start, peek(-1)->range.end), DeclKind::Var, global ? m_current_visibility : DeclVisibility::Public, VarDecl(ident->string, type, value, global));
 
         if (global) {
             m_context->active_comp_unit->globals.push_back(decl);
@@ -1168,7 +1168,7 @@ namespace Aria::Internal {
 
         TypeInfo* finalType = TypeInfo::Create(m_context, TypeKind::Function);
         finalType->function = typeDecl;
-        Decl* decl = Decl::Create(m_context, ident->range.start, SourceRange(start, peek(-1)->range.end), DeclKind::Function, FunctionDecl(ident->string, finalType, params, body, attrs));
+        Decl* decl = Decl::Create(m_context, ident->range.start, SourceRange(start, peek(-1)->range.end), DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, finalType, params, body, attrs));
 
         m_context->active_comp_unit->funcs.push_back(decl);
         return decl;
@@ -1204,7 +1204,7 @@ namespace Aria::Internal {
 
             TypeInfo* paramType = parse_type();
             
-            params.append(m_context, Decl::Create(m_context, paramIdent->range.start, paramIdent->range, DeclKind::Param, ParamDecl(paramIdent->string, paramType)));
+            params.append(m_context, Decl::Create(m_context, paramIdent->range.start, paramIdent->range, DeclKind::Param, DeclVisibility::Public, ParamDecl(paramIdent->string, paramType)));
             paramTypes.append(m_context, paramType);
 
             if (match(TokenKind::Comma)) { consume(); continue; }
@@ -1223,10 +1223,7 @@ namespace Aria::Internal {
         Token s = consume(); // consume "struct"
         Token* ident = try_consume(TokenKind::Identifier, "indentifier");
         
-        TinyVector<Decl*> fields;
-
-        StructDecl::DefinitionData def{};
-        def.has_default_ctor = true;
+        Decl* struc = Decl::Create(m_context, ident->range.start, SourceRange(s.range.start, peek(-1)->range.end), DeclKind::Struct, DeclVisibility::Public, StructDecl(ident->string, {}));
         
         try_consume(TokenKind::LeftCurly, "{");
         while (!match(TokenKind::RightCurly)) {
@@ -1235,14 +1232,21 @@ namespace Aria::Internal {
             if (match(TokenKind::Identifier)) {
                 if (peek()->string == ident->string) { // Check for constructor
                     consume();
-                    try_consume(TokenKind::LeftParen, "(");
-                    try_consume(TokenKind::RightParen, ")");
-                    
-                    Stmt* body = parse_block();
+                    auto[params, param_types] = parse_function_params();
+                    Stmt* body = nullptr;
+                    bool disabled = false;
 
-                    def.has_user_default_ctor = true;
+                    if (match(TokenKind::Eq)) {
+                        consume();
+                        try_consume(TokenKind::Delete, "delete");
+                        try_consume(TokenKind::Semi, ";");
 
-                    fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Constructor, ConstructorDecl({}, body)));
+                        disabled = true;
+                    } else {
+                        body = parse_block();
+                    }
+
+                    struc->struct_.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Constructor, m_current_visibility, ConstructorDecl(struc, params, body, disabled)));
                 } else {
                     Token* fieldName = try_consume(TokenKind::Identifier, "identifier");
                     if (!fieldName) { sync_local(); continue; }
@@ -1256,7 +1260,7 @@ namespace Aria::Internal {
                         if (match(TokenKind::Semi)) { consume(); }
                     }
 
-                    fields.append(m_context, Decl::Create(m_context, fieldName->range.start, SourceRange(start, peek(-1)->range.end), DeclKind::Field, FieldDecl(fieldName->string, type)));
+                    struc->struct_.fields.append(m_context, Decl::Create(m_context, fieldName->range.start, SourceRange(start, peek(-1)->range.end), DeclKind::Field, DeclVisibility::Public, FieldDecl(fieldName->string, type)));
                 }
             } else if (match(TokenKind::Squigly)) {
                 consume();
@@ -1271,10 +1275,7 @@ namespace Aria::Internal {
 
                 Stmt* body = parse_block();
 
-                def.has_user_dtor = true;
-                def.trivial_dtor = false;
-
-                fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Destructor, DestructorDecl(body)));
+                struc->struct_.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Destructor, DeclVisibility::Public, DestructorDecl(body)));
             } else {
                 m_context->report_compiler_diagnostic(start, SourceRange(start, start), "Expected identifier or '~'");
                 sync_local();
@@ -1283,9 +1284,8 @@ namespace Aria::Internal {
         }
         try_consume(TokenKind::RightCurly, "}");
         
-        Decl* decl = Decl::Create(m_context, ident->range.start, SourceRange(s.range.start, peek(-1)->range.end), DeclKind::Struct, StructDecl(ident->string, def, fields));
-        m_context->active_comp_unit->structs.push_back(decl);
-        return decl;
+        m_context->active_comp_unit->structs.push_back(struc);
+        return struc;
     }
 
     std::string_view Parser::parse_module_path() {
@@ -1387,6 +1387,12 @@ namespace Aria::Internal {
                 return &error_stmt;
             }
 
+            case TokenKind::AtPrivate: {
+                consume();
+                m_current_visibility = DeclVisibility::Private;
+                return &error_stmt;
+            }
+
             case TokenKind::Void:
             case TokenKind::Bool:
             case TokenKind::Char:
@@ -1403,6 +1409,7 @@ namespace Aria::Internal {
             case TokenKind::Identifier: {
                 Token& t = consume();
                 m_context->report_compiler_diagnostic(t.range.start, t.range, fmt::format("Unexpected type '{}', did you mean to declare a global variable? (let <name>: <type>)", TokenKindToString(t.kind)));
+                return &error_stmt;
             }
 
             default: {

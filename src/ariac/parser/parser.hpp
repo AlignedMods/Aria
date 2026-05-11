@@ -96,6 +96,8 @@ namespace Aria::Internal {
 
         bool m_declared_module = false;
 
+        DeclVisibility m_current_visibility = DeclVisibility::Public;
+
         using ParseExprFn = std::function<Expr*(Expr*)>;
         struct ParseExprRule {
             ParseExprFn prefix = nullptr;

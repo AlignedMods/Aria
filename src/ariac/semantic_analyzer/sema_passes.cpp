@@ -5,25 +5,21 @@ namespace Aria::Internal {
     void SemanticAnalyzer::pass_imports() {
         for (CompilationUnit* unit : m_context->compilation_units) {
             if (!unit->parent) { continue; }
-
-            m_context->active_comp_unit = unit;
             resolve_unit_imports(unit->parent, unit);
         }
     }
 
     void SemanticAnalyzer::pass_decls() {
         for (Module* mod : m_context->modules) {
+            resolve_module_type_decls(mod);
+        }
+
+        for (Module* mod : m_context->modules) {
             resolve_module_decls(mod);
         }
 
         if (!m_context->main_func) {
             fmt::println(stderr, "No main function was found for this executable, please add it.\n");
-        }
-    }
-
-    void SemanticAnalyzer::pass_types() {
-        for (Module* mod : m_context->modules) {
-            resolve_module_types(mod);
         }
     }
 
@@ -43,15 +39,10 @@ namespace Aria::Internal {
         module->units.push_back(unit);
     }
 
-    void SemanticAnalyzer::resolve_module_imports(Module* module) {
-        std::vector<CompilationUnit*> units = module->units;
-
-        for (CompilationUnit* unit : units) {
-            resolve_unit_imports(module, unit);
-        }
-    }
-
     void SemanticAnalyzer::resolve_unit_imports(Module* module, CompilationUnit* unit) {
+        m_context->active_module = module;
+        m_context->active_comp_unit = unit;
+
         for (size_t i = 0; i < unit->imports.size(); i++) {
             Stmt* stmt = unit->imports[i];
 
@@ -85,9 +76,29 @@ namespace Aria::Internal {
         add_unit_to_module(module, unit);
     }
 
+    void SemanticAnalyzer::resolve_module_type_decls(Module* module) {
+        m_context->active_module = module;
+
+        for (CompilationUnit* unit : module->units) {
+            resolve_unit_type_decls(module, unit);
+        }
+    }
+
     void SemanticAnalyzer::resolve_module_decls(Module* module) {
+        m_context->active_module = module;
+
         for (CompilationUnit* unit : module->units) {
             resolve_unit_decls(module, unit);
+        }
+    }
+
+    void SemanticAnalyzer::resolve_unit_type_decls(Module* module, CompilationUnit* unit) {
+        for (Decl* struc : unit->structs) {
+            StructDecl& s = struc->struct_;
+            std::string_view ident = s.identifier;
+
+            module->symbols[ident] = struc;
+            unit->local_symbols[ident] = struc;
         }
     }
 
@@ -99,12 +110,13 @@ namespace Aria::Internal {
 
             VarDecl& var = global->var;
             module->symbols[var.identifier] = global;
-            unit->local_symbols[var.identifier] = global;
+            unit->local_symbols[var.identifier] = global;       
         }
 
         for (Decl* func : unit->funcs) {
             ARIA_ASSERT(func->kind == DeclKind::Function, "Invalid func in funcs");
             FunctionDecl& f = func->function;
+            resolve_type(func->loc, func->range, f.type);
 
             if (f.identifier == "main") {
                 if (m_context->main_func) {
@@ -126,10 +138,10 @@ namespace Aria::Internal {
 
             if (module->symbols.contains(f.identifier)) {
                 Decl* d = module->symbols.at(f.identifier);
-                
+
                 // Handle overloading the first non-overloaded function
                 if (d->kind == DeclKind::Function) {
-                    Decl* overloaded = Decl::Create(m_context, d->loc, d->range, DeclKind::OverloadedFunction, d->function);
+                    Decl* overloaded = Decl::Create(m_context, d->loc, d->range, DeclKind::OverloadedFunction, d->visibility, d->function);
                     module->symbols[f.identifier] = overloaded;
                     unit->local_symbols[f.identifier] = overloaded;
 
@@ -168,37 +180,11 @@ namespace Aria::Internal {
             module->symbols[f.identifier] = func;
             unit->local_symbols[f.identifier] = func;
         }
-
-        for (Decl* struc : unit->structs) {
-            ARIA_ASSERT(struc->kind == DeclKind::Struct, "Invalid struct in structs");
-
-            StructDecl& s = struc->struct_;
-            std::string_view ident = s.identifier;
-
-            module->symbols[ident] = struc;
-            unit->local_symbols[ident] = struc;
-        }
-    }
-
-    void SemanticAnalyzer::resolve_module_types(Module* module) {
-        for (CompilationUnit* unit : module->units) {
-            resolve_unit_types(module, unit);
-        }
-    }
-
-    void SemanticAnalyzer::resolve_unit_types(Module* module, CompilationUnit* unit) {
-        m_context->active_comp_unit = unit;
-
-        for (Decl* func : unit->funcs) {
-            FunctionDecl& fn = func->function;
-            resolve_type(func->loc, func->range, fn.type);
-            for (Decl* param : fn.parameters) {
-                resolve_type(param->loc, param->range, param->param.type);
-            }
-        }
     }
 
     void SemanticAnalyzer::resolve_module_code(Module* module) {
+        m_context->active_module = module;
+
         for (CompilationUnit* unit : module->units) {
             resolve_unit_code(module, unit);
         }

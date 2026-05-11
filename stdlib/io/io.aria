@@ -2,12 +2,25 @@ module std::io;
 
 import std::core::stream;
 
-fn raw_print_stdout(s: char[]) -> void @extern("__aria_raw_print_stdout()");
+struct File {
+    File() { handle = null; }
+    File(other: File&) = delete;
+    ~File() { close_file(handle); }
+
+    handle: void*;
+}
 
 fn println(str: char[]) -> void {
     let s: Stream;
     stream::append(s, str);
-    // stream::append(s, '\n');
+    stream::append(s, '\n');
 
-    raw_print_stdout(s.data[:s.size]);
+    raw_print_stdout(stream::to_slice(s));
 }
+
+fn print(str: char[]) -> void { raw_print_stdout(str); }
+
+@private
+
+fn raw_print_stdout(s: char[]) -> void @extern("__aria_raw_print_stdout()");
+fn close_file(handle: void*) -> void @extern("__aria_close_file()");

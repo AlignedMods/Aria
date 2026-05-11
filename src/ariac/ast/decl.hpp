@@ -41,6 +41,26 @@ namespace Aria::Internal {
         }
     }
 
+    enum class DeclVisibility {
+        Public,
+        Private
+    };
+
+    inline const char* decl_visibility_to_string(DeclVisibility visibility) {
+        switch (visibility) {
+            case DeclVisibility::Public: return "public";
+            case DeclVisibility::Private: return "private";
+
+            default: ARIA_UNREACHABLE();
+        }
+    }
+
+    enum class ResolveStatus {
+        NotStarted,
+        InProgress,
+        Done
+    };
+
     enum class BuiltinKind {
         String
     };
@@ -112,14 +132,13 @@ namespace Aria::Internal {
     struct StructDecl {
         struct DefinitionData {
             bool has_default_ctor : 1;
-            bool has_user_default_ctor : 1;
 
             bool has_user_dtor : 1;
             bool trivial_dtor : 1;
         };
 
-        StructDecl(std::string_view identifier, DefinitionData defd, TinyVector<Decl*> fields)
-            : identifier(identifier), definition(defd), fields(fields) {}
+        StructDecl(std::string_view identifier,TinyVector<Decl*> fields)
+            : identifier(identifier), definition{}, fields(fields) {}
 
         std::string_view identifier;
         DefinitionData definition;
@@ -135,11 +154,13 @@ namespace Aria::Internal {
     };
 
     struct ConstructorDecl {
-        ConstructorDecl(TinyVector<Decl*> parameters, Stmt* body)
-            : parameters(parameters), body(body) {}
+        ConstructorDecl(Decl* parent, TinyVector<Decl*> parameters, Stmt* body, bool disabled)
+            : parent(parent), parameters(parameters), body(body), disabled(disabled) {}
 
+        Decl* parent = nullptr;
         TinyVector<Decl*> parameters;
         Stmt* body = nullptr;
+        bool disabled = false;
     };
 
     struct DestructorDecl {
@@ -165,12 +186,18 @@ namespace Aria::Internal {
 
     struct Decl {
         template <typename T>
-        static inline Decl* Create(CompilationContext* ctx, SourceLocation loc, SourceRange range, DeclKind kind, T t = ErrorDecl{}) { return ctx->allocate<Decl>(loc, range, kind, t); }
+        static inline Decl* Create(CompilationContext* ctx, 
+            SourceLocation loc, SourceRange range, 
+            DeclKind kind, DeclVisibility visibility, 
+            T t = ErrorDecl{}) { return ctx->allocate<Decl>(loc, range, kind, visibility, t); }
 
         DeclKind kind = DeclKind::Invalid;
+        DeclVisibility visibility = DeclVisibility::Public;
 
         SourceLocation loc;
         SourceRange range;
+
+        ResolveStatus resolve_status = ResolveStatus::NotStarted;
 
         union {
             ErrorDecl error;
@@ -187,43 +214,43 @@ namespace Aria::Internal {
             BuiltinDestructorDecl built_in_destructor;
         };
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, ErrorDecl error)
-            : loc(loc), range(range), kind(kind), error(error) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, ErrorDecl error)
+            : loc(loc), range(range), kind(kind), visibility(visibility), error(error) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, TranslationUnitDecl translation_unit)
-            : loc(loc), range(range), kind(kind), translation_unit(translation_unit) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, TranslationUnitDecl translation_unit)
+            : loc(loc), range(range), kind(kind), visibility(visibility), translation_unit(translation_unit) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, ModuleDecl module)
-            : loc(loc), range(range), kind(kind), module(module) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, ModuleDecl module)
+            : loc(loc), range(range), kind(kind), visibility(visibility), module(module) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, VarDecl var)
-            : loc(loc), range(range), kind(kind), var(var) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, VarDecl var)
+            : loc(loc), range(range), kind(kind), visibility(visibility), var(var) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, ParamDecl param)
-            : loc(loc), range(range), kind(kind), param(param) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, ParamDecl param)
+            : loc(loc), range(range), kind(kind), visibility(visibility), param(param) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, FunctionDecl function)
-            : loc(loc), range(range), kind(kind), function(function) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, FunctionDecl function)
+            : loc(loc), range(range), kind(kind), visibility(visibility), function(function) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, StructDecl struc)
-            : loc(loc), range(range), kind(kind), struct_(struc) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, StructDecl struc)
+            : loc(loc), range(range), kind(kind), visibility(visibility), struct_(struc) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, FieldDecl field)
-            : loc(loc), range(range), kind(kind), field(field) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, FieldDecl field)
+            : loc(loc), range(range), kind(kind), visibility(visibility), field(field) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, ConstructorDecl ctor)
-            : loc(loc), range(range), kind(kind), constructor(ctor) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, ConstructorDecl ctor)
+            : loc(loc), range(range), kind(kind), visibility(visibility), constructor(ctor) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DestructorDecl dtor)
-            : loc(loc), range(range), kind(kind), destructor(dtor) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, DestructorDecl dtor)
+            : loc(loc), range(range), kind(kind), visibility(visibility), destructor(dtor) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, BuiltinCopyConstructorDecl bicc)
-            : loc(loc), range(range), kind(kind), built_in_copy_constructor(bicc) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, BuiltinCopyConstructorDecl bicc)
+            : loc(loc), range(range), kind(kind), visibility(visibility), built_in_copy_constructor(bicc) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, BuiltinDestructorDecl bid)
-            : loc(loc), range(range), kind(kind), built_in_destructor(bid) {}
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, BuiltinDestructorDecl bid)
+            : loc(loc), range(range), kind(kind), visibility(visibility), built_in_destructor(bid) {}
     };
 
-    inline Decl error_decl = Decl(SourceLocation(), SourceRange(), DeclKind::Error, ErrorDecl());
+    inline Decl error_decl = Decl(SourceLocation(), SourceRange(), DeclKind::Error, DeclVisibility::Public, ErrorDecl());
 
 } // namespace Aria::Internal

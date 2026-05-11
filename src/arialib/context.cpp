@@ -50,19 +50,7 @@ namespace Aria {
         Internal::VM& vm = m_active_module->vm;
 
         vm.add_extern("__aria_raw_print_stdout()", Internal::print_stdout);
-        // vm.add_extern("__aria_destruct_str()", Internal::__aria_destruct_str);
-        // vm.add_extern("__aria_copy_str()", Internal::__aria_copy_str);
-        // vm.add_extern("__aria_append_str<char>()", Internal::__aria_append_str_char);
-        // vm.add_extern("__aria_append_str<uchar>()", Internal::__aria_append_str_uchar);
-        // vm.add_extern("__aria_append_str<short>()", Internal::__aria_append_str_short);
-        // vm.add_extern("__aria_append_str<ushort>()", Internal::__aria_append_str_ushort);
-        // vm.add_extern("__aria_append_str<int>()", Internal::__aria_append_str_int);
-        // vm.add_extern("__aria_append_str<uint>()", Internal::__aria_append_str_uint);
-        // vm.add_extern("__aria_append_str<long>()", Internal::__aria_append_str_long);
-        // vm.add_extern("__aria_append_str<ulong>()", Internal::__aria_append_str_ulong);
-        // vm.add_extern("__aria_append_str<float>()", Internal::__aria_append_str_float);
-        // vm.add_extern("__aria_append_str<double>()", Internal::__aria_append_str_double);
-        // vm.add_extern("__aria_append_str<string>()", Internal::__aria_append_str_string);
+        vm.add_extern("__aria_close_file()", Internal::close_file);
     }
 
     void Context::set_active_module(const std::string& module) {

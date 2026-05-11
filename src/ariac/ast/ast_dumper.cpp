@@ -217,8 +217,8 @@ namespace Aria::Internal {
                 decl->param.identifier, type_info_to_string(decl->param.type));
                 return;
 
-            case DeclKind::Function: m_output += fmt::format("FunctionDecl '{}' '{}'\n",
-                decl->function.identifier, type_info_to_string(decl->function.type));
+            case DeclKind::Function: m_output += fmt::format("FunctionDecl '{}' {} '{}'\n",
+                decl->function.identifier, decl_visibility_to_string(decl->visibility), type_info_to_string(decl->function.type));
 
                 for (auto& attr : decl->function.attributes) {
                     dump_function_attr(attr, indentation + 4);
