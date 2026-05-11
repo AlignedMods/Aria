@@ -7,6 +7,7 @@
 namespace Aria::Internal {
 
     struct Module;
+    struct CompilationUnit;
 
     enum class DeclKind {
         Invalid = 0,
@@ -164,9 +165,10 @@ namespace Aria::Internal {
     };
 
     struct DestructorDecl {
-        DestructorDecl(Stmt* body)
-            : body(body) {}
+        DestructorDecl(Decl* parent, Stmt* body)
+            : parent(parent), body(body) {}
 
+        Decl* parent = nullptr;
         Stmt* body = nullptr;
     };
 
@@ -187,7 +189,7 @@ namespace Aria::Internal {
     struct Decl {
         template <typename T>
         static inline Decl* Create(CompilationContext* ctx, 
-            SourceLocation loc, SourceRange range, 
+            SourceLocation loc, SourceRange range,
             DeclKind kind, DeclVisibility visibility, 
             T t = ErrorDecl{}) { return ctx->allocate<Decl>(loc, range, kind, visibility, t); }
 
@@ -198,6 +200,9 @@ namespace Aria::Internal {
         SourceRange range;
 
         ResolveStatus resolve_status = ResolveStatus::NotStarted;
+
+        Module* parent_module = nullptr;
+        CompilationUnit* parent_unit = nullptr;
 
         union {
             ErrorDecl error;

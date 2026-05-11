@@ -1275,7 +1275,7 @@ namespace Aria::Internal {
 
                 Stmt* body = parse_block();
 
-                struc->struct_.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Destructor, DeclVisibility::Public, DestructorDecl(body)));
+                struc->struct_.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Destructor, DeclVisibility::Public, DestructorDecl(struc, body)));
             } else {
                 m_context->report_compiler_diagnostic(start, SourceRange(start, start), "Expected identifier or '~'");
                 sync_local();

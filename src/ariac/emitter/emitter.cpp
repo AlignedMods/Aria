@@ -437,11 +437,7 @@ namespace Aria::Internal {
         }
 
         if (ident.empty()) {
-            if (call.callee->decl_ref.name_specifier) {
-                ident = fmt::format("{}::{}", call.callee->decl_ref.name_specifier->scope.referenced_module->name, mangle_function(&call.callee->decl_ref.referenced_decl->function));
-            } else {
-                ident = fmt::format("{}::{}", m_active_namespace, mangle_function(&call.callee->decl_ref.referenced_decl->function));
-            }
+            ident = mangle_function(call.callee->decl_ref.referenced_decl);
         }
 
         ADD_STR(ident);
@@ -454,7 +450,7 @@ namespace Aria::Internal {
 
         PUSH_PENDING_OP(OP_ALLOCA);
         PUSH_PENDING_U16(type_info_to_vm_type_idx(expr->type));
-        ADD_STR(fmt::format("{}::<ctor>()", type_info_to_string(expr->type)));
+        ADD_STR(mangle_ctor(ct.ctor));
         PUSH_PENDING_OP(OP_LD_PTR);
         PUSH_PENDING_OP(OP_CALL);
         PUSH_PENDING_U16(STR_IDX(-1));
@@ -1011,7 +1007,7 @@ namespace Aria::Internal {
             sig = "_main$()";
         }
 
-        if (sig.empty()) { sig = fmt::format("{}::{}", m_active_namespace, mangle_function(&fnDecl)); }
+        if (sig.empty()) { sig =mangle_function(decl); }
 
         if (fnDecl.body) {
             ADD_STR(sig);
@@ -1102,7 +1098,7 @@ namespace Aria::Internal {
                     pop_stack_frame();
                 }
             } else if (field->kind == DeclKind::Destructor) {
-                std::string name = fmt::format("struct {}::<dtor>()", sDecl.identifier);
+                std::string name = mangle_dtor(&field->destructor);
                 push_stack_frame(name);
 
                 ADD_STR(name);
@@ -1327,7 +1323,7 @@ namespace Aria::Internal {
                         default: ARIA_UNREACHABLE();
                     }
                 } else if (decl.destructor->kind == DeclKind::Destructor) {
-                    ADD_STR(fmt::format("{}::<dtor>()", type_info_to_string(decl.type)));
+                    ADD_STR(mangle_dtor(&decl.destructor->destructor));
                 }
 
                 u16 idx = STR_IDX(-1);
@@ -1394,13 +1390,13 @@ namespace Aria::Internal {
         ARIA_UNREACHABLE();
     }
 
-    std::string Emitter::mangle_function(FunctionDecl* fn) {
-        std::string ident = fmt::format("{}(", fn->identifier);
+    std::string Emitter::mangle_function(Decl* fn) {
+        std::string ident = fmt::format("{}::{}(", fn->parent_module->name, fn->function.identifier);
 
-        for (size_t i = 0; i < fn->parameters.size; i++) {
-            ident += type_info_to_string(fn->parameters.items[i]->param.type);
+        for (size_t i = 0; i < fn->function.parameters.size; i++) {
+            ident += type_info_to_string(fn->function.parameters.items[i]->param.type);
 
-            if (i != fn->parameters.size - 1) {
+            if (i != fn->function.parameters.size - 1) {
                 ident += ", ";
             }
         }
@@ -1410,7 +1406,7 @@ namespace Aria::Internal {
     }
 
     std::string Emitter::mangle_ctor(ConstructorDecl* ctor) {
-        std::string ident = fmt::format("struct {}::<ctor>(", ctor->parent->struct_.identifier);
+        std::string ident = fmt::format("struct {}::{}::<ctor>(", ctor->parent->parent_module->name, ctor->parent->struct_.identifier);
 
         for (size_t i = 0; i < ctor->parameters.size; i++) {
             ident += type_info_to_string(ctor->parameters.items[i]->param.type);
@@ -1422,6 +1418,10 @@ namespace Aria::Internal {
 
         ident += ")";
         return ident;
+    }
+
+    std::string Emitter::mangle_dtor(DestructorDecl* dtor) {
+        return fmt::format("struct {}::{}::<dtor>()", dtor->parent->parent_module->name, dtor->parent->struct_.identifier);
     }
 
 } // namespace Aria::Internal

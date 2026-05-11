@@ -111,8 +111,9 @@ namespace Aria::Internal {
 
         u16 type_info_to_vm_type_idx(TypeInfo* t);
 
-        std::string mangle_function(FunctionDecl* fn);
+        std::string mangle_function(Decl* fn);
         std::string mangle_ctor(ConstructorDecl* ctor);
+        std::string mangle_dtor(DestructorDecl* dtor);
 
     private:
         OpCodes m_op_codes;

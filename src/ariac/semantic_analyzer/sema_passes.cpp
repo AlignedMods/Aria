@@ -94,6 +94,9 @@ namespace Aria::Internal {
 
     void SemanticAnalyzer::resolve_unit_type_decls(Module* module, CompilationUnit* unit) {
         for (Decl* struc : unit->structs) {
+            struc->parent_module = module;
+            struc->parent_unit = unit;
+
             StructDecl& s = struc->struct_;
             std::string_view ident = s.identifier;
 
@@ -106,6 +109,9 @@ namespace Aria::Internal {
         m_context->active_comp_unit = unit;
 
         for (Decl* global : unit->globals) {
+            global->parent_module = module;
+            global->parent_unit = unit;
+
             ARIA_ASSERT(global->kind == DeclKind::Var, "Invalid global in globals");
 
             VarDecl& var = global->var;
@@ -114,6 +120,9 @@ namespace Aria::Internal {
         }
 
         for (Decl* func : unit->funcs) {
+            func->parent_module = module;
+            func->parent_unit = unit;
+
             ARIA_ASSERT(func->kind == DeclKind::Function, "Invalid func in funcs");
             FunctionDecl& f = func->function;
             resolve_type(func->loc, func->range, f.type);
