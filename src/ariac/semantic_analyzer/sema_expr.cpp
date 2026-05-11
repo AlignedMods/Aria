@@ -113,6 +113,7 @@ namespace Aria::Internal {
 
             if (mod != m_context->active_comp_unit->parent && d->visibility == DeclVisibility::Private) {
                 m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Symbol '{}' (declared in '{}') is private and cannot be accessed", ref.identifier, mod->name));
+                m_context->report_compiler_diagnostic(d->loc, d->range, "Declared here", CompilerDiagKind::Note, d->parent_unit);
             }
 
             ref.referenced_decl = d;
@@ -1040,7 +1041,9 @@ namespace Aria::Internal {
                 insert_implicit_cast(rhsType, lhsType, lhs, CastKind::Integral);
             } else if (lSize == rSize) {
                 // We know that the types are not equal so we likely have a signed/unsigned mismatch
-                m_context->report_compiler_diagnostic(lhs->loc, SourceRange(lhs->range.start, rhs->range.end), fmt::format("Mismatched types '{}' and '{}' (implicit signedness conversions are not allowed here)", type_info_to_string(lhsType), type_info_to_string(rhsType)));
+                m_context->report_compiler_diagnostic_with_notes(lhs->loc, SourceRange(lhs->range.start, rhs->range.end), 
+                    fmt::format("Mismatched types '{}' and '{}'", type_info_to_string(lhsType), type_info_to_string(rhsType)),
+                    { "implicit signedness conversions are not allowed here"} );
             }
 
             return;

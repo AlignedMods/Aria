@@ -89,17 +89,15 @@ namespace Aria::Internal {
         if (!has_errors) {
             emit();
         } else {
-            for (CompilationUnit* unit : compilation_units) {
-                for (auto& diag : unit->diagnostics) {
-                    print_diag(unit->filename, unit->source, &diag);
-                }
+            for (auto& diag : diagnostics) {
+                print_diag(&diag);
             }
         }
     }
 
-    void CompilationContext::print_diag(const std::string& path, const std::string& source, Internal::CompilerDiagnostic* diag) {
+    void CompilationContext::print_diag(Internal::CompilerDiagnostic* diag) {
         if (diag->line && diag->column) {
-            fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", path, diag->line, diag->column);
+            fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", diag->unit->filename, diag->line, diag->column);
         }
 
         if (diag->kind == CompilerDiagKind::Error) {
@@ -114,13 +112,13 @@ namespace Aria::Internal {
 
         if (diag->line && diag->column) {
             // fmt format strings from: https://hackingcpp.com/cpp/libs/fmt
-            fmt::print(" {:6} | {}\n", diag->line, get_line(source, diag->line));
+            fmt::print(" {:6} | {}\n", diag->line, get_line(diag->unit->source, diag->line));
             fmt::print("        | {:>{w}}\n", "^", fmt::arg("w", diag->column));
         }
 
         for (auto& note : diag->notes) {
             if (diag->line && diag->column) {
-                fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", path, diag->line, diag->column);
+                fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", diag->unit->filename, diag->line, diag->column);
             }
             fmt::print(fg(fmt::color::light_blue), "note: ");
             fmt::print("{}\n", note);

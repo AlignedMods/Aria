@@ -11,6 +11,7 @@ namespace Aria::Internal {
 
     struct Stmt;
     struct Decl;
+    struct CompilationUnit;
 
     enum class CompilerDiagKind {
         Note,
@@ -27,9 +28,9 @@ namespace Aria::Internal {
         size_t end_line = 0; size_t end_column = 0;
         std::string message;
         std::vector<std::string> notes;
-    };
 
-    struct CompilationUnit;
+        CompilationUnit* unit = nullptr;
+    };
 
     struct Module {
         std::unordered_map<std::string_view, Decl*> symbols;
@@ -52,8 +53,6 @@ namespace Aria::Internal {
         std::string source;
         std::vector<Token> tokens;
         Stmt* root_ast_node = nullptr;
-
-        std::vector<CompilerDiagnostic> diagnostics;
 
         std::vector<Decl*> globals;
         std::vector<Decl*> funcs;
@@ -95,7 +94,7 @@ namespace Aria::Internal {
             return arena->allocate(size);
         }
 
-        inline void report_compiler_diagnostic(SourceLocation loc, SourceRange range, const std::string& error, CompilerDiagKind kind = CompilerDiagKind::Error) {
+        inline void report_compiler_diagnostic(SourceLocation loc, SourceRange range, const std::string& error, CompilerDiagKind kind = CompilerDiagKind::Error, CompilationUnit* unit = nullptr) {
             CompilerDiagnostic d;
             d.kind = kind;
             d.line = loc.line;
@@ -105,14 +104,16 @@ namespace Aria::Internal {
             d.end_line = range.end.line;
             d.end_column = range.end.column;
             d.message = error;
-            active_comp_unit->diagnostics.push_back(d);
+            d.unit = unit ? unit : active_comp_unit;
+
+            diagnostics.push_back(d);
 
             if (kind == CompilerDiagKind::Error) {
                 has_errors = true;
             }
         }
 
-        inline void report_compiler_diagnostic_with_notes(SourceLocation loc, SourceRange range, const std::string& error, std::initializer_list<std::string> notes, CompilerDiagKind kind = CompilerDiagKind::Error) {
+        inline void report_compiler_diagnostic_with_notes(SourceLocation loc, SourceRange range, const std::string& error, std::initializer_list<std::string> notes, CompilerDiagKind kind = CompilerDiagKind::Error, CompilationUnit* unit = nullptr) {
             CompilerDiagnostic d;
             d.kind = kind;
             d.line = loc.line;
@@ -123,7 +124,9 @@ namespace Aria::Internal {
             d.end_column = range.end.column;
             d.message = error;
             d.notes = notes;
-            active_comp_unit->diagnostics.push_back(d);
+            d.unit = unit ? unit : active_comp_unit;
+
+            diagnostics.push_back(d);
 
             if (kind == CompilerDiagKind::Error) {
                 has_errors = true;
@@ -135,7 +138,7 @@ namespace Aria::Internal {
         void compile_stdlib(const CompilerFlags& flags);
         void finish_compilation(const CompilerFlags& flags);
 
-        void print_diag(const std::string& path, const std::string& source, Internal::CompilerDiagnostic* diag);
+        void print_diag(Internal::CompilerDiagnostic* diag);
 
         void lex();
         void parse();
@@ -156,6 +159,8 @@ namespace Aria::Internal {
         OpCodes ops;
         CompilerReflectionData reflection_data;
         bool has_errors = false;
+
+        std::vector<CompilerDiagnostic> diagnostics;
     };
 
 } // namespace Aria::Internal
