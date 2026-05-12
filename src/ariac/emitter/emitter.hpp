@@ -55,6 +55,7 @@ namespace Aria::Internal {
         void emit_integer_literal_expr(Expr* expr,   ExprValueKind value_kind);
         void emit_floating_literal_expr(Expr* expr,  ExprValueKind value_kind);
         void emit_string_literal_expr(Expr* expr,    ExprValueKind value_kind);
+        void emit_array_filler_expr(Expr* expr,      ExprValueKind value_kind);
         void emit_null_expr(Expr* expr,              ExprValueKind value_kind);
         void emit_decl_ref_expr(Expr* expr,          ExprValueKind value_kind);
         void emit_member_expr(Expr* expr,            ExprValueKind value_kind);
@@ -134,6 +135,8 @@ namespace Aria::Internal {
         u16 m_struct_index = 0;
 
         // Counters
+        size_t m_arr_init_counter = 0;
+        size_t m_check_counter = 0;
         size_t m_and_counter = 0;
         size_t m_or_counter = 0;
         size_t m_loop_counter = 0;

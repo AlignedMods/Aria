@@ -107,6 +107,7 @@ namespace Aria::Internal {
 
         bool is_const_expr(Expr* expr);
         bool eval_expr_bool(Expr* expr);
+        u64 eval_expr_u64(Expr* expr);
 
         void push_scope(bool allow_break = false, bool allow_continue = false);
         void pop_scope();
@@ -114,6 +115,7 @@ namespace Aria::Internal {
         ConversionCost get_conversion_cost(TypeInfo* dst, TypeInfo* src);
         void insert_implicit_cast(TypeInfo* dst_type, TypeInfo* src_type, Expr* src_expr, CastKind cast_kind);
         void require_rvalue(Expr* expr);
+        void maybe_promote_to_int(Expr* expr);
         void insert_arithmetic_promotion(Expr* lhs, Expr* rhs);
 
         void replace_expr(Expr* src, Expr* new_expr);

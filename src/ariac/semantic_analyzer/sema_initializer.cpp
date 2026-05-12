@@ -69,7 +69,14 @@ namespace Aria::Internal {
             case TypeKind::Double: *expr = Expr::Create(m_context, {}, {}, ExprKind::FloatingLiteral,  ExprValueKind::RValue, type, FloatingLiteralExpr(0.0)); break;
                                                                                                                                
             case TypeKind::Ptr:    *expr = Expr::Create(m_context, {}, {}, ExprKind::Null,             ExprValueKind::RValue, type, ErrorExpr()); break;
-                                                                                                                               
+
+            case TypeKind::Array:  {
+                Expr* base_initializer = nullptr;
+                create_default_initializer(&base_initializer, type->array.type, loc, range);
+                *expr = Expr::Create(m_context, {}, {}, ExprKind::ArrayFiller, ExprValueKind::RValue, type, ArrayFillerExpr(base_initializer));
+                break;
+            }
+                                                                                                           
             case TypeKind::String: *expr = Expr::Create(m_context, {}, {}, ExprKind::StringLiteral,    ExprValueKind::RValue, type, StringLiteralExpr("")); break;
 
             case TypeKind::Structure: {

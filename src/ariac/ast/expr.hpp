@@ -19,6 +19,7 @@ namespace Aria::Internal {
         IntegerLiteral,
         FloatingLiteral,
         StringLiteral,
+        ArrayFiller,
         Null,
         DeclRef,
         Member,
@@ -209,6 +210,13 @@ namespace Aria::Internal {
             : value(value) {}
 
         std::string_view value;
+    };
+
+    struct ArrayFillerExpr {
+        ArrayFillerExpr(Expr* initializer)
+            : initializer(initializer) {}
+
+        Expr* initializer = nullptr;
     };
 
     struct DeclRefExpr {
@@ -413,6 +421,7 @@ namespace Aria::Internal {
             IntegerLiteralExpr integer_literal;
             FloatingLiteralExpr floating_literal;
             StringLiteralExpr string_literal;
+            ArrayFillerExpr array_filler;
             DeclRefExpr decl_ref;
             MemberExpr member;
             TemporaryExpr temporary;
@@ -453,6 +462,9 @@ namespace Aria::Internal {
 
         Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, StringLiteralExpr string_literal)
             : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), string_literal(string_literal) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ArrayFillerExpr array_filler)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), array_filler(array_filler) {}
 
         Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, DeclRefExpr decl_ref)
             : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), decl_ref(decl_ref) {}

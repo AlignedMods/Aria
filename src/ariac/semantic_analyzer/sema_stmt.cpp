@@ -83,7 +83,6 @@ namespace Aria::Internal {
 
     void SemanticAnalyzer::resolve_if_stmt(Stmt* stmt) {
         IfStmt ifs = stmt->if_;
-        push_scope();
 
         resolve_expr(ifs.condition);
         require_rvalue(ifs.condition);
@@ -92,9 +91,15 @@ namespace Aria::Internal {
             ARIA_ASSERT(false, "todo: add error");
         }
 
+        push_scope();
         resolve_block_stmt(ifs.body);
-
         pop_scope();
+
+        if (ifs.else_body) {
+            push_scope();
+            resolve_block_stmt(ifs.else_body);
+            pop_scope();
+        }
     }
 
     void SemanticAnalyzer::resolve_break_stmt(Stmt* stmt) {

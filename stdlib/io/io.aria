@@ -1,6 +1,6 @@
 module std::io;
 
-import std::core::stream;
+import std::core::string_stream;
 
 struct File {
     File() { handle = null; }
@@ -11,9 +11,9 @@ struct File {
 }
 
 fn println(str: char[]) -> void {
-    let s: Stream;
-    stream::append(s, str);
-    stream::append(s, '\n');
+    let s: StringStream;
+    string_stream::append(s, str);
+    string_stream::append(s, '\n');
 
     raw_print_stdout(stream::to_slice(s));
 }

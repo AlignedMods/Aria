@@ -209,7 +209,7 @@ namespace Aria::Internal {
             return &error_expr;
         }
 
-        Expr* child = parse_expression();
+        Expr* child = parse_term();
 
         return Expr::Create(m_context, lp->range.start, SourceRange(lp->range.start, child->range.end), ExprKind::Cast, 
             ExprValueKind::RValue, type,
@@ -564,7 +564,7 @@ namespace Aria::Internal {
         Token& d = consume(); // consume "delete"
         Expr* expr = parse_expression();
 
-        if (!expr) {
+        if (!expr_ok(expr)) {
             return &error_expr;
         }
 
@@ -655,6 +655,20 @@ namespace Aria::Internal {
 
     Expr* Parser::parse_expression() {
         return parse_precedence(PREC_ASSIGNMENT);
+    }
+
+    Expr* Parser::parse_term() {
+        Token* tok = peek();
+        if (!tok) { return &error_expr; }
+        ParseExprFn prefixRule = m_expr_rules[tok->kind].prefix;
+
+        if (!prefixRule) {
+            sync_local();
+            m_context->report_compiler_diagnostic(tok->range.start, tok->range, "Expected an expression");
+            return &error_expr;
+        }
+
+        return prefixRule(nullptr);
     }
 
     bool Parser::is_expression() {
@@ -855,9 +869,15 @@ namespace Aria::Internal {
         Token i = consume(); // consume "if"
         
         Expr* condition = parse_expression();
-        Stmt* body = parse_statement();
+        Stmt* body = parse_block_inline();
+        Stmt* else_body = nullptr;
+
+        if (match(TokenKind::Else)) {
+            consume();
+            else_body = parse_block_inline();
+        }
         
-        return Stmt::Create(m_context, i.range.start, SourceRange(i.range.start, peek(-1)->range.end), StmtKind::If, IfStmt(condition, body, nullptr));
+        return Stmt::Create(m_context, i.range.start, SourceRange(i.range.start, peek(-1)->range.end), StmtKind::If, IfStmt(condition, body, else_body));
     }
 
     Stmt* Parser::parse_break() {

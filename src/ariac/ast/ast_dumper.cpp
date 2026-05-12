@@ -55,6 +55,12 @@ namespace Aria::Internal {
                 type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind)); 
                 return;
 
+            case ExprKind::ArrayFiller: m_output += fmt::format("ArrayFillerExpr '{}' {}\n",
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+
+                dump_expr(expr->array_filler.initializer, indentation + 4);
+                return;
+
             case ExprKind::Null: m_output += fmt::format("NullExpr '{}' {}\n", 
                 type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind)); 
                 return;

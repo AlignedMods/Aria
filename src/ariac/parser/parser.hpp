@@ -46,6 +46,7 @@ namespace Aria::Internal {
         Expr* parse_precedence_with_left(Expr* left, size_t precedence);
         Expr* parse_precedence(size_t precedence);
         Expr* parse_expression();
+        Expr* parse_term();
         bool is_expression();
 
         bool is_primitive_type();

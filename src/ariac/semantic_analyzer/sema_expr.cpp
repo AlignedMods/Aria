@@ -991,6 +991,41 @@ namespace Aria::Internal {
         }
     }
 
+    u64 SemanticAnalyzer::eval_expr_u64(Expr* expr) {
+        ARIA_ASSERT(is_const_expr(expr), "Cannot evaulate a non-constant expression");
+        ARIA_ASSERT(expr->type->is_integral(), "Expression must be of integral type");
+
+        switch (expr->kind) {
+            case ExprKind::IntegerLiteral: return expr->integer_literal.value;
+
+            case ExprKind::Paren: return eval_expr_u64(expr->paren.expression);
+
+            case ExprKind::BinaryOperator: {
+                u64 lhs = eval_expr_u64(expr->binary_operator.lhs);
+                u64 rhs = eval_expr_u64(expr->binary_operator.rhs);
+
+                switch (expr->binary_operator.op) {
+                    case BinaryOperatorKind::Add: return lhs + rhs;
+                    case BinaryOperatorKind::Sub: return lhs - rhs;
+                    case BinaryOperatorKind::Mul: return lhs * rhs;
+                    case BinaryOperatorKind::Div: return lhs / rhs;
+                    case BinaryOperatorKind::Mod: return lhs % rhs;
+                    case BinaryOperatorKind::BitAnd: return lhs & rhs;
+                    case BinaryOperatorKind::BitOr: return lhs | rhs;
+                    case BinaryOperatorKind::BitXor: return lhs ^ rhs;
+                    case BinaryOperatorKind::Shl: return lhs << rhs;
+                    case BinaryOperatorKind::Shr: return lhs >> rhs;
+
+                    default: ARIA_UNREACHABLE();
+                }
+
+                break;
+            }
+
+            default: ARIA_UNREACHABLE();
+        }
+    }
+
     void SemanticAnalyzer::insert_implicit_cast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastKind castKind) {
         Expr* src = Expr::Dup(m_context, srcExpr); // We must copy the original expression to avoid overwriting the same memory
         Expr* implicitCast = Expr::Create(m_context, src->loc, src->range, ExprKind::ImplicitCast, ExprValueKind::RValue, dstType, ImplicitCastExpr(src, castKind));
@@ -1016,60 +1051,82 @@ namespace Aria::Internal {
         }
     }
 
-    void SemanticAnalyzer::insert_arithmetic_promotion(Expr* lhs, Expr* rhs) {
-        TypeInfo* lhsType = lhs->type;
-        TypeInfo* rhsType = rhs->type;
+    void SemanticAnalyzer::maybe_promote_to_int(Expr* expr) {
+        switch (expr->type->kind) {
+            case TypeKind::Char:
+            case TypeKind::Short:
+                insert_implicit_cast(&int_type, expr->type, expr, CastKind::Integral);
+                break;
 
-        if (lhsType->kind == TypeKind::Error || rhsType->kind == TypeKind::Error) {
+            case TypeKind::UChar:
+            case TypeKind::UShort:
+                insert_implicit_cast(&uint_type, expr->type, expr, CastKind::Integral);
+                break;
+
+            default: break;
+        }
+    }
+
+    void SemanticAnalyzer::insert_arithmetic_promotion(Expr* lhs, Expr* rhs) {
+        if (lhs->type->kind == TypeKind::Error || rhs->type->kind == TypeKind::Error) {
             return;
         }
 
         require_rvalue(lhs);
         require_rvalue(rhs);
 
-        if (type_is_equal(lhsType, rhsType)) {
-            return;
-        }
+        if (lhs->type->is_integral() && rhs->type->is_integral()) {
+            // We want to keep the original types for error messages
+            TypeInfo lhs_type = *lhs->type;
+            TypeInfo rhs_type = *rhs->type;
 
-        if (lhsType->is_integral() && rhsType->is_integral()) {
-            size_t lSize = type_get_size(lhsType);
-            size_t rSize = type_get_size(rhsType);
+            maybe_promote_to_int(lhs);
+            maybe_promote_to_int(rhs);
 
-            if (lSize > rSize) {
-                insert_implicit_cast(lhsType, rhsType, rhs, CastKind::Integral);
-            } else if (rSize > lSize) {
-                insert_implicit_cast(rhsType, lhsType, lhs, CastKind::Integral);
-            } else if (lSize == rSize) {
-                // We know that the types are not equal so we likely have a signed/unsigned mismatch
-                m_context->report_compiler_diagnostic_with_notes(lhs->loc, SourceRange(lhs->range.start, rhs->range.end), 
-                    fmt::format("Mismatched types '{}' and '{}'", type_info_to_string(lhsType), type_info_to_string(rhsType)),
-                    { "implicit signedness conversions are not allowed here"} );
+            size_t l_size = type_get_size(lhs->type);
+            size_t r_size = type_get_size(rhs->type);
+
+            if (l_size > r_size) {
+                insert_implicit_cast(lhs->type, rhs->type, rhs, CastKind::Integral);
+            } else if (r_size > l_size) {
+                insert_implicit_cast(rhs->type, lhs->type, lhs, CastKind::Integral);
+            } else if (l_size == r_size) {
+                if (lhs->type->is_signed() != rhs->type->is_signed()) {
+                    m_context->report_compiler_diagnostic_with_notes(lhs->loc, SourceRange(lhs->range.start, rhs->range.end), 
+                        fmt::format("Mismatched types '{}' and '{}'", type_info_to_string(&lhs_type), type_info_to_string(&rhs_type)),
+                        { "implicit signedness conversions are not allowed here"} );
+                }
             }
 
             return;
         }
 
-        if (lhsType->is_integral() && rhsType->is_floating_point()) {
-            insert_implicit_cast(rhsType, lhsType, lhs, CastKind::IntegralToFloating);
+        if (lhs->type->is_integral() && rhs->type->is_floating_point()) {
+            insert_implicit_cast(rhs->type, lhs->type, lhs, CastKind::IntegralToFloating);
             return;
         }
 
-        if (lhsType->is_floating_point() && rhsType->is_integral()) {
-            insert_implicit_cast(lhsType, rhsType, rhs, CastKind::IntegralToFloating);
+        if (lhs->type->is_floating_point() && rhs->type->is_integral()) {
+            insert_implicit_cast(lhs->type, rhs->type, rhs, CastKind::IntegralToFloating);
             return;
         }
 
-        if (lhsType->is_floating_point() && rhsType->is_floating_point()) {
-            size_t lSize = type_get_size(lhsType);
-            size_t rSize = type_get_size(rhsType);
+        if (lhs->type->is_floating_point() && rhs->type->is_floating_point()) {
+            size_t lSize = type_get_size(lhs->type);
+            size_t rSize = type_get_size(rhs->type);
 
             if (lSize > rSize) {
-                insert_implicit_cast(lhsType, rhsType, rhs, CastKind::Floating);
+                insert_implicit_cast(lhs->type, rhs->type, rhs, CastKind::Floating);
             } else if (rSize > lSize) {
-                insert_implicit_cast(rhsType, lhsType, lhs, CastKind::Floating);
+                insert_implicit_cast(rhs->type, lhs->type, lhs, CastKind::Floating);
             }
 
             return;
+        }
+
+        if (!type_is_equal(lhs->type, rhs->type)) {
+            m_context->report_compiler_diagnostic(lhs->loc, SourceRange(lhs->range.start, rhs->range.end),
+                fmt::format("Mismatched types '{}' and '{}'", type_info_to_string(lhs->type), type_info_to_string(rhs->type)));
         }
 
         ARIA_UNREACHABLE();

@@ -98,6 +98,16 @@ namespace Aria::Internal {
             u8 extra = deserialize_u8();
 
             if (extra == '\1') {
+                VMArray arr;
+                u64 base = deserialize_u64();
+                u64 size = deserialize_u64();
+
+                arr.base_type = static_cast<u16>(base);
+                arr.size = size;
+
+                m_op_codes.type_table.push_back({ static_cast<VMTypeKind>(kind), arr });
+                continue;
+            } else if (extra == '\2') {
                 VMStruct str;
                 u64 size = deserialize_u64();
 

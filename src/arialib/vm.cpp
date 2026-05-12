@@ -320,7 +320,7 @@ namespace Aria::Internal {
     }
 
     void VM::run() {
-        while (m_program_counter < &m_op_codes->program.back()) {
+        while (m_program_counter < &m_op_codes->program.back() + 1) {
             switch (*m_program_counter) {
                 case OP_ALLOCA: {
                     auto& type = GET_TYPE();
@@ -1253,7 +1253,7 @@ namespace Aria::Internal {
                 }
                 // ^^^ ADD, SUB, MUL, DIV, MOD ^^^ //
 
-                // VVV CMP, LT, LTE, GT, GTE VVV //
+                // VVV CMP, NCMP, LT, LTE, GT, GTE VVV //
                 case OP_CMPI: {
                     VMSlice lhs = get_vm_slice(-2, m_stack);
                     VMSlice rhs = get_vm_slice(-1, m_stack);
@@ -1378,6 +1378,135 @@ namespace Aria::Internal {
                         }
 
                         default: ARIA_ASSERT(false, "Invalid types to cmpf instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_NCMPI: {
+                    VMSlice lhs = get_vm_slice(-2, m_stack);
+                    VMSlice rhs = get_vm_slice(-1, m_stack);
+
+                    ARIA_ASSERT(lhs.type.kind == rhs.type.kind, "Types of both sides must be the same");
+
+                    switch (lhs.type.kind) {
+                        case VMTypeKind::I32: {
+                            i32 lhsVal = 0;
+                            i32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.memory, lhs.size);
+                            memcpy(&rhsVal, rhs.memory, rhs.size);
+                            pop(2, m_stack);
+
+                            auto result = lhsVal != rhsVal;
+
+                            alloc({ VMTypeKind::I1 }, m_stack);
+                            store_bool(-1, result, m_stack);
+                            break;
+                        }
+
+                        case VMTypeKind::I64: {
+                            i64 lhsVal = 0;
+                            i64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.memory, lhs.size);
+                            memcpy(&rhsVal, rhs.memory, rhs.size);
+                            pop(2, m_stack);
+
+                            auto result = lhsVal != rhsVal;
+
+                            alloc({ VMTypeKind::I1 }, m_stack);
+                            store_bool(-1, result, m_stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to ncmpi instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_NCMPU: {
+                    VMSlice lhs = get_vm_slice(-2, m_stack);
+                    VMSlice rhs = get_vm_slice(-1, m_stack);
+
+                    ARIA_ASSERT(lhs.type.kind == rhs.type.kind, "Types of both sides must be the same");
+
+                    switch (lhs.type.kind) {
+                        case VMTypeKind::U32: {
+                            u32 lhsVal = 0;
+                            u32 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.memory, lhs.size);
+                            memcpy(&rhsVal, rhs.memory, rhs.size);
+                            pop(2, m_stack);
+
+                            auto result = lhsVal != rhsVal;
+
+                            alloc({ VMTypeKind::I1 }, m_stack);
+                            store_bool(-1, result, m_stack);
+                            break;
+                        }
+
+                        case VMTypeKind::U64: {
+                            u64 lhsVal = 0;
+                            u64 rhsVal = 0;
+
+                            memcpy(&lhsVal, lhs.memory, lhs.size);
+                            memcpy(&rhsVal, rhs.memory, rhs.size);
+                            pop(2, m_stack);
+
+                            auto result = lhsVal != rhsVal;
+
+                            alloc({ VMTypeKind::I1 }, m_stack);
+                            store_bool(-1, result, m_stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to ncmpu instruction");
+                    }
+
+                    break;
+                }
+
+                case OP_NCMPF: {
+                    VMSlice lhs = get_vm_slice(-2, m_stack);
+                    VMSlice rhs = get_vm_slice(-1, m_stack);
+
+                    ARIA_ASSERT(lhs.type.kind == rhs.type.kind, "Types of both sides must be the same");
+
+                    switch (lhs.type.kind) {
+                        case VMTypeKind::Float: {
+                            float lhsVal = 0.0f;
+                            float rhsVal = 0.0f;
+
+                            memcpy(&lhsVal, lhs.memory, lhs.size);
+                            memcpy(&rhsVal, rhs.memory, rhs.size);
+                            pop(2, m_stack);
+
+                            auto result = lhsVal != rhsVal;
+
+                            alloc({ VMTypeKind::I1 }, m_stack);
+                            store_bool(-1, result, m_stack);
+                            break;
+                        }
+
+                        case VMTypeKind::Double: {
+                            double lhsVal = 0.0;
+                            double rhsVal = 0.0;
+
+                            memcpy(&lhsVal, lhs.memory, lhs.size);
+                            memcpy(&rhsVal, rhs.memory, rhs.size);
+                            pop(2, m_stack);
+
+                            auto result = lhsVal != rhsVal;
+
+                            alloc({ VMTypeKind::I1 }, m_stack);
+                            store_bool(-1, result, m_stack);
+                            break;
+                        }
+
+                        default: ARIA_ASSERT(false, "Invalid types to ncmpf instruction");
                     }
 
                     break;
@@ -2840,6 +2969,12 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case OP_ERR: {
+                    std::string_view msg = GET_STR();
+                    m_context->report_runtime_error(std::string(msg));
+                    break;
+                }
+
                 case OP_LABEL: GET_STR(); break;
 
                 default: ARIA_UNREACHABLE(); break;
@@ -2883,8 +3018,11 @@ namespace Aria::Internal {
             case VMTypeKind::Double: return 8;
                                      
             case VMTypeKind::Ptr:    return sizeof(void*);
-
-            case VMTypeKind::Slice: return sizeof(RuntimeSlice);
+            case VMTypeKind::Slice:  return sizeof(RuntimeSlice);
+            case VMTypeKind::Array: {
+                auto& arr = std::get<VMArray>(type.data);
+                return align_to_eight(get_vm_type_size(m_op_codes->type_table[static_cast<size_t>(arr.base_type)])) * static_cast<size_t>(arr.size);
+            }
 
             case VMTypeKind::Struct: {
                 size_t size = 0;
@@ -2905,26 +3043,244 @@ namespace Aria::Internal {
     }
 
     void VM::run_prepass() {
-        for (m_program_counter = &m_op_codes->program.front(); m_program_counter < &m_op_codes->program.back(); m_program_counter++) {
-            if (*m_program_counter == OP_FUNCTION) {
-                const OpCode* startPc = m_program_counter;
-                
-                std::string_view ident = GET_STR();
-                VMFunction func;
-                func.signature = ident;
+        VMFunction func;
 
-                for (; m_program_counter < &m_op_codes->program.back(); m_program_counter++) {
-                    if (*m_program_counter == OP_LABEL) {
-                        std::string_view label = GET_STR();
-                        func.labels[label] = ++m_program_counter;
-                    } else if (*m_program_counter == OP_ENDFUNCTION) {
-                        break;
-                    }
+        m_program_counter = &m_op_codes->program.front();
+        while (m_program_counter < &m_op_codes->program.back() + 1) {
+            switch (*m_program_counter) {
+                case OP_ALLOCA: {
+                    GET_U16();
+                    break;
                 }
 
-                m_program_counter = startPc;
-                m_functions[ident] = func;
+                case OP_NEW: {
+                    GET_U16();
+                    break;
+                }
+
+                case OP_NEW_ARR: {
+                    GET_U16();
+                    break;
+                }
+                case OP_LD_CONST: {
+                    GET_U16();
+                    GET_U16();
+                    break;
+                }
+
+                case OP_LD_STR: {
+                    GET_U16();
+                    break;
+                }
+
+                case OP_LD: {
+                    GET_U16();
+                    break;
+                }
+
+                case OP_LD_LOCAL: {
+                    GET_U16();
+                    break;
+                }
+
+                case OP_LD_GLOBAL: {
+                    GET_U16();
+                    break;
+                }
+
+                case OP_LD_FIELD: {
+                    GET_U16();
+                    GET_U16();
+                    break;
+                }
+
+                case OP_LD_PTR_LOCAL: {
+                    GET_U16();
+                    break;
+                }
+
+                case OP_LD_PTR_GLOBAL: {
+                    GET_U16();
+                    break;
+                }
+
+                case OP_LD_PTR_FIELD: {
+                    GET_U16();
+                    GET_U16();
+                    break;
+                }
+
+                case OP_ST_LOCAL: {
+                    GET_U16();
+                    break;
+                }
+
+                case OP_ST_GLOBAL: {
+                    GET_U16();
+                    break;
+                }
+
+                case OP_ST_FIELD: {
+                    GET_U16();
+                    GET_U16();
+                    break;
+                }
+
+                case OP_DECL_LOCAL: {
+                    GET_U16();
+                    break;
+                }
+                case OP_DECL_GLOBAL: {
+                    GET_U16();
+                    break;
+                }
+
+                case OP_FREE:
+                case OP_LD_NULL:
+                case OP_LD_PTR:
+                case OP_ST_ADDR:
+                case OP_DUP:
+                case OP_POP:
+                case OP_ADDI:
+                case OP_ADDU:
+                case OP_ADDF:
+                case OP_SUBI:
+                case OP_SUBU:
+                case OP_SUBF:
+                case OP_MULI:
+                case OP_MULU:
+                case OP_MULF:
+                case OP_DIVI:
+                case OP_DIVU:
+                case OP_DIVF:
+                case OP_MODI:
+                case OP_MODU:
+                case OP_MODF: 
+                case OP_CMPI:
+                case OP_CMPU:
+                case OP_CMPF:
+                case OP_NCMPI:
+                case OP_NCMPU:
+                case OP_NCMPF:
+                case OP_LTI:
+                case OP_LTU:
+                case OP_LTF:
+                case OP_LTEI:
+                case OP_LTEU:
+                case OP_LTEF:
+                case OP_GTI:
+                case OP_GTU:
+                case OP_GTF:
+                case OP_GTEI:
+                case OP_GTEU:
+                case OP_GTEF:
+                case OP_SHLI:
+                case OP_SHLU:
+                case OP_SHRI:
+                case OP_SHRU:
+                case OP_ANDI:
+                case OP_ANDU:
+                case OP_ORI:
+                case OP_ORU:
+                case OP_XORI:
+                case OP_XORU:
+                case OP_INCI:
+                case OP_INCU:
+                case OP_INCF:
+                case OP_DECI:
+                case OP_DECU:
+                case OP_DECF:
+                case OP_NEGI:
+                case OP_NEGF:
+                case OP_LOGAND:
+                case OP_LOGOR:
+                case OP_LOGNOT:
+                case OP_RET:
+                case OP_RET_VAL:
+                    break;
+
+                case OP_OFFP: {
+                    GET_U16();
+                    break;
+                }
+                
+                case OP_JMP: {
+                    GET_U16();
+                    break;
+                }
+
+                case OP_JT: {
+                    GET_U16();
+                    break;
+                }
+
+                case OP_JF: {
+                    GET_U16();
+                    break;
+                }
+
+                case OP_JT_POP: {
+                    GET_U16();
+                    break;
+                }
+
+                case OP_JF_POP: {
+                    GET_U16();
+                    break;
+                }
+
+                case OP_CONV_ITOI: {
+                    GET_U16();
+                    break;
+                }
+
+                case OP_CONV_FTOF: {
+                    GET_U16();
+                    break;
+                }
+
+                case OP_CONV_ITOF: {
+                    GET_U16();
+                    break;
+                }
+
+                case OP_CONV_FTOI: {
+                    GET_U16();
+                    break;
+                }
+
+                case OP_CALL: {
+                    GET_U16();
+                    break;
+                }
+
+                case OP_ERR: {
+                    GET_U16();
+                    break;
+                }
+
+                case OP_FUNCTION: {
+                    std::string_view sig = GET_STR();
+                    func.signature = sig;
+                    break;
+                }
+
+                case OP_ENDFUNCTION: {
+                    m_functions[func.signature] = func;
+                    func.labels.clear();
+                    break;
+                }
+
+                case OP_LABEL: {
+                    std::string_view name = GET_STR();
+                    func.labels[name] = m_program_counter + 1;
+                    break;
+                }
+
+                default: ARIA_UNREACHABLE();
             }
+
+            m_program_counter++;
         }
 
         m_program_counter = 0; // Reset the program counter so the normal execution happens from the start

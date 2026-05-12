@@ -21,7 +21,7 @@ namespace Aria::Internal {
         if (m_op_codes->program.size() == 0) { return; }
         m_program_counter = &m_op_codes->program.front();
 
-        while (m_program_counter < &m_op_codes->program.back()) {
+        while (m_program_counter < &m_op_codes->program.back() + 1) {
             m_output += fmt::format("{:05d}: ", m_program_counter - &m_op_codes->program.front());
 
             switch (*m_program_counter) {
@@ -558,6 +558,12 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case OP_ERR: {
+                    std::string_view msg = GET_STR();
+                    m_output += fmt::format("    err {:?}", msg);
+                    break;
+                }
+
                 case OP_FUNCTION: {
                     std::string_view sig = GET_STR();
                     m_output += fmt::format(".function '{}' {{", sig);
@@ -599,7 +605,11 @@ namespace Aria::Internal {
             case VMTypeKind::Double: return "double";
                                      
             case VMTypeKind::Ptr:    return "ptr";
-            case VMTypeKind::Slice: return "slice";
+            case VMTypeKind::Slice:  return "slice";
+            case VMTypeKind::Array: {
+                auto& arr = std::get<VMArray>(type.data);
+                return fmt::format("[{} x {}]", arr.size, vm_type_to_string(m_op_codes->type_table[static_cast<size_t>(arr.base_type)]));
+            }
 
             case VMTypeKind::Struct: {
                 return std::string(std::get<VMStruct>(type.data).name);

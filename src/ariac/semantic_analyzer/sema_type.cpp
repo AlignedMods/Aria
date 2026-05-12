@@ -29,7 +29,21 @@ namespace Aria::Internal {
         } else if (type->kind == TypeKind::Ptr) {
             resolve_type(loc, range, type->base);
         } else if (type->kind == TypeKind::Array) {
-            ARIA_TODO("Resolving array types");
+            resolve_type(loc, range, type->array.type);
+            resolve_expr(type->array.expression);
+
+            if (!is_const_expr(type->array.expression)) {
+                m_context->report_compiler_diagnostic(type->array.expression->loc, type->array.expression->range, "Size of array must be a compile time constant");
+                return;
+            }
+
+            ConversionCost cost = get_conversion_cost(&ulong_type, type->array.expression->type);
+            if (cost.cast_needed && !cost.implicit_cast_possible) {
+                m_context->report_compiler_diagnostic(type->array.expression->loc, type->array.expression->range, "Size of array must be convertable to 'ulong'");
+                return;
+            }
+
+            type->array.size = eval_expr_u64(type->array.expression);
         } else if (type->kind == TypeKind::Ref) {
             resolve_type(loc, range, type->base);
         } else if (type->kind == TypeKind::Function) {

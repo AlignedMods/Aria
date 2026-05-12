@@ -14,7 +14,7 @@ namespace Aria::Internal {
 
     static const char* stdlib_files[] = {
         "io/io.aria",
-        "core/stream.aria",
+        "core/string_stream.aria",
         "core/mem.aria"
     };
 
@@ -88,10 +88,10 @@ namespace Aria::Internal {
         analyze();
         if (!has_errors) {
             emit();
-        } else {
-            for (auto& diag : diagnostics) {
-                print_diag(&diag);
-            }
+        }
+
+        for (auto& diag : diagnostics) {
+            print_diag(&diag);
         }
     }
 

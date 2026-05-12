@@ -25,8 +25,14 @@ namespace Aria::Internal {
 
         Ptr,
         Slice,
+        Array,
 
         Struct,
+    };
+
+    struct VMArray {
+        u64 size = 0;
+        u16 base_type = 0;
     };
 
     struct VMStruct {
@@ -36,7 +42,7 @@ namespace Aria::Internal {
 
     struct VMType {
         VMTypeKind kind = VMTypeKind::Void;
-        std::variant<bool, VMStruct> data;
+        std::variant<bool, VMArray, VMStruct> data;
     };
 
     enum OpCode : u8 {
@@ -147,6 +153,8 @@ namespace Aria::Internal {
 
         OP_RET,
         OP_RET_VAL,
+
+        OP_ERR,
 
         OP_FUNCTION,
         OP_ENDFUNCTION,

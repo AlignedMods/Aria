@@ -224,6 +224,83 @@ namespace Aria::Internal {
         PUSH_PENDING_U16(STR_IDX(-1));
     }
 
+    void Emitter::emit_array_filler_expr(Expr* expr, ExprValueKind value_kind) {
+        ArrayFillerExpr filler = expr->array_filler;
+        ARIA_ASSERT(expr->type->is_array(), "Type of ArrayFillerExpr must be an array");
+
+        u16 arr_idx = static_cast<u16>(m_active_stack_frame.local_count++);
+        u16 idx_idx = static_cast<u16>(m_active_stack_frame.local_count++);
+
+        ADD_CONSTANT(expr->type->array.size);
+        u16 size_idx = CONST_IDX(-1);
+
+        ADD_STR(fmt::format("arr.init.start.{}", m_arr_init_counter));
+        ADD_STR(fmt::format("arr.init.end.{}", m_arr_init_counter));
+        m_arr_init_counter++;
+
+        u16 start_label = STR_IDX(-2);
+        u16 end_label = STR_IDX(-1);
+
+        // array
+        PUSH_OP(OP_ALLOCA);
+        PUSH_U16(type_info_to_vm_type_idx(expr->type));
+        PUSH_OP(OP_DECL_LOCAL);
+        PUSH_U16(arr_idx);
+
+        // loop index
+        PUSH_OP(OP_ALLOCA);
+        PUSH_U16(type_info_to_vm_type_idx(&ulong_type));
+        PUSH_OP(OP_DECL_LOCAL);
+        PUSH_U16(idx_idx);
+
+        // start label
+        PUSH_PENDING_OP(OP_LABEL);
+        PUSH_PENDING_U16(start_label);
+
+        // condition
+        PUSH_PENDING_OP(OP_LD_LOCAL);
+        PUSH_PENDING_U16(idx_idx);
+        PUSH_PENDING_OP(OP_LD_CONST);
+        PUSH_PENDING_U16(type_info_to_vm_type_idx(&ulong_type));
+        PUSH_PENDING_U16(size_idx);
+        PUSH_PENDING_OP(OP_LTU);
+
+        // conditional jump
+        PUSH_PENDING_OP(OP_JF_POP);
+        PUSH_PENDING_U16(end_label);
+
+        // offsetting into the array
+        PUSH_PENDING_OP(OP_LD_PTR_LOCAL);
+        PUSH_PENDING_U16(arr_idx);
+        PUSH_PENDING_OP(OP_LD_LOCAL);
+        PUSH_PENDING_U16(idx_idx);
+        PUSH_PENDING_OP(OP_OFFP);
+        PUSH_PENDING_U16(type_info_to_vm_type_idx(expr->type->array.type));
+
+        // set the value
+        emit_expr(filler.initializer, ExprValueKind::RValue);
+        PUSH_PENDING_OP(OP_ST_ADDR);
+
+        // increment the counter
+        PUSH_PENDING_OP(OP_LD_LOCAL);
+        PUSH_PENDING_U16(idx_idx);
+        PUSH_PENDING_OP(OP_INCU);
+        PUSH_PENDING_OP(OP_ST_LOCAL);
+        PUSH_PENDING_U16(idx_idx);
+
+        // jump back to the start
+        PUSH_PENDING_OP(OP_JMP);
+        PUSH_PENDING_U16(start_label);
+
+        // end label
+        PUSH_PENDING_OP(OP_LABEL);
+        PUSH_PENDING_U16(end_label);
+
+        // after the loop
+        PUSH_PENDING_OP(OP_LD_LOCAL);
+        PUSH_PENDING_U16(arr_idx);
+    }
+
     void Emitter::emit_null_expr(Expr* expr, ExprValueKind value_kind) {
         PUSH_PENDING_OP(OP_LD_NULL);
     }
@@ -487,6 +564,49 @@ namespace Aria::Internal {
                 if (value_kind == ExprValueKind::RValue) {
                     PUSH_PENDING_OP(OP_LD);
                     PUSH_PENDING_U16(type_info_to_vm_type_idx(subs.array->type->base));
+                }
+
+                break;
+            }
+
+            case TypeKind::Array: {
+                emit_expr(subs.array, subs.array->value_kind);
+                emit_expr(subs.index, subs.index->value_kind);
+
+                ADD_STR(fmt::format("check.failed.{}", m_check_counter));
+                ADD_STR(fmt::format("check.passed.{}", m_check_counter));
+                m_check_counter++;
+                u16 fail_label = STR_IDX(-2);
+                u16 pass_label = STR_IDX(-1);
+
+                // Out of bounds check
+                ADD_CONSTANT(subs.array->type->array.size);
+                PUSH_PENDING_OP(OP_DUP);
+                PUSH_PENDING_OP(OP_LD_CONST);
+                PUSH_PENDING_U16(m_basic_types[TypeKind::ULong]);
+                PUSH_PENDING_U16(CONST_IDX(-1));
+                PUSH_PENDING_OP(OP_LTU);
+                PUSH_PENDING_OP(OP_JF_POP);
+                PUSH_PENDING_U16(fail_label);
+                PUSH_PENDING_OP(OP_JMP);
+                PUSH_PENDING_U16(pass_label);
+
+                // check failed
+                ADD_STR(fmt::format("Array index out of bounds (array size was {})", subs.array->type->array.size));
+                PUSH_PENDING_OP(OP_LABEL);
+                PUSH_PENDING_U16(fail_label);
+                PUSH_PENDING_OP(OP_ERR);
+                PUSH_PENDING_U16(STR_IDX(-1));
+
+                // check passed
+                PUSH_PENDING_OP(OP_LABEL);
+                PUSH_PENDING_U16(pass_label);
+                PUSH_PENDING_OP(OP_OFFP);
+                PUSH_PENDING_U16(type_info_to_vm_type_idx(subs.array->type->array.type));
+
+                if (value_kind == ExprValueKind::RValue) {
+                    PUSH_PENDING_OP(OP_LD);
+                    PUSH_PENDING_U16(type_info_to_vm_type_idx(subs.array->type->array.type));
                 }
 
                 break;
@@ -883,6 +1003,7 @@ namespace Aria::Internal {
             case ExprKind::IntegerLiteral: emit_integer_literal_expr(expr, value_kind); break;
             case ExprKind::FloatingLiteral: emit_floating_literal_expr(expr, value_kind); break;
             case ExprKind::StringLiteral: emit_string_literal_expr(expr, value_kind); break;
+            case ExprKind::ArrayFiller: emit_array_filler_expr(expr, value_kind); break;
             case ExprKind::Null: emit_null_expr(expr, value_kind); break;
             case ExprKind::DeclRef: emit_decl_ref_expr(expr, value_kind); break;
             case ExprKind::Member: emit_member_expr(expr, value_kind); break;
@@ -977,7 +1098,7 @@ namespace Aria::Internal {
                 PUSH_PENDING_U16(STR_IDX(-1));
             } else {
                 PUSH_PENDING_OP(OP_ST_LOCAL);
-                PUSH_PENDING_U16(static_cast<u16>(m_active_stack_frame.local_count - 1));
+                PUSH_PENDING_U16(static_cast<u16>(std::get<size_t>(d.data)));
             }
         }
     }
@@ -1239,27 +1360,44 @@ namespace Aria::Internal {
         IfStmt ifs = stmt->if_;
         
         ADD_STR(fmt::format("if.body{}", m_if_counter));
+        ADD_STR(fmt::format("if.else{}", m_if_counter));
         ADD_STR(fmt::format("if.end{}", m_if_counter));
-        u16 bodyIdx = STR_IDX(-2);
-        u16 endIdx = STR_IDX(-1);
+        m_if_counter++;
+        u16 body_idx = STR_IDX(-3);
+        u16 else_idx = STR_IDX(-2);
+        u16 end_idx = STR_IDX(-1);
         
-        push_scope();
-
         emit_expr(ifs.condition, ifs.condition->value_kind);
         PUSH_PENDING_OP(OP_JT_POP);
-        PUSH_PENDING_U16(bodyIdx);
+        PUSH_PENDING_U16(body_idx);
         PUSH_PENDING_OP(OP_JMP);
-        PUSH_PENDING_U16(endIdx);
-        
-        PUSH_PENDING_OP(OP_LABEL);
-        PUSH_PENDING_U16(bodyIdx);
-        emit_stmt(ifs.body);
-        PUSH_PENDING_OP(OP_LABEL);
-        PUSH_PENDING_U16(endIdx);
 
-        pop_scope();
+        if (ifs.else_body) {
+            PUSH_PENDING_U16(else_idx);
+        } else {
+            PUSH_PENDING_U16(end_idx);
+        }
         
-        m_if_counter++;
+        PUSH_PENDING_OP(OP_LABEL);
+        PUSH_PENDING_U16(body_idx);
+        push_scope();
+        emit_block_stmt(ifs.body);
+        pop_scope();
+        PUSH_PENDING_OP(OP_JMP);
+        PUSH_PENDING_U16(end_idx);
+
+        if (ifs.else_body) {
+            PUSH_PENDING_OP(OP_LABEL);
+            PUSH_PENDING_U16(else_idx);
+            push_scope();
+            emit_block_stmt(ifs.else_body);
+            pop_scope();
+            PUSH_PENDING_OP(OP_JMP);
+            PUSH_PENDING_U16(end_idx);
+        }
+
+        PUSH_PENDING_OP(OP_LABEL);
+        PUSH_PENDING_U16(end_idx);
     }
 
     void Emitter::emit_break_stmt(Stmt* stmt) {
@@ -1355,6 +1493,7 @@ namespace Aria::Internal {
         m_active_stack_frame.local_count = 0;
 
         // Reset counters
+        m_arr_init_counter = 0;
         m_and_counter = 0;
         m_or_counter = 0;
         m_loop_counter = 0;
@@ -1378,6 +1517,15 @@ namespace Aria::Internal {
 
     u16 Emitter::type_info_to_vm_type_idx(TypeInfo* t) {
         if (t->is_reference()) { return m_basic_types[TypeKind::Ptr]; }
+
+        if (t->is_array()) {
+            VMType type;
+            type.kind = VMTypeKind::Array;
+            type.data = VMArray(t->array.size, type_info_to_vm_type_idx(t->array.type));
+            m_op_codes.type_table.push_back(type);
+
+            return static_cast<u16>(m_op_codes.type_table.size() - 1);
+        }
 
         if (t->is_primitive()) {
             return m_basic_types[t->kind];
@@ -1406,7 +1554,7 @@ namespace Aria::Internal {
     }
 
     std::string Emitter::mangle_ctor(ConstructorDecl* ctor) {
-        std::string ident = fmt::format("struct {}::{}::<ctor>(", ctor->parent->parent_module->name, ctor->parent->struct_.identifier);
+        std::string ident = fmt::format("struct {0}::{1}::{1}(", ctor->parent->parent_module->name, ctor->parent->struct_.identifier);
 
         for (size_t i = 0; i < ctor->parameters.size; i++) {
             ident += type_info_to_string(ctor->parameters.items[i]->param.type);
@@ -1421,7 +1569,7 @@ namespace Aria::Internal {
     }
 
     std::string Emitter::mangle_dtor(DestructorDecl* dtor) {
-        return fmt::format("struct {}::{}::<dtor>()", dtor->parent->parent_module->name, dtor->parent->struct_.identifier);
+        return fmt::format("struct {0}::{1}::~{1}()", dtor->parent->parent_module->name, dtor->parent->struct_.identifier);
     }
 
 } // namespace Aria::Internal

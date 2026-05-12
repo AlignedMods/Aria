@@ -87,8 +87,13 @@ namespace Aria::Internal {
     void Serialzier::serialize_types() {
         for (auto& t : m_op_codes->type_table) {
             serialize_u64(static_cast<u64>(t.kind));
-            if (std::holds_alternative<VMStruct>(t.data)) {
+
+            if (std::holds_alternative<VMArray>(t.data)) {
                 m_output << '\1';
+                serialize_u64(std::get<VMArray>(t.data).base_type);
+                serialize_u64(std::get<VMArray>(t.data).size);
+            } else if (std::holds_alternative<VMStruct>(t.data)) {
+                m_output << '\2';
                 serialize_u64((static_cast<u64>(std::get<VMStruct>(t.data).fields.size())));
 
                 for (size_t field : std::get<VMStruct>(t.data).fields) {
