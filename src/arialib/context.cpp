@@ -242,7 +242,12 @@ namespace Aria {
 
             size_t count = 0;
             for (auto it = m_active_module->vm.m_stack_frames.rbegin(); it != m_active_module->vm.m_stack_frames.rend(); it++) {
-                fmt::println("{:04}:  {}", count, it->function->signature);
+                if (count > 100) { // Don't spam the terminal with too much of the call stack
+                    fmt::println("<...>");
+                    break;
+                } else {
+                    fmt::println("{:04}:  {}", count, it->function->signature);
+                }
                 count++;
             }
         }

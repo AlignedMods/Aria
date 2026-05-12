@@ -2950,6 +2950,11 @@ namespace Aria::Internal {
                     
                     m_stack_frames.push_back(sf);
 
+                    if (m_stack_frames.size() > 10000) {
+                        m_context->report_runtime_error("Max stack frame depth exceeded (10000)");
+                        break;
+                    }
+
                     ARIA_ASSERT(func.labels.contains("_entry$"), "No _entry$ label inside of function");
                     m_program_counter = func.labels.at("_entry$") - 1;
                     break;
