@@ -1,0 +1,7 @@
+module var;
+
+fn main() -> void {
+    let x: int = 0;
+    let y: bool = false;
+    let z: double = 6.0;
+}

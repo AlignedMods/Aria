@@ -1,6 +1,0 @@
-module casts;
-
-let a: int = <int>2.0;
-let b: float = <float>a;
-let c: long = <long>(b + 3.0);
-let d: double = <double><int>(c + c);

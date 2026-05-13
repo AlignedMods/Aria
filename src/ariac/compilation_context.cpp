@@ -31,16 +31,27 @@ namespace Aria::Internal {
     }
 
     void CompilationContext::compile_files(const std::vector<std::string>& files, const CompilerFlags& flags) {
-        compile_stdlib(flags);
+        if (!flags.no_stdlib) { compile_stdlib(flags); }
 
         for (auto& file : files) { compile_file(file, flags, false); }
         finish_compilation(flags);
 
         if (flags.dump_ast) {
-            for (CompilationUnit* unit : compilation_units) {
-                if (!unit->is_stdlib) {
-                    ASTDumper d(unit->root_ast_node);
-                    fmt::println("'{}'\n\n{}", unit->filename, d.get_output());
+            if (flags.ast_dump_output.empty()) {
+                for (CompilationUnit* unit : compilation_units) {
+                    if (!unit->is_stdlib) {
+                        ASTDumper d(unit->root_ast_node);
+                        fmt::println("'{}'\n\n{}", unit->filename, d.get_output());
+                    }
+                }
+            } else {
+                std::ofstream out(flags.ast_dump_output);
+
+                for (CompilationUnit* unit : compilation_units) {
+                    if (!unit->is_stdlib) {
+                        ASTDumper d(unit->root_ast_node);
+                        out << fmt::format("'{}'\n\n{}", unit->filename, d.get_output());
+                    }
                 }
             }
         }

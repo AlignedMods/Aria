@@ -1,7 +1,0 @@
-module variable_declaration;
-
-let f: bool = false;
-let t: bool = true;
-let i: int = 99;
-let a: int;
-let b: int = i;

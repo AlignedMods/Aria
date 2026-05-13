@@ -25,3 +25,6 @@ scratch3.aria
 scratch4.aria
 scratch5.aria
 output.ariac
+
+# Tests
+tests/output/**
