@@ -1,0 +1,16 @@
+module overloaded_functions;
+
+fn foo(x: int) -> void {}
+fn foo(x: long) -> void {}
+fn foo(x: ulong) -> void {}
+
+fn main() -> void {
+    let x: ulong = 65;
+
+    foo(8);
+    foo(<long>9);
+    foo(<ulong><long>55);
+    foo(x);
+    foo(x * x);
+    foo(<int>(x - x));
+}

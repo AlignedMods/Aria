@@ -11,9 +11,20 @@ size_t case_counter = 0;
 void test_ast_basic(std::string_view ariac_path);
 void test_ast_var(std::string_view ariac_path);
 void test_ast_binary_expr(std::string_view ariac_path);
+void test_ast_casts(std::string_view ariac_path);
+void test_ast_binary_promotion(std::string_view ariac_path);
+void test_ast_functions(std::string_view ariac_path);
+void test_ast_overloaded_functions(std::string_view ariac_path);
+void test_ast_control_flow(std::string_view ariac_path);
 
 std::string read_file(const std::string& path) {
     std::ifstream f(path);
+
+    if (!f) {
+        fmt::print(stderr, "Failed to open file '{}' for reading\n", path);
+        return std::string{};
+    }
+
     std::stringstream ss;
     ss << f.rdbuf();
 
@@ -37,6 +48,11 @@ int main(int argc, char** argv) {
     test_ast_basic(path);
     test_ast_var(path);
     test_ast_binary_expr(path);
+    test_ast_casts(path);
+    test_ast_binary_promotion(path);
+    test_ast_functions(path);
+    test_ast_overloaded_functions(path);
+    test_ast_control_flow(path);
 
     fmt::println("\nTest results:");
     fmt::print(fg(fmt::color::pale_violet_red), "Failed: {}\n", fail_counter);

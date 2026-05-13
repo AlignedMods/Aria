@@ -47,6 +47,11 @@ namespace Aria::Internal {
             } else {
                 std::ofstream out(flags.ast_dump_output);
 
+                if (!out) {
+                    fmt::print(stderr, "Failed to open AST output file '{}'\n", flags.ast_dump_output);
+                    return;
+                }
+
                 for (CompilationUnit* unit : compilation_units) {
                     if (!unit->is_stdlib) {
                         ASTDumper d(unit->root_ast_node);

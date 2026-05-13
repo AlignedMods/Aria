@@ -815,6 +815,7 @@ namespace Aria::Internal {
         Stmt* body = parse_block_inline();
         try_consume(TokenKind::While, "while");
         Expr* condition = parse_expression();
+        try_consume(TokenKind::Semi, ";");
         
         return Stmt::Create(m_context, d.range.start, SourceRange(d.range.start, peek(-1)->range.end), StmtKind::DoWhile, DoWhileStmt(condition, body));
     }

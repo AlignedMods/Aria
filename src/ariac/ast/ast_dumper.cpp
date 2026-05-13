@@ -65,8 +65,8 @@ namespace Aria::Internal {
                 type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind)); 
                 return;
 
-            case ExprKind::DeclRef: m_output += fmt::format("DeclRefExpr '{}' {} {} '{}' {}\n", 
-                expr->decl_ref.identifier, decl_kind_to_string(expr->decl_ref.referenced_decl->kind),  reinterpret_cast<void*>(expr->decl_ref.referenced_decl),
+            case ExprKind::DeclRef: m_output += fmt::format("DeclRefExpr '{}' {} '{}' {}\n", 
+                expr->decl_ref.identifier, decl_kind_to_string(expr->decl_ref.referenced_decl->kind),
                 type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
 
                 if (expr->decl_ref.name_specifier) {
@@ -114,8 +114,8 @@ namespace Aria::Internal {
                 }
                 return;
 
-            case ExprKind::Construct: m_output += fmt::format("ConstructExpr {} '{}' {}\n",
-                reinterpret_cast<void*>(expr->construct.ctor), type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+            case ExprKind::Construct: m_output += fmt::format("ConstructExpr '{}' {}\n",
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
                 return;
 
             case ExprKind::ArraySubscript: m_output += fmt::format("ArraySubscriptExpr '{}' {}\n",
@@ -164,8 +164,8 @@ namespace Aria::Internal {
                 dump_expr(expr->implicit_cast.expression, indentation + 4);
                 return;
 
-            case ExprKind::UnaryOperator: m_output += fmt::format("UnaryOperatorExpr '{}' '{}' {}\n",
-                unary_op_kind_to_string(expr->unary_operator.op),
+            case ExprKind::UnaryOperator: m_output += fmt::format("UnaryOperatorExpr '{}' {} '{}' {}\n",
+                unary_op_kind_to_string(expr->unary_operator.op), expr->unary_operator.infix ? "infix" : "prefix",
                 type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->unary_operator.expression, indentation + 4);
@@ -265,8 +265,8 @@ namespace Aria::Internal {
             case StmtKind::Nop: m_output += "NopStmt\n";
                 return;
 
-            case StmtKind::Import: m_output += fmt::format("ImportStmt '{}' {}\n",
-                stmt->import.name, reinterpret_cast<void*>(stmt->import.resolved_module));
+            case StmtKind::Import: m_output += fmt::format("ImportStmt '{}'\n",
+                stmt->import.name);
                 return;
 
             case StmtKind::Block: m_output += fmt::format("BlockStmt {}\n",
@@ -296,6 +296,7 @@ namespace Aria::Internal {
             case StmtKind::If: m_output += "IfStmt\n";
                 dump_expr(stmt->if_.condition, indentation + 4);
                 dump_stmt(stmt->if_.body, indentation + 4);
+                if (stmt->if_.else_body) { dump_stmt(stmt->if_.else_body, indentation + 4); }
                 return;
 
             case StmtKind::Break: m_output += "BreakStmt\n";
@@ -320,7 +321,7 @@ namespace Aria::Internal {
         m_output += ident;
 
         if (spec->kind == SpecifierKind::Scope) {
-            m_output += fmt::format("ScopeSpecifier '{}' {}\n", spec->scope.identifier, static_cast<void*>(spec->scope.referenced_module));
+            m_output += fmt::format("ScopeSpecifier '{}'\n", spec->scope.identifier);
             return;
         }
 

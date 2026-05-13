@@ -1,0 +1,13 @@
+module casts;
+
+fn main() -> void {
+    let a: int = 6;
+    let b: int = a;
+    let c: float = a;
+
+    let d: char = <char>a;
+    let e: char = d;
+
+    let f: ulong = 7;
+    let g: long = f;
+}

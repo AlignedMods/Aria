@@ -40,7 +40,7 @@ namespace Aria::Internal {
     }
 
     void SemanticAnalyzer::resolve_function_decl(Decl* decl) {
-        if (decl->resolve_status == ResolveStatus::Done) { return; }
+        if (decl->resolve_status == ResolveStatus::Done || decl->resolve_status == ResolveStatus::InProgress) { return; }
         decl->resolve_status = ResolveStatus::InProgress;
         FunctionDecl fnDecl = decl->function;
 

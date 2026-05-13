@@ -294,6 +294,7 @@ namespace Aria::Internal {
                 }
 
                 call.callee->decl_ref.referenced_decl = resolved;
+                call.callee->type = resolved->function.type;
                 expr->type = resolved->function.type->function.return_type;
                 return;
             } else if (!call.callee->type->is_error()) { // Normal function
