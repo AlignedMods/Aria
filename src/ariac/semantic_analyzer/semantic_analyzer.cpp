@@ -53,6 +53,7 @@ namespace Aria::Internal {
     bool SemanticAnalyzer::compare_module_names(std::string_view specifier, std::string_view module_name) {
         if (specifier.length() > module_name.length()) { return false; }
         if (specifier == module_name) { return true; }
+        if (module_name[module_name.length() - specifier.length() - 1] != ':') { return false; }
 
         return specifier == module_name.substr(module_name.length() - specifier.length());
     }

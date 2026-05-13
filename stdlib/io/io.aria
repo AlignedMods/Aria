@@ -15,7 +15,7 @@ fn println(str: char[]) -> void {
     string_stream::append(s, str);
     string_stream::append(s, '\n');
 
-    raw_print_stdout(stream::to_slice(s));
+    raw_print_stdout(string_stream::to_slice(s));
 }
 
 fn print(str: char[]) -> void { raw_print_stdout(str); }
