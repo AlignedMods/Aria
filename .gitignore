@@ -27,4 +27,4 @@ scratch5.aria
 output.ariac
 
 # Tests
-tests/output/**
+**.ast
