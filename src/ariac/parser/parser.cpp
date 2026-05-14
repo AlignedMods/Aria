@@ -243,9 +243,18 @@ namespace Aria::Internal {
         Token* rp = try_consume(TokenKind::RightParen, ")");
         if (!rp) { return &error_expr; }
     
-        return Expr::Create(m_context, lp->range.start, SourceRange(left->range.start, rp->range.end), ExprKind::Call,
-            ExprValueKind::RValue, nullptr, 
-            CallExpr(left, args));
+        if (left->kind == ExprKind::DeclRef) {
+            return Expr::Create(m_context, lp->range.start, SourceRange(left->range.start, rp->range.end), ExprKind::Call,
+                ExprValueKind::RValue, nullptr, 
+                CallExpr(left, args));
+        } else if (left->kind == ExprKind::Member) {
+            return Expr::Create(m_context, lp->range.start, SourceRange(left->range.start, rp->range.end), ExprKind::MethodCall,
+                ExprValueKind::RValue, nullptr, 
+                MethodCallExpr(left, args));
+        } else {
+            m_context->report_compiler_diagnostic(lp->range.start, SourceRange(lp->range.start, rp->range.end), "Callee of call expression must be a reference to a declaration or method");
+            return &error_expr;
+        }
     }
 
     UnaryOperatorKind Parser::get_unary_operator_from_token(Token* token) {
@@ -1297,8 +1306,39 @@ namespace Aria::Internal {
                 Stmt* body = parse_block();
 
                 struc->struct_.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Destructor, DeclVisibility::Public, DestructorDecl(struc, body)));
+            } else if (match(TokenKind::Fn)) {
+                consume();
+
+                Token* name = try_consume(TokenKind::Identifier, "identifier");
+                if (!name) { sync_local(); continue; }
+
+                auto[params, param_types] = parse_function_params();
+
+                TypeInfo* ret_type = &error_type;
+
+                if (try_consume(TokenKind::Arrow, "->")) {
+                    if (!(is_primitive_type() || match(TokenKind::Identifier))) {
+                        m_context->report_compiler_diagnostic(peek()->range.start, peek()->range, "Expected a type after '->'");
+                        sync_local();
+                        ret_type = &error_type;
+                    } else {
+                        ret_type = parse_type();
+                    }
+                }
+
+                Stmt* body = parse_block();
+
+                FunctionDeclaration fn;
+                fn.return_type = ret_type;
+                fn.param_types = param_types;
+
+                TypeInfo* final_type = TypeInfo::Create(m_context, TypeKind::Function);
+                final_type->function = fn;
+
+                struc->struct_.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Method,
+                    DeclVisibility::Public, MethodDecl(struc, name->string, final_type, params, body)));
             } else {
-                m_context->report_compiler_diagnostic(start, SourceRange(start, start), "Expected identifier or '~'");
+                m_context->report_compiler_diagnostic(start, SourceRange(start, start), "Expected identifier, 'fn' or '~'");
                 sync_local();
                 if (match(TokenKind::Semi)) { consume(); }
             }

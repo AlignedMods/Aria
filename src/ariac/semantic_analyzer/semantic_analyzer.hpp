@@ -65,6 +65,7 @@ namespace Aria::Internal {
         void resolve_decl_ref_expr(Expr* expr);
         void resolve_member_expr(Expr* expr);
         void resolve_call_expr(Expr* expr);
+        void resolve_method_call_expr(Expr* expr);
         void resolve_array_subscript_expr(Expr* expr);
         void resolve_to_slice_expr(Expr* expr);
         void resolve_new_expr(Expr* expr);

@@ -99,6 +99,8 @@ namespace Aria::Internal {
                 methods.push_back(field);
             } else if (field->kind == DeclKind::Destructor) {
                 methods.push_back(field);
+            } else if (field->kind == DeclKind::Method) {
+                methods.push_back(field);
             }
         }
 
@@ -132,44 +134,20 @@ namespace Aria::Internal {
                     }
                 }
                 resolve_stmt(method->destructor.body);
+            } else if (method->kind == DeclKind::Method) {
+                m_active_return_type = method->method.type->function.return_type;
+                push_scope();
+                for (Decl* p : method->method.parameters) {
+                    resolve_param_decl(p);
+                }
+
+                resolve_block_stmt(method->method.body);
+                pop_scope();
+                m_active_return_type = nullptr;
             }
         }
-
-        // for (MethodDecl* md : methods) {
-        //     TypeInfo* returnType = GetTypeInfoFromString(md->GetParsedType());
-        //     TinyVector<TypeInfo*> paramTypes;
-        //     m_ActiveReturnType = returnType;
-        //     
-        // 
-        //     m_Declarations.emplace_back();
-        // 
-        //     for (ParamDecl* p : md->GetParameters()) {
-        //         HandleParamDecl(p);
-        //         TypeInfo* pType = p->GetResolvedType();
-        //         paramTypes.Append(m_Context, pType);
-        //     }
-        // 
-        //     // We make the function visible to itself by declaring it before the body
-        //     FunctionDeclaration fd;
-        //     fd.ParamTypes = paramTypes;
-        //     fd.ReturnType = returnType;
-        //     
-        //     TypeInfo* resolvedType = TypeInfo::Create(m_Context, PrimitiveType::Function, false, fd);
-        //     md->SetResolvedType(resolvedType);
-        // 
-        //     std::string ident = md->GetIdentifier();
-        //     m_Declarations.front()[ident] = { md->GetResolvedType(), decl, DeclRefKind::Function };
-        // 
-        //     if (md->GetBody()) {
-        //         HandleCompoundStmt(md->GetBody());
-        //     }
-        // 
-        //     m_Declarations.pop_back();
-        //     m_ActiveReturnType = nullptr;
-        // }
         
         m_active_struct = nullptr;
-
         decl->resolve_status = ResolveStatus::Done;
     }
 

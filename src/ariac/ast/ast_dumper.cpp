@@ -118,6 +118,15 @@ namespace Aria::Internal {
                 type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
                 return;
 
+            case ExprKind::MethodCall: m_output += fmt::format("MethodCallExpr '{}' {}\n",
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+
+                dump_expr(expr->method_call.callee, indentation + 4);
+                for (Expr* arg : expr->method_call.arguments) {
+                    dump_expr(arg, indentation + 4);
+                }
+                return;
+
             case ExprKind::ArraySubscript: m_output += fmt::format("ArraySubscriptExpr '{}' {}\n",
                 type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
 
@@ -237,6 +246,43 @@ namespace Aria::Internal {
                 if (decl->function.body) {
                     dump_stmt(decl->function.body, indentation + 4);
                 }
+                return;
+
+            case DeclKind::Struct: m_output += fmt::format("StructDecl '{}'\n",
+                decl->struct_.identifier);
+
+                for (Decl* field : decl->struct_.fields) {
+                    dump_decl(field, indentation + 4);
+                }
+
+                return;
+
+            case DeclKind::Field: m_output += fmt::format("FieldDecl '{}' '{}'\n",
+                decl->field.identifier, type_info_to_string(decl->field.type));
+                return;
+
+            case DeclKind::Constructor: m_output += fmt::format("ConstructorDecl {}\n",
+                decl->constructor.disabled ? "disabled" : "");
+
+                for (Decl* param : decl->constructor.parameters) {
+                    dump_decl(param, indentation + 4);
+                }
+
+                dump_stmt(decl->constructor.body, indentation + 4);
+                return;
+
+            case DeclKind::Destructor: m_output += "DestructorDecl\n";
+                dump_stmt(decl->destructor.body, indentation + 4);
+                return;
+
+            case DeclKind::Method: m_output += fmt::format("MethodDecl '{}' '{}'\n",
+                decl->method.identifier, type_info_to_string(decl->method.type));
+
+                for (Decl* param : decl->method.parameters) {
+                    dump_decl(param, indentation + 4);
+                }
+
+                dump_stmt(decl->method.body, indentation + 4);
                 return;
 
             default: ARIA_UNREACHABLE();

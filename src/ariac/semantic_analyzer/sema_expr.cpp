@@ -124,8 +124,11 @@ namespace Aria::Internal {
         if (m_active_struct) {
             for (auto& field : m_active_struct->struct_.source_decl->struct_.fields) {
                 if (field->kind == DeclKind::Field && field->field.identifier == ident) {
+                    TypeInfo* self_type = TypeInfo::Create(m_context, TypeKind::Ref);
+                    self_type->base = m_active_struct;
+
                     Expr* self = Expr::Create(m_context, expr->loc, expr->range, ExprKind::Self,
-                        ExprValueKind::LValue, m_active_struct, ErrorExpr());
+                        ExprValueKind::LValue, self_type, ErrorExpr());
 
                     Expr* member = Expr::Create(m_context, expr->loc, expr->range, ExprKind::Member,
                         ExprValueKind::LValue, field->field.type,
@@ -167,32 +170,48 @@ namespace Aria::Internal {
         MemberExpr& mem = expr->member;
 
         resolve_expr(mem.parent);
-        TypeInfo* parentType = mem.parent->type;
-        TypeInfo* memberType = nullptr;
+        TypeInfo* parent_type = mem.parent->type;
+        TypeInfo* member_type = nullptr;
 
         bool searching = true;
         while (searching) {
-            switch (parentType->kind) {
+            switch (parent_type->kind) {
                 case TypeKind::Error: {
                     expr->type = &error_type;
                     return;
                 }
 
                 case TypeKind::Structure: {
-                    StructDeclaration& sd = parentType->struct_;
+                    StructDeclaration& sd = parent_type->struct_;
 
                     StructDecl s = sd.source_decl->struct_;
 
                     for (Decl* field : s.fields) {
-                        if (field->kind == DeclKind::Field) {
-                            FieldDecl fd = field->field;
-                            if (fd.identifier == mem.member) {
-                                memberType = fd.type;
+                        switch (field->kind) {
+                            case DeclKind::Field: {
+                                FieldDecl fd = field->field;
+                                if (fd.identifier == mem.member) {
+                                    member_type = fd.type;
+                                    mem.referenced_member = field;
+                                }
+
+                                break;
                             }
-                        } else if (field->kind == DeclKind::Constructor) {
-                        } else if (field->kind == DeclKind::Destructor) {
-                        } else {
-                            ARIA_UNREACHABLE();
+
+                            case DeclKind::Constructor:
+                            case DeclKind::Destructor: break;
+
+                            case DeclKind::Method: {
+                                MethodDecl md = field->method;
+                                if (md.identifier == mem.member) {
+                                    member_type = md.type;
+                                    mem.referenced_member = field;
+                                }
+
+                                break;
+                            }
+
+                            default: ARIA_UNREACHABLE();
                         }
                     }
 
@@ -202,11 +221,11 @@ namespace Aria::Internal {
 
                 case TypeKind::Slice: {
                     if (mem.member == "mem") {
-                        memberType = TypeInfo::Create(m_context, TypeKind::Ptr);
-                        memberType->base = parentType->base;
+                        member_type = TypeInfo::Create(m_context, TypeKind::Ptr);
+                        member_type->base = parent_type->base;
                         expr->kind = ExprKind::BuiltinMember;
                     } else if (mem.member == "len") {
-                        memberType = &ulong_type;
+                        member_type = &ulong_type;
                         expr->kind = ExprKind::BuiltinMember;
                     }
 
@@ -214,10 +233,10 @@ namespace Aria::Internal {
                     break;
                 }
 
-                case TypeKind::Ref: { parentType = parentType->base; break; }
+                case TypeKind::Ref: { parent_type = parent_type->base; break; }
 
                 default: {
-                    m_context->report_compiler_diagnostic(mem.parent->loc, mem.parent->range, fmt::format("Expression must be of slice or struct type but is '{}'", type_info_to_string(parentType)));
+                    m_context->report_compiler_diagnostic(mem.parent->loc, mem.parent->range, fmt::format("Expression must be of slice or struct type but is '{}'", type_info_to_string(parent_type)));
                     expr->type = &error_type;
                     return;
                 }
@@ -225,13 +244,13 @@ namespace Aria::Internal {
         }
         
 
-        if (!memberType) {
-            m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Unknown member \"{}\" in '{}'", mem.member, type_info_to_string(parentType)));
+        if (!member_type) {
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Unknown member \"{}\" in '{}'", mem.member, type_info_to_string(parent_type)));
             expr->type = &error_type;
             return;
         }
 
-        expr->type = memberType;
+        expr->type = member_type;
 
         if (expr->result_discarded) {
             m_context->report_compiler_diagnostic(expr->loc, expr->range, "Discarding result of member access", CompilerDiagKind::Warning);
@@ -298,7 +317,7 @@ namespace Aria::Internal {
                 expr->type = resolved->function.type->function.return_type;
                 return;
             } else if (!call.callee->type->is_error()) { // Normal function
-                resolve_decl(call.callee->decl_ref.referenced_decl);
+                resolve_type(call.callee->decl_ref.referenced_decl->loc, call.callee->decl_ref.referenced_decl->range, call.callee->decl_ref.referenced_decl->function.type);
                 FunctionDeclaration& fnDecl = calleeType->function;
 
                 for (auto& attr : call.callee->decl_ref.referenced_decl->function.attributes) {
@@ -340,6 +359,51 @@ namespace Aria::Internal {
 
         expr->type = &error_type;
         call.callee->kind = ExprKind::Error;
+    }
+
+    void SemanticAnalyzer::resolve_method_call_expr(Expr* expr) {
+        MethodCallExpr& mc = expr->method_call;
+
+        resolve_expr(mc.callee);
+        TypeInfo* callee_type = mc.callee->type;
+
+        if (!callee_type->is_function() && !callee_type->is_error()) {
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, "Cannot call an object of non-function type");
+            expr->type = &error_type;
+            return;
+        }
+
+        resolve_type(mc.callee->member.referenced_member->loc, mc.callee->member.referenced_member->range, mc.callee->member.referenced_member->method.type);
+        FunctionDeclaration& fnDecl = callee_type->function;
+
+        // for (auto& attr : call.callee->decl_ref.referenced_decl->function.attributes) {
+        //     if (attr.kind == FunctionDecl::AttributeKind::Unsafe && !m_unsafe_context) {
+        //         m_context->report_compiler_diagnostic(expr->loc, expr->range, "Cannot call unsafe function in safe context");
+        //     }
+        // }
+
+        if (fnDecl.param_types.size != mc.arguments.size) {
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Mismatched argument count, method expects {} but got {}", fnDecl.param_types.size, mc.arguments.size));
+            for (size_t i = 0; i < mc.arguments.size; i++) {
+                resolve_expr(mc.arguments.items[i]);
+            }
+        } else {
+            for (size_t i = 0; i < fnDecl.param_types.size; i++) {
+                resolve_param_initializer(fnDecl.param_types.items[i], mc.arguments.items[i]);
+            }
+        }
+
+        expr->type = fnDecl.return_type;
+        expr->value_kind = (fnDecl.return_type->is_reference()) ? ExprValueKind::LValue : ExprValueKind::RValue;
+
+        // We may need to create a temporary if a function returns a non-trivial type and it is discarded
+        if (expr->result_discarded && !fnDecl.return_type->is_reference()) {
+            if (fnDecl.return_type->is_string()) {
+                replace_expr(expr, Expr::Create(m_context, expr->loc, expr->range, ExprKind::Temporary,
+                    ExprValueKind::RValue, expr->type,
+                    TemporaryExpr(Expr::Dup(m_context, expr), m_builtin_string_destructor)));
+            }
+        }
     }
 
     void SemanticAnalyzer::resolve_array_subscript_expr(Expr* expr) {
@@ -926,6 +990,7 @@ namespace Aria::Internal {
             case ExprKind::DeclRef: resolve_decl_ref_expr(expr); break;
             case ExprKind::Member: resolve_member_expr(expr); break;
             case ExprKind::Call: resolve_call_expr(expr); break;
+            case ExprKind::MethodCall: resolve_method_call_expr(expr); break;
             case ExprKind::ArraySubscript: resolve_array_subscript_expr(expr); break;
             case ExprKind::ToSlice: resolve_to_slice_expr(expr); break;
             case ExprKind::New: resolve_new_expr(expr); break;

@@ -533,6 +533,21 @@ namespace Aria::Internal {
         PUSH_PENDING_U16(STR_IDX(-1));
     }
 
+    void Emitter::emit_method_call_expr(Expr* expr, ExprValueKind value_kind) {
+        MethodCallExpr mc = expr->method_call;
+
+        for (auto it = mc.arguments.rbegin(); it != mc.arguments.rend(); it--) {
+            emit_expr(*it, (*it)->value_kind);
+        }
+
+        // self
+        emit_expr(mc.callee->member.parent, mc.callee->member.parent->value_kind);
+
+        ADD_STR(mangle_method(&mc.callee->member.referenced_member->method));
+        PUSH_PENDING_OP(OP_CALL);
+        PUSH_PENDING_U16(STR_IDX(-1));
+    }
+
     void Emitter::emit_array_subscript_expr(Expr* expr, ExprValueKind value_kind) {
         ArraySubscriptExpr subs = expr->array_subscript;
 
@@ -1011,6 +1026,7 @@ namespace Aria::Internal {
             case ExprKind::Self: emit_self_expr(expr, value_kind); break;
             case ExprKind::Call: emit_call_expr(expr, value_kind); break;
             case ExprKind::Construct: emit_construct_expr(expr, value_kind); break;
+            case ExprKind::MethodCall: emit_method_call_expr(expr, value_kind); break;
             case ExprKind::ArraySubscript: emit_array_subscript_expr(expr, value_kind); break;
             case ExprKind::ToSlice: emit_to_slice_expr(expr, value_kind); break;
             case ExprKind::New: emit_new_expr(expr, value_kind); break;
@@ -1240,6 +1256,38 @@ namespace Aria::Internal {
                 m_active_stack_frame.parameters[fmt::format("{}::{}", m_active_namespace, "$self")] = m_active_stack_frame.local_count++;
                 
                 emit_stmt(field->destructor.body);
+                merge_pending_op_codes();
+                
+                PUSH_OP(OP_RET);
+                PUSH_OP(OP_ENDFUNCTION);
+
+                pop_stack_frame();
+            } else if (field->kind == DeclKind::Method) {
+                std::string name = mangle_method(&field->method);
+                push_stack_frame(name);
+
+                ADD_STR(name);
+                ADD_STR("_entry$");
+                PUSH_OP(OP_FUNCTION);
+                PUSH_U16(STR_IDX(-2));
+                PUSH_OP(OP_LABEL);
+                PUSH_U16(STR_IDX(-1));
+
+                // self
+                PUSH_OP(OP_ALLOCA);
+                PUSH_U16(m_basic_types.at(TypeKind::Ptr));
+                PUSH_OP(OP_DECL_LOCAL);
+                PUSH_U16(static_cast<u16>(m_active_stack_frame.local_count));
+                PUSH_OP(OP_ST_LOCAL);
+                PUSH_U16(static_cast<u16>(m_active_stack_frame.local_count));
+
+                m_active_stack_frame.parameters[fmt::format("{}::{}", m_active_namespace, "$self")] = m_active_stack_frame.local_count++;
+
+                for (Decl* param : field->method.parameters) {
+                    emit_param_decl(param);
+                }
+                
+                emit_stmt(field->method.body);
                 merge_pending_op_codes();
                 
                 PUSH_OP(OP_RET);
@@ -1570,6 +1618,21 @@ namespace Aria::Internal {
 
     std::string Emitter::mangle_dtor(DestructorDecl* dtor) {
         return fmt::format("struct {0}::{1}::~{1}()", dtor->parent->parent_module->name, dtor->parent->struct_.identifier);
+    }
+
+    std::string Emitter::mangle_method(MethodDecl* md) {
+        std::string ident = fmt::format("struct {}::{}::{}(", md->parent->parent_module->name, md->parent->struct_.identifier, md->identifier);
+
+        for (size_t i = 0; i < md->parameters.size; i++) {
+            ident += type_info_to_string(md->parameters.items[i]->param.type);
+
+            if (i != md->parameters.size - 1) {
+                ident += ", ";
+            }
+        }
+
+        ident += ")";
+        return ident;
     }
 
 } // namespace Aria::Internal

@@ -235,6 +235,7 @@ namespace Aria::Internal {
         std::string_view member;
         Expr* parent = nullptr;
         bool is_arrow = false;
+        Decl* referenced_member = nullptr;
     };
 
     // TemporaryExpr

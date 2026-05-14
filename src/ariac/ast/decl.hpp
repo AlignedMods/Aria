@@ -172,6 +172,17 @@ namespace Aria::Internal {
         Stmt* body = nullptr;
     };
 
+    struct MethodDecl {
+        MethodDecl(Decl* parent, std::string_view identifier, TypeInfo* type, TinyVector<Decl*> parameters, Stmt* body)
+            : parent(parent), identifier(identifier), type(type), parameters(parameters), body(body) {}
+
+        Decl* parent = nullptr;
+        std::string_view identifier;
+        TypeInfo* type = nullptr;
+        TinyVector<Decl*> parameters;
+        Stmt* body = nullptr;
+    };
+
     struct BuiltinCopyConstructorDecl {
         BuiltinCopyConstructorDecl(BuiltinKind kind)
             : kind(kind) {}
@@ -215,6 +226,7 @@ namespace Aria::Internal {
             FieldDecl field;
             ConstructorDecl constructor;
             DestructorDecl destructor;
+            MethodDecl method;
             BuiltinCopyConstructorDecl built_in_copy_constructor;
             BuiltinDestructorDecl built_in_destructor;
         };
@@ -248,6 +260,9 @@ namespace Aria::Internal {
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, DestructorDecl dtor)
             : loc(loc), range(range), kind(kind), visibility(visibility), destructor(dtor) {}
+
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, MethodDecl method)
+            : loc(loc), range(range), kind(kind), visibility(visibility), method(method) {}
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, BuiltinCopyConstructorDecl bicc)
             : loc(loc), range(range), kind(kind), visibility(visibility), built_in_copy_constructor(bicc) {}

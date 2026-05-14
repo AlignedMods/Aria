@@ -65,6 +65,7 @@ namespace Aria::Internal {
         void emit_copy_expr(Expr* expr,              ExprValueKind value_kind);
         void emit_call_expr(Expr* expr,              ExprValueKind value_kind);
         void emit_construct_expr(Expr* expr,         ExprValueKind value_kind);
+        void emit_method_call_expr(Expr* expr,       ExprValueKind value_kind);
         void emit_array_subscript_expr(Expr* expr,   ExprValueKind value_kind);
         void emit_to_slice_expr(Expr* expr,          ExprValueKind value_kind);
         void emit_new_expr(Expr* expr,               ExprValueKind value_kind);
@@ -115,6 +116,7 @@ namespace Aria::Internal {
         std::string mangle_function(Decl* fn);
         std::string mangle_ctor(ConstructorDecl* ctor);
         std::string mangle_dtor(DestructorDecl* dtor);
+        std::string mangle_method(MethodDecl* md);
 
     private:
         OpCodes m_op_codes;
