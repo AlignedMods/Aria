@@ -35,7 +35,6 @@ namespace Aria::Internal {
     struct Module {
         std::unordered_map<std::string_view, Decl*> symbols;
         std::unordered_map<std::string_view, Decl*> private_symbols;
-        std::unordered_map<std::string_view, std::vector<Decl*>> overloaded_funcs;
         std::vector<CompilationUnit*> units;
         std::string_view name;
         OpCodes ops;

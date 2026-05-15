@@ -89,18 +89,39 @@ namespace Aria::Internal {
         
         TypeInfo* structType = TypeInfo::Create(m_context, TypeKind::Structure);
         structType->struct_ = d;
+
         std::vector<Decl*> methods;
+        std::unordered_map<std::string_view, Decl*> declared_fields;
 
         for (Decl* field : s.fields) {
             if (field->kind == DeclKind::Field) {
+                if (declared_fields.contains(field->field.identifier)) {
+                    Decl* prev = declared_fields.at(field->field.identifier);
+                    m_context->report_compiler_diagnostic(field->loc, field->range, fmt::format("Redeclaring field with name '{}'", field->field.identifier));
+                    m_context->report_compiler_diagnostic(prev->loc, prev->range, "Previous declaration here", CompilerDiagKind::Note);
+                }
+
                 resolve_type(field->loc, field->range, field->field.type);
                 if (!type_is_trivial(field->field.type)) { s.definition.trivial_dtor = false; }
+                declared_fields[field->field.identifier] = field;
             } else if (field->kind == DeclKind::Constructor) {
                 methods.push_back(field);
             } else if (field->kind == DeclKind::Destructor) {
                 methods.push_back(field);
             } else if (field->kind == DeclKind::Method) {
+                if (declared_fields.contains(field->method.identifier)) {
+                    Decl* prev = declared_fields.at(field->method.identifier);
+
+                    if (prev->kind == DeclKind::Method) {
+                    
+                    } else {
+                        m_context->report_compiler_diagnostic(field->loc, field->range, fmt::format("Redeclaring field with name '{}'", field->method.identifier));
+                        m_context->report_compiler_diagnostic(prev->loc, prev->range, "Previous declaration here", CompilerDiagKind::Note);
+                    }
+                }
+
                 methods.push_back(field);
+                declared_fields[field->method.identifier] = field;
             }
         }
 

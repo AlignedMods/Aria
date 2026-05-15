@@ -281,7 +281,7 @@ namespace Aria::Internal {
                 Decl* resolved = nullptr;
                 Module* mod = call.callee->decl_ref.name_specifier ? call.callee->decl_ref.name_specifier->scope.referenced_module : m_context->active_comp_unit->parent;
 
-                for (Decl* func : mod->overloaded_funcs.at(fmt::format("{}", call.callee->decl_ref.identifier))) {
+                for (Decl* func : call.callee->decl_ref.referenced_decl->overloaded_function.funcs) {
                     if (func->function.type->function.param_types.size != call.arguments.size) { goto again; }
 
                     for (size_t i = 0; i < func->function.type->function.param_types.size; i++) {

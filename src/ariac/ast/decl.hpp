@@ -130,6 +130,14 @@ namespace Aria::Internal {
         TinyVector<Attribute> attributes;
     };
 
+    struct OverloadedFunctionDecl {
+        OverloadedFunctionDecl(std::string_view identifier)
+            : identifier(identifier) {}
+
+        std::string_view identifier;
+        TinyVector<Decl*> funcs;
+    };
+
     struct StructDecl {
         struct DefinitionData {
             bool has_default_ctor : 1;
@@ -222,6 +230,7 @@ namespace Aria::Internal {
             VarDecl var;
             ParamDecl param;
             FunctionDecl function;
+            OverloadedFunctionDecl overloaded_function;
             StructDecl struct_;
             FieldDecl field;
             ConstructorDecl constructor;
@@ -248,6 +257,9 @@ namespace Aria::Internal {
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, FunctionDecl function)
             : loc(loc), range(range), kind(kind), visibility(visibility), function(function) {}
+
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, OverloadedFunctionDecl overloaded_function)
+            : loc(loc), range(range), kind(kind), visibility(visibility), overloaded_function(overloaded_function) {}
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, StructDecl struc)
             : loc(loc), range(range), kind(kind), visibility(visibility), struct_(struc) {}

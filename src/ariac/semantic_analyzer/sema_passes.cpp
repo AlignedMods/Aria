@@ -130,7 +130,7 @@ namespace Aria::Internal {
             if (f.identifier == "main") {
                 if (m_context->main_func) {
                     m_context->report_compiler_diagnostic(func->loc, func->range, "Redefining main function");
-                    m_context->report_compiler_diagnostic(m_context->main_func->loc, m_context->main_func->range, "Previous declaration here", CompilerDiagKind::Note);
+                    m_context->report_compiler_diagnostic(m_context->main_func->loc, m_context->main_func->range, "Previous declaration here", CompilerDiagKind::Note, m_context->main_func->parent_unit);
                     func->kind = DeclKind::Error;
                     continue;
                 }
@@ -150,7 +150,7 @@ namespace Aria::Internal {
 
                 // Handle overloading the first non-overloaded function
                 if (d->kind == DeclKind::Function) {
-                    Decl* overloaded = Decl::Create(m_context, d->loc, d->range, DeclKind::OverloadedFunction, d->visibility, d->function);
+                    Decl* overloaded = Decl::Create(m_context, d->loc, d->range, DeclKind::OverloadedFunction, d->visibility, OverloadedFunctionDecl(f.identifier));
                     module->symbols[f.identifier] = overloaded;
                     unit->local_symbols[f.identifier] = overloaded;
 
@@ -163,23 +163,26 @@ namespace Aria::Internal {
                         continue;
                     }
 
-                    module->overloaded_funcs[f.identifier].push_back(d);
-                    module->overloaded_funcs[f.identifier].push_back(func);
+                    overloaded->overloaded_function.funcs.append(m_context, d);
+                    overloaded->overloaded_function.funcs.append(m_context, func);
                     continue;
                 } else if (d->kind == DeclKind::OverloadedFunction) {
-                    std::string oldMangle = mangle_function(&d->function);
-                    std::string newMangle = mangle_function(&f);
+                    for (Decl* overload : d->overloaded_function.funcs) {
+                        std::string oldMangle = mangle_function(&overload->function);
+                        std::string newMangle = mangle_function(&f);
 
-                    if (oldMangle == newMangle) {
-                        m_context->report_compiler_diagnostic(func->loc, func->range, fmt::format("Redefining overloaded function '{}'", f.identifier));
-                        func->kind = DeclKind::Error;
-                        continue;
+                        if (oldMangle == newMangle) {
+                            m_context->report_compiler_diagnostic(func->loc, func->range, fmt::format("Redefining overloaded function '{}'", f.identifier));
+                            func->kind = DeclKind::Error;
+                        }
                     }
 
-                    module->overloaded_funcs[f.identifier].push_back(func);
+                    d->overloaded_function.funcs.append(m_context, func);
                     continue;
                 } else if (d->kind == DeclKind::Var) {
                     m_context->report_compiler_diagnostic(func->loc, func->range, fmt::format("Redefining global variable '{}' as function", f.identifier));
+                } else if (d->kind == DeclKind::Struct) {
+                    m_context->report_compiler_diagnostic(func->loc, func->range, fmt::format("Redefining struct '{}' as function", f.identifier));
                 }
 
                 func->kind = DeclKind::Error;
