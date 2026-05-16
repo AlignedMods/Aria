@@ -122,21 +122,29 @@ namespace Aria::Internal {
         }
 
         if (m_active_struct) {
-            for (auto& field : m_active_struct->struct_.source_decl->struct_.fields) {
-                if (field->kind == DeclKind::Field && field->field.identifier == ident) {
-                    TypeInfo* self_type = TypeInfo::Create(m_context, TypeKind::Ref);
-                    self_type->base = m_active_struct;
+            if (m_active_struct->struct_.source_decl->struct_.field_lookup.contains(ident)) {
+                TypeInfo* self_type = TypeInfo::Create(m_context, TypeKind::Ref);
+                self_type->base = m_active_struct;
 
-                    Expr* self = Expr::Create(m_context, expr->loc, expr->range, ExprKind::Self,
-                        ExprValueKind::LValue, self_type, ErrorExpr());
+                Decl* source = m_active_struct->struct_.source_decl->struct_.field_lookup.at(ident);
+                TypeInfo* mem_type = nullptr;
 
-                    Expr* member = Expr::Create(m_context, expr->loc, expr->range, ExprKind::Member,
-                        ExprValueKind::LValue, field->field.type,
-                        MemberExpr(ident, self, false));
-
-                    replace_expr(expr, member);
-                    return;
+                switch (source->kind) {
+                    case DeclKind::Field: mem_type = source->field.type; break;
+                    case DeclKind::Method: mem_type = source->method.type; break;
+                    case DeclKind::OverloadedMethod: mem_type = &error_type; break;
+                    default: ARIA_UNREACHABLE();
                 }
+
+                Expr* self = Expr::Create(m_context, expr->loc, expr->range, ExprKind::Self,
+                    ExprValueKind::LValue, self_type, ErrorExpr());
+
+                Expr* member = Expr::Create(m_context, expr->loc, expr->range, ExprKind::Member,
+                    ExprValueKind::LValue, mem_type,
+                    MemberExpr(ident, self, false));
+
+                replace_expr(expr, member);
+                return;
             }
         }
 
@@ -185,35 +193,19 @@ namespace Aria::Internal {
                     StructDeclaration& sd = parent_type->struct_;
 
                     StructDecl s = sd.source_decl->struct_;
-
-                    for (Decl* field : s.fields) {
-                        switch (field->kind) {
-                            case DeclKind::Field: {
-                                FieldDecl fd = field->field;
-                                if (fd.identifier == mem.member) {
-                                    member_type = fd.type;
-                                    mem.referenced_member = field;
-                                }
-
-                                break;
-                            }
-
-                            case DeclKind::Constructor:
-                            case DeclKind::Destructor: break;
-
-                            case DeclKind::Method: {
-                                MethodDecl md = field->method;
-                                if (md.identifier == mem.member) {
-                                    member_type = md.type;
-                                    mem.referenced_member = field;
-                                }
-
-                                break;
-                            }
-
-                            default: ARIA_UNREACHABLE();
-                        }
+                    if (!s.field_lookup.contains(mem.member)) {
+                        searching = false;
+                        break;
                     }
+
+                    Decl* fd = s.field_lookup.at(mem.member);
+                    switch (fd->kind) {
+                        case DeclKind::Field: member_type = fd->field.type; break;
+                        case DeclKind::Method: member_type = fd->method.type; break;
+                        case DeclKind::OverloadedMethod: member_type = &error_type; break;
+                        default: ARIA_UNREACHABLE();
+                    }
+                    mem.referenced_member = fd;
 
                     searching = false;
                     break;
@@ -261,6 +253,13 @@ namespace Aria::Internal {
         CallExpr& call = expr->call;
 
         resolve_expr(call.callee);
+
+        if (call.callee->kind == ExprKind::Member) {
+            expr->kind = ExprKind::MethodCall;
+            resolve_method_call_expr(expr);
+            return;
+        }
+
         TypeInfo* calleeType = call.callee->type;
 
         if (calleeType->kind != TypeKind::Function && !calleeType->is_error()) {
@@ -279,7 +278,6 @@ namespace Aria::Internal {
                 m_temporary_context = false;
 
                 Decl* resolved = nullptr;
-                Module* mod = call.callee->decl_ref.name_specifier ? call.callee->decl_ref.name_specifier->scope.referenced_module : m_context->active_comp_unit->parent;
 
                 for (Decl* func : call.callee->decl_ref.referenced_decl->overloaded_function.funcs) {
                     if (func->function.type->function.param_types.size != call.arguments.size) { goto again; }
@@ -373,35 +371,73 @@ namespace Aria::Internal {
             return;
         }
 
-        resolve_type(mc.callee->member.referenced_member->loc, mc.callee->member.referenced_member->range, mc.callee->member.referenced_member->method.type);
-        FunctionDeclaration& fnDecl = callee_type->function;
+        if (mc.callee->member.referenced_member->kind != DeclKind::Error) {
+            if (mc.callee->member.referenced_member->kind == DeclKind::OverloadedMethod) {
+                resolve_decl(mc.callee->member.referenced_member);
+                m_temporary_context = true;
+                for (Expr* arg : mc.arguments) {
+                    resolve_expr(arg);
+                }
+                m_temporary_context = false;
 
-        // for (auto& attr : call.callee->decl_ref.referenced_decl->function.attributes) {
-        //     if (attr.kind == FunctionDecl::AttributeKind::Unsafe && !m_unsafe_context) {
-        //         m_context->report_compiler_diagnostic(expr->loc, expr->range, "Cannot call unsafe function in safe context");
-        //     }
-        // }
+                Decl* resolved = nullptr;
 
-        if (fnDecl.param_types.size != mc.arguments.size) {
-            m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Mismatched argument count, method expects {} but got {}", fnDecl.param_types.size, mc.arguments.size));
-            for (size_t i = 0; i < mc.arguments.size; i++) {
-                resolve_expr(mc.arguments.items[i]);
+                for (Decl* func : mc.callee->member.referenced_member->overloaded_method.funcs) {
+                    if (func->method.type->function.param_types.size != mc.arguments.size) { goto again; }
+
+                    for (size_t i = 0; i < func->method.type->function.param_types.size; i++) {
+                        if (!type_is_equal(func->method.type->function.param_types.items[i], mc.arguments.items[i]->type)) { goto again; }
+                    }
+
+                    goto done;
+
+                done:
+                    resolved = func;
+                    break;
+
+                again:
+                    continue;
+                }
+
+                if (!resolved) {
+                    m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("No matching overloaded method '{}' to call", mc.callee->member.member));
+                    for (size_t i = 0; i < mc.arguments.size; i++) {
+                        mc.arguments.items[i]->type = &error_type;
+                    }
+
+                    expr->type = &error_type;
+                    return;
+                }
+
+                for (size_t i = 0; i < resolved->method.type->function.param_types.size; i++) {
+                    if (!resolved->method.type->function.param_types.items[i]->is_reference()) { require_rvalue(mc.arguments.items[i]); }
+                }
+
+                mc.callee->member.referenced_member = resolved;
+                mc.callee->type = resolved->method.type;
+                expr->type = resolved->method.type->function.return_type;
+                expr->value_kind = (resolved->method.type->function.return_type->is_reference()) ? ExprValueKind::LValue : ExprValueKind::RValue;
+            } else if (mc.callee->member.referenced_member->kind == DeclKind::Method) {
+                resolve_type(mc.callee->member.referenced_member->loc, mc.callee->member.referenced_member->range, mc.callee->member.referenced_member->method.type);
+                FunctionDeclaration& fnDecl = callee_type->function;
+
+                if (fnDecl.param_types.size != mc.arguments.size) {
+                    m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Mismatched argument count, method expects {} but got {}", fnDecl.param_types.size, mc.arguments.size));
+                    for (size_t i = 0; i < mc.arguments.size; i++) {
+                        resolve_expr(mc.arguments.items[i]);
+                    }
+                } else {
+                    for (size_t i = 0; i < fnDecl.param_types.size; i++) {
+                        resolve_param_initializer(fnDecl.param_types.items[i], mc.arguments.items[i]);
+                    }
+                }
+
+                expr->type = fnDecl.return_type;
+                expr->value_kind = (fnDecl.return_type->is_reference()) ? ExprValueKind::LValue : ExprValueKind::RValue;
             }
         } else {
-            for (size_t i = 0; i < fnDecl.param_types.size; i++) {
-                resolve_param_initializer(fnDecl.param_types.items[i], mc.arguments.items[i]);
-            }
-        }
-
-        expr->type = fnDecl.return_type;
-        expr->value_kind = (fnDecl.return_type->is_reference()) ? ExprValueKind::LValue : ExprValueKind::RValue;
-
-        // We may need to create a temporary if a function returns a non-trivial type and it is discarded
-        if (expr->result_discarded && !fnDecl.return_type->is_reference()) {
-            if (fnDecl.return_type->is_string()) {
-                replace_expr(expr, Expr::Create(m_context, expr->loc, expr->range, ExprKind::Temporary,
-                    ExprValueKind::RValue, expr->type,
-                    TemporaryExpr(Expr::Dup(m_context, expr), m_builtin_string_destructor)));
+            for (Expr* arg : mc.arguments) {
+                resolve_expr(arg);
             }
         }
     }
@@ -981,6 +1017,7 @@ namespace Aria::Internal {
 
     void SemanticAnalyzer::resolve_expr(Expr* expr) {
         switch (expr->kind) {
+            case ExprKind::Error: break;
             case ExprKind::BooleanLiteral: resolve_boolean_literal_expr(expr); break;
             case ExprKind::CharacterLiteral: resolve_character_literal_expr(expr); break;
             case ExprKind::IntegerLiteral: resolve_integer_literal_expr(expr); break;
@@ -989,6 +1026,7 @@ namespace Aria::Internal {
             case ExprKind::Null: resolve_null_expr(expr); break;
             case ExprKind::DeclRef: resolve_decl_ref_expr(expr); break;
             case ExprKind::Member: resolve_member_expr(expr); break;
+            case ExprKind::Self: break;
             case ExprKind::Call: resolve_call_expr(expr); break;
             case ExprKind::MethodCall: resolve_method_call_expr(expr); break;
             case ExprKind::ArraySubscript: resolve_array_subscript_expr(expr); break;

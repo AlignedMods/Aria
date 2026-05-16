@@ -91,37 +91,89 @@ namespace Aria::Internal {
         structType->struct_ = d;
 
         std::vector<Decl*> methods;
-        std::unordered_map<std::string_view, Decl*> declared_fields;
 
         for (Decl* field : s.fields) {
-            if (field->kind == DeclKind::Field) {
-                if (declared_fields.contains(field->field.identifier)) {
-                    Decl* prev = declared_fields.at(field->field.identifier);
-                    m_context->report_compiler_diagnostic(field->loc, field->range, fmt::format("Redeclaring field with name '{}'", field->field.identifier));
-                    m_context->report_compiler_diagnostic(prev->loc, prev->range, "Previous declaration here", CompilerDiagKind::Note);
-                }
-
-                resolve_type(field->loc, field->range, field->field.type);
-                if (!type_is_trivial(field->field.type)) { s.definition.trivial_dtor = false; }
-                declared_fields[field->field.identifier] = field;
-            } else if (field->kind == DeclKind::Constructor) {
-                methods.push_back(field);
-            } else if (field->kind == DeclKind::Destructor) {
-                methods.push_back(field);
-            } else if (field->kind == DeclKind::Method) {
-                if (declared_fields.contains(field->method.identifier)) {
-                    Decl* prev = declared_fields.at(field->method.identifier);
-
-                    if (prev->kind == DeclKind::Method) {
-                    
-                    } else {
-                        m_context->report_compiler_diagnostic(field->loc, field->range, fmt::format("Redeclaring field with name '{}'", field->method.identifier));
+            switch (field->kind) {
+                case DeclKind::Field: {
+                    if (s.field_lookup.contains(field->field.identifier)) {
+                        Decl* prev = s.field_lookup.at(field->field.identifier);
+                        m_context->report_compiler_diagnostic(field->loc, field->range, fmt::format("Redeclaring field '{}'", field->field.identifier));
                         m_context->report_compiler_diagnostic(prev->loc, prev->range, "Previous declaration here", CompilerDiagKind::Note);
                     }
+
+                    resolve_type(field->loc, field->range, field->field.type);
+
+                    if (field->field.type->is_void()) {
+                        m_context->report_compiler_diagnostic(field->loc, field->range, "Cannot declare field of 'void' type");
+                        field->kind = DeclKind::Error;
+                        continue;
+                    }
+
+                    if (!type_is_trivial(field->field.type)) { s.definition.trivial_dtor = false; }
+                    s.field_lookup.insert(m_context, field->field.identifier, field);
+                    break;
                 }
 
-                methods.push_back(field);
-                declared_fields[field->method.identifier] = field;
+                case DeclKind::Constructor:
+                    methods.push_back(field);
+                    s.field_lookup.insert(m_context, "<ctor>", field);
+                    break;
+
+                case DeclKind::Destructor:
+                    methods.push_back(field);
+                    s.field_lookup.insert(m_context, "<dtor>", field);
+                    break;
+
+                case DeclKind::Method: {
+                    methods.push_back(field);
+
+                    if (s.field_lookup.contains(field->method.identifier)) {
+                        Decl* prev = s.field_lookup.at(field->method.identifier);
+
+                        if (prev->kind == DeclKind::Method) {
+                            Decl* overloaded = Decl::Create(m_context, field->loc, field->range, DeclKind::OverloadedMethod, DeclVisibility::Public, OverloadedMethodDecl(field->method.identifier));
+                            s.field_lookup.insert(m_context, field->method.identifier, overloaded);
+
+                            std::string old_mangle = mangle_method(&prev->method);
+                            std::string new_mangle = mangle_method(&field->method);
+
+                            if (old_mangle == new_mangle) {
+                                m_context->report_compiler_diagnostic(field->loc, field->range, fmt::format("Redefining method '{}'", field->method.identifier));
+                                m_context->report_compiler_diagnostic(prev->loc, prev->range, "Previous declaration here", CompilerDiagKind::Note);
+                                field->kind = DeclKind::Error;
+                                continue;
+                            }
+
+                            overloaded->overloaded_method.funcs.append(m_context, prev);
+                            overloaded->overloaded_method.funcs.append(m_context, field);
+                            continue;
+                        } else if (prev->kind == DeclKind::OverloadedMethod) {
+                            for (Decl* overload : prev->overloaded_function.funcs) {
+                                std::string oldMangle = mangle_method(&overload->method);
+                                std::string newMangle = mangle_method(&field->method);
+
+                                if (oldMangle == newMangle) {
+                                    m_context->report_compiler_diagnostic(field->loc, field->range, fmt::format("Redefining overloaded method '{}'", field->method.identifier));
+                                    m_context->report_compiler_diagnostic(prev->loc, prev->range, "Previous declaration here", CompilerDiagKind::Note);
+                                    field->kind = DeclKind::Error;
+                                    continue;
+                                }
+                            }
+
+                            prev->overloaded_method.funcs.append(m_context, field);
+                            continue;
+                        } else {
+                            m_context->report_compiler_diagnostic(field->loc, field->range, fmt::format("Redeclaring field '{}' as method", field->method.identifier));
+                            m_context->report_compiler_diagnostic(prev->loc, prev->range, "Previous declaration here", CompilerDiagKind::Note);
+                            continue;
+                        }
+                    }
+
+                    s.field_lookup.insert(m_context, field->method.identifier, field);
+                    break;
+                }
+
+                default: ARIA_UNREACHABLE();
             }
         }
 
@@ -181,6 +233,7 @@ namespace Aria::Internal {
             case DeclKind::Constructor:
             case DeclKind::Destructor:
             case DeclKind::Method:
+            case DeclKind::OverloadedMethod:
             case DeclKind::BuiltinCopyConstructor:
             case DeclKind::BuiltinDestructor: return;
 
@@ -201,6 +254,22 @@ namespace Aria::Internal {
             ident += type_info_to_string(fn->parameters.items[i]->param.type);
 
             if (i != fn->parameters.size - 1) {
+                ident += ", ";
+            }
+        }
+
+        ident += ")";
+
+        return ident;
+    }
+
+    std::string SemanticAnalyzer::mangle_method(MethodDecl* m) {
+        std::string ident = fmt::format("{}(", m->identifier);
+
+        for (size_t i = 0; i < m->parameters.size; i++) {
+            ident += type_info_to_string(m->parameters.items[i]->param.type);
+
+            if (i != m->parameters.size - 1) {
                 ident += ", ";
             }
         }

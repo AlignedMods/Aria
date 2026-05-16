@@ -282,6 +282,8 @@ namespace Aria::Internal {
         TinyVector<Expr*> arguments;
     };
 
+    static_assert(sizeof(MethodCallExpr) == sizeof(CallExpr), "Sizes of MethodCallExpr and CallExpr must be equal");
+
     struct ArraySubscriptExpr {
         ArraySubscriptExpr(Expr* array, Expr* index)
             : array(array), index(index) {}

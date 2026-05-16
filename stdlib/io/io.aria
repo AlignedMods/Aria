@@ -12,10 +12,10 @@ struct File {
 
 fn println(str: char[]) -> void {
     let s: StringStream;
-    string_stream::append(s, str);
-    string_stream::append(s, '\n');
+    s.append(str);
+    s.append('\n');
 
-    raw_print_stdout(string_stream::to_slice(s));
+    raw_print_stdout(s.to_slice());
 }
 
 fn print(str: char[]) -> void { raw_print_stdout(str); }

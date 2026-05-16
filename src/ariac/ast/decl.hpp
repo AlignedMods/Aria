@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ariac/ast/stmt.hpp"
+#include "ariac/core/htable.hpp"
 
 #include <string_view>
 
@@ -24,6 +25,7 @@ namespace Aria::Internal {
         Constructor,
         Destructor,
         Method,
+        OverloadedMethod,
         BuiltinCopyConstructor,
         BuiltinDestructor
     };
@@ -152,6 +154,7 @@ namespace Aria::Internal {
         std::string_view identifier;
         DefinitionData definition;
         TinyVector<Decl*> fields;
+        HTable<Decl*> field_lookup;
     };
 
     struct FieldDecl {
@@ -189,6 +192,14 @@ namespace Aria::Internal {
         TypeInfo* type = nullptr;
         TinyVector<Decl*> parameters;
         Stmt* body = nullptr;
+    };
+
+    struct OverloadedMethodDecl {
+        OverloadedMethodDecl(std::string_view identifier)
+            : identifier(identifier) {}
+
+        std::string_view identifier;
+        TinyVector<Decl*> funcs;
     };
 
     struct BuiltinCopyConstructorDecl {
@@ -236,6 +247,7 @@ namespace Aria::Internal {
             ConstructorDecl constructor;
             DestructorDecl destructor;
             MethodDecl method;
+            OverloadedMethodDecl overloaded_method;
             BuiltinCopyConstructorDecl built_in_copy_constructor;
             BuiltinDestructorDecl built_in_destructor;
         };
@@ -275,6 +287,9 @@ namespace Aria::Internal {
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, MethodDecl method)
             : loc(loc), range(range), kind(kind), visibility(visibility), method(method) {}
+        
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, OverloadedMethodDecl overloaded_method)
+            : loc(loc), range(range), kind(kind), visibility(visibility), overloaded_method(overloaded_method) {}
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, BuiltinCopyConstructorDecl bicc)
             : loc(loc), range(range), kind(kind), visibility(visibility), built_in_copy_constructor(bicc) {}

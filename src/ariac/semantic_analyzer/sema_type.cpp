@@ -46,6 +46,10 @@ namespace Aria::Internal {
             type->array.size = eval_expr_u64(type->array.expression);
         } else if (type->kind == TypeKind::Ref) {
             resolve_type(loc, range, type->base);
+            if (type->base->is_void()) {
+                m_context->report_compiler_diagnostic(loc, range, "Cannot declare reference to 'void'");
+                type->kind = TypeKind::Error;
+            }
         } else if (type->kind == TypeKind::Function) {
             FunctionDeclaration& fn = type->function;
 

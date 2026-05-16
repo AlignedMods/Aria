@@ -129,6 +129,7 @@ namespace Aria::Internal {
         bool type_is_trivial(TypeInfo* t);
 
         std::string mangle_function(FunctionDecl* fn);
+        std::string mangle_method(MethodDecl* m);
 
     private:
         bool m_temporary_context = false;
