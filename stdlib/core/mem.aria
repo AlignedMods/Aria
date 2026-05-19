@@ -1,4 +1,4 @@
-module std::core::mem;
+module std::core;
 
 fn memcpy(dst: void*, src: void*, size: ulong) -> void @unsafe {
     for (let i: ulong = 0; i < size; ++i) {

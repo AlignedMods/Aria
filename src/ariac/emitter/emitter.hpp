@@ -62,7 +62,6 @@ namespace Aria::Internal {
         void emit_builtin_member_expr(Expr* expr,    ExprValueKind value_kind);
         void emit_self_expr(Expr* expr,              ExprValueKind value_kind);
         void emit_temporary_expr(Expr* expr,         ExprValueKind value_kind);
-        void emit_copy_expr(Expr* expr,              ExprValueKind value_kind);
         void emit_call_expr(Expr* expr,              ExprValueKind value_kind);
         void emit_construct_expr(Expr* expr,         ExprValueKind value_kind);
         void emit_method_call_expr(Expr* expr,       ExprValueKind value_kind);

@@ -1,6 +1,4 @@
-module std::core::string_stream;
-
-import std::core::mem;
+module std::core;
 
 struct StringStream {
     StringStream() {
@@ -54,6 +52,8 @@ struct StringStream {
     fn to_slice() -> char[] {
         return data[:size];
     }
+
+@private
 
     fn increase_capacity(cap: ulong) -> void {
         unsafe {

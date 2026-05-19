@@ -93,6 +93,9 @@ namespace Aria::Internal {
         std::vector<Decl*> methods;
 
         for (Decl* field : s.fields) {
+            field->parent_unit = decl->parent_unit;
+            field->parent_module = decl->parent_module;
+
             switch (field->kind) {
                 case DeclKind::Field: {
                     if (s.field_lookup.contains(field->field.identifier)) {
@@ -101,15 +104,13 @@ namespace Aria::Internal {
                         m_context->report_compiler_diagnostic(prev->loc, prev->range, "Previous declaration here", CompilerDiagKind::Note);
                     }
 
-                    resolve_type(field->loc, field->range, field->field.type);
-
                     if (field->field.type->is_void()) {
                         m_context->report_compiler_diagnostic(field->loc, field->range, "Cannot declare field of 'void' type");
                         field->kind = DeclKind::Error;
                         continue;
                     }
 
-                    if (!type_is_trivial(field->field.type)) { s.definition.trivial_dtor = false; }
+                    if (!type_is_trivial(field->field.type)) { ARIA_TODO("Proper destructors"); }
                     s.field_lookup.insert(m_context, field->field.identifier, field);
                     break;
                 }
@@ -177,6 +178,8 @@ namespace Aria::Internal {
             }
         }
 
+        decl->resolve_status = ResolveStatus::Done;
+
         m_active_struct = TypeInfo::Dup(m_context, structType);
 
         for (Decl* method : methods) {
@@ -192,9 +195,15 @@ namespace Aria::Internal {
                 }
 
                 if (!method->constructor.disabled) {
+                    push_scope();
+                    for (Decl* param : method->constructor.parameters) {
+                        resolve_param_decl(param);
+                    }
+
                     resolve_stmt(method->constructor.body);
 
-                    if (method->constructor.parameters.size == 0) { s.definition.has_default_ctor = true; }
+                    if (method->constructor.parameters.size == 0) { s.definition.default_ctor = &method->constructor; }
+                    pop_scope();
                 }
             } else if (method->kind == DeclKind::Destructor) {
                 TinyVector<Stmt*> newBody;
@@ -221,7 +230,6 @@ namespace Aria::Internal {
         }
         
         m_active_struct = nullptr;
-        decl->resolve_status = ResolveStatus::Done;
     }
 
     void SemanticAnalyzer::resolve_decl(Decl* decl) {

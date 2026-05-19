@@ -481,23 +481,6 @@ namespace Aria::Internal {
         PUSH_PENDING_U16(idx);
     }
 
-    void Emitter::emit_copy_expr(Expr* expr, ExprValueKind value_kind) {
-        CopyExpr copy = expr->copy;
-        
-        if (copy.constructor->kind == DeclKind::BuiltinCopyConstructor) {
-            switch (copy.constructor->built_in_copy_constructor.kind) {
-                case BuiltinKind::String: ADD_STR("__aria_copy_str()"); break;
-                default: ARIA_UNREACHABLE();
-            }
-        }
-
-        u16 idx = STR_IDX(-1);
-
-        emit_expr(copy.expression, ExprValueKind::LValue);
-        PUSH_PENDING_OP(OP_CALL);
-        PUSH_PENDING_U16(idx);
-    }
-
     void Emitter::emit_call_expr(Expr* expr, ExprValueKind value_kind) {
         CallExpr call = expr->call;
         
@@ -1070,9 +1053,7 @@ namespace Aria::Internal {
         Declaration d;
         d.type = varDecl.type;
         
-        if (varDecl.type->is_string()) {
-            d.destructor = Decl::Create(m_context, SourceLocation(), SourceRange(), DeclKind::BuiltinDestructor, DeclVisibility::Public, BuiltinDestructorDecl(BuiltinKind::String));
-        } else if (varDecl.type->is_structure()) {
+        if (varDecl.type->is_structure()) {
             StructDeclaration& sDecl = varDecl.type->struct_;
             Decl* dtor = nullptr;
 
@@ -1082,7 +1063,7 @@ namespace Aria::Internal {
                 }
             }
 
-            if (!sDecl.source_decl->struct_.definition.trivial_dtor) { d.destructor = dtor; };
+            if (sDecl.source_decl->struct_.definition.dtor) { d.destructor = dtor; };
         }
 
         // We want to allocate the variables up front (at the start of the stack frame)
@@ -1503,14 +1484,8 @@ namespace Aria::Internal {
             auto& decl = *it;
         
             if (decl.destructor) {
-                if (decl.destructor->kind == DeclKind::BuiltinDestructor) {
-                    switch (decl.destructor->built_in_destructor.kind) {
-                        case BuiltinKind::String: ADD_STR("__aria_destruct_str()"); break;
-                        default: ARIA_UNREACHABLE();
-                    }
-                } else if (decl.destructor->kind == DeclKind::Destructor) {
-                    ADD_STR(mangle_dtor(&decl.destructor->destructor));
-                }
+                ARIA_ASSERT(decl.destructor->kind == DeclKind::Destructor, "Invalid destructor");
+                ADD_STR(mangle_dtor(&decl.destructor->destructor));
 
                 u16 idx = STR_IDX(-1);
 

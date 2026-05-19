@@ -141,7 +141,7 @@ namespace Aria::Internal {
 
                 Expr* member = Expr::Create(m_context, expr->loc, expr->range, ExprKind::Member,
                     ExprValueKind::LValue, mem_type,
-                    MemberExpr(ident, self, false));
+                    MemberExpr(ident, self));
 
                 replace_expr(expr, member);
                 return;
@@ -186,6 +186,7 @@ namespace Aria::Internal {
             switch (parent_type->kind) {
                 case TypeKind::Error: {
                     expr->type = &error_type;
+                    mem.referenced_member = &error_decl;
                     return;
                 }
 
@@ -207,6 +208,11 @@ namespace Aria::Internal {
                     }
                     mem.referenced_member = fd;
 
+                    if (fd->visibility == DeclVisibility::Private && mem.parent->kind != ExprKind::Self) {
+                        m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("'{}' is private and cannot be accessed", mem.member));
+                        m_context->report_compiler_diagnostic(fd->loc, fd->range, "Declared here", CompilerDiagKind::Note, fd->parent_unit);
+                    }
+
                     searching = false;
                     break;
                 }
@@ -226,10 +232,20 @@ namespace Aria::Internal {
                 }
 
                 case TypeKind::Ref: { parent_type = parent_type->base; break; }
+                case TypeKind::Ptr: {
+                    if (mem.implicit_deref) {
+                        m_context->report_compiler_diagnostic(expr->loc, expr->range, "'.' operator allows only one level of implicit dereferncing");
+                    }
+
+                    parent_type = parent_type->base;
+                    mem.implicit_deref = true;
+                    break;
+                }
 
                 default: {
                     m_context->report_compiler_diagnostic(mem.parent->loc, mem.parent->range, fmt::format("Expression must be of slice or struct type but is '{}'", type_info_to_string(parent_type)));
                     expr->type = &error_type;
+                    mem.referenced_member = &error_decl;
                     return;
                 }
             }
@@ -238,6 +254,7 @@ namespace Aria::Internal {
 
         if (!member_type) {
             m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Unknown member \"{}\" in '{}'", mem.member, type_info_to_string(parent_type)));
+            mem.referenced_member = &error_decl;
             expr->type = &error_type;
             return;
         }
@@ -338,15 +355,6 @@ namespace Aria::Internal {
                 expr->type = fnDecl.return_type;
                 expr->value_kind = (fnDecl.return_type->is_reference()) ? ExprValueKind::LValue : ExprValueKind::RValue;
 
-                // We may need to create a temporary if a function returns a non-trivial type and it is discarded
-                if (expr->result_discarded && !fnDecl.return_type->is_reference()) {
-                    if (fnDecl.return_type->is_string()) {
-                        replace_expr(expr, Expr::Create(m_context, expr->loc, expr->range, ExprKind::Temporary,
-                            ExprValueKind::RValue, expr->type,
-                            TemporaryExpr(Expr::Dup(m_context, expr), m_builtin_string_destructor)));
-                    }
-                }
-
                 return;
             }
         } else {
@@ -357,6 +365,33 @@ namespace Aria::Internal {
 
         expr->type = &error_type;
         call.callee->kind = ExprKind::Error;
+    }
+
+    void SemanticAnalyzer::resolve_construct_expr(Expr* expr) {
+        ConstructExpr& construct = expr->construct;
+
+        if (!expr->type) {
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, "Construct expression requries an explicit type");
+            replace_expr(expr, &error_expr);
+            return;
+        }
+
+        resolve_type(expr->loc, expr->range, expr->type);
+        
+        if (!expr->type->is_structure()) {
+            if (construct.arguments.size == 0) {
+                Expr* def = nullptr;
+                create_default_initializer(&def, expr->type, expr->loc, expr->range);
+                replace_expr(expr, def);
+            } else if (construct.arguments.size == 1) {
+                replace_expr(expr, construct.arguments.items[0]);
+            } else {
+                m_context->report_compiler_diagnostic(expr->loc, expr->range, "Constructing a non-struct type must have 0 or 1 argument");
+                replace_expr(expr, &error_expr);
+            }
+        } else {
+            ARIA_TODO("Construct");
+        }
     }
 
     void SemanticAnalyzer::resolve_method_call_expr(Expr* expr) {
@@ -439,6 +474,8 @@ namespace Aria::Internal {
             for (Expr* arg : mc.arguments) {
                 resolve_expr(arg);
             }
+
+            expr->type = &error_type;
         }
     }
 
@@ -1028,6 +1065,7 @@ namespace Aria::Internal {
             case ExprKind::Member: resolve_member_expr(expr); break;
             case ExprKind::Self: break;
             case ExprKind::Call: resolve_call_expr(expr); break;
+            case ExprKind::Construct: resolve_construct_expr(expr); break;
             case ExprKind::MethodCall: resolve_method_call_expr(expr); break;
             case ExprKind::ArraySubscript: resolve_array_subscript_expr(expr); break;
             case ExprKind::ToSlice: resolve_to_slice_expr(expr); break;
@@ -1139,19 +1177,7 @@ namespace Aria::Internal {
 
     void SemanticAnalyzer::require_rvalue(Expr* expr) {
         if (expr->value_kind == ExprValueKind::LValue) {
-            if (expr->type->kind == TypeKind::String) {
-                replace_expr(expr, Expr::Create(m_context, expr->loc, expr->range, 
-                    ExprKind::Copy, ExprValueKind::RValue, expr->type, 
-                    CopyExpr(Expr::Dup(m_context, expr), m_builtin_string_copy_constructor)));
-
-                if (m_temporary_context) {
-                    replace_expr(expr, Expr::Create(m_context, expr->loc, expr->range,
-                        ExprKind::Temporary, ExprValueKind::RValue, expr->type,
-                        TemporaryExpr(Expr::Dup(m_context, expr), m_builtin_string_destructor)));
-                }
-            } else {
-                insert_implicit_cast(expr->type, expr->type, expr, CastKind::LValueToRValue);
-            }
+            insert_implicit_cast(expr->type, expr->type, expr, CastKind::LValueToRValue);
         }
     }
 

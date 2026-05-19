@@ -64,12 +64,11 @@ namespace Aria::Internal {
         Done
     };
 
-    enum class BuiltinKind {
-        String
-    };
-
     struct Expr;
     struct Stmt;
+
+    struct ConstructorDecl;
+    struct DestructorDecl;
 
     struct ErrorDecl {
         ErrorDecl() = default;
@@ -142,10 +141,9 @@ namespace Aria::Internal {
 
     struct StructDecl {
         struct DefinitionData {
-            bool has_default_ctor : 1;
-
-            bool has_user_dtor : 1;
-            bool trivial_dtor : 1;
+            ConstructorDecl* default_ctor;
+            ConstructorDecl* copy_ctor;
+            DestructorDecl* dtor;
         };
 
         StructDecl(std::string_view identifier,TinyVector<Decl*> fields)
@@ -166,11 +164,12 @@ namespace Aria::Internal {
     };
 
     struct ConstructorDecl {
-        ConstructorDecl(Decl* parent, TinyVector<Decl*> parameters, Stmt* body, bool disabled)
-            : parent(parent), parameters(parameters), body(body), disabled(disabled) {}
+        ConstructorDecl(Decl* parent, TinyVector<Decl*> parameters, TypeInfo* type, Stmt* body, bool disabled)
+            : parent(parent), parameters(parameters), type(type), body(body), disabled(disabled) {}
 
         Decl* parent = nullptr;
         TinyVector<Decl*> parameters;
+        TypeInfo* type = nullptr;
         Stmt* body = nullptr;
         bool disabled = false;
     };
@@ -200,20 +199,6 @@ namespace Aria::Internal {
 
         std::string_view identifier;
         TinyVector<Decl*> funcs;
-    };
-
-    struct BuiltinCopyConstructorDecl {
-        BuiltinCopyConstructorDecl(BuiltinKind kind)
-            : kind(kind) {}
-
-        BuiltinKind kind = BuiltinKind::String;
-    };
-
-    struct BuiltinDestructorDecl {
-        BuiltinDestructorDecl(BuiltinKind kind)
-            : kind(kind) {}
-
-        BuiltinKind kind = BuiltinKind::String;
     };
 
     struct Decl {
@@ -248,8 +233,6 @@ namespace Aria::Internal {
             DestructorDecl destructor;
             MethodDecl method;
             OverloadedMethodDecl overloaded_method;
-            BuiltinCopyConstructorDecl built_in_copy_constructor;
-            BuiltinDestructorDecl built_in_destructor;
         };
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, ErrorDecl error)
@@ -290,12 +273,6 @@ namespace Aria::Internal {
         
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, OverloadedMethodDecl overloaded_method)
             : loc(loc), range(range), kind(kind), visibility(visibility), overloaded_method(overloaded_method) {}
-
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, BuiltinCopyConstructorDecl bicc)
-            : loc(loc), range(range), kind(kind), visibility(visibility), built_in_copy_constructor(bicc) {}
-
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, BuiltinDestructorDecl bid)
-            : loc(loc), range(range), kind(kind), visibility(visibility), built_in_destructor(bid) {}
     };
 
     inline Decl error_decl = Decl(SourceLocation(), SourceRange(), DeclKind::Error, DeclVisibility::Public, ErrorDecl());

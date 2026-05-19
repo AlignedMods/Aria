@@ -15,6 +15,7 @@ namespace Aria::Internal {
     static const char* stdlib_files[] = {
         "io/io.aria",
         "core/string_stream.aria",
+        "core/string.aria",
         "core/mem.aria"
     };
 

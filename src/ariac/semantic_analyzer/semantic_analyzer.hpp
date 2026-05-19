@@ -65,6 +65,7 @@ namespace Aria::Internal {
         void resolve_decl_ref_expr(Expr* expr);
         void resolve_member_expr(Expr* expr);
         void resolve_call_expr(Expr* expr);
+        void resolve_construct_expr(Expr* expr);
         void resolve_method_call_expr(Expr* expr);
         void resolve_array_subscript_expr(Expr* expr);
         void resolve_to_slice_expr(Expr* expr);
@@ -134,9 +135,6 @@ namespace Aria::Internal {
     private:
         bool m_temporary_context = false;
         bool m_unsafe_context = false;
-
-        Decl* m_builtin_string_destructor = nullptr;
-        Decl* m_builtin_string_copy_constructor = nullptr;
 
         std::vector<Scope> m_scopes;
         TypeInfo* m_active_return_type = nullptr;

@@ -26,7 +26,6 @@ namespace Aria::Internal {
         BuiltinMember,
         Self,
         Temporary,
-        Copy,
         Call,
         Construct,
         MethodCall,
@@ -229,12 +228,12 @@ namespace Aria::Internal {
     };
 
     struct MemberExpr {
-        MemberExpr(std::string_view member, Expr* parent, bool is_arrow)
-            : member(member), parent(parent), is_arrow(is_arrow) {}
+        MemberExpr(std::string_view member, Expr* parent)
+            : member(member), parent(parent) {}
 
         std::string_view member;
         Expr* parent = nullptr;
-        bool is_arrow = false;
+        bool implicit_deref = false;
         Decl* referenced_member = nullptr;
     };
 
@@ -248,14 +247,6 @@ namespace Aria::Internal {
 
         Expr* expression = nullptr;
         Decl* destructor = nullptr;
-    };
-
-    struct CopyExpr {
-        CopyExpr(Expr* expr, Decl* constructor)
-            : expression(expr), constructor(constructor) {}
-
-        Expr* expression = nullptr;
-        Decl* constructor = nullptr;
     };
 
     struct CallExpr {
@@ -428,7 +419,6 @@ namespace Aria::Internal {
             DeclRefExpr decl_ref;
             MemberExpr member;
             TemporaryExpr temporary;
-            CopyExpr copy;
             CallExpr call;
             ConstructExpr construct;
             MethodCallExpr method_call;
@@ -477,9 +467,6 @@ namespace Aria::Internal {
 
         Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, TemporaryExpr temporary)
             : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), temporary(temporary) {}
-
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, CopyExpr copy)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), copy(copy) {}
 
         Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, CallExpr call)
             : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), call(call) {}

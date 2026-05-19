@@ -75,8 +75,8 @@ namespace Aria::Internal {
 
                 return;
 
-            case ExprKind::Member: m_output += fmt::format("MemberExpr '{}{}' '{}' {}\n",
-                (expr->member.is_arrow) ? "->" : ".", expr->member.member,
+            case ExprKind::Member: m_output += fmt::format("MemberExpr '{}'{} '{}' {}\n",
+                expr->member.member, expr->member.implicit_deref ? " implicit_deref" : "",
                 type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->member.parent, indentation + 4);
@@ -99,12 +99,6 @@ namespace Aria::Internal {
                 dump_expr(expr->temporary.expression, indentation + 4);
                 return;
 
-            case ExprKind::Copy: m_output += fmt::format("CopyExpr '{}' {}\n", 
-                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind)); 
-                
-                dump_expr(expr->copy.expression, indentation + 4);
-                return;
-
             case ExprKind::Call: m_output += fmt::format("CallExpr '{}' {}\n",
                 type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
 
@@ -114,8 +108,12 @@ namespace Aria::Internal {
                 }
                 return;
 
-            case ExprKind::Construct: m_output += fmt::format("ConstructExpr '{}' {}\n",
-                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+            case ExprKind::Construct: m_output += fmt::format("ConstructExpr '{}' '{}' {}\n",
+                type_info_to_string(expr->construct.ctor->type), type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+
+                for (Expr* arg : expr->construct.arguments) {
+                    dump_expr(arg, indentation + 4);
+                }
                 return;
 
             case ExprKind::MethodCall: m_output += fmt::format("MethodCallExpr '{}' {}\n",
@@ -261,8 +259,8 @@ namespace Aria::Internal {
                 decl->field.identifier, type_info_to_string(decl->field.type));
                 return;
 
-            case DeclKind::Constructor: m_output += fmt::format("ConstructorDecl {}\n",
-                decl->constructor.disabled ? "disabled" : "");
+            case DeclKind::Constructor: m_output += fmt::format("ConstructorDecl '{}' {}\n",
+                type_info_to_string(decl->constructor.type), decl->constructor.disabled ? "disabled" : "");
 
                 for (Decl* param : decl->constructor.parameters) {
                     dump_decl(param, indentation + 4);

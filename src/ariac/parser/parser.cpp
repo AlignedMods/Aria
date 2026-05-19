@@ -39,7 +39,6 @@ namespace Aria::Internal {
         m_expr_rules[TokenKind::LeftParen] =         { BIND_PARSE_RULE(parse_grouping), BIND_PARSE_RULE(parse_call), PREC_CALL };
         m_expr_rules[TokenKind::LeftBracket] =       { nullptr, BIND_PARSE_RULE(parse_array_subscript), PREC_CALL };
         m_expr_rules[TokenKind::Dot] =               { nullptr, BIND_PARSE_RULE(parse_member), PREC_CALL };
-        m_expr_rules[TokenKind::Arrow] =             { nullptr, BIND_PARSE_RULE(parse_member), PREC_CALL };
         m_expr_rules[TokenKind::PlusPlus] =          { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_infix_unary), PREC_CALL };
         m_expr_rules[TokenKind::MinusMinus] =        { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_infix_unary), PREC_CALL };
 
@@ -399,13 +398,13 @@ namespace Aria::Internal {
     Expr* Parser::parse_member(Expr* left) {
         ARIA_ASSERT(left, "Parser::parse_member() expects a left side");
 
-        Token d = consume(); // consume "."/"->"
+        Token d = consume(); // consume "."
         Token* ident = try_consume(TokenKind::Identifier, "identifier");
         if (!ident) { return &error_expr; }
 
         return Expr::Create(m_context, d.range.start, SourceRange(left->range.start, ident->range.end), ExprKind::Member,
             ExprValueKind::LValue, nullptr,
-            MemberExpr(ident->string, left, d.kind == TokenKind::Arrow));
+            MemberExpr(ident->string, left));
     }
 
     Expr* Parser::parse_primary(Expr* left) {
@@ -1120,7 +1119,7 @@ namespace Aria::Internal {
         Token* ident = try_consume(TokenKind::Identifier, "identifier");
         if (!ident) { return &error_decl; }
         TypeInfo* type = nullptr;
-        Expr* value = nullptr;
+        Expr* initializer = nullptr;
 
         if (match(TokenKind::Colon)) {
             try_consume(TokenKind::Colon, ":");
@@ -1135,7 +1134,7 @@ namespace Aria::Internal {
 
         if (match(TokenKind::Eq)) {
             consume();
-            value = parse_expression();
+            initializer = parse_expression();
         } else if (!type) {
             m_context->report_compiler_diagnostic(ident->range.start, SourceRange(start, peek()->range.end), "No initializer provided for type-inffered variable declaration");
             type = &error_type;
@@ -1145,7 +1144,7 @@ namespace Aria::Internal {
 
         try_consume(TokenKind::Semi, ";");
 
-        Decl* decl = Decl::Create(m_context, ident->range.start, SourceRange(start, peek(-1)->range.end), DeclKind::Var, global ? m_current_visibility : DeclVisibility::Public, VarDecl(ident->string, type, value, global));
+        Decl* decl = Decl::Create(m_context, ident->range.start, SourceRange(start, peek(-1)->range.end), DeclKind::Var, global ? m_current_visibility : DeclVisibility::Public, VarDecl(ident->string, type, initializer, global));
 
         if (global) {
             m_context->active_comp_unit->globals.push_back(decl);
@@ -1254,7 +1253,8 @@ namespace Aria::Internal {
         Token* ident = try_consume(TokenKind::Identifier, "indentifier");
         
         Decl* struc = Decl::Create(m_context, ident->range.start, SourceRange(s.range.start, peek(-1)->range.end), DeclKind::Struct, DeclVisibility::Public, StructDecl(ident->string, {}));
-        
+        DeclVisibility visibility = DeclVisibility::Public;
+
         try_consume(TokenKind::LeftCurly, "{");
         while (!match(TokenKind::RightCurly)) {
             SourceLocation start = peek()->range.start;
@@ -1276,12 +1276,25 @@ namespace Aria::Internal {
                         body = parse_block();
                     }
 
-                    struc->struct_.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Constructor, m_current_visibility, ConstructorDecl(struc, params, body, disabled)));
+                    FunctionDeclaration fn;
+                    fn.param_types = param_types;
+                    fn.return_type = &void_type;
+
+                    TypeInfo* type = TypeInfo::Create(m_context, TypeKind::Function);
+                    type->function = fn;
+
+                    struc->struct_.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Constructor, visibility, ConstructorDecl(struc, params, type, body, disabled)));
                 } else {
                     Token* fieldName = try_consume(TokenKind::Identifier, "identifier");
                     if (!fieldName) { sync_local(); continue; }
 
                     try_consume(TokenKind::Colon, ":");
+
+                    if (!is_primitive_type() && !match(TokenKind::Identifier)) {
+                        m_context->report_compiler_diagnostic(peek()->range.start, peek()->range, "Expected type after ':'");
+                        sync_local();
+                        continue;
+                    }
 
                     TypeInfo* type = parse_type();
 
@@ -1290,7 +1303,7 @@ namespace Aria::Internal {
                         if (match(TokenKind::Semi)) { consume(); }
                     }
 
-                    struc->struct_.fields.append(m_context, Decl::Create(m_context, fieldName->range.start, SourceRange(start, peek(-1)->range.end), DeclKind::Field, DeclVisibility::Public, FieldDecl(fieldName->string, type)));
+                    struc->struct_.fields.append(m_context, Decl::Create(m_context, fieldName->range.start, SourceRange(start, peek(-1)->range.end), DeclKind::Field, visibility, FieldDecl(fieldName->string, type)));
                 }
             } else if (match(TokenKind::Squigly)) {
                 consume();
@@ -1305,7 +1318,7 @@ namespace Aria::Internal {
 
                 Stmt* body = parse_block();
 
-                struc->struct_.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Destructor, DeclVisibility::Public, DestructorDecl(struc, body)));
+                struc->struct_.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Destructor, visibility, DestructorDecl(struc, body)));
             } else if (match(TokenKind::Fn)) {
                 consume();
 
@@ -1336,7 +1349,10 @@ namespace Aria::Internal {
                 final_type->function = fn;
 
                 struc->struct_.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Method,
-                    DeclVisibility::Public, MethodDecl(struc, name->string, final_type, params, body)));
+                    visibility, MethodDecl(struc, name->string, final_type, params, body)));
+            } else if (match(TokenKind::AtPrivate)) {
+                consume();
+                visibility = DeclVisibility::Private;
             } else {
                 m_context->report_compiler_diagnostic(start, SourceRange(start, start), "Expected identifier, 'fn' or '~'");
                 sync_local();

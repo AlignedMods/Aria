@@ -201,7 +201,7 @@ namespace Aria::Internal {
 
                 if (sDecl.source_decl) {
                     ARIA_ASSERT(sDecl.source_decl->kind == DeclKind::Struct, "Invalid source decl");
-                    return sDecl.source_decl->struct_.definition.trivial_dtor;
+                    return sDecl.source_decl->struct_.definition.dtor == nullptr;
                 }
 
                 return true;

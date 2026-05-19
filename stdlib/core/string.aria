@@ -1,0 +1,21 @@
+module std::core;
+
+struct String {
+    String() {
+        size = 0;
+        data = null;
+    }
+
+    String(s: char[]) {
+        size = s.len;
+
+        unsafe {
+            data = new char[s.len];
+            memcpy(data, s.mem, s.len);
+        }
+    }
+
+@private
+    size: ulong;
+    data: char*;
+}

@@ -1,6 +1,6 @@
 module std::io;
 
-import std::core::string_stream;
+import std::core;
 
 struct File {
     File() { handle = null; }

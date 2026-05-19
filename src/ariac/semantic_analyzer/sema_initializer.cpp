@@ -12,25 +12,36 @@ namespace Aria::Internal {
             resolve_expr(var.initializer);
         }
 
-        TypeInfo* initType = var.initializer->type;
+        TypeInfo* init_type = var.initializer->type;
+        if (init_type->is_structure() && var.initializer->value_kind == ExprValueKind::LValue) { // Call copy constructor
+            if (init_type->struct_.source_decl->struct_.definition.copy_ctor) {
+                TinyVector<Expr*> args;
+                args.append(m_context, Expr::Dup(m_context, var.initializer));
+
+                replace_expr(var.initializer, Expr::Create(m_context, var.initializer->loc, var.initializer->range, ExprKind::Construct,
+                    ExprValueKind::RValue, init_type,
+                    ConstructExpr(init_type->struct_.source_decl->struct_.definition.copy_ctor, args)));
+            }
+        }
+
         require_rvalue(var.initializer);
 
         // Handle type inferrence here
         if (!var.type) {
-            if (initType->is_void()) {
+            if (init_type->is_void()) {
                 m_context->report_compiler_diagnostic(decl->loc, decl->range, "Cannot create variable of void type");
             }
-            var.type = initType;
+            var.type = init_type;
         }
 
-        if (initType->is_error() || var.type->is_error()) { return; }
+        if (init_type->is_error() || var.type->is_error()) { return; }
 
-        ConversionCost cost = get_conversion_cost(var.type, initType);
+        ConversionCost cost = get_conversion_cost(var.type, init_type);
         if (cost.cast_needed) {
             if (cost.implicit_cast_possible) {
-                insert_implicit_cast(var.type, initType, var.initializer, cost.kind);
+                insert_implicit_cast(var.type, init_type, var.initializer, cost.kind);
             } else {
-                m_context->report_compiler_diagnostic(var.initializer->loc, var.initializer->range, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(initType), type_info_to_string(var.type)));
+                m_context->report_compiler_diagnostic(var.initializer->loc, var.initializer->range, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(init_type), type_info_to_string(var.type)));
             }
         }
     }
@@ -84,13 +95,8 @@ namespace Aria::Internal {
 
                 if (sDecl.source_decl) {
                     ARIA_ASSERT(sDecl.source_decl->kind == DeclKind::Struct, "Invalid source decl");
-                    if (sDecl.source_decl->struct_.definition.has_default_ctor) {
-                        ConstructorDecl* ctor = nullptr;
-                        for (auto& field : sDecl.source_decl->struct_.fields) {
-                            if (field->kind == DeclKind::Constructor && field->constructor.parameters.size == 0) {
-                                ctor = &field->constructor;
-                            }
-                        }
+                    if (sDecl.source_decl->struct_.definition.default_ctor) {
+                        ConstructorDecl* ctor = sDecl.source_decl->struct_.definition.default_ctor;
 
                         *expr = Expr::Create(m_context, {}, {}, ExprKind::Construct, ExprValueKind::RValue, type, ConstructExpr(ctor, {}));
                         break;
