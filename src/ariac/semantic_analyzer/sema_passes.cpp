@@ -108,6 +108,27 @@ namespace Aria::Internal {
     void SemanticAnalyzer::resolve_unit_decls(Module* module, CompilationUnit* unit) {
         m_context->active_comp_unit = unit;
 
+        for (Decl* impl : unit->impls) {
+            impl->parent_module = module;
+            impl->parent_unit = unit;
+
+            ImplDecl& i = impl->impl;
+            if (!module->symbols.contains(i.identifier)) {
+                m_context->report_compiler_diagnostic(impl->loc, impl->range, fmt::format("No such struct '{}' to create an implementation for", i.identifier));
+            } else {
+                Decl* sym = module->symbols.at(i.identifier);
+
+                if (sym->kind != DeclKind::Struct) {
+                    m_context->report_compiler_diagnostic(impl->loc, impl->range, fmt::format("'{}' is not a struct", i.identifier));
+                    m_context->report_compiler_diagnostic(sym->loc, sym->range, "Declared here", CompilerDiagKind::Note, sym->parent_unit);
+                    continue;
+                }
+
+                impl->impl.parent = sym;
+                sym->struct_.impls.append(m_context, impl);
+            }
+        }
+
         for (Decl* global : unit->globals) {
             global->parent_module = module;
             global->parent_unit = unit;

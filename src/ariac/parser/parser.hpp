@@ -75,6 +75,7 @@ namespace Aria::Internal {
         Decl* parse_function_decl();
         std::pair<TinyVector<Decl*>, TinyVector<TypeInfo*>> parse_function_params();
         Decl* parse_struct_decl();
+        Decl* parse_impl_decl();
 
         std::string_view parse_module_path();
         TinyVector<FunctionDecl::Attribute> parse_function_attrs();

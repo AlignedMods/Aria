@@ -1,6 +1,12 @@
 module std::core;
 
 struct String {
+@private
+    size: ulong;
+    data: char*;
+}
+
+impl String {
     String() {
         size = 0;
         data = null;
@@ -14,8 +20,4 @@ struct String {
             memcpy(data, s.mem, s.len);
         }
     }
-
-@private
-    size: ulong;
-    data: char*;
 }

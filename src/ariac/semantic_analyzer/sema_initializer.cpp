@@ -13,14 +13,17 @@ namespace Aria::Internal {
         }
 
         TypeInfo* init_type = var.initializer->type;
-        if (init_type->is_structure() && var.initializer->value_kind == ExprValueKind::LValue) { // Call copy constructor
-            if (init_type->struct_.source_decl->struct_.definition.copy_ctor) {
-                TinyVector<Expr*> args;
-                args.append(m_context, Expr::Dup(m_context, var.initializer));
-
-                replace_expr(var.initializer, Expr::Create(m_context, var.initializer->loc, var.initializer->range, ExprKind::Construct,
-                    ExprValueKind::RValue, init_type,
-                    ConstructExpr(init_type->struct_.source_decl->struct_.definition.copy_ctor, args)));
+        if (init_type->is_structure()) {
+            if (var.initializer->value_kind == ExprValueKind::LValue) { // Call copy constructor
+                // if (init_type->struct_.source_decl->struct_.definition.copy_ctor) {
+                //     TinyVector<Expr*> args;
+                //     resolve_param_initializer(init_type->struct_.source_decl->struct_.definition.copy_ctor->parameters.items[0]->param.type, var.initializer);
+                //     args.append(m_context, Expr::Dup(m_context, var.initializer));
+                // 
+                //     replace_expr(var.initializer, Expr::Create(m_context, var.initializer->loc, var.initializer->range, ExprKind::Construct,
+                //         ExprValueKind::RValue, init_type,
+                //         ConstructExpr(init_type->struct_.source_decl->struct_.definition.copy_ctor, args)));
+                // }
             }
         }
 
@@ -93,18 +96,18 @@ namespace Aria::Internal {
             case TypeKind::Structure: {
                 const StructDeclaration& sDecl = type->struct_;
 
-                if (sDecl.source_decl) {
-                    ARIA_ASSERT(sDecl.source_decl->kind == DeclKind::Struct, "Invalid source decl");
-                    if (sDecl.source_decl->struct_.definition.default_ctor) {
-                        ConstructorDecl* ctor = sDecl.source_decl->struct_.definition.default_ctor;
-
-                        *expr = Expr::Create(m_context, {}, {}, ExprKind::Construct, ExprValueKind::RValue, type, ConstructExpr(ctor, {}));
-                        break;
-                    } else {
-                        m_context->report_compiler_diagnostic(loc, range, fmt::format("Cannot default initialize variable of type '{}'", type_info_to_string(type)));
-                        break;
-                    }
-                }
+                // if (sDecl.source_decl) {
+                //     ARIA_ASSERT(sDecl.source_decl->kind == DeclKind::Struct, "Invalid source decl");
+                //     if (sDecl.source_decl->struct_.definition.default_ctor) {
+                //         ConstructorDecl* ctor = sDecl.source_decl->struct_.definition.default_ctor;
+                // 
+                //         *expr = Expr::Create(m_context, {}, {}, ExprKind::Construct, ExprValueKind::RValue, type, ConstructExpr(ctor, {}));
+                //         break;
+                //     } else {
+                //         m_context->report_compiler_diagnostic(loc, range, fmt::format("Cannot default initialize variable of type '{}'", type_info_to_string(type)));
+                //         break;
+                //     }
+                // }
 
                 break;
             }

@@ -508,8 +508,8 @@ namespace Aria::Internal {
                 break;
             }
 
-            Specifier* specifier = Specifier::Create(m_context, t.range.start, SourceRange(t.range.start, col.range.end), SpecifierKind::Scope, 
-                ScopeSpecifier(scratch_buffer_to_str(m_context)));
+            Specifier* specifier = Specifier::Create(m_context, t.range.start, SourceRange(t.range.start, col.range.end), SpecifierKind::Name, 
+                NameSpecifier(scratch_buffer_to_str(m_context)));
 
             Expr* declRef = Expr::Create(m_context, var->range.start, var->range, ExprKind::DeclRef,
                                 ExprValueKind::LValue, nullptr,
@@ -777,8 +777,8 @@ namespace Aria::Internal {
 
     Stmt* Parser::parse_block(bool unsafe) {
         TinyVector<Stmt*> stmts;
-        Token* l = try_consume(TokenKind::LeftCurly, "'{'");
-        if (!l) { return nullptr; }
+        Token* l = try_consume(TokenKind::LeftCurly, "{");
+        if (!l) { return &error_stmt; }
 
         while (!match(TokenKind::RightCurly)) {
             Stmt* stmt = parse_statement();
@@ -788,8 +788,8 @@ namespace Aria::Internal {
             }
         }
 
-        Token* r = try_consume(TokenKind::RightCurly, "'}'");
-        if (!r) { return nullptr; }
+        Token* r = try_consume(TokenKind::RightCurly, "}");
+        if (!r) { return &error_stmt; }
 
         return Stmt::Create(m_context, l->range.start, SourceRange(l->range.start, r->range.end), StmtKind::Block, BlockStmt(stmts, unsafe));
     }
@@ -799,7 +799,7 @@ namespace Aria::Internal {
             return parse_block(unsafe);
         } else {
             Stmt* stmt = parse_statement();
-            if (!stmt) { return nullptr; }
+            if (!stmt) { return &error_stmt; }
 
             TinyVector<Stmt*> stmts;
             stmts.append(m_context, stmt);
@@ -1250,9 +1250,55 @@ namespace Aria::Internal {
 
     Decl* Parser::parse_struct_decl() {
         Token s = consume(); // consume "struct"
-        Token* ident = try_consume(TokenKind::Identifier, "indentifier");
+        Token* ident = try_consume(TokenKind::Identifier, "identifier");
         
-        Decl* struc = Decl::Create(m_context, ident->range.start, SourceRange(s.range.start, peek(-1)->range.end), DeclKind::Struct, DeclVisibility::Public, StructDecl(ident->string, {}));
+        Decl* struc = Decl::Create(m_context, ident->range.start, SourceRange(s.range.start, peek(-1)->range.end), DeclKind::Struct, m_current_visibility, StructDecl(ident->string, {}));
+        DeclVisibility visibility = DeclVisibility::Public;
+
+        try_consume(TokenKind::LeftCurly, "{");
+        while (!match(TokenKind::RightCurly)) {
+            SourceLocation start = peek()->range.start;
+
+            if (match(TokenKind::Identifier)) {
+                Token* fieldName = try_consume(TokenKind::Identifier, "identifier");
+                if (!fieldName) { sync_local(); continue; }
+
+                try_consume(TokenKind::Colon, ":");
+
+                if (!is_primitive_type() && !match(TokenKind::Identifier)) {
+                    m_context->report_compiler_diagnostic(peek()->range.start, peek()->range, "Expected type after ':'");
+                    sync_local();
+                    continue;
+                }
+
+                TypeInfo* type = parse_type();
+
+                if (!try_consume(TokenKind::Semi, ";")) {
+                    sync_local();
+                    if (match(TokenKind::Semi)) { consume(); }
+                }
+
+                struc->struct_.fields.append(m_context, Decl::Create(m_context, fieldName->range.start, SourceRange(start, peek(-1)->range.end), DeclKind::Field, visibility, FieldDecl(fieldName->string, type)));
+            } else if (match(TokenKind::AtPrivate)) {
+                consume();
+                visibility = DeclVisibility::Private;
+            } else {
+                m_context->report_compiler_diagnostic(start, SourceRange(start, start), "Expected identifier");
+                sync_local();
+                if (match(TokenKind::Semi)) { consume(); }
+            }
+        }
+        try_consume(TokenKind::RightCurly, "}");
+        
+        m_context->active_comp_unit->structs.push_back(struc);
+        return struc;
+    }
+
+    Decl* Parser::parse_impl_decl() {
+        Token s = consume(); // consume "impl"
+        Token* ident = try_consume(TokenKind::Identifier, "identifier");
+        
+        Decl* impl = Decl::Create(m_context, ident->range.start, SourceRange(s.range.start, peek(-1)->range.end), DeclKind::Impl, m_current_visibility, ImplDecl(ident->string, {}));
         DeclVisibility visibility = DeclVisibility::Public;
 
         try_consume(TokenKind::LeftCurly, "{");
@@ -1283,27 +1329,10 @@ namespace Aria::Internal {
                     TypeInfo* type = TypeInfo::Create(m_context, TypeKind::Function);
                     type->function = fn;
 
-                    struc->struct_.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Constructor, visibility, ConstructorDecl(struc, params, type, body, disabled)));
+                    impl->impl.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Constructor, visibility, ConstructorDecl(impl, params, type, body, disabled)));
                 } else {
-                    Token* fieldName = try_consume(TokenKind::Identifier, "identifier");
-                    if (!fieldName) { sync_local(); continue; }
-
-                    try_consume(TokenKind::Colon, ":");
-
-                    if (!is_primitive_type() && !match(TokenKind::Identifier)) {
-                        m_context->report_compiler_diagnostic(peek()->range.start, peek()->range, "Expected type after ':'");
-                        sync_local();
-                        continue;
-                    }
-
-                    TypeInfo* type = parse_type();
-
-                    if (!try_consume(TokenKind::Semi, ";")) {
-                        sync_local();
-                        if (match(TokenKind::Semi)) { consume(); }
-                    }
-
-                    struc->struct_.fields.append(m_context, Decl::Create(m_context, fieldName->range.start, SourceRange(start, peek(-1)->range.end), DeclKind::Field, visibility, FieldDecl(fieldName->string, type)));
+                    m_context->report_compiler_diagnostic(start, SourceRange(start, start), "Unexpected identifier found, did you mean to put 'fn' before it?");
+                    sync_local();
                 }
             } else if (match(TokenKind::Squigly)) {
                 consume();
@@ -1318,7 +1347,7 @@ namespace Aria::Internal {
 
                 Stmt* body = parse_block();
 
-                struc->struct_.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Destructor, visibility, DestructorDecl(struc, body)));
+                impl->impl.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Destructor, visibility, DestructorDecl(impl, body)));
             } else if (match(TokenKind::Fn)) {
                 consume();
 
@@ -1348,8 +1377,8 @@ namespace Aria::Internal {
                 TypeInfo* final_type = TypeInfo::Create(m_context, TypeKind::Function);
                 final_type->function = fn;
 
-                struc->struct_.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Method,
-                    visibility, MethodDecl(struc, name->string, final_type, params, body)));
+                impl->impl.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Method,
+                    visibility, MethodDecl(impl, name->string, final_type, params, body)));
             } else if (match(TokenKind::AtPrivate)) {
                 consume();
                 visibility = DeclVisibility::Private;
@@ -1361,8 +1390,8 @@ namespace Aria::Internal {
         }
         try_consume(TokenKind::RightCurly, "}");
         
-        m_context->active_comp_unit->structs.push_back(struc);
-        return struc;
+        m_context->active_comp_unit->impls.push_back(impl);
+        return impl;
     }
 
     std::string_view Parser::parse_module_path() {
@@ -1453,6 +1482,13 @@ namespace Aria::Internal {
 
             case TokenKind::Struct: {
                 Decl* decl = parse_struct_decl();
+                if (!decl_ok(decl)) { return &error_stmt; }
+
+                return Stmt::Create(m_context, decl->loc, decl->range, StmtKind::Decl, decl);
+            }
+
+            case TokenKind::Impl: {
+                Decl* decl = parse_impl_decl();
                 if (!decl_ok(decl)) { return &error_stmt; }
 
                 return Stmt::Create(m_context, decl->loc, decl->range, StmtKind::Decl, decl);

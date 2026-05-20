@@ -81,59 +81,51 @@ namespace Aria::Internal {
         decl->resolve_status = ResolveStatus::InProgress;
 
         StructDecl& s = decl->struct_;
-        std::string ident = fmt::format("{}", s.identifier);
-
-        StructDeclaration d;
-        d.identifier = s.identifier;
-        d.source_decl = decl;
-        
-        TypeInfo* structType = TypeInfo::Create(m_context, TypeKind::Structure);
-        structType->struct_ = d;
-
-        std::vector<Decl*> methods;
 
         for (Decl* field : s.fields) {
             field->parent_unit = decl->parent_unit;
             field->parent_module = decl->parent_module;
 
+            ARIA_ASSERT(field->kind == DeclKind::Field, "Invalid field");
+
+            if (s.field_lookup.contains(field->field.identifier)) {
+                Decl* prev = s.field_lookup.at(field->field.identifier);
+                m_context->report_compiler_diagnostic(field->loc, field->range, fmt::format("Redeclaring field '{}'", field->field.identifier));
+                m_context->report_compiler_diagnostic(prev->loc, prev->range, "Previous declaration here", CompilerDiagKind::Note);
+            }
+
+            if (field->field.type->is_void()) {
+                m_context->report_compiler_diagnostic(field->loc, field->range, "Cannot declare field of 'void' type");
+                field->kind = DeclKind::Error;
+                continue;
+            }
+
+            s.field_lookup.insert(m_context, field->field.identifier, field);
+        }
+
+        for (Decl* impl : s.impls) {
+            resolve_impl_decl(impl);
+        }
+
+        decl->resolve_status = ResolveStatus::Done;
+    }
+
+    void SemanticAnalyzer::resolve_impl_decl(Decl* decl) {
+        if (decl->resolve_status == ResolveStatus::Done) { return; }
+        decl->resolve_status = ResolveStatus::InProgress;
+
+        ImplDecl& i = decl->impl;
+
+        for (Decl* field : i.fields) {
             switch (field->kind) {
-                case DeclKind::Field: {
-                    if (s.field_lookup.contains(field->field.identifier)) {
-                        Decl* prev = s.field_lookup.at(field->field.identifier);
-                        m_context->report_compiler_diagnostic(field->loc, field->range, fmt::format("Redeclaring field '{}'", field->field.identifier));
-                        m_context->report_compiler_diagnostic(prev->loc, prev->range, "Previous declaration here", CompilerDiagKind::Note);
-                    }
-
-                    if (field->field.type->is_void()) {
-                        m_context->report_compiler_diagnostic(field->loc, field->range, "Cannot declare field of 'void' type");
-                        field->kind = DeclKind::Error;
-                        continue;
-                    }
-
-                    if (!type_is_trivial(field->field.type)) { ARIA_TODO("Proper destructors"); }
-                    s.field_lookup.insert(m_context, field->field.identifier, field);
-                    break;
-                }
-
-                case DeclKind::Constructor:
-                    methods.push_back(field);
-                    s.field_lookup.insert(m_context, "<ctor>", field);
-                    break;
-
-                case DeclKind::Destructor:
-                    methods.push_back(field);
-                    s.field_lookup.insert(m_context, "<dtor>", field);
-                    break;
-
                 case DeclKind::Method: {
-                    methods.push_back(field);
-
-                    if (s.field_lookup.contains(field->method.identifier)) {
-                        Decl* prev = s.field_lookup.at(field->method.identifier);
+                    if (i.parent->struct_.field_lookup.contains(field->method.identifier)) {
+                        Decl* prev = i.field_lookup.at(field->method.identifier);
 
                         if (prev->kind == DeclKind::Method) {
                             Decl* overloaded = Decl::Create(m_context, field->loc, field->range, DeclKind::OverloadedMethod, DeclVisibility::Public, OverloadedMethodDecl(field->method.identifier));
-                            s.field_lookup.insert(m_context, field->method.identifier, overloaded);
+                            i.field_lookup.insert(m_context, field->method.identifier, overloaded);
+                            i.parent->struct_.field_lookup.insert(m_context, field->method.identifier, overloaded);
 
                             std::string old_mangle = mangle_method(&prev->method);
                             std::string new_mangle = mangle_method(&field->method);
@@ -170,7 +162,77 @@ namespace Aria::Internal {
                         }
                     }
 
-                    s.field_lookup.insert(m_context, field->method.identifier, field);
+                    i.field_lookup.insert(m_context, field->method.identifier, field);
+                    i.parent->struct_.field_lookup.insert(m_context, field->method.identifier, field);
+                    break;
+                }
+
+                case DeclKind::Constructor: 
+                    i.field_lookup.insert(m_context, "<ctor>", field);
+                    i.parent->struct_.field_lookup.insert(m_context, "<ctor>", field);
+                    break;
+                case DeclKind::Destructor: 
+                    i.field_lookup.insert(m_context, "<dtor>", field);
+                    i.parent->struct_.field_lookup.insert(m_context, "<dtor>", field);
+                    break;
+            }
+        }
+
+        StructDeclaration sd;
+        sd.identifier = i.identifier;
+        sd.source_decl = i.parent;
+        m_active_struct = TypeInfo::Create(m_context, TypeKind::Structure);
+        m_active_struct->struct_ = sd;
+
+        for (Decl* field : i.fields) {
+            switch (field->kind) {
+                case DeclKind::Method: {
+                    m_active_return_type = field->method.type->function.return_type;
+                    push_scope();
+                    for (Decl* p : field->method.parameters) {
+                        resolve_param_decl(p);
+                    }
+
+                    resolve_block_stmt(field->method.body);
+                    pop_scope();
+                    m_active_return_type = nullptr;
+                    break;
+                }
+
+                case DeclKind::Constructor: {
+                    TinyVector<Stmt*> newBody;
+
+                    for (Decl* field : i.fields) {
+                        if (field->kind == DeclKind::Field) {
+                            if (!type_is_trivial(field->field.type)) {
+                                ARIA_TODO("Propagating constructors");
+                            }
+                        }
+                    }
+
+                    if (!field->constructor.disabled) {
+                        push_scope();
+                        for (Decl* param : field->constructor.parameters) {
+                            resolve_param_decl(param);
+                        }
+
+                        resolve_stmt(field->constructor.body);
+                        pop_scope();
+                    }
+                    break;
+                }
+
+                case DeclKind::Destructor: {
+                    TinyVector<Stmt*> newBody;
+
+                    for (Decl* field : i.fields) {
+                        if (field->kind == DeclKind::Field) {
+                            if (!type_is_trivial(field->field.type)) {
+                                ARIA_TODO("Propagating destructors");
+                            }
+                        }
+                    }
+                    resolve_stmt(field->destructor.body);
                     break;
                 }
 
@@ -178,58 +240,8 @@ namespace Aria::Internal {
             }
         }
 
-        decl->resolve_status = ResolveStatus::Done;
-
-        m_active_struct = TypeInfo::Dup(m_context, structType);
-
-        for (Decl* method : methods) {
-            if (method->kind == DeclKind::Constructor) {
-                TinyVector<Stmt*> newBody;
-
-                for (Decl* field : s.fields) {
-                    if (field->kind == DeclKind::Field) {
-                        if (!type_is_trivial(field->field.type)) {
-                            ARIA_TODO("Propagating constructors");
-                        }
-                    }
-                }
-
-                if (!method->constructor.disabled) {
-                    push_scope();
-                    for (Decl* param : method->constructor.parameters) {
-                        resolve_param_decl(param);
-                    }
-
-                    resolve_stmt(method->constructor.body);
-
-                    if (method->constructor.parameters.size == 0) { s.definition.default_ctor = &method->constructor; }
-                    pop_scope();
-                }
-            } else if (method->kind == DeclKind::Destructor) {
-                TinyVector<Stmt*> newBody;
-
-                for (Decl* field : s.fields) {
-                    if (field->kind == DeclKind::Field) {
-                        if (!type_is_trivial(field->field.type)) {
-                            ARIA_TODO("Propagating destructors");
-                        }
-                    }
-                }
-                resolve_stmt(method->destructor.body);
-            } else if (method->kind == DeclKind::Method) {
-                m_active_return_type = method->method.type->function.return_type;
-                push_scope();
-                for (Decl* p : method->method.parameters) {
-                    resolve_param_decl(p);
-                }
-
-                resolve_block_stmt(method->method.body);
-                pop_scope();
-                m_active_return_type = nullptr;
-            }
-        }
-        
         m_active_struct = nullptr;
+        decl->resolve_status = ResolveStatus::Done;
     }
 
     void SemanticAnalyzer::resolve_decl(Decl* decl) {
@@ -250,6 +262,7 @@ namespace Aria::Internal {
             case DeclKind::Param: return resolve_param_decl(decl);
             case DeclKind::Function: return resolve_function_decl(decl);
             case DeclKind::Struct: return resolve_struct_decl(decl);
+            case DeclKind::Impl: return;
 
             default: ARIA_UNREACHABLE();
         }

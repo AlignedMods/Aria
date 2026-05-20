@@ -13,7 +13,12 @@ namespace Aria::Internal {
             }
 
             if (t.ident->decl_ref.referenced_decl->kind == DeclKind::Struct) {
-                if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) { resolve_struct_decl(t.ident->decl_ref.referenced_decl); }
+                if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
+                    CompilationUnit* old_unit = m_context->active_comp_unit;
+                    m_context->active_comp_unit = t.ident->decl_ref.referenced_decl->parent_unit;
+                    resolve_struct_decl(t.ident->decl_ref.referenced_decl);
+                    m_context->active_comp_unit = old_unit;
+                }
                 else if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::InProgress) {
                     m_context->report_compiler_diagnostic(loc, range, "Recursive definition of struct");
                     type->kind = TypeKind::Error;
@@ -201,7 +206,8 @@ namespace Aria::Internal {
 
                 if (sDecl.source_decl) {
                     ARIA_ASSERT(sDecl.source_decl->kind == DeclKind::Struct, "Invalid source decl");
-                    return sDecl.source_decl->struct_.definition.dtor == nullptr;
+                    // return sDecl.source_decl->struct_.definition.dtor == nullptr;
+                    return false;
                 }
 
                 return true;

@@ -21,6 +21,7 @@ namespace Aria::Internal {
         Function,
         OverloadedFunction,
         Struct,
+        Impl,
         Field,
         Constructor,
         Destructor,
@@ -140,19 +141,23 @@ namespace Aria::Internal {
     };
 
     struct StructDecl {
-        struct DefinitionData {
-            ConstructorDecl* default_ctor;
-            ConstructorDecl* copy_ctor;
-            DestructorDecl* dtor;
-        };
-
         StructDecl(std::string_view identifier,TinyVector<Decl*> fields)
-            : identifier(identifier), definition{}, fields(fields) {}
+            : identifier(identifier), fields(fields) {}
 
         std::string_view identifier;
-        DefinitionData definition;
         TinyVector<Decl*> fields;
         HTable<Decl*> field_lookup;
+        TinyVector<Decl*> impls;
+    };
+
+    struct ImplDecl {
+        ImplDecl(std::string_view identifier,TinyVector<Decl*> fields)
+            : identifier(identifier), fields(fields) {}
+
+        std::string_view identifier;
+        TinyVector<Decl*> fields;
+        HTable<Decl*> field_lookup;
+        Decl* parent = nullptr;
     };
 
     struct FieldDecl {
@@ -228,6 +233,7 @@ namespace Aria::Internal {
             FunctionDecl function;
             OverloadedFunctionDecl overloaded_function;
             StructDecl struct_;
+            ImplDecl impl;
             FieldDecl field;
             ConstructorDecl constructor;
             DestructorDecl destructor;
@@ -258,6 +264,9 @@ namespace Aria::Internal {
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, StructDecl struc)
             : loc(loc), range(range), kind(kind), visibility(visibility), struct_(struc) {}
+
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, ImplDecl impl)
+            : loc(loc), range(range), kind(kind), visibility(visibility), impl(impl) {}
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, FieldDecl field)
             : loc(loc), range(range), kind(kind), visibility(visibility), field(field) {}

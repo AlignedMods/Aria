@@ -6,14 +6,16 @@
 
 namespace Aria::Internal {
 
+    struct Decl;
+
     enum class SpecifierKind {
         Invalid = 0,
 
-        Scope
+        Name
     };
 
-    struct ScopeSpecifier {
-        ScopeSpecifier(std::string_view identifier)
+    struct NameSpecifier {
+        NameSpecifier(std::string_view identifier)
             : identifier(identifier) {}
 
         std::string_view identifier;
@@ -30,11 +32,11 @@ namespace Aria::Internal {
         SourceRange range;
 
         union {
-            ScopeSpecifier scope;
+            NameSpecifier name;
         };
 
-        Specifier(SourceLocation loc, SourceRange range, SpecifierKind kind, ScopeSpecifier scope)
-            : loc(loc), range(range), kind(kind), scope(scope) {}
+        Specifier(SourceLocation loc, SourceRange range, SpecifierKind kind, NameSpecifier name)
+            : loc(loc), range(range), kind(kind), name(name) {}
     };
 
 } // namespace Aria::Internal

@@ -56,6 +56,7 @@ namespace Aria::Internal {
         std::vector<Decl*> globals;
         std::vector<Decl*> funcs;
         std::vector<Decl*> structs;
+        std::vector<Decl*> impls;
 
         std::vector<Stmt*> imports;
 

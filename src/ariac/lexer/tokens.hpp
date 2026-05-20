@@ -70,6 +70,7 @@ namespace Aria::Internal {
         Return,
         Fn,
         Struct,
+        Impl,
         New,
         Delete,
         Unsafe,
@@ -111,6 +112,7 @@ namespace Aria::Internal {
             case TokenKind::RightBracket: return "]";
             case TokenKind::LeftCurly: return "{";
             case TokenKind::RightCurly: return "}";
+            case TokenKind::Squigly: return "~";
             case TokenKind::Comma: return ",";
             case TokenKind::Colon: return ":";
             case TokenKind::ColonColon: return "::";
@@ -180,6 +182,7 @@ namespace Aria::Internal {
             case TokenKind::Return: return "return";
             case TokenKind::Fn: return "fn";
             case TokenKind::Struct: return "struct";
+            case TokenKind::Impl: return "impl";
             case TokenKind::New: return "new";
             case TokenKind::Delete: return "delete";
             case TokenKind::Unsafe: return "unsafe";

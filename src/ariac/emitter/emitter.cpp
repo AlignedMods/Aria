@@ -94,6 +94,12 @@ namespace Aria::Internal {
                 }
             }
 
+            for (CompilationUnit* unit : mod->units) {
+                for (Decl* f : unit->impls) {
+                    emit_decl(f);
+                }
+            }
+
             // Global variable initializion requires special functions
             std::string startSig = fmt::format("_start${}()",mod->name);
             std::string endSig = fmt::format("_end${}()", mod->name);
@@ -310,7 +316,7 @@ namespace Aria::Internal {
         std::string ident;
 
         if (declRef.name_specifier) {
-            ident = fmt::format("{}::{}", declRef.name_specifier->scope.referenced_module->name, declRef.identifier);
+            ident = fmt::format("{}::{}", declRef.name_specifier->name.referenced_module->name, declRef.identifier);
         } else {
             ident = fmt::format("{}::{}", m_active_namespace, declRef.identifier);
         }
@@ -1063,7 +1069,7 @@ namespace Aria::Internal {
                 }
             }
 
-            if (sDecl.source_decl->struct_.definition.dtor) { d.destructor = dtor; };
+            // if (sDecl.source_decl->struct_.definition.dtor) { d.destructor = dtor; };
         }
 
         // We want to allocate the variables up front (at the start of the stack frame)
@@ -1180,8 +1186,13 @@ namespace Aria::Internal {
 
         m_structs[decl] = sd;
         m_op_codes.type_table.push_back(VMType(VMTypeKind::Struct, str));
-                
-        for (Decl* field : decl->struct_.fields) {
+    }
+
+    void Emitter::emit_impl_decl(Decl* decl) {
+        ImplDecl& i_decl = decl->impl;
+        std::string ident = fmt::format("{}::{}", m_active_namespace, i_decl.identifier);
+
+        for (Decl* field : i_decl.fields) {
             if (field->kind == DeclKind::Constructor) {
                 if (!field->constructor.disabled) {
                     std::string name = mangle_ctor(&field->constructor);
@@ -1285,6 +1296,7 @@ namespace Aria::Internal {
             case DeclKind::Var: return emit_var_decl(decl);
             case DeclKind::Function: return emit_function_decl(decl);
             case DeclKind::Struct: return emit_struct_decl(decl);
+            case DeclKind::Impl: return emit_impl_decl(decl);
 
             default: ARIA_UNREACHABLE();
         }

@@ -255,6 +255,15 @@ namespace Aria::Internal {
 
                 return;
 
+            case DeclKind::Impl: m_output += fmt::format("ImplDecl '{}'\n",
+                decl->impl.identifier);
+
+                for (Decl* field : decl->impl.fields) {
+                    dump_decl(field, indentation + 4);
+                }
+
+                return;
+
             case DeclKind::Field: m_output += fmt::format("FieldDecl '{}' '{}'\n",
                 decl->field.identifier, type_info_to_string(decl->field.type));
                 return;
@@ -266,7 +275,7 @@ namespace Aria::Internal {
                     dump_decl(param, indentation + 4);
                 }
 
-                dump_stmt(decl->constructor.body, indentation + 4);
+                if (decl->constructor.body) { dump_stmt(decl->constructor.body, indentation + 4); }
                 return;
 
             case DeclKind::Destructor: m_output += "DestructorDecl\n";
@@ -364,8 +373,8 @@ namespace Aria::Internal {
         ident.append(indentation, ' ');
         m_output += ident;
 
-        if (spec->kind == SpecifierKind::Scope) {
-            m_output += fmt::format("ScopeSpecifier '{}'\n", spec->scope.identifier);
+        if (spec->kind == SpecifierKind::Name) {
+            m_output += fmt::format("NameSpecifier '{}'\n", spec->name.identifier);
             return;
         }
 

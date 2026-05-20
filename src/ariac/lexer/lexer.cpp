@@ -487,6 +487,7 @@ namespace Aria::Internal {
         if (scratch_buffer_cmp("return"))   { add_token(TokenKind::Return, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "return"); return; }
         if (scratch_buffer_cmp("fn"))       { add_token(TokenKind::Fn,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "fn");     return; }
         if (scratch_buffer_cmp("struct"))   { add_token(TokenKind::Struct, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "struct"); return; }
+        if (scratch_buffer_cmp("impl"))     { add_token(TokenKind::Impl,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "impl");   return; }
         if (scratch_buffer_cmp("new"))      { add_token(TokenKind::New,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "new");    return; }
         if (scratch_buffer_cmp("delete"))   { add_token(TokenKind::Delete, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "delete"); return; }
         if (scratch_buffer_cmp("unsafe"))   { add_token(TokenKind::Unsafe, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "unsafe"); return; }

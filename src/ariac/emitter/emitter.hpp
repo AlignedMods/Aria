@@ -84,6 +84,7 @@ namespace Aria::Internal {
         void emit_param_decl(Decl* decl);
         void emit_function_decl(Decl* decl);
         void emit_struct_decl(Decl* decl);
+        void emit_impl_decl(Decl* decl);
 
         void emit_decl(Decl* decl);
 

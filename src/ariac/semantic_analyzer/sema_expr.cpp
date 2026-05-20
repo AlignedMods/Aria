@@ -73,29 +73,29 @@ namespace Aria::Internal {
         }
 
         if (ref.name_specifier) {
-            ARIA_ASSERT(ref.name_specifier->kind == SpecifierKind::Scope, "Invalid specifier");
+            ARIA_ASSERT(ref.name_specifier->kind == SpecifierKind::Name, "Invalid specifier");
 
             // We may be referencing ourselves
-            if (compare_module_names(ref.name_specifier->scope.identifier, m_context->active_comp_unit->parent->name)) {
+            if (compare_module_names(ref.name_specifier->name.identifier, m_context->active_comp_unit->parent->name)) {
                 mod = m_context->active_comp_unit->parent;
             }
 
             for (Stmt* import : m_context->active_comp_unit->imports) {
                 ARIA_ASSERT(import->kind == StmtKind::Import, "Invalid import stmt");
 
-                if (compare_module_names(ref.name_specifier->scope.identifier, import->import.name)) {
+                if (compare_module_names(ref.name_specifier->name.identifier, import->import.name)) {
                     mod = import->import.resolved_module;
                     break;
                 }
             }
 
             if (!mod) {
-                m_context->report_compiler_diagnostic(ref.name_specifier->loc, ref.name_specifier->range, fmt::format("Could not find module '{}'", ref.name_specifier->scope.identifier));
+                m_context->report_compiler_diagnostic(ref.name_specifier->loc, ref.name_specifier->range, fmt::format("Could not find module '{}'", ref.name_specifier->name.identifier));
                 expr->type = &error_type;
                 ref.referenced_decl = &error_decl;
                 return;
             } else {
-                ref.name_specifier->scope.referenced_module = mod;
+                ref.name_specifier->name.referenced_module = mod;
             }
         } else {
             mod = m_context->active_comp_unit->parent;
@@ -121,7 +121,7 @@ namespace Aria::Internal {
             return;
         }
 
-        if (m_active_struct) {
+        if (m_active_struct && m_active_struct->struct_.source_decl) {
             if (m_active_struct->struct_.source_decl->struct_.field_lookup.contains(ident)) {
                 TypeInfo* self_type = TypeInfo::Create(m_context, TypeKind::Ref);
                 self_type->base = m_active_struct;

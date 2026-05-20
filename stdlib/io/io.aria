@@ -3,11 +3,14 @@ module std::io;
 import std::core;
 
 struct File {
+@private
+    handle: void*;
+}
+
+impl File {
     File() { handle = null; }
     File(other: File&) = delete;
     ~File() { close_file(handle); }
-
-    handle: void*;
 }
 
 fn println(str: char[]) -> void {
