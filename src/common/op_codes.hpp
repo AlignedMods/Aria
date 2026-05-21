@@ -47,6 +47,7 @@ namespace Aria::Internal {
 
     enum OpCode : u8 {
         OP_ALLOCA,
+        OP_ALLOCAZ,
         OP_NEW,
         OP_NEW_ARR,
         OP_FREE,

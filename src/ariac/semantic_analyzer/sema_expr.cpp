@@ -381,7 +381,6 @@ namespace Aria::Internal {
         if (!expr->type->is_structure()) {
             if (construct.arguments.size == 0) {
                 Expr* def = nullptr;
-                create_default_initializer(&def, expr->type, expr->loc, expr->range);
                 replace_expr(expr, def);
             } else if (construct.arguments.size == 1) {
                 replace_expr(expr, construct.arguments.items[0]);
@@ -579,9 +578,7 @@ namespace Aria::Internal {
             m_context->report_compiler_diagnostic(expr->loc, expr->range, "'new' is only allowed in unsafe context");
         }
 
-        if (!n.initializer) {
-            create_default_initializer(&n.initializer, expr->type->base, expr->loc, expr->range);
-        } else {
+        if (n.initializer) {
             if (n.array) {
                 m_temporary_context = true;
                 resolve_expr(n.initializer);

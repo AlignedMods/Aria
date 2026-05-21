@@ -1310,14 +1310,14 @@ namespace Aria::Internal {
                     consume();
                     auto[params, param_types] = parse_function_params();
                     Stmt* body = nullptr;
-                    bool disabled = false;
+                    ConstructorKind kind = ConstructorKind::UserDefined;
 
                     if (match(TokenKind::Eq)) {
                         consume();
                         try_consume(TokenKind::Delete, "delete");
                         try_consume(TokenKind::Semi, ";");
 
-                        disabled = true;
+                        kind = ConstructorKind::Deleted;
                     } else {
                         body = parse_block();
                     }
@@ -1329,7 +1329,7 @@ namespace Aria::Internal {
                     TypeInfo* type = TypeInfo::Create(m_context, TypeKind::Function);
                     type->function = fn;
 
-                    impl->impl.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Constructor, visibility, ConstructorDecl(impl, params, type, body, disabled)));
+                    impl->impl.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Constructor, visibility, ConstructorDecl(impl, params, type, body, kind)));
                 } else {
                     m_context->report_compiler_diagnostic(start, SourceRange(start, start), "Unexpected identifier found, did you mean to put 'fn' before it?");
                     sync_local();

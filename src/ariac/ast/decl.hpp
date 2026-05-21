@@ -65,6 +65,22 @@ namespace Aria::Internal {
         Done
     };
 
+    enum class ConstructorKind {
+        Default,
+        UserDefined,
+        Deleted
+    };
+
+    inline const char* constructor_kind_to_string(ConstructorKind kind) {
+        switch (kind) {
+            case ConstructorKind::Default: return "default";
+            case ConstructorKind::UserDefined: return "user_defined";
+            case ConstructorKind::Deleted: return "deleted";
+
+            default: ARIA_UNREACHABLE();
+        }
+    }
+
     struct Expr;
     struct Stmt;
 
@@ -141,17 +157,23 @@ namespace Aria::Internal {
     };
 
     struct StructDecl {
-        StructDecl(std::string_view identifier,TinyVector<Decl*> fields)
+        struct Definition {
+            Decl* default_ctor = nullptr;
+            Decl* dtor = nullptr;
+        };
+
+        StructDecl(std::string_view identifier, TinyVector<Decl*> fields)
             : identifier(identifier), fields(fields) {}
 
         std::string_view identifier;
         TinyVector<Decl*> fields;
         HTable<Decl*> field_lookup;
         TinyVector<Decl*> impls;
+        Definition definition;
     };
 
     struct ImplDecl {
-        ImplDecl(std::string_view identifier,TinyVector<Decl*> fields)
+        ImplDecl(std::string_view identifier, TinyVector<Decl*> fields)
             : identifier(identifier), fields(fields) {}
 
         std::string_view identifier;
@@ -169,14 +191,14 @@ namespace Aria::Internal {
     };
 
     struct ConstructorDecl {
-        ConstructorDecl(Decl* parent, TinyVector<Decl*> parameters, TypeInfo* type, Stmt* body, bool disabled)
-            : parent(parent), parameters(parameters), type(type), body(body), disabled(disabled) {}
+        ConstructorDecl(Decl* parent, TinyVector<Decl*> parameters, TypeInfo* type, Stmt* body, ConstructorKind kind)
+            : parent(parent), parameters(parameters), type(type), body(body), kind(kind) {}
 
         Decl* parent = nullptr;
         TinyVector<Decl*> parameters;
         TypeInfo* type = nullptr;
         Stmt* body = nullptr;
-        bool disabled = false;
+        ConstructorKind kind = ConstructorKind::Default;
     };
 
     struct DestructorDecl {

@@ -1053,23 +1053,20 @@ namespace Aria::Internal {
         VarDecl varDecl = decl->var;
         std::string ident = fmt::format("{}::{}", m_active_namespace, varDecl.identifier);
 
-        PUSH_OP(OP_ALLOCA);
-        PUSH_U16(type_info_to_vm_type_idx(varDecl.type));
+        if (varDecl.initializer) {
+            PUSH_OP(OP_ALLOCA);
+            PUSH_U16(type_info_to_vm_type_idx(varDecl.type));
+        } else {
+            PUSH_OP(OP_ALLOCAZ);
+            PUSH_U16(type_info_to_vm_type_idx(varDecl.type));
+        }
 
         Declaration d;
         d.type = varDecl.type;
         
         if (varDecl.type->is_structure()) {
             StructDeclaration& sDecl = varDecl.type->struct_;
-            Decl* dtor = nullptr;
-
-            for (auto& field : sDecl.source_decl->struct_.fields) {
-                if (field->kind == DeclKind::Destructor) {
-                    dtor = field;
-                }
-            }
-
-            // if (sDecl.source_decl->struct_.definition.dtor) { d.destructor = dtor; };
+            d.destructor = sDecl.source_decl->struct_.definition.dtor;
         }
 
         // We want to allocate the variables up front (at the start of the stack frame)
@@ -1079,7 +1076,7 @@ namespace Aria::Internal {
             PUSH_OP(OP_DECL_GLOBAL);
             PUSH_U16(STR_IDX(-1));
 
-            d.data = ident;
+            d.data = ident; 
             m_global_scope.declared_symbols.push_back(d);
         } else {
             PUSH_OP(OP_DECL_LOCAL);
@@ -1194,7 +1191,7 @@ namespace Aria::Internal {
 
         for (Decl* field : i_decl.fields) {
             if (field->kind == DeclKind::Constructor) {
-                if (!field->constructor.disabled) {
+                if (field->constructor.kind != ConstructorKind::Deleted) {
                     std::string name = mangle_ctor(&field->constructor);
                     push_stack_frame(name);
 

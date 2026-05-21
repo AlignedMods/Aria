@@ -31,6 +31,12 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case OP_ALLOCAZ: {
+                    auto& type = GET_TYPE();
+                    m_output += fmt::format("    allocaz {}", vm_type_to_string(type));
+                    break;
+                }
+
                 case OP_NEW: {
                     auto& type = GET_TYPE();
                     m_output += fmt::format("    new {}", vm_type_to_string(type));

@@ -200,7 +200,7 @@ namespace Aria::Internal {
                 }
 
                 case DeclKind::Constructor: {
-                    TinyVector<Stmt*> newBody;
+                    if (field->constructor.parameters.size == 0) { i.parent->struct_.definition.default_ctor = field; }
 
                     for (Decl* field : i.fields) {
                         if (field->kind == DeclKind::Field) {
@@ -210,7 +210,7 @@ namespace Aria::Internal {
                         }
                     }
 
-                    if (!field->constructor.disabled) {
+                    if (field->constructor.kind != ConstructorKind::Deleted) {
                         push_scope();
                         for (Decl* param : field->constructor.parameters) {
                             resolve_param_decl(param);
@@ -223,7 +223,7 @@ namespace Aria::Internal {
                 }
 
                 case DeclKind::Destructor: {
-                    TinyVector<Stmt*> newBody;
+                    i.parent->struct_.definition.dtor = field;
 
                     for (Decl* field : i.fields) {
                         if (field->kind == DeclKind::Field) {

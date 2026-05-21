@@ -269,7 +269,7 @@ namespace Aria::Internal {
                 return;
 
             case DeclKind::Constructor: m_output += fmt::format("ConstructorDecl '{}' {}\n",
-                type_info_to_string(decl->constructor.type), decl->constructor.disabled ? "disabled" : "");
+                type_info_to_string(decl->constructor.type), constructor_kind_to_string(decl->constructor.kind));
 
                 for (Decl* param : decl->constructor.parameters) {
                     dump_decl(param, indentation + 4);

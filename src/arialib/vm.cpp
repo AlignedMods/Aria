@@ -328,6 +328,14 @@ namespace Aria::Internal {
                     break;
                 }
 
+                case OP_ALLOCAZ: {
+                    auto& type = GET_TYPE();
+                    alloc(type, m_stack);
+                    VMSlice slice = get_vm_slice(-1, m_stack);
+                    memset(slice.memory, 0, slice.size);
+                    break;
+                }
+
                 case OP_NEW: {
                    auto& type = GET_TYPE(); 
                    void* mem = malloc(align_to_eight(get_vm_type_size(type)));
@@ -3053,7 +3061,8 @@ namespace Aria::Internal {
         m_program_counter = &m_op_codes->program.front();
         while (m_program_counter < &m_op_codes->program.back() + 1) {
             switch (*m_program_counter) {
-                case OP_ALLOCA: {
+                case OP_ALLOCA:
+                case OP_ALLOCAZ: {
                     GET_U16();
                     break;
                 }

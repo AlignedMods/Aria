@@ -106,7 +106,6 @@ namespace Aria::Internal {
 
         void resolve_var_initializer(Decl* decl);
         void resolve_param_initializer(TypeInfo* param_type, Expr* arg);
-        void create_default_initializer(Expr** expr, TypeInfo* type, SourceLocation loc, SourceRange range);
 
         bool is_const_expr(Expr* expr);
         bool eval_expr_bool(Expr* expr);
