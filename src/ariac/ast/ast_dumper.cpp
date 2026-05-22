@@ -108,8 +108,8 @@ namespace Aria::Internal {
                 }
                 return;
 
-            case ExprKind::Construct: m_output += fmt::format("ConstructExpr '{}' '{}' {}\n",
-                type_info_to_string(expr->construct.ctor->type), type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+            case ExprKind::Construct: m_output += fmt::format("ConstructExpr '{}' {}\n",
+                type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
 
                 for (Expr* arg : expr->construct.arguments) {
                     dump_expr(arg, indentation + 4);
@@ -264,8 +264,8 @@ namespace Aria::Internal {
 
                 return;
 
-            case DeclKind::Field: m_output += fmt::format("FieldDecl '{}' '{}'\n",
-                decl->field.identifier, type_info_to_string(decl->field.type));
+            case DeclKind::Field: m_output += fmt::format("FieldDecl '{}' '{}' {}\n",
+                decl->field.identifier, type_info_to_string(decl->field.type), decl_visibility_to_string(decl->visibility));
                 return;
 
             case DeclKind::Constructor: m_output += fmt::format("ConstructorDecl '{}' {}\n",

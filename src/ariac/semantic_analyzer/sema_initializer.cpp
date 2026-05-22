@@ -8,7 +8,6 @@ namespace Aria::Internal {
 
         if (var.initializer) {
             resolve_expr(var.initializer);
-
             require_rvalue(var.initializer);
 
             // Handle type inferrence here

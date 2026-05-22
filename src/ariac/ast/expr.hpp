@@ -258,10 +258,9 @@ namespace Aria::Internal {
     };
 
     struct ConstructExpr {
-        ConstructExpr(ConstructorDecl* ctor, TinyVector<Expr*> args)
-            : ctor(ctor), arguments(args) {}
+        ConstructExpr(TinyVector<Expr*> args)
+            : arguments(args) {}
 
-        ConstructorDecl* ctor = nullptr;
         TinyVector<Expr*> arguments;
     };
 

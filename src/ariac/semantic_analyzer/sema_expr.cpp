@@ -275,6 +275,13 @@ namespace Aria::Internal {
             expr->kind = ExprKind::MethodCall;
             resolve_method_call_expr(expr);
             return;
+        } else if (call.callee->decl_ref.referenced_decl->kind == DeclKind::Struct) {
+            expr->kind = ExprKind::Construct;
+            expr->type = TypeInfo::Create(m_context, TypeKind::Structure);
+            expr->type->struct_ = StructDeclaration(call.callee->decl_ref.identifier, call.callee->decl_ref.referenced_decl);
+            expr->construct.arguments = call.arguments;
+            resolve_construct_expr(expr);
+            return;
         }
 
         TypeInfo* calleeType = call.callee->type;
@@ -377,19 +384,32 @@ namespace Aria::Internal {
         }
 
         resolve_type(expr->loc, expr->range, expr->type);
-        
-        if (!expr->type->is_structure()) {
-            if (construct.arguments.size == 0) {
-                Expr* def = nullptr;
-                replace_expr(expr, def);
-            } else if (construct.arguments.size == 1) {
-                replace_expr(expr, construct.arguments.items[0]);
-            } else {
-                m_context->report_compiler_diagnostic(expr->loc, expr->range, "Constructing a non-struct type must have 0 or 1 argument");
-                replace_expr(expr, &error_expr);
+        Decl* s = expr->type->struct_.source_decl;
+
+        if (construct.arguments.size > s->struct_.fields.size) {
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Too many initializers for '{}', expected {} but provided {}", type_info_to_string(expr->type), s->struct_.fields.size, construct.arguments.size));
+            expr->type = &error_type;
+            return;
+        }
+
+        size_t i = 0;
+        for (Expr* arg : construct.arguments) {
+            Decl* fd = s->struct_.fields.items[i++];
+            if (fd->kind == DeclKind::Error) { continue; }
+
+            ConversionCost cost = get_conversion_cost(fd->field.type, arg->type);
+            if (cost.cast_needed) {
+                if (cost.implicit_cast_possible) {
+                    insert_implicit_cast(fd->field.type, arg->type, arg, cost.kind);
+                } else {
+                    m_context->report_compiler_diagnostic(arg->loc, arg->range, fmt::format("Could not convert from '{}' to field type '{}'", type_info_to_string(arg->type), type_info_to_string(fd->field.type)));
+                }
             }
-        } else {
-            ARIA_TODO("Construct");
+
+            if (fd->visibility == DeclVisibility::Private) {
+                m_context->report_compiler_diagnostic(arg->loc, arg->range, fmt::format("Cannot initialize private field '{}'", fd->field.identifier));
+                m_context->report_compiler_diagnostic(fd->loc, fd->range, "Declared here", CompilerDiagKind::Note, fd->parent_unit);
+            }
         }
     }
 

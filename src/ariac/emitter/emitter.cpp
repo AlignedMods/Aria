@@ -514,12 +514,18 @@ namespace Aria::Internal {
     void Emitter::emit_construct_expr(Expr* expr, ExprValueKind value_kind) {
         ConstructExpr ct = expr->construct;
 
-        PUSH_PENDING_OP(OP_ALLOCA);
+        PUSH_PENDING_OP(OP_ALLOCAZ);
         PUSH_PENDING_U16(type_info_to_vm_type_idx(expr->type));
-        ADD_STR(mangle_ctor(ct.ctor));
-        PUSH_PENDING_OP(OP_LD_PTR);
-        PUSH_PENDING_OP(OP_CALL);
-        PUSH_PENDING_U16(STR_IDX(-1));
+        
+        size_t i = 0;
+        for (Expr* arg : ct.arguments) {
+            PUSH_PENDING_OP(OP_LD_PTR);
+            emit_expr(arg, arg->value_kind);
+            PUSH_PENDING_OP(OP_ST_FIELD);
+            PUSH_PENDING_U16(static_cast<u16>(i));
+            PUSH_PENDING_U16(type_info_to_vm_type_idx(expr->type));
+            i++;
+        }
     }
 
     void Emitter::emit_method_call_expr(Expr* expr, ExprValueKind value_kind) {
