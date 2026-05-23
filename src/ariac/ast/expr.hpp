@@ -262,6 +262,7 @@ namespace Aria::Internal {
             : arguments(args) {}
 
         TinyVector<Expr*> arguments;
+        ConstructorDecl* ctor = nullptr; // NOTE: if this is nullptr then we have an initializer list, otherwise a constructor call
     };
 
     struct MethodCallExpr {

@@ -159,6 +159,7 @@ namespace Aria::Internal {
     struct StructDecl {
         struct Definition {
             Decl* default_ctor = nullptr;
+            TinyVector<Decl*> ctors;
             Decl* dtor = nullptr;
         };
 

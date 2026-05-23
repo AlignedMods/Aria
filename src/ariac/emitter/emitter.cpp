@@ -514,17 +514,36 @@ namespace Aria::Internal {
     void Emitter::emit_construct_expr(Expr* expr, ExprValueKind value_kind) {
         ConstructExpr ct = expr->construct;
 
-        PUSH_PENDING_OP(OP_ALLOCAZ);
-        PUSH_PENDING_U16(type_info_to_vm_type_idx(expr->type));
-        
-        size_t i = 0;
-        for (Expr* arg : ct.arguments) {
-            PUSH_PENDING_OP(OP_LD_PTR);
-            emit_expr(arg, arg->value_kind);
-            PUSH_PENDING_OP(OP_ST_FIELD);
-            PUSH_PENDING_U16(static_cast<u16>(i));
+        if (ct.ctor) {
+            PUSH_OP(OP_ALLOCAZ);
+            PUSH_U16(type_info_to_vm_type_idx(expr->type));
+            PUSH_OP(OP_DECL_LOCAL);
+            PUSH_U16(static_cast<u16>(m_active_stack_frame.local_count));
+            u16 idx = m_active_stack_frame.local_count++;
+
+            for (auto it = ct.arguments.rbegin(); it != ct.arguments.rend(); it--) {
+                emit_expr(*it, (*it)->value_kind);
+            }
+            
+            PUSH_PENDING_OP(OP_LD_PTR_LOCAL);
+            PUSH_PENDING_U16(idx);
+
+            ADD_STR(mangle_ctor(ct.ctor));
+            PUSH_PENDING_OP(OP_CALL);
+            PUSH_PENDING_U16(STR_IDX(-1));
+        } else {
+            PUSH_PENDING_OP(OP_ALLOCAZ);
             PUSH_PENDING_U16(type_info_to_vm_type_idx(expr->type));
-            i++;
+
+            size_t i = 0;
+            for (Expr* arg : ct.arguments) {
+                PUSH_PENDING_OP(OP_LD_PTR);
+                emit_expr(arg, arg->value_kind);
+                PUSH_PENDING_OP(OP_ST_FIELD);
+                PUSH_PENDING_U16(static_cast<u16>(i));
+                PUSH_PENDING_U16(type_info_to_vm_type_idx(expr->type));
+                i++;
+            }
         }
     }
 

@@ -1280,8 +1280,8 @@ namespace Aria::Internal {
 
                 struc->struct_.fields.append(m_context, Decl::Create(m_context, fieldName->range.start, SourceRange(start, peek(-1)->range.end), DeclKind::Field, visibility, FieldDecl(fieldName->string, type)));
             } else if (match(TokenKind::AtPrivate)) {
+                m_context->report_compiler_diagnostic(start, SourceRange(start, peek()->range.end), "Structs do not support private fields");
                 consume();
-                visibility = DeclVisibility::Private;
             } else {
                 m_context->report_compiler_diagnostic(start, SourceRange(start, start), "Expected identifier");
                 sync_local();
@@ -1380,8 +1380,8 @@ namespace Aria::Internal {
                 impl->impl.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Method,
                     visibility, MethodDecl(impl, name->string, final_type, params, body)));
             } else if (match(TokenKind::AtPrivate)) {
+                m_context->report_compiler_diagnostic(start, SourceRange(start, peek()->range.end), "Impls do not support private fields");
                 consume();
-                visibility = DeclVisibility::Private;
             } else {
                 m_context->report_compiler_diagnostic(start, SourceRange(start, start), "Expected identifier, 'fn' or '~'");
                 sync_local();

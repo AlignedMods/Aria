@@ -168,12 +168,11 @@ namespace Aria::Internal {
                 }
 
                 case DeclKind::Constructor: 
-                    i.field_lookup.insert(m_context, "<ctor>", field);
-                    i.parent->struct_.field_lookup.insert(m_context, "<ctor>", field);
+                    i.parent->struct_.definition.ctors.append(m_context, field);
                     break;
-                case DeclKind::Destructor: 
-                    i.field_lookup.insert(m_context, "<dtor>", field);
-                    i.parent->struct_.field_lookup.insert(m_context, "<dtor>", field);
+
+                case DeclKind::Destructor:
+                    i.parent->struct_.definition.dtor = field;
                     break;
             }
         }
@@ -223,8 +222,6 @@ namespace Aria::Internal {
                 }
 
                 case DeclKind::Destructor: {
-                    i.parent->struct_.definition.dtor = field;
-
                     for (Decl* field : i.fields) {
                         if (field->kind == DeclKind::Field) {
                             if (!type_is_trivial(field->field.type)) {

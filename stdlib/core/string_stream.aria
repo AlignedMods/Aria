@@ -1,19 +1,12 @@
 module std::core;
 
 struct StringStream {
-@private
     data: char*;
     size: ulong;
     capacity: ulong;
 }
 
 impl StringStream {
-    StringStream() {
-        data = null;
-        size = 0;
-        capacity = 0;
-    }
-
     ~StringStream() {
         unsafe delete data;
         size = 0;
@@ -60,7 +53,6 @@ impl StringStream {
         return data[:size];
     }
 
-@private
     fn increase_capacity(cap: ulong) -> void {
         unsafe {
             let newData = new char[cap];

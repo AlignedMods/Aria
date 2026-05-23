@@ -1,17 +1,11 @@
 module std::core;
 
 struct String {
-@private
     size: ulong;
     data: char*;
 }
 
 impl String {
-    String() {
-        size = 0;
-        data = null;
-    }
-
     String(s: char[]) {
         size = s.len;
 
@@ -19,5 +13,11 @@ impl String {
             data = new char[s.len];
             memcpy(data, s.mem, s.len);
         }
+    }
+
+    ~String() {
+        size = 0;
+        unsafe delete data;
+        data = null;
     }
 }
