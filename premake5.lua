@@ -4,29 +4,6 @@ workspace "Aria"
     configurations { "Debug", "Release" }
     platforms { "x86", "x86_64" }
 
-    project "arialib"
-        language "C++"
-        cppdialect "C++20"
-        kind "StaticLib"
-
-        targetdir("build/bin/" .. OutputDir)
-        objdir("build/obj/" .. OutputDir)
-
-        files {"src/arialib/**.cpp", "src/arialib/**.hpp"}
-
-        includedirs { "src/", "include/", "src/vendor/fmt/include/" }
-
-        filter { "action:vs*" }
-            buildoptions { "/utf-8", "/Zc:preprocessor" }
-
-        filter {}
-
-        filter "configurations:Debug"
-            symbols "On"
-
-        filter "configurations:Release"
-            optimize "On"
-
     project "aria_test"
         language "C++"
         cppdialect "C++20"
@@ -56,56 +33,173 @@ workspace "Aria"
         language "C++"
         cppdialect "C++20"
         kind "ConsoleApp"
+        staticruntime "on"
 
         targetdir("build/bin/" .. OutputDir)
         objdir("build/obj/" .. OutputDir)
 
         files { "src/ariac/**.cpp", "src/ariac/**.hpp" }
 
-        includedirs { "src/", "src/vendor/fmt/include/" }
+        includedirs { "src/", "src/vendor/fmt/include/", "src/vendor/LLVM/include/" }
 
         links { "fmt" }
 
-        filter { "action:vs*" }
-            buildoptions { "/utf-8", "/Zc:preprocessor" }
-
-        filter {}
-
-        filter "configurations:Debug"
-            symbols "On"
+        filter { "configurations:Debug", "action:vs*" }
+            buildoptions { "/Zi" } -- We don't want to use 'symbols "On"' because it also changes the RuntimeLibrary
 
         filter "configurations:Release"
             optimize "On"
 
-    project "aria"
-        language "C++"
-        cppdialect "C++20"
-        kind "ConsoleApp"
-
-        targetdir("build/bin/" .. OutputDir)
-        objdir("build/obj/" .. OutputDir)
-
-        files { "src/aria/**.cpp", "src/aria/**.hpp" }
-
-        includedirs { "src/", "include/", "src/vendor/fmt/include/" }
-
-        links { "fmt", "arialib" }
-
         filter { "action:vs*" }
-            buildoptions { "/utf-8", "/Zc:preprocessor" }
-
-        filter {}
-
-        filter "configurations:Debug"
-            symbols "On"
-
-        filter "configurations:Release"
-            optimize "On"
+            buildoptions { "/utf-8", "/Zc:preprocessor", "/MT" }
+            libdirs { "src/vendor/LLVM/lib/windows/release/" }
+            defines { "_ITERATOR_DEBUG_LEVEL=0" } -- Fix issue when building in debug
+            links { 
+                "LLVMABI.lib",
+                "LLVMARMAsmParser.lib",
+                "LLVMARMCodeGen.lib",
+                "LLVMARMDesc.lib",
+                "LLVMARMDisassembler.lib",
+                "LLVMARMInfo.lib",
+                "LLVMARMUtils.lib",
+                "LLVMAggressiveInstCombine.lib",
+                "LLVMAnalysis.lib",
+                "LLVMAsmParser.lib",
+                "LLVMAsmPrinter.lib",
+                "LLVMBinaryFormat.lib",
+                "LLVMBitReader.lib",
+                "LLVMBitWriter.lib",
+                "LLVMBitstreamReader.lib",
+                "LLVMCAS.lib",
+                "LLVMCFGuard.lib",
+                "LLVMCFIVerify.lib",
+                "LLVMCGData.lib",
+                "LLVMCodeGen.lib",
+                "LLVMCodeGenTypes.lib",
+                "LLVMCore.lib",
+                "LLVMCoroutines.lib",
+                "LLVMCoverage.lib",
+                "LLVMDTLTO.lib",
+                "LLVMDWARFCFIChecker.lib",
+                "LLVMDWARFLinker.lib",
+                "LLVMDWARFLinkerClassic.lib",
+                "LLVMDWARFLinkerParallel.lib",
+                "LLVMDWP.lib",
+                "LLVMDebugInfoBTF.lib",
+                "LLVMDebugInfoCodeView.lib",
+                "LLVMDebugInfoDWARF.lib",
+                "LLVMDebugInfoDWARFLowLevel.lib",
+                "LLVMDebugInfoGSYM.lib",
+                "LLVMDebugInfoLogicalView.lib",
+                "LLVMDebugInfoMSF.lib",
+                "LLVMDebugInfoPDB.lib",
+                "LLVMDebuginfod.lib",
+                "LLVMDemangle.lib",
+                "LLVMDiff.lib",
+                "LLVMDlltoolDriver.lib",
+                "LLVMExecutionEngine.lib",
+                "LLVMExegesis.lib",
+                "LLVMExegesisAArch64.lib",
+                "LLVMExegesisRISCV.lib",
+                "LLVMExegesisX86.lib",
+                "LLVMExtensions.lib",
+                "LLVMFileCheck.lib",
+                "LLVMFrontendAtomic.lib",
+                "LLVMFrontendDirective.lib",
+                "LLVMFrontendDriver.lib",
+                "LLVMFrontendHLSL.lib",
+                "LLVMFrontendOffloading.lib",
+                "LLVMFrontendOpenACC.lib",
+                "LLVMFrontendOpenMP.lib",
+                "LLVMFuzzMutate.lib",
+                "LLVMFuzzerCLI.lib",
+                "LLVMGlobalISel.lib",
+                "LLVMHipStdPar.lib",
+                "LLVMIRPrinter.lib",
+                "LLVMIRReader.lib",
+                "LLVMInstCombine.lib",
+                "LLVMInstrumentation.lib",
+                "LLVMInterfaceStub.lib",
+                "LLVMInterpreter.lib",
+                "LLVMJITLink.lib",
+                "LLVMLTO.lib",
+                "LLVMLibDriver.lib",
+                "LLVMLineEditor.lib",
+                "LLVMLinker.lib",
+                "LLVMMC.lib",
+                "LLVMMCA.lib",
+                "LLVMMCDisassembler.lib",
+                "LLVMMCJIT.lib",
+                "LLVMMCParser.lib",
+                "LLVMMIRParser.lib",
+                "LLVMObjCARCOpts.lib",
+                "LLVMObjCopy.lib",
+                "LLVMObject.lib",
+                "LLVMObjectYAML.lib",
+                "LLVMOptDriver.lib",
+                "LLVMOption.lib",
+                "LLVMOrcDebugging.lib",
+                "LLVMOrcJIT.lib",
+                "LLVMOrcShared.lib",
+                "LLVMOrcTargetProcess.lib",
+                "LLVMPasses.lib",
+                "LLVMPlugins.lib",
+                "LLVMProfileData.lib",
+                "LLVMRISCVAsmParser.lib",
+                "LLVMRISCVCodeGen.lib",
+                "LLVMRISCVDesc.lib",
+                "LLVMRISCVDisassembler.lib",
+                "LLVMRISCVInfo.lib",
+                "LLVMRISCVTargetMCA.lib",
+                "LLVMRemarks.lib",
+                "LLVMRuntimeDyld.lib",
+                "LLVMSandboxIR.lib",
+                "LLVMScalarOpts.lib",
+                "LLVMSelectionDAG.lib",
+                "LLVMSupport.lib",
+                "LLVMSupportLSP.lib",
+                "LLVMSymbolize.lib",
+                "LLVMTableGen.lib",
+                "LLVMTableGenBasic.lib",
+                "LLVMTableGenCommon.lib",
+                "LLVMTarget.lib",
+                "LLVMTargetParser.lib",
+                "LLVMTelemetry.lib",
+                "LLVMTextAPI.lib",
+                "LLVMTextAPIBinaryReader.lib",
+                "LLVMTransformUtils.lib",
+                "LLVMVectorize.lib",
+                "LLVMWebAssemblyAsmParser.lib",
+                "LLVMWebAssemblyCodeGen.lib",
+                "LLVMWebAssemblyDesc.lib",
+                "LLVMWebAssemblyDisassembler.lib",
+                "LLVMWebAssemblyInfo.lib",
+                "LLVMWebAssemblyUtils.lib",
+                "LLVMWindowsDriver.lib",
+                "LLVMWindowsManifest.lib",
+                "LLVMX86AsmParser.lib",
+                "LLVMX86CodeGen.lib",
+                "LLVMX86Desc.lib",
+                "LLVMX86Disassembler.lib",
+                "LLVMX86Info.lib",
+                "LLVMX86TargetMCA.lib",
+                "LLVMXRay.lib",
+                "LLVMipo.lib",
+                "LTO.lib",
+                "Remarks.lib",
+                "lldCOFF.lib",
+                "lldCommon.lib",
+                "lldELF.lib",
+                "lldMachO.lib",
+                "lldMinGW.lib",
+                "lldWasm.lib",
+                "ntdll" }
 
     project "fmt"
         language "C++"
         cppdialect "C++20"
         kind "StaticLib"
+        staticruntime "on"
 
         targetdir("build/bin/" .. OutputDir)
         objdir("build/obj/" .. OutputDir)
@@ -119,8 +213,9 @@ workspace "Aria"
 
         filter {}
 
-        filter "configurations:Debug"
-            symbols "On"
+        filter { "configurations:Debug", "action:vs*" }
+            buildoptions { "/Zi" } -- We don't want to use 'symbols "On"' because it also changes the RuntimeLibrary
 
         filter "configurations:Release"
             optimize "On"
+            symbols "On"

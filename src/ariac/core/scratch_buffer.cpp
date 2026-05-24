@@ -1,6 +1,6 @@
 #include "ariac/core/scratch_buffer.hpp"
 #include "ariac/compilation_context.hpp"
-#include "common/core.hpp"
+#include "ariac/core.hpp"
 
 #include <cassert>
 

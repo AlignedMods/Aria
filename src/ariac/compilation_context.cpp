@@ -4,8 +4,6 @@
 #include "ariac/semantic_analyzer/semantic_analyzer.hpp"
 #include "ariac/emitter/emitter.hpp"
 #include "ariac/ast/ast_dumper.hpp"
-#include "ariac/byte_code/disassembler.hpp"
-#include "ariac/byte_code/serializer.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -32,6 +30,8 @@ namespace Aria::Internal {
     }
 
     void CompilationContext::compile_files(const std::vector<std::string>& files, const CompilerFlags& flags) {
+        this->flags = flags;
+
         if (!flags.no_stdlib) { compile_stdlib(flags); }
 
         for (auto& file : files) { compile_file(file, flags, false); }
@@ -60,11 +60,6 @@ namespace Aria::Internal {
                     }
                 }
             }
-        }
-
-        if (flags.dump_bytecode) {
-            Disassembler d(ops);
-            fmt::println("{}", d.get_dissasembly());
         }
     }
 
@@ -145,7 +140,7 @@ namespace Aria::Internal {
     void CompilationContext::lex() { Lexer l(this); }
     void CompilationContext::parse() { Parser p(this); }
     void CompilationContext::analyze() { SemanticAnalyzer s(this); }
-    void CompilationContext::emit() { Emitter e(this); Serialzier s(this); }
+    void CompilationContext::emit() { Emitter e(this); }
 
     Module* CompilationContext::find_or_create_module(std::string_view name) {
         for (Module* mod : modules) {

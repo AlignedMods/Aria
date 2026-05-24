@@ -4,39 +4,31 @@
 #include "ariac/ast/stmt.hpp"
 #include "ariac/ast/decl.hpp"
 #include "ariac/ast/specifier.hpp"
-#include "common/op_codes.hpp"
+
+#pragma warning(push, 0) // Disable warnings from LLVM headers
+#include "llvm/ADT/APFloat.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
+#include "llvm/IR/Verifier.h"
+#pragma warning(pop)
+
+#include <memory>
 
 namespace Aria::Internal {
 
     class Emitter {
     private:
-        struct Declaration {
-            std::variant<size_t, std::string> data;
-            TypeInfo* type = nullptr;
-            Decl* destructor = nullptr;
-        };
-
-        struct Scope {
-            std::unordered_map<std::string, size_t> declared_symbol_map;
-            std::vector<Declaration> declared_symbols;
-        };
-
-        struct RuntimeStructDeclaration {
-            std::unordered_map<std::string_view, size_t> field_indices;
-            u16 index = 0;
-        };
-
-        struct StackFrame {
-            size_t local_count = 0;
-            std::vector<Scope> scopes;
-            std::string name;
-
-            std::unordered_map<std::string, size_t> parameters;
-        };
-
-        struct FutureDeclaration {
-            std::string name;
-            Decl* declaration = nullptr;
+        struct ModuleContext {
+            llvm::LLVMContext* context = nullptr;
+            llvm::Module* module = nullptr;
+            llvm::IRBuilder<>* builder = nullptr;
         };
 
     public:
@@ -45,44 +37,39 @@ namespace Aria::Internal {
     private:
         void emit_impl();
 
-        void add_basic_types();
-        void add_user_defined_types();
-        void emit_declarations();
-        void emit_start_end();
-
-        void emit_boolean_literal_expr(Expr* expr,   ExprValueKind value_kind);
-        void emit_character_literal_expr(Expr* expr, ExprValueKind value_kind);
-        void emit_integer_literal_expr(Expr* expr,   ExprValueKind value_kind);
-        void emit_floating_literal_expr(Expr* expr,  ExprValueKind value_kind);
-        void emit_string_literal_expr(Expr* expr,    ExprValueKind value_kind);
-        void emit_array_filler_expr(Expr* expr,      ExprValueKind value_kind);
-        void emit_null_expr(Expr* expr,              ExprValueKind value_kind);
-        void emit_decl_ref_expr(Expr* expr,          ExprValueKind value_kind);
-        void emit_member_expr(Expr* expr,            ExprValueKind value_kind);
-        void emit_builtin_member_expr(Expr* expr,    ExprValueKind value_kind);
-        void emit_self_expr(Expr* expr,              ExprValueKind value_kind);
-        void emit_temporary_expr(Expr* expr,         ExprValueKind value_kind);
-        void emit_call_expr(Expr* expr,              ExprValueKind value_kind);
-        void emit_construct_expr(Expr* expr,         ExprValueKind value_kind);
-        void emit_method_call_expr(Expr* expr,       ExprValueKind value_kind);
-        void emit_array_subscript_expr(Expr* expr,   ExprValueKind value_kind);
-        void emit_to_slice_expr(Expr* expr,          ExprValueKind value_kind);
-        void emit_new_expr(Expr* expr,               ExprValueKind value_kind);
-        void emit_delete_expr(Expr* expr,            ExprValueKind value_kind);
-        void emit_format_expr(Expr* expr,            ExprValueKind value_kind);
-        void emit_paren_expr(Expr* expr,             ExprValueKind value_kind);
-        void emit_implicit_cast_expr(Expr* expr,     ExprValueKind value_kind);
-        void emit_cast_expr(Expr* expr,              ExprValueKind value_kind);
-        void emit_unary_operator_expr(Expr* expr,    ExprValueKind value_kind);
-        void emit_binary_operator_expr(Expr* expr,   ExprValueKind value_kind);
-        void emit_compound_assign_expr(Expr* expr,   ExprValueKind value_kind);
+        llvm::Value* emit_boolean_literal_expr(Expr* expr,   ExprValueKind value_kind);
+        llvm::Value* emit_character_literal_expr(Expr* expr, ExprValueKind value_kind);
+        llvm::Value* emit_integer_literal_expr(Expr* expr,   ExprValueKind value_kind);
+        llvm::Value* emit_floating_literal_expr(Expr* expr,  ExprValueKind value_kind);
+        llvm::Value* emit_string_literal_expr(Expr* expr,    ExprValueKind value_kind);
+        llvm::Value* emit_array_filler_expr(Expr* expr,      ExprValueKind value_kind);
+        llvm::Value* emit_null_expr(Expr* expr,              ExprValueKind value_kind);
+        llvm::Value* emit_decl_ref_expr(Expr* expr,          ExprValueKind value_kind);
+        llvm::Value* emit_member_expr(Expr* expr,            ExprValueKind value_kind);
+        llvm::Value* emit_builtin_member_expr(Expr* expr,    ExprValueKind value_kind);
+        llvm::Value* emit_self_expr(Expr* expr,              ExprValueKind value_kind);
+        llvm::Value* emit_temporary_expr(Expr* expr,         ExprValueKind value_kind);
+        llvm::Value* emit_call_expr(Expr* expr,              ExprValueKind value_kind);
+        llvm::Value* emit_construct_expr(Expr* expr,         ExprValueKind value_kind);
+        llvm::Value* emit_method_call_expr(Expr* expr,       ExprValueKind value_kind);
+        llvm::Value* emit_array_subscript_expr(Expr* expr,   ExprValueKind value_kind);
+        llvm::Value* emit_to_slice_expr(Expr* expr,          ExprValueKind value_kind);
+        llvm::Value* emit_new_expr(Expr* expr,               ExprValueKind value_kind);
+        llvm::Value* emit_delete_expr(Expr* expr,            ExprValueKind value_kind);
+        llvm::Value* emit_format_expr(Expr* expr,            ExprValueKind value_kind);
+        llvm::Value* emit_paren_expr(Expr* expr,             ExprValueKind value_kind);
+        llvm::Value* emit_implicit_cast_expr(Expr* expr,     ExprValueKind value_kind);
+        llvm::Value* emit_cast_expr(Expr* expr,              ExprValueKind value_kind);
+        llvm::Value* emit_unary_operator_expr(Expr* expr,    ExprValueKind value_kind);
+        llvm::Value* emit_binary_operator_expr(Expr* expr,   ExprValueKind value_kind);
+        llvm::Value* emit_compound_assign_expr(Expr* expr,   ExprValueKind value_kind);
 
         void emit_expr(Expr* expr, ExprValueKind value_kind);
 
         void emit_translation_unit_decl(Decl* decl);
         void emit_var_decl(Decl* decl);
         void emit_param_decl(Decl* decl);
-        void emit_function_decl(Decl* decl);
+        llvm::Function* emit_function_decl(Decl* decl);
         void emit_struct_decl(Decl* decl);
         void emit_impl_decl(Decl* decl);
 
@@ -101,8 +88,6 @@ namespace Aria::Internal {
 
         void emit_stmt(Stmt* stmt);
 
-        void emit_destructors(const std::vector<Declaration>& declarations);
-
         void push_stack_frame(const std::string& name);
         void pop_stack_frame();
 
@@ -111,30 +96,28 @@ namespace Aria::Internal {
 
         void merge_pending_op_codes();
 
-        u16 type_info_to_vm_type_idx(TypeInfo* t);
+        llvm::Type* type_info_to_llvm_type(TypeInfo* t);
 
         std::string mangle_function(Decl* fn);
         std::string mangle_ctor(ConstructorDecl* ctor);
         std::string mangle_dtor(DestructorDecl* dtor);
         std::string mangle_method(MethodDecl* md);
 
+        std::string valid_module_name(std::string_view name);
+
     private:
-        OpCodes m_op_codes;
-        std::vector<OpCode> m_pending_op_codes;
         CompilerReflectionData m_reflection_data;
+        ModuleContext m_active_module_context;
 
         std::string m_namespace;
         std::string m_active_namespace;
 
         Stmt* m_root_ast_node = nullptr;
 
-        Scope m_global_scope;
-
-        StackFrame m_active_stack_frame;
-
-        std::unordered_map<Decl*, RuntimeStructDeclaration> m_structs;
         std::unordered_map<TypeKind, u16> m_basic_types;
         u16 m_struct_index = 0;
+
+        std::unordered_map<Decl*, llvm::Value*> m_named_values;
 
         // Counters
         size_t m_arr_init_counter = 0;
@@ -143,8 +126,6 @@ namespace Aria::Internal {
         size_t m_or_counter = 0;
         size_t m_loop_counter = 0;
         size_t m_if_counter = 0;
-
-        std::vector<Declaration> m_temporaries;
     
         CompilationContext* m_context = nullptr;
     };

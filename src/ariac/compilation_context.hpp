@@ -4,7 +4,6 @@
 #include "ariac/compiler_flags.hpp"
 #include "ariac/core/source_location.hpp"
 #include "ariac/lexer/tokens.hpp"
-#include "common/op_codes.hpp"
 #include "ariac/reflection/compiler_reflection.hpp"
 
 namespace Aria::Internal {
@@ -37,7 +36,6 @@ namespace Aria::Internal {
         std::unordered_map<std::string_view, Decl*> private_symbols;
         std::vector<CompilationUnit*> units;
         std::string_view name;
-        OpCodes ops;
         CompilerReflectionData reflection_data;
     };
 
@@ -152,11 +150,11 @@ namespace Aria::Internal {
         std::vector<CompilationUnit*> compilation_units;
         CompilationUnit* active_comp_unit = nullptr;
         Module* active_module = nullptr;
+        CompilerFlags flags;
 
         std::vector<Module*> modules;
         Decl* main_func = nullptr;
 
-        OpCodes ops;
         CompilerReflectionData reflection_data;
         bool has_errors = false;
 

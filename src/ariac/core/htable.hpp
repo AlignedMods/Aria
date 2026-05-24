@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common/core.hpp"
+#include "ariac/core.hpp"
 
 #include <string_view>
 

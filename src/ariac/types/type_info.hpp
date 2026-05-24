@@ -1,6 +1,6 @@
 #pragma once
 
-#include "common/core.hpp"
+#include "ariac/core.hpp"
 #include "ariac/compilation_context.hpp"
 #include "ariac/core/vector.hpp"
 
@@ -134,6 +134,26 @@ namespace Aria::Internal {
         bool is_unsigned() const {
             ARIA_ASSERT(is_integral(), "is_unsigned() cannot operate on a non-integral type");
             return kind == TypeKind::UChar || kind == TypeKind::UShort || kind == TypeKind::UInt || kind == TypeKind::ULong;
+        }
+
+        size_t get_bit_size() const {
+            switch (kind) {
+                case TypeKind::Bool: return 1;
+
+                case TypeKind::Char:
+                case TypeKind::UChar: return 8;
+
+                case TypeKind::Short:
+                case TypeKind::UShort: return 16;
+
+                case TypeKind::Int:
+                case TypeKind::UInt: return 32;
+
+                case TypeKind::Long:
+                case TypeKind::ULong: return 64;
+
+                default: ARIA_UNREACHABLE();
+            }
         }
 
         bool is_reference() const {

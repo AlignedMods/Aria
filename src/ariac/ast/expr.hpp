@@ -4,7 +4,7 @@
 #include "ariac/types/type_info.hpp"
 #include "ariac/core/source_location.hpp"
 #include "ariac/ast/stmt.hpp"
-#include "common/types.hpp"
+#include "ariac/types.hpp"
 
 #include <variant>
 

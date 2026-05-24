@@ -1,8 +1,8 @@
 #pragma once
 
 #include "ariac/core/source_location.hpp"
-#include "common/types.hpp"
-#include "common/core.hpp"
+#include "ariac/types.hpp"
+#include "ariac/core.hpp"
 
 #include <vector>
 #include <string_view>
