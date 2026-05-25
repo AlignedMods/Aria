@@ -32,6 +32,12 @@ namespace Aria::Internal {
     void CompilationContext::compile_files(const std::vector<std::string>& files, const CompilerFlags& flags) {
         this->flags = flags;
 
+        if (!std::filesystem::exists(".build")) {
+            std::filesystem::create_directory(".build");
+            std::ofstream gitignore(".build/.gitignore");
+            gitignore << ".";
+        }
+
         if (!flags.no_stdlib) { compile_stdlib(flags); }
 
         for (auto& file : files) { compile_file(file, flags, false); }

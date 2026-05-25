@@ -64,8 +64,12 @@ namespace Aria::Internal {
                 resolve_block_stmt(fnDecl.body);
             }
 
-            if (m_scopes.back().reaches_end && !fnDecl.type->function.return_type->is_void()) {
-                m_context->report_compiler_diagnostic(decl->loc, decl->range, "Control flow reaches end of function with a non void return type");
+            if (m_scopes.back().reaches_end) {
+                if (!fnDecl.type->function.return_type->is_void()) {
+                    m_context->report_compiler_diagnostic(decl->loc, decl->range, "Control flow reaches end of function with a non void return type");
+                } else {
+                    fnDecl.body->block.stmts.append(m_context, Stmt::Create(m_context, decl->loc, decl->range, StmtKind::Return, ReturnStmt(nullptr)));
+                }
             }
 
             pop_scope();

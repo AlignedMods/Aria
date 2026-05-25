@@ -52,9 +52,25 @@ workspace "Aria"
 
         filter { "action:vs*" }
             buildoptions { "/utf-8", "/Zc:preprocessor", "/MT" }
-            libdirs { "src/vendor/LLVM/lib/windows/release/" }
+            libdirs { "src/vendor/LLVM/lib/windows/" }
             defines { "_ITERATOR_DEBUG_LEVEL=0" } -- Fix issue when building in debug
             links { 
+                "LLVMAArch64AsmParser.lib",
+                "LLVMAArch64CodeGen.lib",
+                "LLVMAArch64Desc.lib",
+                "LLVMAArch64Disassembler.lib",
+                "LLVMAArch64Info.lib",
+                "LLVMAArch64Utils.lib",
+                "LLVMLoongArchAsmParser.lib",
+                "LLVMLoongArchCodeGen.lib",
+                "LLVMLoongArchDesc.lib",
+                "LLVMLoongArchDisassembler.lib",
+                "LLVMLoongArchInfo.lib",
+                "LLVMAVRAsmParser.lib",
+                "LLVMAVRCodeGen.lib",
+                "LLVMAVRDesc.lib",
+                "LLVMAVRDisassembler.lib",
+                "LLVMAVRInfo.lib",
                 "LLVMABI.lib",
                 "LLVMARMAsmParser.lib",
                 "LLVMARMCodeGen.lib",
@@ -194,7 +210,7 @@ workspace "Aria"
                 "lldMinGW.lib",
                 "lldWasm.lib",
                 "ntdll" }
-
+                
     project "fmt"
         language "C++"
         cppdialect "C++20"
