@@ -127,6 +127,7 @@ namespace Aria::Internal {
         u16 m_struct_index = 0;
 
         std::unordered_map<Decl*, llvm::AllocaInst*> m_named_values;
+        std::unordered_map<Decl*, llvm::Function*> m_functions;
 
         // Counters
         size_t m_arr_init_counter = 0;

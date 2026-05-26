@@ -14,6 +14,8 @@ namespace Aria::Internal {
         llvm::InitializeAllAsmParsers();
         llvm::InitializeAllAsmPrinters();
 
+        std::vector<std::string> object_files;
+
         for (Module* mod : m_context->modules) {
             delete m_active_module_context.context;
             m_active_module_context.context = new llvm::LLVMContext();
@@ -23,6 +25,12 @@ namespace Aria::Internal {
 
             delete m_active_module_context.builder;
             m_active_module_context.builder = new llvm::IRBuilder<>(*m_active_module_context.context);
+
+            for (CompilationUnit* unit : mod->units) {
+                for (Decl* struct_ : unit->structs) {
+                    emit_struct_decl(struct_);
+                }
+            }
 
             for (CompilationUnit* unit : mod->units) {
                 for (Decl* global : unit->globals) {
@@ -78,11 +86,20 @@ namespace Aria::Internal {
             stream.flush();
 
             fmt::println("Generated output file '{}'", output);
+            object_files.push_back(output);
 
             if (m_context->flags.dump_ir) {
                 m_active_module_context.module->print(llvm::outs(), nullptr);
             }
         }
+
+        std::string files;
+        for (auto& o : object_files) {
+            files += fmt::format(" {}", o);
+        }
+
+        std::string cmd = fmt::format("clang {} -o .build/main.exe", files);
+        system(cmd.c_str()); // // TODO: We should probably run the process in a nicer fashion
     }
 
     llvm::Value* Emitter::emit_boolean_literal_expr(Expr* expr) {
@@ -113,7 +130,8 @@ namespace Aria::Internal {
     }
 
     llvm::Value* Emitter::emit_string_literal_expr(Expr* expr) {
-        ARIA_TODO("string literals");
+        StringLiteralExpr& sl = expr->string_literal;
+        return m_active_module_context.builder->CreateGlobalString(sl.value, "str");
     }
 
     llvm::Value* Emitter::emit_array_filler_expr(Expr* expr) {
@@ -126,6 +144,8 @@ namespace Aria::Internal {
 
     llvm::Value* Emitter::emit_decl_ref_expr(Expr* expr) {
         DeclRefExpr& dr = expr->decl_ref;
+
+        if (m_functions.contains(dr.referenced_decl)) { return m_functions.at(dr.referenced_decl); }
 
         ARIA_ASSERT(m_named_values.contains(dr.referenced_decl), "Invalid DeclRef expression");
         return m_named_values.at(dr.referenced_decl);
@@ -150,6 +170,20 @@ namespace Aria::Internal {
 
             default: ARIA_UNREACHABLE();
         }
+    }
+
+    llvm::Value* Emitter::emit_call_expr(Expr* expr) {
+        CallExpr& call = expr->call;
+        
+        std::vector<llvm::Value*> args;
+        args.reserve(call.arguments.size);
+
+        for (Expr* arg : call.arguments) {
+            args.push_back(emit_expr(arg));
+        }
+
+        llvm::Value* val = emit_expr(call.callee);
+        return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(llvm::dyn_cast<llvm::FunctionType>(type_info_to_llvm_type(call.callee->type)), val), args, expr->type->is_void() ? "" : "call");
     }
 
     llvm::Value* Emitter::emit_implicit_cast_expr(Expr* expr) {
@@ -240,6 +274,7 @@ namespace Aria::Internal {
             case ExprKind::Null: return emit_null_expr(expr);
             case ExprKind::DeclRef: return emit_decl_ref_expr(expr);
             case ExprKind::BuiltinMember: return emit_builtin_member_expr(expr);
+            case ExprKind::Call: return emit_call_expr(expr);
             case ExprKind::ImplicitCast: return emit_implicit_cast_expr(expr);
             case ExprKind::BinaryOperator: return emit_binary_operator_expr(expr);
 
@@ -282,21 +317,38 @@ namespace Aria::Internal {
         llvm::FunctionType* fn_ty = llvm::FunctionType::get(type_info_to_llvm_type(fn.type->function.return_type), params, false);
         llvm::Function* function = llvm::Function::Create(fn_ty, llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
         m_active_module_context.function = function;
+        m_functions[decl] = function;
 
-        llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", function);
-        m_active_module_context.builder->SetInsertPoint(bb);
+        if (fn.body) {
+            llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", function);
+            m_active_module_context.builder->SetInsertPoint(bb);
 
-        size_t idx = 0;
-        for (auto& arg : function->args()) {
-            arg.setName(fn.parameters.items[idx]->param.identifier);
-            llvm::AllocaInst* a = alloca_at_entry(function, fmt::format("{}.addr", fn.parameters.items[idx]->param.identifier), fn.parameters.items[idx]->param.type);
-            m_named_values[fn.parameters.items[idx++]] = a;
+            size_t idx = 0;
+            for (auto& arg : function->args()) {
+                arg.setName(fn.parameters.items[idx]->param.identifier);
+                llvm::AllocaInst* a = alloca_at_entry(function, fmt::format("{}.addr", fn.parameters.items[idx]->param.identifier), fn.parameters.items[idx]->param.type);
+                m_named_values[fn.parameters.items[idx++]] = a;
 
-            m_active_module_context.builder->CreateStore(&arg, a);
+                m_active_module_context.builder->CreateStore(&arg, a);
+            }
+
+            emit_stmt(fn.body);
+            llvm::verifyFunction(*function, &llvm::errs());
+        }
+    }
+        
+    void Emitter::emit_struct_decl(Decl* decl) {
+        StructDecl& struc = decl->struct_;
+
+        std::vector<llvm::Type*> fields;
+        fields.reserve(struc.fields.size);
+        std::string name = fmt::format("{}.{}", valid_module_name(decl->parent_module->name), struc.identifier);
+
+        for (Decl* field : struc.fields) {
+            fields.push_back(type_info_to_llvm_type(field->field.type));
         }
 
-        emit_stmt(fn.body);
-        llvm::verifyFunction(*function, &llvm::errs());
+        llvm::StructType* type = llvm::StructType::create(*m_active_module_context.context, fields, name);
     }
 
     void Emitter::emit_decl(Decl* decl) {
@@ -363,12 +415,34 @@ namespace Aria::Internal {
             return llvm::StructType::get(*m_active_module_context.context, llvm::ArrayRef(types));
         } else if (t->kind == TypeKind::Ptr) {
             return llvm::PointerType::get(*m_active_module_context.context, 0);
+        } else if (t->kind == TypeKind::Function) {
+            std::vector<llvm::Type*> args;
+            args.reserve(t->function.param_types.size);
+
+            for (TypeInfo* type : t->function.param_types) {
+                args.push_back(type_info_to_llvm_type(type));
+            }
+
+            return llvm::FunctionType::get(type_info_to_llvm_type(t->function.return_type), args, false);
+        } else if (t->kind == TypeKind::Structure) {
+            std::vector<llvm::Type*> types;
+            types.reserve(t->struct_.source_decl->struct_.fields.size);
+            for (Decl* field : t->struct_.source_decl->struct_.fields) { types.push_back(type_info_to_llvm_type(field->field.type)); }
+            return llvm::StructType::get(*m_active_module_context.context, types);
         } else {
             ARIA_UNREACHABLE();
         }
     }
 
     std::string Emitter::mangle_function(Decl* fn) {
+        if (fn->function.identifier == "main") { return "main"; }
+
+        for (auto& attr : fn->function.attributes) {
+            if (attr.kind == FunctionDecl::AttributeKind::Extern) {
+                return fmt::format("{}", attr.arg);
+            }
+        }
+
         std::string sig = fmt::format("{}.{}_", valid_module_name(fn->parent_module->name), fn->function.identifier);
 
         for (size_t i = 0; i < fn->function.parameters.size; i++) {
