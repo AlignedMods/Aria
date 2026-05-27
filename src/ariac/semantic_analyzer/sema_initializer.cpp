@@ -37,10 +37,6 @@ namespace Aria::Internal {
                 var.type = var.initializer->type;
             }
 
-            if (!var.type->is_reference()) {
-                require_rvalue(var.initializer);
-            }
-
             if (var.initializer->type->is_error() || var.type->is_error()) { return; }
 
             ConversionCost cost = get_conversion_cost(var.type, var.initializer->type);
@@ -51,6 +47,10 @@ namespace Aria::Internal {
                     m_context->report_compiler_diagnostic(var.initializer->loc, var.initializer->range, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(var.initializer->type), type_info_to_string(var.type)));
                 }
             }
+
+            if (!var.type->is_reference()) {
+                require_rvalue(var.initializer);
+            }
         }
     }
 
@@ -59,8 +59,6 @@ namespace Aria::Internal {
         resolve_expr(arg);
 
         TypeInfo* argType = arg->type;
-        if (!param_type->is_reference()) { require_rvalue(arg); }
-        m_temporary_context = false;
 
         ConversionCost cost = get_conversion_cost(param_type, argType);
         if (cost.cast_needed) {
@@ -70,6 +68,9 @@ namespace Aria::Internal {
                 m_context->report_compiler_diagnostic(arg->loc, arg->range, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(argType), type_info_to_string(param_type)));
             }
         }
+
+        if (!param_type->is_reference()) { require_rvalue(arg); }
+        m_temporary_context = false;
     }
 
 } // namespace Aria::Internal

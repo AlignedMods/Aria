@@ -146,7 +146,9 @@ namespace Aria::Internal {
     void CompilationContext::lex() { Lexer l(this); }
     void CompilationContext::parse() { Parser p(this); }
     void CompilationContext::analyze() { SemanticAnalyzer s(this); }
-    void CompilationContext::emit() { Emitter e(this); }
+    void CompilationContext::emit() { 
+        Emitter e(this); 
+    }
 
     Module* CompilationContext::find_or_create_module(std::string_view name) {
         for (Module* mod : modules) {

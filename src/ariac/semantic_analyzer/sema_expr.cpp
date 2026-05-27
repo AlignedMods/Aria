@@ -300,7 +300,7 @@ namespace Aria::Internal {
                     resolve_expr(arg);
                 }
                 m_temporary_context = false;
-
+                
                 Decl* resolved = nullptr;
 
                 for (Decl* func : call.callee->decl_ref.referenced_decl->overloaded_function.funcs) {
@@ -1230,6 +1230,10 @@ namespace Aria::Internal {
     }
 
     void SemanticAnalyzer::insert_implicit_cast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastKind castKind) {
+        if (cast_needs_rvalue(castKind)) {
+            require_rvalue(srcExpr);
+        }
+
         Expr* src = Expr::Dup(m_context, srcExpr); // We must copy the original expression to avoid overwriting the same memory
         Expr* implicitCast = Expr::Create(m_context, src->loc, src->range, ExprKind::ImplicitCast, ExprValueKind::RValue, dstType, ImplicitCastExpr(src, castKind));
 

@@ -126,8 +126,11 @@ namespace Aria::Internal {
         }
 
         if (src->is_array()) {
-            if (dst->is_slice()) {
+            if (dst->is_slice() && type_is_equal(dst->base, src->array.type)) {
                 cost.kind = CastKind::ArrayToSlice;
+                return cost;
+            } else if (dst->is_pointer() && type_is_equal(dst->base, src->array.type)) {
+                cost.kind = CastKind::ArrayToPointer;
                 return cost;
             }
         }
@@ -140,6 +143,10 @@ namespace Aria::Internal {
     bool SemanticAnalyzer::type_is_equal(TypeInfo* lhs, TypeInfo* rhs) {
         if (lhs->is_reference()) { lhs = lhs->base; }
         if (rhs->is_reference()) { rhs = rhs->base; }
+
+        if (lhs->is_array() && rhs->is_array()) {
+            return type_is_equal(lhs->array.type, rhs->array.type) && lhs->array.size == rhs->array.size;
+        }
 
         if (lhs->is_primitive() && rhs->is_primitive()) {
             if (lhs->is_pointer() && rhs->is_pointer()) { return type_is_equal(lhs->base, rhs->base); }
@@ -212,6 +219,16 @@ namespace Aria::Internal {
 
                 return true;
             }
+
+            default: return true;
+        }
+    }
+
+    bool SemanticAnalyzer::cast_needs_rvalue(CastKind kind) {
+        switch (kind) {
+            case CastKind::ArrayToSlice:
+            case CastKind::ArrayToPointer:
+            case CastKind::LValueToRValue: return false;
 
             default: return true;
         }

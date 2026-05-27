@@ -119,9 +119,11 @@ namespace Aria::Internal {
         void require_rvalue(Expr* expr);
         void maybe_promote_to_int(Expr* expr);
         void insert_arithmetic_promotion(Expr* lhs, Expr* rhs);
+        bool cast_needs_rvalue(CastKind kind);
 
         void replace_expr(Expr* src, Expr* new_expr);
         void replace_decl(Decl* src, Decl* new_decl);
+
 
         bool compare_module_names(std::string_view specifier, std::string_view module_name);
 

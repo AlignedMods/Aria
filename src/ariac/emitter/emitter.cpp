@@ -65,7 +65,7 @@ namespace Aria::Internal {
             m_active_module_context.module->setDataLayout(machine->createDataLayout());
             m_active_module_context.module->setTargetTriple(llvm::Triple(target_triple));
 
-            std::string output = fmt::format(".build/{}.o", valid_module_name(mod->name));
+            std::string output = fmt::format(".build\\{}.o", valid_module_name(mod->name));
             std::error_code ec;
             llvm::raw_fd_ostream stream(output, ec, llvm::sys::fs::OF_None);
             
@@ -93,13 +93,29 @@ namespace Aria::Internal {
             }
         }
 
-        std::string files;
+        std::vector<llvm::StringRef> args;
+        args.push_back("clang");
         for (auto& o : object_files) {
-            files += fmt::format(" {}", o);
+            args.push_back(o);
+        }
+        args.push_back("-o");
+        args.push_back(".build\\main.exe");
+
+        llvm::ErrorOr<llvm::StringRef> clang_path = llvm::sys::findProgramByName("clang");
+        if (std::error_code ec = clang_path.getError()) {
+            fmt::print(stderr, "Failed to find clang: '{}'", ec.message());
+            return;
         }
 
-        std::string cmd = fmt::format("clang {} -o .build/main.exe", files);
-        system(cmd.c_str()); // // TODO: We should probably run the process in a nicer fashion
+        int code = llvm::sys::ExecuteAndWait(clang_path.get(), args);
+
+        if (code == -1) {
+            fmt::print(stderr, "Could not invoke clang to run linker\n");
+            return;
+        } else if (code == -2) {
+            fmt::print(stderr, "Failed to run linker");
+            return;
+        }
     }
 
     llvm::Value* Emitter::emit_boolean_literal_expr(Expr* expr) {
@@ -209,6 +225,16 @@ namespace Aria::Internal {
 
             case CastKind::BitCast: {
                 return emit_expr(ic.expression);
+            }
+
+            case CastKind::ArrayToPointer: {
+                if (ic.expression->value_kind == ExprValueKind::LValue) {
+                    llvm::Value* val = emit_expr(ic.expression);
+                    llvm::Value* zero = m_active_module_context.builder->getInt64(0);
+                    return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(ic.expression->type), val, { zero, zero }, "arraydecay", llvm::GEPNoWrapFlags::inBounds());
+                } else {
+                    return emit_expr(ic.expression);
+                }
             }
 
             case CastKind::LValueToRValue: {
