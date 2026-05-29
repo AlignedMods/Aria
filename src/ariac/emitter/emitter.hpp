@@ -75,9 +75,11 @@ namespace Aria::Internal {
         llvm::Value* emit_compound_assign_expr(Expr* expr);
 
         llvm::Value* emit_expr(Expr* expr);
+        llvm::Value* emit_init_expr(Expr* expr, llvm::Value* dst);
 
         void emit_var_decl(Decl* decl);
         void emit_function_decl(Decl* decl);
+        void emit_function_prototype(Decl* decl);
         void emit_struct_decl(Decl* decl);
         void emit_impl_decl(Decl* decl);
 

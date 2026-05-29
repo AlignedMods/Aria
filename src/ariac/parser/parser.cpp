@@ -462,11 +462,8 @@ namespace Aria::Internal {
             }
     
             case TokenKind::StrLit: {
-                TypeInfo* type = TypeInfo::Create(m_context, TypeKind::Array);
-                type->array = { &char_type, nullptr, t.string.length() + 1 };
-
                 return Expr::Create(m_context, t.range.start, t.range, ExprKind::StringLiteral,
-                    ExprValueKind::RValue, type, 
+                    ExprValueKind::RValue, &char_slice_type, 
                     StringLiteralExpr(t.string));
             }
 

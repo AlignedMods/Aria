@@ -147,7 +147,16 @@ namespace Aria::Internal {
 
     llvm::Value* Emitter::emit_string_literal_expr(Expr* expr) {
         StringLiteralExpr& sl = expr->string_literal;
-        return m_active_module_context.builder->CreateGlobalString(sl.value, "str");
+        llvm::Value* str = m_active_module_context.builder->CreateGlobalString(sl.value, "str");
+        llvm::Value* slice = alloca_at_entry(m_active_module_context.function, "strtoslice", expr->type);
+
+        llvm::Value* mem = m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(expr->type), slice, m_active_module_context.builder->getInt64(0), "ptradd", llvm::GEPNoWrapFlags::inBounds());
+        llvm::Value* len = m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(expr->type), slice, m_active_module_context.builder->getInt64(1), "ptradd", llvm::GEPNoWrapFlags::inBounds());
+
+        m_active_module_context.builder->CreateStore(str, mem);
+        m_active_module_context.builder->CreateStore(m_active_module_context.builder->getInt64(sl.value.length() + 1), len);
+        
+        return slice;
     }
 
     llvm::Value* Emitter::emit_array_filler_expr(Expr* expr) {
@@ -160,8 +169,14 @@ namespace Aria::Internal {
 
     llvm::Value* Emitter::emit_decl_ref_expr(Expr* expr) {
         DeclRefExpr& dr = expr->decl_ref;
+            
+        if (dr.referenced_decl->kind == DeclKind::Function) {
+            if (!m_functions.contains(dr.referenced_decl)) {
+                emit_function_prototype(dr.referenced_decl);
+            }
 
-        if (m_functions.contains(dr.referenced_decl)) { return m_functions.at(dr.referenced_decl); }
+            return m_functions.at(dr.referenced_decl);
+        }
 
         ARIA_ASSERT(m_named_values.contains(dr.referenced_decl), "Invalid DeclRef expression");
         return m_named_values.at(dr.referenced_decl);
@@ -195,11 +210,22 @@ namespace Aria::Internal {
         args.reserve(call.arguments.size);
 
         for (Expr* arg : call.arguments) {
-            args.push_back(emit_expr(arg));
+            llvm::Value* val = emit_expr(arg);
+            llvm::outs() << *val << '\n';
+
+            if (arg->type->is_slice()) {
+                // llvm::Value* temp = alloca_at_entry(m_active_module_context.function, "temparg", arg->type);
+                // llvm::outs() << *temp << '\n';
+                // llvm::outs() << *m_active_module_context.builder->CreateStore(val, temp) << '\n';
+                
+                // args.push_back(llvm::Constant::getNullValue(type_info_to_llvm_type(&void_ptr_type)));
+            } else {
+                args.push_back(val);
+            }
         }
 
-        llvm::Value* val = emit_expr(call.callee);
-        return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(llvm::dyn_cast<llvm::FunctionType>(type_info_to_llvm_type(call.callee->type)), val), args, expr->type->is_void() ? "" : "call");
+        llvm::Value* callee = emit_expr(call.callee);
+        return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(llvm::dyn_cast<llvm::FunctionType>(type_info_to_llvm_type(call.callee->type)), callee), args, expr->type->is_void() ? "" : "call");
     }
 
     llvm::Value* Emitter::emit_implicit_cast_expr(Expr* expr) {
@@ -227,6 +253,19 @@ namespace Aria::Internal {
                 return emit_expr(ic.expression);
             }
 
+            case CastKind::ArrayToSlice: {
+                llvm::Value* slice = alloca_at_entry(m_active_module_context.function, "arrtoslice", expr->type);
+                llvm::Value* arr = emit_expr(ic.expression);
+
+                llvm::Value* mem = m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(expr->type), slice, m_active_module_context.builder->getInt64(0), "ptradd", llvm::GEPNoWrapFlags::inBounds());
+                llvm::Value* len = m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(expr->type), slice, m_active_module_context.builder->getInt64(1), "ptradd", llvm::GEPNoWrapFlags::inBounds());
+
+                m_active_module_context.builder->CreateStore(arr, mem);
+                m_active_module_context.builder->CreateStore(m_active_module_context.builder->getInt64(ic.expression->type->array.size), len);
+
+                return slice;
+            }
+
             case CastKind::ArrayToPointer: {
                 if (ic.expression->value_kind == ExprValueKind::LValue) {
                     llvm::Value* val = emit_expr(ic.expression);
@@ -238,6 +277,12 @@ namespace Aria::Internal {
             }
 
             case CastKind::LValueToRValue: {
+                if (ic.expression->type->is_array()) { // We want to load the pointer to the first element
+                    llvm::Value* val = emit_expr(ic.expression);
+                    llvm::Value* zero = m_active_module_context.builder->getInt64(0);
+                    return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(ic.expression->type), val, { zero, zero }, "arraydecay", llvm::GEPNoWrapFlags::inBounds());
+                }
+                
                 llvm::Value* val = emit_expr(ic.expression);
                 return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(expr->type), val);
             }
@@ -308,6 +353,18 @@ namespace Aria::Internal {
         }
     }
 
+    llvm::Value* Emitter::emit_init_expr(Expr* expr, llvm::Value* dst) {
+        llvm::Value* val = emit_expr(expr);
+
+        if (expr->type->is_array()) {
+            // Call memcpy since we copy arrays
+            llvm::Value* size = m_active_module_context.builder->getInt64(expr->type->array.size);
+            return m_active_module_context.builder->CreateMemCpy(dst, llvm::MaybeAlign::MaybeAlign(), val, llvm::MaybeAlign::MaybeAlign(), size);
+        } else {
+            return m_active_module_context.builder->CreateStore(val, dst);
+        }
+    }
+
     void Emitter::emit_var_decl(Decl* decl) {
         VarDecl& var = decl->var;
         llvm::Type* type = type_info_to_llvm_type(var.type);
@@ -324,8 +381,7 @@ namespace Aria::Internal {
         if (var.global_var) { return; }
 
         if (var.initializer) {
-            llvm::Value* val = emit_expr(var.initializer);
-            m_active_module_context.builder->CreateStore(val, m_named_values.at(decl));
+            emit_init_expr(var.initializer, a);
         } else {
             m_active_module_context.builder->CreateStore(llvm::Constant::getNullValue(type), m_named_values.at(decl));
         }
@@ -333,34 +389,58 @@ namespace Aria::Internal {
 
     void Emitter::emit_function_decl(Decl* decl) {
         FunctionDecl& fn = decl->function;
-        std::string sig = mangle_function(decl);
 
-        std::vector<llvm::Type*> params;
-        for (Decl* p : fn.parameters) {
-            params.push_back(type_info_to_llvm_type(p->param.type));
+        if (!m_functions.contains(decl)) {
+            emit_function_prototype(decl);
         }
 
-        llvm::FunctionType* fn_ty = llvm::FunctionType::get(type_info_to_llvm_type(fn.type->function.return_type), params, false);
-        llvm::Function* function = llvm::Function::Create(fn_ty, llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
+        llvm::Function* function = m_functions.at(decl);
         m_active_module_context.function = function;
-        m_functions[decl] = function;
 
         if (fn.body) {
             llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", function);
             m_active_module_context.builder->SetInsertPoint(bb);
 
             size_t idx = 0;
-            for (auto& arg : function->args()) {
-                arg.setName(fn.parameters.items[idx]->param.identifier);
-                llvm::AllocaInst* a = alloca_at_entry(function, fmt::format("{}.addr", fn.parameters.items[idx]->param.identifier), fn.parameters.items[idx]->param.type);
-                m_named_values[fn.parameters.items[idx++]] = a;
+            for (Decl* param : fn.parameters) {
+                llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, param->param.type);
+                m_named_values[param] = a;
 
-                m_active_module_context.builder->CreateStore(&arg, a);
+                if (param->param.type->is_slice()) {
+                    llvm::Value* load = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(param->param.type), function->getArg(static_cast<unsigned>(idx++)));
+                    m_active_module_context.builder->CreateStore(load, a);
+                } else {
+                    m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
+                }
             }
 
             emit_stmt(fn.body);
             llvm::verifyFunction(*function, &llvm::errs());
         }
+    }
+
+    void Emitter::emit_function_prototype(Decl* decl) {
+        FunctionDecl& fn = decl->function;
+        std::string sig = mangle_function(decl);
+
+        std::vector<llvm::Type*> params;
+        for (Decl* p : fn.parameters) {
+            if (p->param.type->is_slice()) {
+                params.push_back(type_info_to_llvm_type(&void_ptr_type));
+            } else {
+                params.push_back(type_info_to_llvm_type(p->param.type));
+            }
+        }
+
+        llvm::FunctionType* fn_ty = llvm::FunctionType::get(type_info_to_llvm_type(fn.type->function.return_type), params, false);
+        llvm::Function* function = llvm::Function::Create(fn_ty, llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
+        m_functions[decl] = function;
+
+        // for (size_t i = 0; i < params.size(); i++) {
+        //     if (fn.parameters.items[i]->param.type->is_array()) {
+        //         function->addParamAttr(static_cast<unsigned int>(i), llvm::Attribute::getWithByValType(*m_active_module_context.context, type_info_to_llvm_type(fn.parameters.items[i]->param.type)));
+        //     }
+        // }
     }
         
     void Emitter::emit_struct_decl(Decl* decl) {
@@ -441,6 +521,8 @@ namespace Aria::Internal {
             return llvm::StructType::get(*m_active_module_context.context, llvm::ArrayRef(types));
         } else if (t->kind == TypeKind::Ptr) {
             return llvm::PointerType::get(*m_active_module_context.context, 0);
+        } else if (t->kind == TypeKind::Ref) {
+            return llvm::PointerType::get(*m_active_module_context.context, 0);
         } else if (t->kind == TypeKind::Function) {
             std::vector<llvm::Type*> args;
             args.reserve(t->function.param_types.size);
@@ -500,7 +582,8 @@ namespace Aria::Internal {
 
     llvm::AllocaInst* Emitter::alloca_at_entry(llvm::Function* f, llvm::StringRef name, TypeInfo* type) {
         llvm::IRBuilder<> TmpB(&f->getEntryBlock(), f->getEntryBlock().begin());
-        return TmpB.CreateAlloca(type_info_to_llvm_type(type), nullptr, name);
+        llvm::Type* t = type_info_to_llvm_type(type);
+        return TmpB.CreateAlloca(t, nullptr, name);
     }
 
 } // namespace Aria::Internal
