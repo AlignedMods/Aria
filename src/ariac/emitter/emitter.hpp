@@ -46,6 +46,7 @@ namespace Aria::Internal {
 
     private:
         void emit_impl();
+        void emit_builtin_types();
 
         llvm::Value* emit_boolean_literal_expr(Expr* expr);
         llvm::Value* emit_character_literal_expr(Expr* expr);

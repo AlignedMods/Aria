@@ -26,6 +26,8 @@ namespace Aria::Internal {
             delete m_active_module_context.builder;
             m_active_module_context.builder = new llvm::IRBuilder<>(*m_active_module_context.context);
 
+            emit_builtin_types();
+
             for (CompilationUnit* unit : mod->units) {
                 for (Decl* struct_ : unit->structs) {
                     emit_struct_decl(struct_);
@@ -118,6 +120,13 @@ namespace Aria::Internal {
         }
     }
 
+    void Emitter::emit_builtin_types() {
+        llvm::StructType::create({
+            llvm::PointerType::get(*m_active_module_context.context, 0),
+            llvm::Type::getInt64Ty(*m_active_module_context.context)
+        }, "$builtin_slice");
+    }
+
     llvm::Value* Emitter::emit_boolean_literal_expr(Expr* expr) {
         BooleanLiteralExpr& bl = expr->boolean_literal;
         if (bl.value) { return llvm::ConstantInt::getTrue(*m_active_module_context.context); }
@@ -128,7 +137,7 @@ namespace Aria::Internal {
 
     llvm::Value* Emitter::emit_character_literal_expr(Expr* expr) {
         CharacterLiteralExpr& cl = expr->character_literal;
-        return llvm::ConstantInt::get(*m_active_module_context.context, llvm::APInt(1, cl.value, expr->type->is_signed()));
+        return llvm::ConstantInt::get(*m_active_module_context.context, llvm::APInt(8, cl.value, expr->type->is_signed()));
     }
 
     llvm::Value* Emitter::emit_integer_literal_expr(Expr* expr) {
@@ -184,15 +193,21 @@ namespace Aria::Internal {
 
     llvm::Value* Emitter::emit_builtin_member_expr(Expr* expr) {
         MemberExpr& mem = expr->member;
+        
+        llvm::Value* val = emit_expr(mem.parent);
+        TypeInfo* type = mem.parent->type;
 
-        switch (mem.parent->type->kind) {
+        if (mem.implicit_deref) {
+            type = mem.parent->type->base;
+            val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(&void_ptr_type), val);
+        }
+
+        switch (type->kind) {
             case TypeKind::Slice: {
-                llvm::Value* val = emit_expr(mem.parent);
-
                 if (mem.member == "mem") {
-                    return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(mem.parent->type), val, m_active_module_context.builder->getInt64(0), "ptradd", llvm::GEPNoWrapFlags::inBounds());
+                    return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(type), val, m_active_module_context.builder->getInt64(0), "ptradd", llvm::GEPNoWrapFlags::inBounds());
                 } else if (mem.member == "len") {
-                    return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(mem.parent->type), val, m_active_module_context.builder->getInt64(1), "ptradd", llvm::GEPNoWrapFlags::inBounds());
+                    return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(type), val, m_active_module_context.builder->getInt64(1), "ptradd", llvm::GEPNoWrapFlags::inBounds());
                 } 
 
                 ARIA_UNREACHABLE();
@@ -211,20 +226,20 @@ namespace Aria::Internal {
 
         for (Expr* arg : call.arguments) {
             llvm::Value* val = emit_expr(arg);
-            llvm::outs() << *val << '\n';
 
             if (arg->type->is_slice()) {
-                // llvm::Value* temp = alloca_at_entry(m_active_module_context.function, "temparg", arg->type);
-                // llvm::outs() << *temp << '\n';
-                // llvm::outs() << *m_active_module_context.builder->CreateStore(val, temp) << '\n';
-                
-                // args.push_back(llvm::Constant::getNullValue(type_info_to_llvm_type(&void_ptr_type)));
+                llvm::Value* temp = alloca_at_entry(m_active_module_context.function, "temparg", arg->type);
+                m_active_module_context.builder->CreateStore(val, temp);
+                args.push_back(llvm::Constant::getNullValue(type_info_to_llvm_type(&void_ptr_type)));
             } else {
                 args.push_back(val);
             }
         }
 
         llvm::Value* callee = emit_expr(call.callee);
+
+        ARIA_ASSERT(llvm::dyn_cast<llvm::FunctionType>(type_info_to_llvm_type(call.callee->type))->getFunctionParamType(0) == args[0]->getType(), "not good");
+
         return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(llvm::dyn_cast<llvm::FunctionType>(type_info_to_llvm_type(call.callee->type)), callee), args, expr->type->is_void() ? "" : "call");
     }
 
@@ -291,6 +306,22 @@ namespace Aria::Internal {
         }
     }
 
+    llvm::Value* Emitter::emit_unary_operator_expr(Expr* expr) {
+        UnaryOperatorExpr& un = expr->unary_operator;
+
+        switch (un.op) {
+            case UnaryOperatorKind::AddressOf: {
+                return emit_expr(un.expression);
+            }
+
+            case UnaryOperatorKind::Dereference: {
+                return emit_expr(un.expression);
+            }
+
+            default: ARIA_UNREACHABLE();
+        }
+    }
+
     llvm::Value* Emitter::emit_binary_operator_expr(Expr* expr) {
         BinaryOperatorExpr& bin = expr->binary_operator;
 
@@ -347,6 +378,7 @@ namespace Aria::Internal {
             case ExprKind::BuiltinMember: return emit_builtin_member_expr(expr);
             case ExprKind::Call: return emit_call_expr(expr);
             case ExprKind::ImplicitCast: return emit_implicit_cast_expr(expr);
+            case ExprKind::UnaryOperator: return emit_unary_operator_expr(expr);
             case ExprKind::BinaryOperator: return emit_binary_operator_expr(expr);
 
             default: ARIA_UNREACHABLE();
@@ -517,8 +549,7 @@ namespace Aria::Internal {
         } else if (t->kind == TypeKind::Array) {
             return llvm::ArrayType::get(type_info_to_llvm_type(t->array.type), static_cast<size_t>(t->array.size));
         } else if (t->kind == TypeKind::Slice) {
-            llvm::Type* types[2] = { llvm::PointerType::get(*m_active_module_context.context, 0), llvm::Type::getInt64Ty(*m_active_module_context.context) };
-            return llvm::StructType::get(*m_active_module_context.context, llvm::ArrayRef(types));
+            return llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice");
         } else if (t->kind == TypeKind::Ptr) {
             return llvm::PointerType::get(*m_active_module_context.context, 0);
         } else if (t->kind == TypeKind::Ref) {

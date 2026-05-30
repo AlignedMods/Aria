@@ -1022,8 +1022,17 @@ namespace Aria::Internal {
             }
 
             case BinaryOperatorKind::Eq: {
+                expr->type = LHS->type;
+                expr->value_kind = ExprValueKind::LValue;
+
                 if (LHS->value_kind != ExprValueKind::LValue) {
                     m_context->report_compiler_diagnostic(LHS->loc, LHS->range, "Expression must be a modifiable lvalue");
+                    return;
+                }
+
+                if (is_const_expr(LHS)) {
+                    m_context->report_compiler_diagnostic(LHS->loc, LHS->range, "Cannot assign to constant expression");
+                    return;
                 }
 
                 require_rvalue(RHS);
@@ -1038,8 +1047,6 @@ namespace Aria::Internal {
                     }
                 }
 
-                expr->type = LHS->type;
-                expr->value_kind = ExprValueKind::LValue;
                 return;
             }
 
@@ -1081,36 +1088,39 @@ namespace Aria::Internal {
     }
 
     void SemanticAnalyzer::resolve_compound_assign_expr(Expr* expr) {
-        CompoundAssignExpr& compAss = expr->compound_assign;
+        CompoundAssignExpr& comp = expr->compound_assign;
         
-        resolve_expr(compAss.lhs);
-        resolve_expr(compAss.rhs);
+        resolve_expr(comp.lhs);
+        resolve_expr(comp.rhs);
 
-        require_rvalue(compAss.rhs);
+        expr->type = comp.lhs->type;
+        expr->value_kind = ExprValueKind::LValue;
+
+        require_rvalue(comp.rhs);
         
-        Expr* LHS = compAss.lhs;
-        Expr* RHS = compAss.rhs;
-        
-        TypeInfo* LHSType = LHS->type;
-        TypeInfo* RHSType = RHS->type;
-        
+        Expr* LHS = comp.lhs;
+        Expr* RHS = comp.rhs;
+       
         if (LHS->value_kind != ExprValueKind::LValue) {
-            m_context->report_compiler_diagnostic(compAss.lhs->loc, compAss.lhs->range, "Expression must be a modifiable lvalue");
+            m_context->report_compiler_diagnostic(LHS->loc, LHS->range, "Expression must be a modifiable lvalue");
+            return;
+        }
+
+        if (is_const_expr(LHS)) {
+            m_context->report_compiler_diagnostic(LHS->loc, LHS->range, "Cannot assign to constant expression");
+            return;
         }
         
-        ConversionCost cost = get_conversion_cost(LHSType, RHSType);
+        ConversionCost cost = get_conversion_cost(LHS->type, RHS->type);
         
         if (cost.cast_needed) {
             if (cost.implicit_cast_possible) {
-                insert_implicit_cast(LHSType, RHSType, RHS, cost.kind);
-                RHSType = LHSType;
+                insert_implicit_cast(LHS->type, RHS->type, RHS, cost.kind);
+                *RHS->type = *LHS->type;
             } else {
-                m_context->report_compiler_diagnostic(compAss.rhs->loc, compAss.rhs->range, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(RHSType), type_info_to_string(LHSType)));
+                m_context->report_compiler_diagnostic(comp.rhs->loc, comp.rhs->range, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(RHS->type), type_info_to_string(LHS->type)));
             }
         }
-        
-        expr->type = LHSType;
-        expr->value_kind = ExprValueKind::LValue;
     }
 
     void SemanticAnalyzer::resolve_expr(Expr* expr) {

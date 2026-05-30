@@ -160,7 +160,17 @@ namespace Aria::Internal {
             case StmtKind::Import:
             case StmtKind::Nop: return;
 
-            case StmtKind::Block: push_scope(); resolve_block_stmt(stmt); pop_scope(); return;
+            case StmtKind::Block: {
+                push_scope();
+                resolve_block_stmt(stmt);
+
+                if (!m_scopes.back().reaches_end) {
+                    m_scopes[m_scopes.size() - 2].reaches_end = false;
+                }
+
+                pop_scope(); 
+                return;
+            }
             case StmtKind::While: return resolve_while_stmt(stmt);
             case StmtKind::DoWhile: return resolve_do_while_stmt(stmt);
             case StmtKind::For: return resolve_for_stmt(stmt);

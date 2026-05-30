@@ -463,7 +463,7 @@ namespace Aria::Internal {
     
             case TokenKind::StrLit: {
                 return Expr::Create(m_context, t.range.start, t.range, ExprKind::StringLiteral,
-                    ExprValueKind::RValue, &char_slice_type, 
+                    ExprValueKind::LValue, &char_slice_type, 
                     StringLiteralExpr(t.string));
             }
 
