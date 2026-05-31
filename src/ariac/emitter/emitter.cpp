@@ -162,16 +162,8 @@ namespace Aria::Internal {
         llvm::Value* str = m_active_module_context.builder->CreateGlobalString(sl.value, "str");
 
         if (expr->type->is_slice()) {
-            llvm::Value* slice = alloca_at_entry(m_active_module_context.function, "strtoslice", expr->type);
-            m_active_module_context.builder->CreateStore(llvm::Constant::getNullValue(type_info_to_llvm_type(expr->type)), slice);
-            
-            llvm::Value* mem = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(expr->type), slice, 0);
-            llvm::Value* len = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(expr->type), slice, 1);
-            
-            m_active_module_context.builder->CreateStore(str, mem);
-            m_active_module_context.builder->CreateStore(m_active_module_context.builder->getInt64(sl.value.length() + 1), len);
-            
-            return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(expr->type), slice);
+            llvm::Constant* vals[2] = { llvm::dyn_cast<llvm::Constant>(str), m_active_module_context.builder->getInt64(sl.value.length()) };
+            return llvm::ConstantStruct::get(llvm::dyn_cast<llvm::StructType>(type_info_to_llvm_type(expr->type)), llvm::ArrayRef(vals));
         } else {
             return str;
         }
@@ -199,7 +191,7 @@ namespace Aria::Internal {
         ARIA_ASSERT(m_named_values.contains(dr.referenced_decl), "Invalid DeclRef expression");
         llvm::Value* val = m_named_values.at(dr.referenced_decl);
 
-        if (dr.referenced_decl->kind == DeclKind::Param) {
+        if (dr.referenced_decl->kind == DeclKind::Param && get_abi_type_info(expr->type).pass_by_ptr) {
             return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(&void_ptr_type), val);
         }
 
@@ -668,17 +660,48 @@ namespace Aria::Internal {
             }
         }
 
-        std::string sig = fmt::format("{}.{}_", valid_module_name(fn->parent_module->name), fn->function.identifier);
+        std::string mod_name = valid_module_name(fn->parent_module->name);
+        std::string sig = fmt::format("A_{}{}.{}{}", mod_name.length(), mod_name, fn->function.identifier.length(), fn->function.identifier);
 
         for (size_t i = 0; i < fn->function.parameters.size; i++) {
-            sig += type_info_to_string(fn->function.parameters.items[i]->param.type);
-
-            if (i != fn->function.parameters.size - 1) {
-                sig += "_";
-            }
+            sig += mangle_type(fn->function.parameters.items[i]->param.type);
         }
 
         return sig;
+    }
+
+    std::string Emitter::mangle_type(TypeInfo* t) {
+        switch (t->kind) {
+            case TypeKind::Bool: return "b";
+            case TypeKind::Char: return "c";
+            case TypeKind::UChar: return "uc";
+            case TypeKind::Short: return "s";
+            case TypeKind::UShort: return "us";
+            case TypeKind::Int: return "i";
+            case TypeKind::UInt: return "ui";
+            case TypeKind::Long: return "l";
+            case TypeKind::ULong: return "ul";
+            case TypeKind::Float: return "f";
+            case TypeKind::Double: return "d";
+
+            case TypeKind::Ptr: {
+                return fmt::format("P{}", mangle_type(t->base));
+            }
+
+            case TypeKind::Array: {
+                return fmt::format("A{}{}", t->array.size, mangle_type(t->array.type));
+            }
+
+            case TypeKind::Slice: {
+                return fmt::format("S{}", mangle_type(t->base));
+            }
+
+            case TypeKind::Ref: {
+                return fmt::format("R{}", mangle_type(t->base));
+            }
+
+            default: ARIA_UNREACHABLE();
+        }
     }
 
     std::string Emitter::valid_module_name(std::string_view name) {

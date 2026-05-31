@@ -10,8 +10,9 @@ namespace Aria::Internal {
     
     static void print_help(const char* prog_name) {
         fmt::println("{}: help: ", prog_name);
-        fmt::println("  {} <flags> <files>", prog_name);
-        fmt::println("  flags:");
+        fmt::println("  {} [<options>] [<args>]", prog_name);
+        fmt::println("");
+        fmt::println("  Options:");
         fmt::println("    -no-stdlib              Does not compile the standard library");
         fmt::println("    -dump-ast               Prints the human readable AST of all the input files");
         fmt::println("    -dump-ast-to-file       Dumps the human readable AST of all the input files to a file");

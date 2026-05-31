@@ -121,6 +121,7 @@ namespace Aria::Internal {
         uint64_t get_type_size(TypeInfo* t);
 
         std::string mangle_function(Decl* fn);
+        std::string mangle_type(TypeInfo* t);
         std::string mangle_ctor(ConstructorDecl* ctor);
         std::string mangle_dtor(DestructorDecl* dtor);
         std::string mangle_method(MethodDecl* md);
