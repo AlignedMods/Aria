@@ -23,6 +23,7 @@ namespace Aria::Internal {
         Colon,
         ColonColon,
         Dot,
+        TripleDot,
         Arrow,
         // ^^^ Punctuation ^^^ //
 
@@ -53,6 +54,7 @@ namespace Aria::Internal {
         ULongLit,
         NumLit,
         StrLit,
+        CStrLit,
         Null,
         // ^^^ Literals and constants ^^^ //
 
@@ -117,6 +119,7 @@ namespace Aria::Internal {
             case TokenKind::Colon: return ":";
             case TokenKind::ColonColon: return "::";
             case TokenKind::Dot: return ".";
+            case TokenKind::TripleDot: return "...";
             case TokenKind::Arrow: return "->";
             // ^^^ Punctuation ^^^ //
 
@@ -165,6 +168,7 @@ namespace Aria::Internal {
             case TokenKind::ULongLit: return "ulong literal";
             case TokenKind::NumLit: return "number literal";
             case TokenKind::StrLit: return "string literal";
+            case TokenKind::CStrLit: return "cstring literal";
             case TokenKind::Null: return "null";
             // ^^^ Literals and constants ^^^ //
 

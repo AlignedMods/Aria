@@ -14,6 +14,19 @@ namespace Aria::Internal {
         llvm::InitializeAllAsmParsers();
         llvm::InitializeAllAsmPrinters();
 
+        std::string target_triple = llvm::sys::getDefaultTargetTriple();
+        m_triple = llvm::Triple(target_triple);
+
+        ARIA_ASSERT(m_triple.isOSWindows() && m_triple.isX86_64(), "Unsupported platform");
+
+        std::string error;
+        const llvm::Target* target = llvm::TargetRegistry::lookupTarget(m_triple, error);
+
+        if (!target) {
+            fmt::print(stderr, "{}\n", error);
+            return;
+        }
+
         std::vector<std::string> object_files;
 
         for (Module* mod : m_context->modules) {
@@ -48,24 +61,14 @@ namespace Aria::Internal {
 
             if (llvm::verifyModule(*m_active_module_context.module)) { continue; }
 
-            std::string target_triple = llvm::sys::getDefaultTargetTriple();
-
-            std::string error;
-            const llvm::Target* target = llvm::TargetRegistry::lookupTarget(llvm::Triple(target_triple), error);
-
-            if (!target) {
-                fmt::print(stderr, "{}\n", error);
-                continue;
-            }
-
             const char* cpu = "generic";
             const char* features = "";
 
             llvm::TargetOptions opts;
-            llvm::TargetMachine* machine = target->createTargetMachine(llvm::Triple(target_triple), cpu, features, opts, llvm::Reloc::PIC_);
+            llvm::TargetMachine* machine = target->createTargetMachine(m_triple, cpu, features, opts, llvm::Reloc::PIC_);
 
             m_active_module_context.module->setDataLayout(machine->createDataLayout());
-            m_active_module_context.module->setTargetTriple(llvm::Triple(target_triple));
+            m_active_module_context.module->setTargetTriple(m_triple);
 
             std::string output = fmt::format(".build\\{}.o", valid_module_name(mod->name));
             std::error_code ec;
@@ -157,15 +160,21 @@ namespace Aria::Internal {
     llvm::Value* Emitter::emit_string_literal_expr(Expr* expr) {
         StringLiteralExpr& sl = expr->string_literal;
         llvm::Value* str = m_active_module_context.builder->CreateGlobalString(sl.value, "str");
-        llvm::Value* slice = alloca_at_entry(m_active_module_context.function, "strtoslice", expr->type);
 
-        llvm::Value* mem = m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(expr->type), slice, m_active_module_context.builder->getInt64(0), "ptradd", llvm::GEPNoWrapFlags::inBounds());
-        llvm::Value* len = m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(expr->type), slice, m_active_module_context.builder->getInt64(1), "ptradd", llvm::GEPNoWrapFlags::inBounds());
-
-        m_active_module_context.builder->CreateStore(str, mem);
-        m_active_module_context.builder->CreateStore(m_active_module_context.builder->getInt64(sl.value.length() + 1), len);
-        
-        return slice;
+        if (expr->type->is_slice()) {
+            llvm::Value* slice = alloca_at_entry(m_active_module_context.function, "strtoslice", expr->type);
+            m_active_module_context.builder->CreateStore(llvm::Constant::getNullValue(type_info_to_llvm_type(expr->type)), slice);
+            
+            llvm::Value* mem = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(expr->type), slice, 0);
+            llvm::Value* len = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(expr->type), slice, 1);
+            
+            m_active_module_context.builder->CreateStore(str, mem);
+            m_active_module_context.builder->CreateStore(m_active_module_context.builder->getInt64(sl.value.length() + 1), len);
+            
+            return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(expr->type), slice);
+        } else {
+            return str;
+        }
     }
 
     llvm::Value* Emitter::emit_array_filler_expr(Expr* expr) {
@@ -188,7 +197,13 @@ namespace Aria::Internal {
         }
 
         ARIA_ASSERT(m_named_values.contains(dr.referenced_decl), "Invalid DeclRef expression");
-        return m_named_values.at(dr.referenced_decl);
+        llvm::Value* val = m_named_values.at(dr.referenced_decl);
+
+        if (dr.referenced_decl->kind == DeclKind::Param) {
+            return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(&void_ptr_type), val);
+        }
+
+        return val;
     }
 
     llvm::Value* Emitter::emit_builtin_member_expr(Expr* expr) {
@@ -205,9 +220,9 @@ namespace Aria::Internal {
         switch (type->kind) {
             case TypeKind::Slice: {
                 if (mem.member == "mem") {
-                    return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(type), val, m_active_module_context.builder->getInt64(0), "ptradd", llvm::GEPNoWrapFlags::inBounds());
+                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 0);
                 } else if (mem.member == "len") {
-                    return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(type), val, m_active_module_context.builder->getInt64(1), "ptradd", llvm::GEPNoWrapFlags::inBounds());
+                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 1);
                 } 
 
                 ARIA_UNREACHABLE();
@@ -227,19 +242,17 @@ namespace Aria::Internal {
         for (Expr* arg : call.arguments) {
             llvm::Value* val = emit_expr(arg);
 
-            if (arg->type->is_slice()) {
-                llvm::Value* temp = alloca_at_entry(m_active_module_context.function, "temparg", arg->type);
-                m_active_module_context.builder->CreateStore(val, temp);
-                args.push_back(llvm::Constant::getNullValue(type_info_to_llvm_type(&void_ptr_type)));
-            } else {
+            ABITypeInfo info = get_abi_type_info(arg->type);
+            if (info.pass_direct) {
                 args.push_back(val);
+            } else if (info.pass_by_ptr) {
+                llvm::Value* copy = alloca_at_entry(m_active_module_context.function, "", arg->type);
+                m_active_module_context.builder->CreateStore(val, copy);
+                args.push_back(copy);
             }
         }
 
         llvm::Value* callee = emit_expr(call.callee);
-
-        ARIA_ASSERT(llvm::dyn_cast<llvm::FunctionType>(type_info_to_llvm_type(call.callee->type))->getFunctionParamType(0) == args[0]->getType(), "not good");
-
         return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(llvm::dyn_cast<llvm::FunctionType>(type_info_to_llvm_type(call.callee->type)), callee), args, expr->type->is_void() ? "" : "call");
     }
 
@@ -292,10 +305,8 @@ namespace Aria::Internal {
             }
 
             case CastKind::LValueToRValue: {
-                if (ic.expression->type->is_array()) { // We want to load the pointer to the first element
-                    llvm::Value* val = emit_expr(ic.expression);
-                    llvm::Value* zero = m_active_module_context.builder->getInt64(0);
-                    return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(ic.expression->type), val, { zero, zero }, "arraydecay", llvm::GEPNoWrapFlags::inBounds());
+                if (ic.expression->kind == ExprKind::StringLiteral) {
+                    return emit_expr(ic.expression);
                 }
                 
                 llvm::Value* val = emit_expr(ic.expression);
@@ -304,6 +315,11 @@ namespace Aria::Internal {
 
             default: ARIA_UNREACHABLE();
         }
+    }
+
+    llvm::Value* Emitter::emit_cast_expr(Expr* expr) {
+        CastExpr& cast = expr->cast;
+        return emit_expr(cast.expression);
     }
 
     llvm::Value* Emitter::emit_unary_operator_expr(Expr* expr) {
@@ -378,6 +394,7 @@ namespace Aria::Internal {
             case ExprKind::BuiltinMember: return emit_builtin_member_expr(expr);
             case ExprKind::Call: return emit_call_expr(expr);
             case ExprKind::ImplicitCast: return emit_implicit_cast_expr(expr);
+            case ExprKind::Cast: return emit_cast_expr(expr);
             case ExprKind::UnaryOperator: return emit_unary_operator_expr(expr);
             case ExprKind::BinaryOperator: return emit_binary_operator_expr(expr);
 
@@ -435,13 +452,17 @@ namespace Aria::Internal {
 
             size_t idx = 0;
             for (Decl* param : fn.parameters) {
-                llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, param->param.type);
-                m_named_values[param] = a;
+                ABITypeInfo info = get_abi_type_info(param->param.type);
 
-                if (param->param.type->is_slice()) {
-                    llvm::Value* load = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(param->param.type), function->getArg(static_cast<unsigned>(idx++)));
-                    m_active_module_context.builder->CreateStore(load, a);
-                } else {
+                if (info.pass_direct) {
+                    llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, param->param.type);
+                    m_named_values[param] = a;
+
+                    m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
+                } else if (info.pass_by_ptr) {
+                    llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, &void_ptr_type);
+                    m_named_values[param] = a;
+
                     m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
                 }
             }
@@ -457,22 +478,18 @@ namespace Aria::Internal {
 
         std::vector<llvm::Type*> params;
         for (Decl* p : fn.parameters) {
-            if (p->param.type->is_slice()) {
+            ABITypeInfo info = get_abi_type_info(p->param.type);
+
+            if (info.pass_by_ptr) {
                 params.push_back(type_info_to_llvm_type(&void_ptr_type));
-            } else {
+            } else if (info.pass_direct) {
                 params.push_back(type_info_to_llvm_type(p->param.type));
             }
         }
 
-        llvm::FunctionType* fn_ty = llvm::FunctionType::get(type_info_to_llvm_type(fn.type->function.return_type), params, false);
+        llvm::FunctionType* fn_ty = llvm::FunctionType::get(type_info_to_llvm_type(fn.type->function.return_type), params, fn.type->function.var_arg);
         llvm::Function* function = llvm::Function::Create(fn_ty, llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
         m_functions[decl] = function;
-
-        // for (size_t i = 0; i < params.size(); i++) {
-        //     if (fn.parameters.items[i]->param.type->is_array()) {
-        //         function->addParamAttr(static_cast<unsigned int>(i), llvm::Attribute::getWithByValType(*m_active_module_context.context, type_info_to_llvm_type(fn.parameters.items[i]->param.type)));
-        //     }
-        // }
     }
         
     void Emitter::emit_struct_decl(Decl* decl) {
@@ -559,10 +576,15 @@ namespace Aria::Internal {
             args.reserve(t->function.param_types.size);
 
             for (TypeInfo* type : t->function.param_types) {
-                args.push_back(type_info_to_llvm_type(type));
+                ABITypeInfo info = get_abi_type_info(type);
+                if (info.pass_direct) {
+                    args.push_back(type_info_to_llvm_type(type));
+                } else if (info.pass_by_ptr) {
+                    args.push_back(type_info_to_llvm_type(&void_ptr_type));
+                }
             }
 
-            return llvm::FunctionType::get(type_info_to_llvm_type(t->function.return_type), args, false);
+            return llvm::FunctionType::get(type_info_to_llvm_type(t->function.return_type), args, t->function.var_arg);
         } else if (t->kind == TypeKind::Structure) {
             std::vector<llvm::Type*> types;
             types.reserve(t->struct_.source_decl->struct_.fields.size);
@@ -570,6 +592,70 @@ namespace Aria::Internal {
             return llvm::StructType::get(*m_active_module_context.context, types);
         } else {
             ARIA_UNREACHABLE();
+        }
+    }
+
+    Emitter::ABITypeInfo Emitter::get_abi_type_info(TypeInfo* t) {
+        ABITypeInfo info;
+        info.type = t;
+        
+        switch (m_triple.getOS()) {
+            case llvm::Triple::OSType::Win32: {
+                switch (m_triple.getArch()) {
+                    case llvm::Triple::ArchType::x86_64: {
+                        if (t->is_slice()) {
+                            info.pass_by_ptr = true;
+                        } else {
+                            info.pass_direct = true;
+                        }
+
+                        break;
+                    }
+
+                    default: ARIA_UNREACHABLE();
+                }
+
+                break;
+            }
+
+            default: ARIA_UNREACHABLE();
+        }
+
+        return info;
+    }
+
+    uint64_t Emitter::get_type_size(TypeInfo* t) {
+        switch (t->kind) {
+            case TypeKind::Bool:
+            case TypeKind::Char:
+            case TypeKind::UChar: return 1;
+            case TypeKind::Short:
+            case TypeKind::UShort: return 2;
+            case TypeKind::Int:
+            case TypeKind::UInt: return 4;
+            case TypeKind::Long:
+            case TypeKind::ULong: return 8;
+
+            case TypeKind::Float: return 4;
+            case TypeKind::Double: return 8;
+
+            case TypeKind::Ptr: {
+                if (m_triple.isX86_64()) { return 8; }
+                else if (m_triple.isX32()) { return 4; }
+                else { ARIA_UNREACHABLE(); }
+
+                return 0;
+            }
+
+            case TypeKind::Slice: {
+                if (m_triple.isX86_64()) { return 16; }
+                else if (m_triple.isX86_32()) { return 12; }
+                else { ARIA_UNREACHABLE(); }
+
+                return 0;
+            }
+
+            default: ARIA_UNREACHABLE();
         }
     }
 

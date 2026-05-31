@@ -76,6 +76,8 @@ namespace Aria::Internal {
                     }
                 }
 
+                if (decl.var_arg) { str += ", ..."; }
+
                 str += ")";
                 break;
             }

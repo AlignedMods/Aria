@@ -53,8 +53,10 @@ namespace Aria::Internal {
                     if (try_consume(':')) { add_token(TokenKind::ColonColon, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "::"); break; }
                     else { add_token(TokenKind::Colon, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), ":"); break; }
                 }
-                case '.': add_token(TokenKind::Dot, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), ".");
-                          break;
+                case '.': {
+                    if (peek() == '.' && peek(1) == '.') { consume(2); add_token(TokenKind::TripleDot, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "..."); break; }
+                    else { add_token(TokenKind::Dot, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "."); break; }
+                }
 
                 // Operators
                 case '+': {
@@ -140,7 +142,21 @@ namespace Aria::Internal {
                 }
 
                 case '"': {
-                    parse_string_literal();
+                    parse_string_literal(false);
+                    break;
+                }
+
+                case 'c': {
+                    if (peek() == '"') {
+                        consume();
+                        parse_string_literal(true);
+                        break;
+                    } else {
+                        backtrack();
+                        parse_identifier();
+                        break;
+                    }
+
                     break;
                 }
 
@@ -382,7 +398,7 @@ namespace Aria::Internal {
         }
     }
 
-    void Lexer::parse_string_literal() {
+    void Lexer::parse_string_literal(bool c_style) {
         SourceLocation start = SourceLocation(m_current_line, get_column(m_index - 1));
         SourceLocation end;
 
@@ -410,7 +426,7 @@ namespace Aria::Internal {
             }
         }
 
-        add_token(TokenKind::StrLit, SourceRange(start, end), scratch_buffer_to_str(m_context));
+        add_token(c_style ? TokenKind::CStrLit : TokenKind::StrLit, SourceRange(start, end), scratch_buffer_to_str(m_context));
     }
 
     void Lexer::parse_at_symbol() {

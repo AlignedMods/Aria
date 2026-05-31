@@ -48,6 +48,7 @@ namespace Aria::Internal {
     struct FunctionDeclaration {
         TypeInfo* return_type = nullptr;
         TinyVector<TypeInfo*> param_types;
+        bool var_arg = false;
     };
 
     struct ArrayDeclaration {
@@ -179,6 +180,7 @@ namespace Aria::Internal {
     inline TypeInfo float_type =      { TypeKind::Float };
     inline TypeInfo string_type =     { TypeKind::String };
     inline TypeInfo void_ptr_type =   { TypeKind::Ptr, &void_type };
+    inline TypeInfo char_ptr_type =   { TypeKind::Ptr, &char_type };
     inline TypeInfo char_slice_type = { TypeKind::Slice, &char_type };
 
 } // namespace Aria::Internal

@@ -41,6 +41,15 @@ namespace Aria::Internal {
             llvm::Function* function = nullptr;
         };
 
+        struct ABITypeInfo {
+            TypeInfo* type = nullptr;
+
+            struct {
+                bool pass_direct : 1 = false;
+                bool pass_by_ptr : 1 = false;
+            };
+        };
+
     public:
         Emitter(CompilationContext* ctx);
 
@@ -108,6 +117,8 @@ namespace Aria::Internal {
         void merge_pending_op_codes();
 
         llvm::Type* type_info_to_llvm_type(TypeInfo* t);
+        ABITypeInfo get_abi_type_info(TypeInfo* t);
+        uint64_t get_type_size(TypeInfo* t);
 
         std::string mangle_function(Decl* fn);
         std::string mangle_ctor(ConstructorDecl* ctor);
@@ -121,6 +132,7 @@ namespace Aria::Internal {
     private:
         CompilerReflectionData m_reflection_data;
         ModuleContext m_active_module_context;
+        llvm::Triple m_triple;
 
         std::string m_namespace;
         std::string m_active_namespace;

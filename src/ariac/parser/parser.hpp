@@ -73,7 +73,7 @@ namespace Aria::Internal {
         Stmt* parse_import_decl();
         Decl* parse_variable_decl(bool global);
         Decl* parse_function_decl();
-        std::pair<TinyVector<Decl*>, TinyVector<TypeInfo*>> parse_function_params();
+        std::pair<TinyVector<Decl*>, TinyVector<TypeInfo*>> parse_function_params(bool* var_arg);
         Decl* parse_struct_decl();
         Decl* parse_impl_decl();
 

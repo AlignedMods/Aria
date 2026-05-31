@@ -348,7 +348,7 @@ namespace Aria::Internal {
                     }
                 }
 
-                if (fnDecl.param_types.size != call.arguments.size) {
+                if (fnDecl.param_types.size != call.arguments.size && !fnDecl.var_arg) {
                     m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Mismatched argument count, function expects {} but got {}", fnDecl.param_types.size, call.arguments.size));
                     for (size_t i = 0; i < call.arguments.size; i++) {
                         resolve_expr(call.arguments.items[i]);
@@ -356,6 +356,13 @@ namespace Aria::Internal {
                 } else {
                     for (size_t i = 0; i < fnDecl.param_types.size; i++) {
                         resolve_param_initializer(fnDecl.param_types.items[i], call.arguments.items[i]);
+                    }
+
+                    if (fnDecl.var_arg) {
+                        for (size_t i = fnDecl.param_types.size; i < call.arguments.size; i++) {
+                            resolve_expr(call.arguments.items[i]);
+                            require_rvalue(call.arguments.items[i]);
+                        }
                     }
                 }
 

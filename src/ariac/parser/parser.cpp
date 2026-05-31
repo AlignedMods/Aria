@@ -97,6 +97,7 @@ namespace Aria::Internal {
         m_expr_rules[TokenKind::ULongLit] =          { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::NumLit] =            { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::StrLit] =            { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::CStrLit] =           { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Null] =              { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Identifier] =        { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::New] =               { BIND_PARSE_RULE(parse_new), nullptr, PREC_NONE };
@@ -467,6 +468,12 @@ namespace Aria::Internal {
                     StringLiteralExpr(t.string));
             }
 
+            case TokenKind::CStrLit: {
+                return Expr::Create(m_context, t.range.start, t.range, ExprKind::StringLiteral,
+                    ExprValueKind::LValue, &char_ptr_type, 
+                    StringLiteralExpr(t.string));
+            }
+
             case TokenKind::Null: {
                 return Expr::Create(m_context, t.range.start, t.range, ExprKind::Null,
                     ExprValueKind::RValue, &void_ptr_type, ErrorExpr());
@@ -666,17 +673,7 @@ namespace Aria::Internal {
     }
 
     Expr* Parser::parse_term() {
-        Token* tok = peek();
-        if (!tok) { return &error_expr; }
-        ParseExprFn prefixRule = m_expr_rules[tok->kind].prefix;
-
-        if (!prefixRule) {
-            sync_local();
-            m_context->report_compiler_diagnostic(tok->range.start, tok->range, "Expected an expression");
-            return &error_expr;
-        }
-
-        return prefixRule(nullptr);
+        return parse_precedence(PREC_CALL);
     }
 
     bool Parser::is_expression() {
@@ -1170,7 +1167,8 @@ namespace Aria::Internal {
             return &error_decl;
         }
 
-        auto[params, paramTypes] = parse_function_params();
+        bool is_var_arg = false;
+        auto[params, paramTypes] = parse_function_params(&is_var_arg);
 
         if (try_consume(TokenKind::Arrow, "->")) {
             if (!(is_primitive_type() || match(TokenKind::Identifier))) {
@@ -1194,6 +1192,7 @@ namespace Aria::Internal {
         FunctionDeclaration typeDecl;
         typeDecl.return_type = type;
         typeDecl.param_types = paramTypes;
+        typeDecl.var_arg = is_var_arg;
 
         TypeInfo* finalType = TypeInfo::Create(m_context, TypeKind::Function);
         finalType->function = typeDecl;
@@ -1203,7 +1202,7 @@ namespace Aria::Internal {
         return decl;
     }
 
-    std::pair<TinyVector<Decl*>, TinyVector<TypeInfo*>> Parser::parse_function_params() {
+    std::pair<TinyVector<Decl*>, TinyVector<TypeInfo*>> Parser::parse_function_params(bool* var_arg) {
         TinyVector<Decl*> params;
         TinyVector<TypeInfo*> paramTypes;
 
@@ -1216,31 +1215,46 @@ namespace Aria::Internal {
                 continue;
             }
 
-            Token* paramIdent = try_consume(TokenKind::Identifier, "identifier");
+            if (match(TokenKind::TripleDot)) {
+                Token& triple = consume();
+                *var_arg = true;
+
+                if (match(TokenKind::Comma)) {
+                    Token& c = consume();
+                    m_context->report_compiler_diagnostic(c.range.start, c.range, "Cannot declare parameters after '...'");
+                } else if (match(TokenKind::RightParen)) {
+                    break;
+                } else {
+                    m_context->report_compiler_diagnostic(peek()->range.start, peek()->range, "Expected either ')'");
+                    sync_params();
+                }
+            } else {
+                Token* paramIdent = try_consume(TokenKind::Identifier, "identifier");
             
-            if (!paramIdent) {
+                if (!paramIdent) {
+                    sync_params();
+                    continue;
+                }
+
+                try_consume(TokenKind::Colon, ":");
+
+                if (!(is_primitive_type() || match(TokenKind::Identifier))) {
+                    m_context->report_compiler_diagnostic(peek()->range.start, peek()->range, "Expected a type");
+                    sync_params();
+                    continue;
+                }
+
+                TypeInfo* paramType = parse_type();
+                
+                params.append(m_context, Decl::Create(m_context, paramIdent->range.start, paramIdent->range, DeclKind::Param, DeclVisibility::Public, ParamDecl(paramIdent->string, paramType)));
+                paramTypes.append(m_context, paramType);
+
+                if (match(TokenKind::Comma)) { consume(); continue; }
+                if (match(TokenKind::RightParen)) { break; }
+
+                m_context->report_compiler_diagnostic(peek()->range.start, peek()->range, "Expected either ',' or ')'");
                 sync_params();
-                continue;
             }
-
-            try_consume(TokenKind::Colon, ":");
-
-            if (!(is_primitive_type() || match(TokenKind::Identifier))) {
-                m_context->report_compiler_diagnostic(peek()->range.start, peek()->range, "Expected a type");
-                sync_params();
-                continue;
-            }
-
-            TypeInfo* paramType = parse_type();
-            
-            params.append(m_context, Decl::Create(m_context, paramIdent->range.start, paramIdent->range, DeclKind::Param, DeclVisibility::Public, ParamDecl(paramIdent->string, paramType)));
-            paramTypes.append(m_context, paramType);
-
-            if (match(TokenKind::Comma)) { consume(); continue; }
-            if (match(TokenKind::RightParen)) { break; }
-
-            sync_params();
-            m_context->report_compiler_diagnostic(peek()->range.start, peek()->range, "Expected either ',' or ')'");
         }
 
         try_consume(TokenKind::RightParen, ")");
@@ -1308,7 +1322,8 @@ namespace Aria::Internal {
             if (match(TokenKind::Identifier)) {
                 if (peek()->string == ident->string) { // Check for constructor
                     consume();
-                    auto[params, param_types] = parse_function_params();
+                    bool is_var_arg = false;
+                    auto[params, param_types] = parse_function_params(&is_var_arg);
                     Stmt* body = nullptr;
                     ConstructorKind kind = ConstructorKind::UserDefined;
 
@@ -1325,6 +1340,7 @@ namespace Aria::Internal {
                     FunctionDeclaration fn;
                     fn.param_types = param_types;
                     fn.return_type = &void_type;
+                    fn.var_arg = is_var_arg;
 
                     TypeInfo* type = TypeInfo::Create(m_context, TypeKind::Function);
                     type->function = fn;
@@ -1353,8 +1369,9 @@ namespace Aria::Internal {
 
                 Token* name = try_consume(TokenKind::Identifier, "identifier");
                 if (!name) { sync_local(); continue; }
-
-                auto[params, param_types] = parse_function_params();
+                
+                bool is_var_arg = false;
+                auto[params, param_types] = parse_function_params(&is_var_arg);
 
                 TypeInfo* ret_type = &error_type;
 
@@ -1373,6 +1390,7 @@ namespace Aria::Internal {
                 FunctionDeclaration fn;
                 fn.return_type = ret_type;
                 fn.param_types = param_types;
+                fn.var_arg = is_var_arg;
 
                 TypeInfo* final_type = TypeInfo::Create(m_context, TypeKind::Function);
                 final_type->function = fn;

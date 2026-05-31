@@ -21,7 +21,7 @@ namespace Aria::Internal {
 
         void parse_char_literal();
         void parse_decimal_literal();
-        void parse_string_literal();
+        void parse_string_literal(bool c_style);
 
         void parse_at_symbol();
         void parse_dollar_symbol();
