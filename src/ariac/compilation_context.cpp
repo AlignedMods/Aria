@@ -104,7 +104,7 @@ namespace Aria::Internal {
 
     void CompilationContext::finish_compilation(const CompilerFlags& flags) {
         analyze();
-        if (!has_errors) {
+        if (!has_errors && !flags.no_codegen) {
             emit();
         }
 

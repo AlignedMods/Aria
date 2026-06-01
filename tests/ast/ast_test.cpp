@@ -1,5 +1,7 @@
 #include "common.hpp"
 
+#include "llvm/Support/Process.h"
+
 #include <string_view>
 
 static const char* ast_basic_expect = 
@@ -8,7 +10,9 @@ static const char* ast_basic_expect =
 "TranslationUnitDecl\n"
 "    ModuleDecl 'main'\n"
 "    FunctionDecl 'main' public 'void()'\n"
-"        BlockStmt \n";
+"        BlockStmt \n"
+"            ReturnStmt\n"
+"                <<NULL>>";
 
 static const char* ast_var_expect = 
 "'tests/test_suite/ast/var.aria'\n"
@@ -22,7 +26,9 @@ static const char* ast_var_expect =
 "            VarDecl 'y' 'bool'\n"
 "                BooleanLiteralExpr false 'bool' rvalue\n"
 "            VarDecl 'z' 'double'\n"
-"                FloatingLiteralExpr 6 'double' rvalue\n";
+"                FloatingLiteralExpr 6 'double' rvalue\n"
+"            ReturnStmt\n"
+"                <<NULL>>";
 
 static const char* ast_binary_expr_expect =
 "'tests/test_suite/ast/binary_expr.aria'\n"
@@ -97,7 +103,9 @@ static const char* ast_binary_expr_expect =
 "                        IntegerLiteralExpr 6 'int' rvalue\n"
 "                    BinaryOperatorExpr '!=' 'bool' rvalue\n"
 "                        IntegerLiteralExpr 7 'int' rvalue\n"
-"                        IntegerLiteralExpr 6 'int' rvalue\n";
+"                        IntegerLiteralExpr 6 'int' rvalue\n"
+"            ReturnStmt\n"
+"                <<NULL>>";
 
 static const char* ast_casts_expect =
 "'tests/test_suite/ast/casts.aria'\n"
@@ -129,7 +137,9 @@ static const char* ast_casts_expect =
 "            VarDecl 'g' 'long'\n"
 "                ImplicitCastExpr <Integral> 'long' rvalue\n"
 "                    ImplicitCastExpr <LValueToRValue> 'ulong' rvalue\n"
-"                        DeclRefExpr 'f' Var 'ulong' lvalue\n";
+"                        DeclRefExpr 'f' Var 'ulong' lvalue\n"
+"            ReturnStmt\n"
+"                <<NULL>>";
 
 static const char* ast_binary_promotion_expect =
 "'tests/test_suite/ast/binary_promotion.aria'\n"
@@ -179,7 +189,9 @@ static const char* ast_binary_promotion_expect =
 "                                DeclRefExpr 'e' Var 'char' lvalue\n"
 "                        ImplicitCastExpr <Integral> 'int' rvalue\n"
 "                            ImplicitCastExpr <LValueToRValue> 'char' rvalue\n"
-"                                DeclRefExpr 'e' Var 'char' lvalue\n";
+"                                DeclRefExpr 'e' Var 'char' lvalue\n"
+"            ReturnStmt\n"
+"                <<NULL>>";
 
 static const char* ast_functions_expect =
 "'tests/test_suite/ast/functions.aria'\n"
@@ -188,6 +200,8 @@ static const char* ast_functions_expect =
 "    ModuleDecl 'functions'\n"
 "    FunctionDecl 'foo' public 'void()'\n"
 "        BlockStmt \n"
+"            ReturnStmt\n"
+"                <<NULL>>\n"
 "    FunctionDecl 'add' public 'int(int, int)'\n"
 "        ParamDecl 'lhs' 'int'\n"
 "        ParamDecl 'rhs' 'int'\n"
@@ -230,9 +244,11 @@ static const char* ast_functions_expect =
 "                    IntegerLiteralExpr 6 'int' rvalue\n"
 "            CallExpr 'int' rvalue\n"
 "                DeclRefExpr 'recursive' Function 'int(int)' lvalue\n"
-"                IntegerLiteralExpr 66 'int' rvalue\n";
+"                IntegerLiteralExpr 66 'int' rvalue\n"
+"            ReturnStmt\n"
+"                <<NULL>>";
 
-static const char* ast_overloaded_functions =
+static const char* ast_overloaded_functions_expect =
 "'tests/test_suite/ast/overloaded_functions.aria'\n"
 "\n"
 "TranslationUnitDecl\n"
@@ -240,12 +256,18 @@ static const char* ast_overloaded_functions =
 "    FunctionDecl 'foo' public 'void(int)'\n"
 "        ParamDecl 'x' 'int'\n"
 "        BlockStmt \n"
+"            ReturnStmt\n"
+"                <<NULL>>\n"
 "    FunctionDecl 'foo' public 'void(long)'\n"
 "        ParamDecl 'x' 'long'\n"
 "        BlockStmt \n"
+"            ReturnStmt\n"
+"                <<NULL>>\n"
 "    FunctionDecl 'foo' public 'void(ulong)'\n"
 "        ParamDecl 'x' 'ulong'\n"
 "        BlockStmt \n"
+"            ReturnStmt\n"
+"                <<NULL>>\n"
 "    FunctionDecl 'main' public 'void()'\n"
 "        BlockStmt \n"
 "            VarDecl 'x' 'ulong'\n"
@@ -286,7 +308,9 @@ static const char* ast_overloaded_functions =
 "                                ImplicitCastExpr <LValueToRValue> 'ulong' rvalue\n"
 "                                    DeclRefExpr 'x' Var 'ulong' lvalue\n"
 "                                ImplicitCastExpr <LValueToRValue> 'ulong' rvalue\n"
-"                                    DeclRefExpr 'x' Var 'ulong' lvalue\n";
+"                                    DeclRefExpr 'x' Var 'ulong' lvalue\n"
+"            ReturnStmt\n"
+"                <<NULL>>";
 
 static const char* ast_control_flow_expect =
 "'tests/test_suite/ast/control_flow.aria'\n"
@@ -340,76 +364,84 @@ static const char* ast_control_flow_expect =
 "                            ImplicitCastExpr <LValueToRValue> 'ulong' rvalue\n"
 "                                DeclRefExpr 'a' Var 'ulong' lvalue\n"
 "                            ImplicitCastExpr <LValueToRValue> 'ulong' rvalue\n"
-"                                DeclRefExpr 'a' Var 'ulong' lvalue\n";
+"                                DeclRefExpr 'a' Var 'ulong' lvalue";
 
 void test_ast_basic(std::string_view ariac_path) {
-    std::string cmd = fmt::format("{} tests/test_suite/ast/basic.aria -no-stdlib -dump-ast-to-file tests/output/ast_basic.ast", ariac_path);
-    // NOTE: Using system() is not good and should be changed in the future
-    system(cmd.c_str());
+    llvm::StringRef args[] = { "ariac", "tests/test_suite/ast/basic.aria", "-no-codegen", "-no-stdlib", "-dump-ast" };
+    std::optional<llvm::StringRef> redirects[] = { std::nullopt, "tests/output/ast_basic.ast", std::nullopt };
 
+    llvm::sys::ExecuteAndWait(ariac_path, args, std::nullopt, redirects);
     std::string ast = read_file("tests/output/ast_basic.ast");
+
     REQUIRE(ast == ast_basic_expect);
 }
 
 void test_ast_var(std::string_view ariac_path) {
-    std::string cmd = fmt::format("{} tests/test_suite/ast/var.aria -no-stdlib -dump-ast-to-file tests/output/ast_var.ast", ariac_path);
-    // NOTE: Using system() is not good and should be changed in the future
-    system(cmd.c_str());
+    llvm::StringRef args[] = { "ariac", "tests/test_suite/ast/var.aria", "-no-codegen", "-no-stdlib", "-dump-ast" };
+    std::optional<llvm::StringRef> redirects[] = { std::nullopt, "tests/output/ast_var.ast", std::nullopt };
 
+    llvm::sys::ExecuteAndWait(ariac_path, args, std::nullopt, redirects);
     std::string ast = read_file("tests/output/ast_var.ast");
+
     REQUIRE(ast == ast_var_expect);
 }
 
 void test_ast_binary_expr(std::string_view ariac_path) {
-    std::string cmd = fmt::format("{} tests/test_suite/ast/binary_expr.aria -no-stdlib -dump-ast-to-file tests/output/ast_binary_expr.ast", ariac_path);
-    // NOTE: Using system() is not good and should be changed in the future
-    system(cmd.c_str());
+    llvm::StringRef args[] = { "ariac", "tests/test_suite/ast/binary_expr.aria", "-no-codegen", "-no-stdlib", "-dump-ast" };
+    std::optional<llvm::StringRef> redirects[] = { std::nullopt, "tests/output/ast_binary_expr.ast", std::nullopt };
 
+    llvm::sys::ExecuteAndWait(ariac_path, args, std::nullopt, redirects);
     std::string ast = read_file("tests/output/ast_binary_expr.ast");
+
     REQUIRE(ast == ast_binary_expr_expect);
 }
 
 void test_ast_casts(std::string_view ariac_path) {
-    std::string cmd = fmt::format("{} tests/test_suite/ast/casts.aria -no-stdlib -dump-ast-to-file tests/output/ast_casts.ast", ariac_path);
-    // NOTE: Using system() is not good and should be changed in the future
-    system(cmd.c_str());
+    llvm::StringRef args[] = { "ariac", "tests/test_suite/ast/casts.aria", "-no-codegen", "-no-stdlib", "-dump-ast" };
+    std::optional<llvm::StringRef> redirects[] = { std::nullopt, "tests/output/ast_casts.ast", std::nullopt };
 
+    llvm::sys::ExecuteAndWait(ariac_path, args, std::nullopt, redirects);
     std::string ast = read_file("tests/output/ast_casts.ast");
+
     REQUIRE(ast == ast_casts_expect);
 }
 
 void test_ast_binary_promotion(std::string_view ariac_path) {
-    std::string cmd = fmt::format("{} tests/test_suite/ast/binary_promotion.aria -no-stdlib -dump-ast-to-file tests/output/ast_binary_promotion.ast", ariac_path);
-    // NOTE: Using system() is not good and should be changed in the future
-    system(cmd.c_str());
+    llvm::StringRef args[] = { "ariac", "tests/test_suite/ast/binary_promotion.aria", "-no-codegen", "-no-stdlib", "-dump-ast" };
+    std::optional<llvm::StringRef> redirects[] = { std::nullopt, "tests/output/ast_binary_promotion.ast", std::nullopt };
 
+    llvm::sys::ExecuteAndWait(ariac_path, args, std::nullopt, redirects);
     std::string ast = read_file("tests/output/ast_binary_promotion.ast");
+
     REQUIRE(ast == ast_binary_promotion_expect);
 }
 
 void test_ast_functions(std::string_view ariac_path) {
-    std::string cmd = fmt::format("{} tests/test_suite/ast/functions.aria -no-stdlib -dump-ast-to-file tests/output/ast_functions.ast", ariac_path);
-    // NOTE: Using system() is not good and should be changed in the future
-    system(cmd.c_str());
+    llvm::StringRef args[] = { "ariac", "tests/test_suite/ast/functions.aria", "-no-codegen", "-no-stdlib", "-dump-ast" };
+    std::optional<llvm::StringRef> redirects[] = { std::nullopt, "tests/output/ast_functions.ast", std::nullopt };
 
+    llvm::sys::ExecuteAndWait(ariac_path, args, std::nullopt, redirects);
     std::string ast = read_file("tests/output/ast_functions.ast");
+
     REQUIRE(ast == ast_functions_expect);
 }
 
 void test_ast_overloaded_functions(std::string_view ariac_path) {
-    std::string cmd = fmt::format("{} tests/test_suite/ast/overloaded_functions.aria -no-stdlib -dump-ast-to-file tests/output/ast_overloaded_functions.ast", ariac_path);
-    // NOTE: Using system() is not good and should be changed in the future
-    system(cmd.c_str());
+    llvm::StringRef args[] = { "ariac", "tests/test_suite/ast/overloaded_functions.aria", "-no-codegen", "-no-stdlib", "-dump-ast" };
+    std::optional<llvm::StringRef> redirects[] = { std::nullopt, "tests/output/ast_overloaded_functions.ast", std::nullopt };
 
+    llvm::sys::ExecuteAndWait(ariac_path, args, std::nullopt, redirects);
     std::string ast = read_file("tests/output/ast_overloaded_functions.ast");
-    REQUIRE(ast == ast_overloaded_functions);
+
+    REQUIRE(ast == ast_overloaded_functions_expect);
 }
 
 void test_ast_control_flow(std::string_view ariac_path) {
-    std::string cmd = fmt::format("{} tests/test_suite/ast/control_flow.aria -no-stdlib -dump-ast-to-file tests/output/ast_control_flow.ast", ariac_path);
-    // NOTE: Using system() is not good and should be changed in the future
-    system(cmd.c_str());
+    llvm::StringRef args[] = { "ariac", "tests/test_suite/ast/control_flow.aria", "-no-codegen", "-no-stdlib", "-dump-ast" };
+    std::optional<llvm::StringRef> redirects[] = { std::nullopt, "tests/output/ast_control_flow.ast", std::nullopt };
 
+    llvm::sys::ExecuteAndWait(ariac_path, args, std::nullopt, redirects);
     std::string ast = read_file("tests/output/ast_control_flow.ast");
+
     REQUIRE(ast == ast_control_flow_expect);
 }

@@ -13,6 +13,7 @@ namespace Aria::Internal {
         fmt::println("  {} [<options>] [<args>]", prog_name);
         fmt::println("");
         fmt::println("  Options:");
+        fmt::println("    -no-codegen             Do not run any codegen");
         fmt::println("    -no-stdlib              Does not compile the standard library");
         fmt::println("    -dump-ast               Prints the human readable AST of all the input files");
         fmt::println("    -dump-ast-to-file       Dumps the human readable AST of all the input files to a file");
@@ -34,7 +35,8 @@ namespace Aria::Internal {
         bool needs_ast_dump_output = false;
 
         for (int i = 1; i < argc; i++) {
-            if (strcmp(argv[i], "-dump-ast") == 0) { flags.dump_ast = true; }
+            if (strcmp(argv[i], "-no-codegen") == 0) { flags.no_codegen = true; }
+            else if (strcmp(argv[i], "-dump-ast") == 0) { flags.dump_ast = true; }
             else if (strcmp(argv[i], "-dump-ir") == 0) { flags.dump_ir = true; }
             else if (strcmp(argv[i], "-dump-ast-to-file") == 0) { flags.dump_ast = true; needs_ast_dump_output = true; }
             else if (strcmp(argv[i], "-no-stdlib") == 0) { flags.no_stdlib = true; }

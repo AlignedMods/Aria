@@ -28,7 +28,12 @@ std::string read_file(const std::string& path) {
     std::stringstream ss;
     ss << f.rdbuf();
 
-    return ss.str();
+    std::string s = ss.str();
+    while (!s.empty() && std::isspace(s.back())) { // Trim whitespace from the end
+        s.pop_back();
+    }
+
+    return s;
 }
 
 void print_help(const char* prog_name) {
