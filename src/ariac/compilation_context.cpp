@@ -34,8 +34,6 @@ namespace Aria::Internal {
 
         if (!std::filesystem::exists(".build")) {
             std::filesystem::create_directory(".build");
-            std::ofstream gitignore(".build/.gitignore");
-            gitignore << "*";
         }
 
         if (!flags.no_stdlib) { compile_stdlib(flags); }
