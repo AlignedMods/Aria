@@ -90,6 +90,7 @@ namespace Aria::Internal {
         void emit_var_decl(Decl* decl);
         void emit_function_decl(Decl* decl);
         void emit_function_prototype(Decl* decl);
+        void emit_method_prototype(Decl* decl);
         void emit_struct_decl(Decl* decl);
         void emit_impl_decl(Decl* decl);
 
@@ -144,6 +145,7 @@ namespace Aria::Internal {
         u16 m_struct_index = 0;
 
         std::unordered_map<Decl*, llvm::AllocaInst*> m_named_values;
+        llvm::AllocaInst* m_self_value = nullptr;
         std::unordered_map<Decl*, llvm::Function*> m_functions;
 
         // Counters

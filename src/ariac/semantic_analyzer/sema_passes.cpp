@@ -156,8 +156,16 @@ namespace Aria::Internal {
                     continue;
                 }
 
-                if (f.parameters.size != 0) {
-                    m_context->report_compiler_diagnostic(func->loc, func->range, "Main function mustn't have any parameters");
+                if (f.parameters.size > 1) {
+                    m_context->report_compiler_diagnostic(func->loc, func->range, "Main function must have one or zero parameters");
+                }
+
+                if (f.parameters.size >= 1) {
+                    TypeInfo* type = TypeInfo::Create(m_context, TypeKind::Slice);
+                    type->base = &char_slice_type;
+                    if (!type_is_equal(f.parameters.items[0]->param.type, type)) {
+                        m_context->report_compiler_diagnostic(f.parameters.items[0]->loc, f.parameters.items[0]->range, fmt::format("First parameter of 'main' function must be of type '{}'", type_info_to_string(type)));
+                    }
                 }
 
                 module->symbols[f.identifier] = func;

@@ -1392,7 +1392,7 @@ namespace Aria::Internal {
                 fn.param_types = param_types;
                 fn.var_arg = is_var_arg;
 
-                TypeInfo* final_type = TypeInfo::Create(m_context, TypeKind::Function);
+                TypeInfo* final_type = TypeInfo::Create(m_context, TypeKind::Method);
                 final_type->function = fn;
 
                 impl->impl.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Method,

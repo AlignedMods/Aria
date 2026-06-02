@@ -31,6 +31,7 @@ namespace Aria::Internal {
         Ref,
 
         Function,
+        Method,
 
         String,
         Structure,
@@ -117,6 +118,10 @@ namespace Aria::Internal {
 
         bool is_function() const {
             return kind == TypeKind::Function;
+        }
+
+        bool is_method() const {
+            return kind == TypeKind::Method;
         }
 
         bool is_structure() const {

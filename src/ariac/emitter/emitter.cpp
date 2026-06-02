@@ -159,13 +159,13 @@ namespace Aria::Internal {
 
     llvm::Value* Emitter::emit_string_literal_expr(Expr* expr) {
         StringLiteralExpr& sl = expr->string_literal;
-        llvm::Value* str = m_active_module_context.builder->CreateGlobalString(sl.value, "str");
-
+       
         if (expr->type->is_slice()) {
+            llvm::Value* str = m_active_module_context.builder->CreateGlobalString(sl.value, "str", 0, nullptr, false);
             llvm::Constant* vals[2] = { llvm::dyn_cast<llvm::Constant>(str), m_active_module_context.builder->getInt64(sl.value.length()) };
             return llvm::ConstantStruct::get(llvm::dyn_cast<llvm::StructType>(type_info_to_llvm_type(expr->type)), llvm::ArrayRef(vals));
         } else {
-            return str;
+            return m_active_module_context.builder->CreateGlobalString(sl.value, "cstr");
         }
     }
 
@@ -198,6 +198,49 @@ namespace Aria::Internal {
         return val;
     }
 
+    llvm::Value* Emitter::emit_member_expr(Expr* expr) {
+        MemberExpr& mem = expr->member;
+
+        switch (mem.referenced_member->kind) {
+            case DeclKind::Field: {
+                llvm::Value* val = emit_expr(mem.parent);
+                TypeInfo* type = mem.parent->type;
+                size_t idx = 0;
+                TinyVector<Decl*> fields;
+
+                switch (mem.parent->type->kind) {
+                    case TypeKind::Ref:
+                    case TypeKind::Ptr: {
+                        fields = mem.parent->type->base->struct_.source_decl->struct_.fields;
+                        type = mem.parent->type->base;
+                        val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(&void_ptr_type), val);
+                        break;
+                    }
+
+                    case TypeKind::Structure: {
+                        fields = mem.parent->type->struct_.source_decl->struct_.fields;
+                        break;
+                    }
+
+                    default: ARIA_UNREACHABLE();
+                }
+
+                for (Decl* field : fields) {
+                    if (field == mem.referenced_member) { break; }
+                    idx++;
+                }
+
+                return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, static_cast<unsigned>(idx));
+            }
+
+            case DeclKind::Method: {
+                return m_functions.at(mem.referenced_member);
+            }
+
+            default: ARIA_UNREACHABLE();
+        }
+    }
+
     llvm::Value* Emitter::emit_builtin_member_expr(Expr* expr) {
         MemberExpr& mem = expr->member;
         
@@ -225,6 +268,10 @@ namespace Aria::Internal {
         }
     }
 
+    llvm::Value* Emitter::emit_self_expr(Expr* expr) {
+        return m_self_value;
+    }
+
     llvm::Value* Emitter::emit_call_expr(Expr* expr) {
         CallExpr& call = expr->call;
         
@@ -246,6 +293,30 @@ namespace Aria::Internal {
 
         llvm::Value* callee = emit_expr(call.callee);
         return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(llvm::dyn_cast<llvm::FunctionType>(type_info_to_llvm_type(call.callee->type)), callee), args, expr->type->is_void() ? "" : "call");
+    }
+
+    llvm::Value* Emitter::emit_method_call_expr(Expr* expr) {
+        MethodCallExpr& mc = expr->method_call;
+
+        std::vector<llvm::Value*> args;
+        args.reserve(mc.arguments.size + 1);
+        args.push_back(emit_expr(mc.callee->member.parent)); // self
+
+        for (Expr* arg : mc.arguments) {
+            llvm::Value* val = emit_expr(arg);
+
+            ABITypeInfo info = get_abi_type_info(arg->type);
+            if (info.pass_direct) {
+                args.push_back(val);
+            } else if (info.pass_by_ptr) {
+                llvm::Value* copy = alloca_at_entry(m_active_module_context.function, "", arg->type);
+                m_active_module_context.builder->CreateStore(val, copy);
+                args.push_back(copy);
+            }
+        }
+
+        llvm::Value* callee = emit_expr(mc.callee);
+        return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(llvm::dyn_cast<llvm::FunctionType>(type_info_to_llvm_type(mc.callee->type)), callee), args, expr->type->is_void() ? "" : "call");
     }
 
     llvm::Value* Emitter::emit_implicit_cast_expr(Expr* expr) {
@@ -362,11 +433,70 @@ namespace Aria::Internal {
                 break;
             }
 
+            case BinaryOperatorKind::Less: {
+                llvm::Value* lhs = emit_expr(bin.lhs);
+                llvm::Value* rhs = emit_expr(bin.rhs);
+
+                if (bin.lhs->type->is_integral()) {
+                    if (bin.lhs->type->is_signed()) {
+                        return m_active_module_context.builder->CreateICmpSLT(lhs, rhs, "lt");
+                    } else {    
+                        return m_active_module_context.builder->CreateICmpULT(lhs, rhs, "lt");
+                    }
+                }
+
+                ARIA_UNREACHABLE();
+                break;
+            }
+
+            case BinaryOperatorKind::Greater: {
+                llvm::Value* lhs = emit_expr(bin.lhs);
+                llvm::Value* rhs = emit_expr(bin.rhs);
+
+                if (bin.lhs->type->is_integral()) {
+                    if (bin.lhs->type->is_signed()) {
+                        return m_active_module_context.builder->CreateICmpSGT(lhs, rhs, "gt");
+                    } else {
+                        return m_active_module_context.builder->CreateICmpUGT(lhs, rhs, "gt");
+                    }
+                }
+
+                ARIA_UNREACHABLE();
+                break;
+            }
+
             case BinaryOperatorKind::Eq: {
                 llvm::Value* lhs = emit_expr(bin.lhs);
                 llvm::Value* rhs = emit_expr(bin.rhs);
 
                 return m_active_module_context.builder->CreateStore(rhs, lhs);
+            }
+
+            default: ARIA_UNREACHABLE();
+        }
+    }
+
+    llvm::Value* Emitter::emit_compound_assign_expr(Expr* expr) {
+        CompoundAssignExpr& comp = expr->compound_assign;
+
+        llvm::Value* lhs = emit_expr(comp.lhs);
+        llvm::Value* lhs_val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(comp.lhs->type), lhs);
+        llvm::Value* rhs = emit_expr(comp.rhs);
+
+        switch (comp.op) {
+            case BinaryOperatorKind::CompoundAdd: {
+                if (expr->type->is_integral()) {
+                    llvm::Value* add = m_active_module_context.builder->CreateAdd(lhs_val, rhs, "add");
+                    m_active_module_context.builder->CreateStore(add, lhs);
+                    return lhs;
+                } else if (expr->type->is_floating_point()) {
+                    llvm::Value* add = m_active_module_context.builder->CreateFAdd(lhs_val, rhs, "fadd");
+                    m_active_module_context.builder->CreateStore(add, lhs);
+                    return lhs;
+                }
+
+                ARIA_UNREACHABLE();
+                break;
             }
 
             default: ARIA_UNREACHABLE();
@@ -383,12 +513,16 @@ namespace Aria::Internal {
             case ExprKind::ArrayFiller: return emit_array_filler_expr(expr);
             case ExprKind::Null: return emit_null_expr(expr);
             case ExprKind::DeclRef: return emit_decl_ref_expr(expr);
+            case ExprKind::Member: return emit_member_expr(expr);
             case ExprKind::BuiltinMember: return emit_builtin_member_expr(expr);
+            case ExprKind::Self: return emit_self_expr(expr);
             case ExprKind::Call: return emit_call_expr(expr);
+            case ExprKind::MethodCall: return emit_method_call_expr(expr);
             case ExprKind::ImplicitCast: return emit_implicit_cast_expr(expr);
             case ExprKind::Cast: return emit_cast_expr(expr);
             case ExprKind::UnaryOperator: return emit_unary_operator_expr(expr);
             case ExprKind::BinaryOperator: return emit_binary_operator_expr(expr);
+            case ExprKind::CompoundAssign: return emit_compound_assign_expr(expr);
 
             default: ARIA_UNREACHABLE();
         }
@@ -483,6 +617,28 @@ namespace Aria::Internal {
         llvm::Function* function = llvm::Function::Create(fn_ty, llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
         m_functions[decl] = function;
     }
+
+    void Emitter::emit_method_prototype(Decl* decl) {
+        MethodDecl& m = decl->method;
+        std::string sig = mangle_method(&decl->method);
+
+        std::vector<llvm::Type*> params;
+        params.push_back(type_info_to_llvm_type(&void_ptr_type));
+
+        for (Decl* p : m.parameters) {
+            ABITypeInfo info = get_abi_type_info(p->param.type);
+
+            if (info.pass_by_ptr) {
+                params.push_back(type_info_to_llvm_type(&void_ptr_type));
+            } else if (info.pass_direct) {
+                params.push_back(type_info_to_llvm_type(p->param.type));
+            }
+        }
+
+        llvm::FunctionType* fn_ty = llvm::FunctionType::get(type_info_to_llvm_type(m.type->function.return_type), params, m.type->function.var_arg);
+        llvm::Function* function = llvm::Function::Create(fn_ty, llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
+        m_functions[decl] = function;
+    }
         
     void Emitter::emit_struct_decl(Decl* decl) {
         StructDecl& struc = decl->struct_;
@@ -495,7 +651,59 @@ namespace Aria::Internal {
             fields.push_back(type_info_to_llvm_type(field->field.type));
         }
 
-        llvm::StructType* type = llvm::StructType::create(*m_active_module_context.context, fields, name);
+        llvm::StructType* type = llvm::StructType::create(fields, name);
+
+        for (Decl* impl : struc.impls) {
+            emit_impl_decl(impl);
+        }
+    }
+
+    void Emitter::emit_impl_decl(Decl* decl) {
+        ImplDecl& impl = decl->impl;
+
+        for (Decl* field : impl.fields) {
+            ARIA_ASSERT(field->kind == DeclKind::Method, "Invalid field");
+            MethodDecl& m = field->method;
+
+            if (!m_functions.contains(field)) {
+                emit_method_prototype(field);
+            }
+
+            llvm::Function* function = m_functions.at(field);
+            m_active_module_context.function = function;
+
+            if (m.body) {
+                llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", function);
+                m_active_module_context.builder->SetInsertPoint(bb);
+
+                // self
+                llvm::AllocaInst* s = alloca_at_entry(function, "self", &void_ptr_type);
+                m_self_value = s;
+                m_active_module_context.builder->CreateStore(function->getArg(0), s);
+
+                size_t idx = 1;
+                for (Decl* param : m.parameters) {
+                    ABITypeInfo info = get_abi_type_info(param->param.type);
+
+                    if (info.pass_direct) {
+                        llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, param->param.type);
+                        m_named_values[param] = a;
+
+                        m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
+                    } else if (info.pass_by_ptr) {
+                        llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, &void_ptr_type);
+                        m_named_values[param] = a;
+
+                        m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
+                    }
+                }
+
+                emit_stmt(m.body);
+                llvm::verifyFunction(*function, &llvm::errs());
+            }
+
+            m_functions[field];
+        }
     }
 
     void Emitter::emit_decl(Decl* decl) {
@@ -513,6 +721,28 @@ namespace Aria::Internal {
         for (Stmt* stmt : block.stmts) {
             emit_stmt(stmt);
         }
+    }
+
+    void Emitter::emit_while_stmt(Stmt* stmt) {
+        WhileStmt& wh = stmt->while_;
+        
+        llvm::BasicBlock* loop_cond = llvm::BasicBlock::Create(*m_active_module_context.context, "loop_cond", m_active_module_context.function);
+        llvm::BasicBlock* loop_body = (wh.body->block.stmts.size == 0) ? nullptr : llvm::BasicBlock::Create(*m_active_module_context.context, "loop_body", m_active_module_context.function);
+        llvm::BasicBlock* loop_end = llvm::BasicBlock::Create(*m_active_module_context.context, "loop_end", m_active_module_context.function);
+
+        m_active_module_context.builder->CreateBr(loop_cond);
+
+        m_active_module_context.builder->SetInsertPoint(loop_cond);
+        llvm::Value* cond = emit_expr(wh.condition);
+        m_active_module_context.builder->CreateCondBr(cond, loop_body ? loop_body : loop_cond, loop_end);
+
+        if (loop_body) {
+            m_active_module_context.builder->SetInsertPoint(loop_body);
+            emit_block_stmt(wh.body);
+            m_active_module_context.builder->CreateBr(loop_cond);
+        }
+
+        m_active_module_context.builder->SetInsertPoint(loop_end);
     }
 
     void Emitter::emit_return_stmt(Stmt* stmt) {
@@ -539,6 +769,7 @@ namespace Aria::Internal {
     void Emitter::emit_stmt(Stmt* stmt) {
         switch (stmt->kind) {
             case StmtKind::Block: return emit_block_stmt(stmt);
+            case StmtKind::While: return emit_while_stmt(stmt);
             case StmtKind::Return: return emit_return_stmt(stmt);
             case StmtKind::Expr: return emit_expr_stmt(stmt);
             case StmtKind::Decl: return emit_decl_stmt(stmt);
@@ -566,6 +797,21 @@ namespace Aria::Internal {
         } else if (t->kind == TypeKind::Function) {
             std::vector<llvm::Type*> args;
             args.reserve(t->function.param_types.size);
+
+            for (TypeInfo* type : t->function.param_types) {
+                ABITypeInfo info = get_abi_type_info(type);
+                if (info.pass_direct) {
+                    args.push_back(type_info_to_llvm_type(type));
+                } else if (info.pass_by_ptr) {
+                    args.push_back(type_info_to_llvm_type(&void_ptr_type));
+                }
+            }
+
+            return llvm::FunctionType::get(type_info_to_llvm_type(t->function.return_type), args, t->function.var_arg);
+        } else if (t->kind == TypeKind::Method) {
+            std::vector<llvm::Type*> args;
+            args.reserve(t->function.param_types.size + 1);
+            args.push_back(type_info_to_llvm_type(&void_ptr_type)); // self
 
             for (TypeInfo* type : t->function.param_types) {
                 ABITypeInfo info = get_abi_type_info(type);
@@ -665,6 +911,17 @@ namespace Aria::Internal {
 
         for (size_t i = 0; i < fn->function.parameters.size; i++) {
             sig += mangle_type(fn->function.parameters.items[i]->param.type);
+        }
+
+        return sig;
+    }
+
+    std::string Emitter::mangle_method(MethodDecl* md) {
+        std::string mod_name = valid_module_name(md->parent->parent_module->name);
+        std::string sig = fmt::format("A_{}{}.{}{}.{}{}", mod_name.length(), mod_name, md->parent->struct_.identifier.length(), md->parent->struct_.identifier, md->identifier.length(), md->identifier);
+
+        for (size_t i = 0; i < md->parameters.size; i++) {
+            sig += mangle_type(md->parameters.items[i]->param.type);
         }
 
         return sig;

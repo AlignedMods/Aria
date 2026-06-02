@@ -82,6 +82,25 @@ namespace Aria::Internal {
                 break;
             }
 
+            case TypeKind::Method: {
+                FunctionDeclaration decl = type->function;
+
+                str += type_info_to_string(decl.return_type);
+                str += "(";
+
+                for (size_t i = 0; i < decl.param_types.size; i++) {
+                    str += type_info_to_string(decl.param_types.items[i]);
+                    if (i != decl.param_types.size - 1) {
+                        str += ", ";
+                    }
+                }
+
+                if (decl.var_arg) { str += ", ..."; }
+
+                str += ")";
+                break;
+            }
+
             case TypeKind::Structure: {
                 StructDeclaration decl = type->struct_;
 

@@ -143,6 +143,8 @@ namespace Aria::Internal {
                     ExprValueKind::LValue, mem_type,
                     MemberExpr(ident, self));
 
+                member->member.referenced_member = source;
+
                 replace_expr(expr, member);
                 return;
             }
@@ -470,8 +472,8 @@ namespace Aria::Internal {
         resolve_expr(mc.callee);
         TypeInfo* callee_type = mc.callee->type;
 
-        if (!callee_type->is_function() && !callee_type->is_error()) {
-            m_context->report_compiler_diagnostic(expr->loc, expr->range, "Cannot call an object of non-function type");
+        if (!callee_type->is_method() && !callee_type->is_error()) {
+            m_context->report_compiler_diagnostic(expr->loc, expr->range, "Cannot call an object of non-method type");
             expr->type = &error_type;
             return;
         }
