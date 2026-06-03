@@ -44,14 +44,12 @@ namespace Aria::Internal {
         decl->resolve_status = ResolveStatus::InProgress;
         FunctionDecl fnDecl = decl->function;
 
-        for (auto& attr : fnDecl.attributes) {
-            if (attr.kind == FunctionDecl::AttributeKind::Unsafe) {
-                m_unsafe_context = true;
-            }
-        }
-
         std::string ident = fmt::format("{}", fnDecl.identifier);
         
+        if (fnDecl.linkage_kind == LinkageKind::Extern && fnDecl.body) {
+            m_context->report_compiler_diagnostic(decl->loc, decl->range, "Function marked 'extern' must not have body");
+        }
+
         if (fnDecl.body) {
             m_active_return_type = fnDecl.type->function.return_type;
             push_scope();
@@ -74,9 +72,11 @@ namespace Aria::Internal {
 
             pop_scope();
             m_active_return_type = nullptr;
+        } else if (fnDecl.linkage_kind != LinkageKind::Extern) {
+            m_context->report_compiler_diagnostic_with_notes(decl->loc, decl->range, "Body for this function must be specified",
+                { "If this function is defined elsewhere, use 'extern'"} );
         }
 
-        m_unsafe_context = false;
         decl->resolve_status = ResolveStatus::Done;
     }
 

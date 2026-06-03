@@ -75,6 +75,7 @@ namespace Aria::Internal {
         Not, // "!"
         Negate, // "-8.7f"
         AddressOf, // "&x"
+        RValueAddressOf, // "&&x"
         Dereference, // "*ptr"
         Increment, // ++i, i++
         Decrement // --i, i--
@@ -86,6 +87,7 @@ namespace Aria::Internal {
             case UnaryOperatorKind::Not: return "!";
             case UnaryOperatorKind::Negate: return "-";
             case UnaryOperatorKind::AddressOf: return "&";
+            case UnaryOperatorKind::RValueAddressOf: return "&&";
             case UnaryOperatorKind::Dereference: return "*";
             case UnaryOperatorKind::Increment: return "++";
             case UnaryOperatorKind::Decrement: return "--";

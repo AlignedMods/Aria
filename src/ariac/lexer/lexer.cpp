@@ -445,9 +445,7 @@ namespace Aria::Internal {
             }
         }
 
-        if (scratch_buffer_cmp("@extern")) { add_token(TokenKind::AtExtern, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "@extern"); return; }
-        else if (scratch_buffer_cmp("@nomangle")) { add_token(TokenKind::AtNoMangle, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "@nomangle"); return; }
-        else if (scratch_buffer_cmp("@unsafe")) { add_token(TokenKind::AtUnsafe, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "@unsafe"); return; }
+        if (scratch_buffer_cmp("@nomangle")) { add_token(TokenKind::AtNoMangle, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "@nomangle"); return; }
         else if (scratch_buffer_cmp("@private")) { add_token(TokenKind::AtPrivate, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "@private"); return; }
 
         m_context->report_compiler_diagnostic(start, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "Unknown attribute starting with '@'");
@@ -506,7 +504,7 @@ namespace Aria::Internal {
         if (scratch_buffer_cmp("impl"))     { add_token(TokenKind::Impl,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "impl");   return; }
         if (scratch_buffer_cmp("new"))      { add_token(TokenKind::New,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "new");    return; }
         if (scratch_buffer_cmp("delete"))   { add_token(TokenKind::Delete, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "delete"); return; }
-        if (scratch_buffer_cmp("unsafe"))   { add_token(TokenKind::Unsafe, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "unsafe"); return; }
+        if (scratch_buffer_cmp("extern"))   { add_token(TokenKind::Extern, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "extern"); return; }
 
         if (scratch_buffer_cmp("void"))     { add_token(TokenKind::Void,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "void");   return; }
         if (scratch_buffer_cmp("bool"))     { add_token(TokenKind::Bool,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "bool");   return; }

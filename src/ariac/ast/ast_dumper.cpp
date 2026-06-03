@@ -230,12 +230,8 @@ namespace Aria::Internal {
                 decl->param.identifier, type_info_to_string(decl->param.type));
                 return;
 
-            case DeclKind::Function: m_output += fmt::format("FunctionDecl '{}' {} '{}'\n",
-                decl->function.identifier, decl_visibility_to_string(decl->visibility), type_info_to_string(decl->function.type));
-
-                for (auto& attr : decl->function.attributes) {
-                    dump_function_attr(attr, indentation + 4);
-                }
+            case DeclKind::Function: m_output += fmt::format("FunctionDecl '{}' {} '{}' {}\n",
+                decl->function.identifier, decl_visibility_to_string(decl->visibility), type_info_to_string(decl->function.type), linkage_kind_to_string(decl->function.linkage_kind));
 
                 for (Decl* param : decl->function.parameters) {
                     dump_decl(param, indentation + 4);
@@ -379,19 +375,6 @@ namespace Aria::Internal {
         }
 
         ARIA_UNREACHABLE();
-    }
-
-    void ASTDumper::dump_function_attr(FunctionDecl::Attribute attr, size_t indentation) {
-        std::string ident;
-        ident.append(indentation, ' ');
-        m_output += ident;
-
-        switch (attr.kind) {
-            case FunctionDecl::AttributeKind::Extern: m_output += fmt::format("ExternAttribute {:?}\n", attr.arg); break;
-            case FunctionDecl::AttributeKind::NoMangle: m_output += "NoMangleAttribute\n"; break;
-            case FunctionDecl::AttributeKind::Unsafe: m_output += "UnsafeAttribute\n"; break;
-            default: ARIA_UNREACHABLE();
-        }
     }
 
 } // namespace Aria::Internal

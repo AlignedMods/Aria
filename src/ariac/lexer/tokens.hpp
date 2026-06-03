@@ -75,10 +75,8 @@ namespace Aria::Internal {
         Impl,
         New,
         Delete,
-        Unsafe,
-        AtExtern, // @extern
+        Extern,
         AtNoMangle, // @nomangle
-        AtUnsafe, // @unsafe
         AtPrivate, // @private
         DollarFormat, // $format
         // ^^^ Keywords ^^^ //
@@ -189,10 +187,8 @@ namespace Aria::Internal {
             case TokenKind::Impl: return "impl";
             case TokenKind::New: return "new";
             case TokenKind::Delete: return "delete";
-            case TokenKind::Unsafe: return "unsafe";
-            case TokenKind::AtExtern: return "@extern";
+            case TokenKind::Extern: return "extern";
             case TokenKind::AtNoMangle: return "@nomangle";
-            case TokenKind::AtUnsafe: return "@unsafe";
             case TokenKind::AtPrivate: return "@private";
             // ^^^ Keywords ^^^ //
             

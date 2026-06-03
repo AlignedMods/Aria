@@ -344,12 +344,6 @@ namespace Aria::Internal {
                 resolve_type(call.callee->decl_ref.referenced_decl->loc, call.callee->decl_ref.referenced_decl->range, call.callee->decl_ref.referenced_decl->function.type);
                 FunctionDeclaration& fnDecl = calleeType->function;
 
-                for (auto& attr : call.callee->decl_ref.referenced_decl->function.attributes) {
-                    if (attr.kind == FunctionDecl::AttributeKind::Unsafe && !m_unsafe_context) {
-                        m_context->report_compiler_diagnostic(expr->loc, expr->range, "Cannot call unsafe function in safe context");
-                    }
-                }
-
                 if (fnDecl.param_types.size != call.arguments.size && !fnDecl.var_arg) {
                     m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Mismatched argument count, function expects {} but got {}", fnDecl.param_types.size, call.arguments.size));
                     for (size_t i = 0; i < call.arguments.size; i++) {
@@ -647,10 +641,6 @@ namespace Aria::Internal {
             m_context->report_compiler_diagnostic(expr->loc, expr->range, "Discarding result of 'new' expression is not allowed");
         }
 
-        if (!m_unsafe_context) {
-            m_context->report_compiler_diagnostic(expr->loc, expr->range, "'new' is only allowed in unsafe context");
-        }
-
         if (n.initializer) {
             if (n.array) {
                 m_temporary_context = true;
@@ -686,10 +676,6 @@ namespace Aria::Internal {
 
     void SemanticAnalyzer::resolve_delete_expr(Expr* expr) {
         DeleteExpr& d = expr->delete_;
-
-        if (!m_unsafe_context) {
-            m_context->report_compiler_diagnostic(expr->loc, expr->range, "'delete' is only allowed in unsafe context");
-        }
 
         resolve_expr(d.expression);
         require_rvalue(d.expression);
@@ -857,10 +843,6 @@ namespace Aria::Internal {
             case UnaryOperatorKind::AddressOf: {
                 if (type->is_error()) { expr->type = type; break; }
 
-                if (!m_unsafe_context) {
-                    m_context->report_compiler_diagnostic(expr->loc, expr->range, "Address of operation ('&') must be in an unsafe context");
-                }
-
                 if (unop.expression->value_kind != ExprValueKind::LValue) {
                     m_context->report_compiler_diagnostic(expr->loc, expr->range, "Address of operation ('&') requries an lvalue");
                 }
@@ -871,12 +853,21 @@ namespace Aria::Internal {
                 break;
             }
 
-            case UnaryOperatorKind::Dereference: {
+            case UnaryOperatorKind::RValueAddressOf: {
                 if (type->is_error()) { expr->type = type; break; }
 
-                if (!m_unsafe_context) {
-                    m_context->report_compiler_diagnostic(expr->loc, expr->range, "Dereferencing of pointer must be in an unsafe context");
+                if (unop.expression->value_kind != ExprValueKind::RValue) {
+                    m_context->report_compiler_diagnostic(expr->loc, expr->range, "RValue address of operation ('&&') requries an rvalue");
                 }
+
+                TypeInfo* newType = TypeInfo::Create(m_context, TypeKind::Ptr);
+                newType->base = type;
+                expr->type = newType;
+                break;
+            }
+
+            case UnaryOperatorKind::Dereference: {
+                if (type->is_error()) { expr->type = type; break; }
 
                 if (unop.expression->value_kind != ExprValueKind::LValue) {
                     m_context->report_compiler_diagnostic(expr->loc, expr->range, "Dereferencing requires an lvalue");

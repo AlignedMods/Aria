@@ -11,17 +11,15 @@ impl String {
     String(s: char[]) {
         len = s.len;
 
-        unsafe {
-            data = new char[s.len];
-            memcpy(data, s.mem, s.len);
-        }
+        data = new char[s.len];
+        memcpy(data, s.mem, s.len);
 
         io::print(s.mem[:s.len]);
     }
 
     ~String() {
         len = 0;
-        unsafe delete data;
+        delete data;
         data = null;
     }
 }

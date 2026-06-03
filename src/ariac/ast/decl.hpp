@@ -81,6 +81,20 @@ namespace Aria::Internal {
         }
     }
 
+    enum class LinkageKind {
+        None,
+        Extern
+    };
+
+    inline const char* linkage_kind_to_string(LinkageKind kind) {
+        switch (kind) {
+            case LinkageKind::None: return "";
+            case LinkageKind::Extern: return "extern";
+
+            default: ARIA_UNREACHABLE();
+        }
+    }
+
     struct Expr;
     struct Stmt;
 
@@ -126,26 +140,14 @@ namespace Aria::Internal {
     };
 
     struct FunctionDecl {
-        enum class AttributeKind {
-            None = 0,
-            Extern,
-            NoMangle,
-            Unsafe,
-        };
-
-        struct Attribute {
-            AttributeKind kind = AttributeKind::None;
-            std::string_view arg;
-        };
-
-        FunctionDecl(std::string_view identifier, TypeInfo* type, TinyVector<Decl*> params, Stmt* body, TinyVector<Attribute> attrs)
-            : identifier(identifier), type(type), parameters(params), body(body), attributes(attrs) {}
+        FunctionDecl(std::string_view identifier, TypeInfo* type, TinyVector<Decl*> params, Stmt* body, LinkageKind linkage)
+            : identifier(identifier), type(type), parameters(params), body(body), linkage_kind(linkage) {}
 
         std::string_view identifier;
         TypeInfo* type = nullptr;
         TinyVector<Decl*> parameters;
         Stmt* body = nullptr;
-        TinyVector<Attribute> attributes;
+        LinkageKind linkage_kind = LinkageKind::None;
     };
 
     struct OverloadedFunctionDecl {

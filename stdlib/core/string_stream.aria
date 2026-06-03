@@ -8,7 +8,7 @@ struct StringStream {
 
 impl StringStream {
     ~StringStream() {
-        unsafe delete data;
+        delete data;
         size = 0;
         capacity = 0;
     }
@@ -53,17 +53,20 @@ impl StringStream {
         return data[:size];
     }
 
+    fn to_ptr() -> char* {
+        append('\0');
+        return data;
+    }
+
     fn increase_capacity(cap: ulong) -> void {
-        unsafe {
-            let newData = new char[cap];
-            
-            for (let i: ulong = 0; i < size; i++) {
-                newData[i] = data[i];
-            }
+        let newData = new char[cap];
         
-            delete data;
-            data = newData;
-            capacity = cap;
+        for (let i: ulong = 0; i < size; i++) {
+            newData[i] = data[i];
         }
+        
+        delete data;
+        data = newData;
+        capacity = cap;
     }
 }

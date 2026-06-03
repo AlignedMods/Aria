@@ -69,7 +69,7 @@ namespace Aria::Internal {
         m_expr_rules[TokenKind::GreaterEq] =         { nullptr, BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
         
         // PREC_AND
-        m_expr_rules[TokenKind::DoubleAmpersand] =   { nullptr, BIND_PARSE_RULE(parse_binary), PREC_AND };
+        m_expr_rules[TokenKind::DoubleAmpersand] =   { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_binary), PREC_AND };
 
         // PREC_OR
         m_expr_rules[TokenKind::DoublePipe] =        { nullptr, BIND_PARSE_RULE(parse_binary), PREC_OR };
@@ -261,6 +261,7 @@ namespace Aria::Internal {
         switch (token->kind) {
             case TokenKind::Minus: return UnaryOperatorKind::Negate;
             case TokenKind::Ampersand: return UnaryOperatorKind::AddressOf;
+            case TokenKind::DoubleAmpersand: return UnaryOperatorKind::RValueAddressOf;
             case TokenKind::Star: return UnaryOperatorKind::Dereference;
             case TokenKind::PlusPlus: return UnaryOperatorKind::Increment;
             case TokenKind::MinusMinus: return UnaryOperatorKind::Decrement;
@@ -307,22 +308,7 @@ namespace Aria::Internal {
         ARIA_ASSERT(left == nullptr, "Parser::parse_unary() should not have a left side");
 
         Token op = consume();
-
-        Token* tok = peek();
-        if (!tok) {
-            m_context->report_compiler_diagnostic(op.range.start, op.range, "Expected an expression");
-            return &error_expr;
-        }
-        ParseExprFn prefixRule = m_expr_rules[tok->kind].prefix;
-
-        if (!prefixRule) {
-            sync_local();
-            m_context->report_compiler_diagnostic(tok->range.start, tok->range, "Expected an expression");
-            return &error_expr;
-        }
-
-        Expr* expr = prefixRule(nullptr);
-
+        Expr* expr = parse_term();
         if (!expr_ok(expr)) { return &error_expr; }
 
         return Expr::Create(m_context, op.range.start, SourceRange(op.range.start, expr->range.end), ExprKind::UnaryOperator,
@@ -982,10 +968,6 @@ namespace Aria::Internal {
             case TokenKind::Let:
                 return parse_declaration_statement(false);
 
-            case TokenKind::Unsafe:
-                consume();
-                return parse_block_inline(true);
-
             case TokenKind::Fn: {
                 Token& tok = consume();
                 m_context->report_compiler_diagnostic(tok.range.start, tok.range, fmt::format("Function declaration is not allowed here"));
@@ -1028,9 +1010,7 @@ namespace Aria::Internal {
                 return &error_stmt;
             }
 
-            case TokenKind::AtExtern:
-            case TokenKind::AtNoMangle:
-            case TokenKind::AtUnsafe: {
+            case TokenKind::AtNoMangle: {
                 Token& tok = consume();
                 m_context->report_compiler_diagnostic(tok.range.start, tok.range, fmt::format("Unexpected attribute '{}' while looking for statement", TokenKindToString(tok.kind)));
                 return &error_stmt;
@@ -1150,11 +1130,10 @@ namespace Aria::Internal {
         return decl;
     }
 
-    Decl* Parser::parse_function_decl() {
+    Decl* Parser::parse_function_decl(LinkageKind linkage) {
         SourceLocation start = peek()->range.start;
         Token fn = consume(); // consume "fn"
         TypeInfo* type = &error_type;
-        TinyVector<FunctionDecl::Attribute> attrs;
 
         if (is_primitive_type()) {
             m_context->report_compiler_diagnostic(peek()->range.start, peek()->range, "Expected an indentifier but got a type (NOTE: function declarations look like: fn name() -> type {...})");
@@ -1177,8 +1156,6 @@ namespace Aria::Internal {
             } else if (type->is_error()) {
                 type = parse_type();
             }
-
-            attrs = parse_function_attrs();
         }
         
         Stmt* body = nullptr;
@@ -1196,7 +1173,7 @@ namespace Aria::Internal {
 
         TypeInfo* finalType = TypeInfo::Create(m_context, TypeKind::Function);
         finalType->function = typeDecl;
-        Decl* decl = Decl::Create(m_context, ident->range.start, SourceRange(start, peek(-1)->range.end), DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, finalType, params, body, attrs));
+        Decl* decl = Decl::Create(m_context, ident->range.start, SourceRange(start, peek(-1)->range.end), DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, finalType, params, body, linkage));
 
         m_context->active_comp_unit->funcs.push_back(decl);
         return decl;
@@ -1412,6 +1389,21 @@ namespace Aria::Internal {
         return impl;
     }
 
+    Decl* Parser::parse_extern_decl() {
+        Token& ext = consume(); // consume "extern"
+
+        switch (peek()->kind) {
+            case TokenKind::Fn: return parse_function_decl(LinkageKind::Extern);
+
+            default: {
+                Token& tok = consume();
+                m_context->report_compiler_diagnostic(tok.range.start, tok.range, "Expected 'fn'");
+                sync_global();
+                return &error_decl;
+            }
+        }
+    }
+
     std::string_view Parser::parse_module_path() {
         scratch_buffer_clear();
 
@@ -1432,50 +1424,6 @@ namespace Aria::Internal {
         return scratch_buffer_to_str(m_context);
     }
 
-    TinyVector<FunctionDecl::Attribute> Parser::parse_function_attrs() {
-        TinyVector<FunctionDecl::Attribute> attrs;
-        bool hasExtern = false;
-        bool hasNoMangle = false;
-        bool hasUnsafe = false;
-
-        while (peek()) {
-            if (match(TokenKind::AtExtern)) {
-                if (hasExtern) { m_context->report_compiler_diagnostic(peek()->range.start, peek()->range, "@extern attribute was already added"); }
-                if (hasNoMangle) { m_context->report_compiler_diagnostic(peek()->range.start, peek()->range, "@nomangle and @extern must be mutually exclusive"); }
-
-                consume();
-                
-                try_consume(TokenKind::LeftParen, "(");
-                Token* name = try_consume(TokenKind::StrLit, "string literal");
-                try_consume(TokenKind::RightParen, ")");
-
-                FunctionDecl::Attribute attr;
-                attr.kind = FunctionDecl::AttributeKind::Extern;
-                if (name) { attr.arg = name->string; }
-
-                attrs.append(m_context, attr);
-                hasExtern = true;
-            } else if (match(TokenKind::AtNoMangle)) {
-                if (hasNoMangle) { m_context->report_compiler_diagnostic(peek()->range.start, peek()->range, "@nomangle attribute was already added"); }
-                if (hasExtern) { m_context->report_compiler_diagnostic(peek()->range.start, peek()->range, "@nomangle and @extern must be mutually exclusive"); }
-
-                consume();
-                attrs.append(m_context, { FunctionDecl::AttributeKind::NoMangle });
-                hasNoMangle = true;
-            } else if (match(TokenKind::AtUnsafe)) {
-                if (hasUnsafe) { m_context->report_compiler_diagnostic(peek()->range.start, peek()->range, "@unsafe attribute was already added"); }
-
-                consume();
-                attrs.append(m_context, { FunctionDecl::AttributeKind::Unsafe });
-                hasUnsafe = true;
-            } else {
-                break;
-            }
-        }
-
-        return attrs;
-    }
-
     Stmt* Parser::parse_global() {
         switch (peek()->kind) {
             case TokenKind::Module: {
@@ -1492,7 +1440,7 @@ namespace Aria::Internal {
                 return parse_declaration_statement(true);
 
             case TokenKind::Fn: {
-                Decl* decl = parse_function_decl();
+                Decl* decl = parse_function_decl(LinkageKind::None);
                 if (!decl_ok(decl)) { return &error_stmt; }
 
                 return Stmt::Create(m_context, decl->loc, decl->range, StmtKind::Decl, decl);
@@ -1507,6 +1455,13 @@ namespace Aria::Internal {
 
             case TokenKind::Impl: {
                 Decl* decl = parse_impl_decl();
+                if (!decl_ok(decl)) { return &error_stmt; }
+
+                return Stmt::Create(m_context, decl->loc, decl->range, StmtKind::Decl, decl);
+            }
+
+            case TokenKind::Extern: {
+                Decl* decl = parse_extern_decl();
                 if (!decl_ok(decl)) { return &error_stmt; }
 
                 return Stmt::Create(m_context, decl->loc, decl->range, StmtKind::Decl, decl);

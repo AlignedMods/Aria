@@ -5,14 +5,9 @@ namespace Aria::Internal {
     void SemanticAnalyzer::resolve_block_stmt(Stmt* stmt) {
         BlockStmt block = stmt->block;
 
-        bool wasUnsafe = m_unsafe_context;
-        if (!m_unsafe_context) { m_unsafe_context = block.unsafe; }
-
         for (Stmt* s : block.stmts) {
             resolve_stmt(s);
         }
-
-        m_unsafe_context = wasUnsafe;
     }
 
     void SemanticAnalyzer::resolve_while_stmt(Stmt* stmt) {

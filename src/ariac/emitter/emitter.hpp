@@ -39,6 +39,7 @@ namespace Aria::Internal {
             llvm::Module* module = nullptr;
             llvm::IRBuilder<>* builder = nullptr;
             llvm::Function* function = nullptr;
+            llvm::Instruction* alloca_marker = nullptr;
         };
 
         struct ABITypeInfo {
@@ -91,6 +92,7 @@ namespace Aria::Internal {
         void emit_function_decl(Decl* decl);
         void emit_function_prototype(Decl* decl);
         void emit_method_prototype(Decl* decl);
+        void emit_dtor_prototype(Decl* decl);
         void emit_struct_decl(Decl* decl);
         void emit_impl_decl(Decl* decl);
 

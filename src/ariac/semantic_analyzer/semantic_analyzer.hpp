@@ -135,7 +135,6 @@ namespace Aria::Internal {
 
     private:
         bool m_temporary_context = false;
-        bool m_unsafe_context = false;
 
         std::vector<Scope> m_scopes;
         TypeInfo* m_active_return_type = nullptr;
