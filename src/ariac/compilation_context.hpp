@@ -141,7 +141,7 @@ namespace Aria::Internal {
         void lex();
         void parse();
         void analyze();
-        void emit();
+        void codegen();
 
         Module* find_or_create_module(std::string_view name);
 

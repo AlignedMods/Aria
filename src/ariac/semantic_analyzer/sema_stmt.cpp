@@ -150,6 +150,8 @@ namespace Aria::Internal {
     }
 
     void SemanticAnalyzer::resolve_stmt(Stmt* stmt) {
+        if (m_scopes.size() > 0 && !m_scopes.back().reaches_end) { stmt->reached = false; }
+
         switch (stmt->kind) {
             case StmtKind::Error:
             case StmtKind::Import:

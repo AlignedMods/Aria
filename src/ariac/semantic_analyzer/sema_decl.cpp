@@ -242,7 +242,15 @@ namespace Aria::Internal {
                             }
                         }
                     }
-                    resolve_stmt(field->destructor.body);
+
+                    push_scope();
+                    resolve_block_stmt(field->destructor.body);
+
+                    if (m_scopes.back().reaches_end) {
+                        field->destructor.body->block.stmts.append(m_context, Stmt::Create(m_context, decl->loc, decl->range, StmtKind::Return, ReturnStmt(nullptr)));
+                    }
+                    pop_scope();
+
                     break;
                 }
 

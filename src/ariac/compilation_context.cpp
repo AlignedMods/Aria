@@ -2,7 +2,7 @@
 #include "ariac/lexer/lexer.hpp"
 #include "ariac/parser/parser.hpp"
 #include "ariac/semantic_analyzer/semantic_analyzer.hpp"
-#include "ariac/emitter/emitter.hpp"
+#include "ariac/codegen/codegen.hpp"
 #include "ariac/ast/ast_dumper.hpp"
 
 #include <filesystem>
@@ -103,7 +103,7 @@ namespace Aria::Internal {
     void CompilationContext::finish_compilation(const CompilerFlags& flags) {
         analyze();
         if (!has_errors && !flags.no_codegen) {
-            emit();
+            codegen();
         }
 
         for (auto& diag : diagnostics) {
@@ -144,9 +144,7 @@ namespace Aria::Internal {
     void CompilationContext::lex() { Lexer l(this); }
     void CompilationContext::parse() { Parser p(this); }
     void CompilationContext::analyze() { SemanticAnalyzer s(this); }
-    void CompilationContext::emit() { 
-        Emitter e(this); 
-    }
+    void CompilationContext::codegen() { Codegen c(this); }
 
     Module* CompilationContext::find_or_create_module(std::string_view name) {
         for (Module* mod : modules) {

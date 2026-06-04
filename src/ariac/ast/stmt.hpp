@@ -104,6 +104,8 @@ namespace Aria::Internal {
         SourceLocation loc;
         SourceRange range;
 
+        bool reached = true; // A flag to see if this statement can ever be reached in a function body
+
         union {
             ErrorStmt error;
             ImportStmt import;
