@@ -5,7 +5,7 @@
 #include "ariac/ast/decl.hpp"
 #include "ariac/ast/specifier.hpp"
 
-namespace Aria::Internal {
+namespace ariac {
 
     class ASTDumper {
     public:
@@ -26,4 +26,4 @@ namespace Aria::Internal {
         std::string m_output;
     };
 
-} // namespace Aria::Internal
+} // namespace ariac

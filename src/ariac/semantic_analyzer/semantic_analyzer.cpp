@@ -2,7 +2,7 @@
 
 #include <fstream>
 
-namespace Aria::Internal {
+namespace ariac {
 
     SemanticAnalyzer::SemanticAnalyzer(CompilationContext* ctx) {
         m_context = ctx;
@@ -55,4 +55,4 @@ namespace Aria::Internal {
         return specifier == module_name.substr(module_name.length() - specifier.length());
     }
 
-} // namespace Aria::Internal
+} // namespace ariac

@@ -4,7 +4,7 @@
 #include <charconv>
 #include <limits>
 
-namespace Aria::Internal {
+namespace ariac {
 
     Lexer::Lexer(CompilationContext* ctx) {
         m_context = ctx;
@@ -340,7 +340,7 @@ namespace Aria::Internal {
         }
 
         if (encounteredPeriod) {
-            f64 number = 0.0;
+            double number = 0.0;
             if (!errored) {
                 auto [ptr, ec] = std::from_chars(buf.data(), buf.data() + buf.length(), number); 
 
@@ -619,7 +619,7 @@ namespace Aria::Internal {
         m_tokens.push_back(token);
     }
 
-    void Lexer::add_token_with_number(TokenKind kind, const SourceRange& range, f64 number) {
+    void Lexer::add_token_with_number(TokenKind kind, const SourceRange& range, double number) {
         Token token;
         token.kind = kind;
         token.range = range;
@@ -632,4 +632,4 @@ namespace Aria::Internal {
         return (m_current_line_start == 0) ? (index - m_current_line_start) + 1 : index - m_current_line_start;
     }
 
-} // namespace Aria::Internal
+} // namespace ariac

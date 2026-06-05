@@ -1,6 +1,6 @@
 #include "ariac/semantic_analyzer/semantic_analyzer.hpp"
 
-namespace Aria::Internal {
+namespace ariac {
 
     void SemanticAnalyzer::resolve_var_initializer(Decl* decl) {
         ARIA_ASSERT(decl->kind == DeclKind::Var, "SemanticAnalyzer::resolve_var_initializer() only supports a variable declaration");
@@ -73,4 +73,4 @@ namespace Aria::Internal {
         m_temporary_context = false;
     }
 
-} // namespace Aria::Internal
+} // namespace ariac

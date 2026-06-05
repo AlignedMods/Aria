@@ -2,7 +2,7 @@
 
 #include "fmt/std.h"
 
-namespace Aria::Internal {
+namespace ariac {
 
     ASTDumper::ASTDumper(Stmt* rootASTNode) {
         m_root_ast_node = rootASTNode;
@@ -377,4 +377,4 @@ namespace Aria::Internal {
         ARIA_UNREACHABLE();
     }
 
-} // namespace Aria::Internal
+} // namespace ariac

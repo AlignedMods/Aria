@@ -1,6 +1,6 @@
 #include "ariac/codegen/codegen.hpp"
 
-namespace Aria::Internal {
+namespace ariac {
 
     llvm::Value* Codegen::gen_boolean_literal_expr(Expr* expr) {
         BooleanLiteralExpr& bl = expr->boolean_literal;
@@ -465,4 +465,4 @@ namespace Aria::Internal {
         }
     }
 
-} // namespace Aria::Internal
+} // namespace ariac

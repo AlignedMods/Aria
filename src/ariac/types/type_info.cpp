@@ -1,7 +1,7 @@
 #include "ariac/types/type_info.hpp"
 #include "ariac/ast/decl.hpp"
 
-namespace Aria::Internal {
+namespace ariac {
 
     TypeInfo* TypeInfo::Create(CompilationContext* ctx, TypeKind kind) {
         TypeInfo* t = ctx->allocate<TypeInfo>();
@@ -119,4 +119,4 @@ namespace Aria::Internal {
         return str;
     }
 
-} // namespace Aria::Internal 
+} // namespace ariac 

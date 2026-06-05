@@ -30,7 +30,7 @@
 
 #include <memory>
 
-namespace Aria::Internal {
+namespace ariac {
 
     class Codegen {
     private:
@@ -136,4 +136,4 @@ namespace Aria::Internal {
         CompilationContext* m_context = nullptr;
     };
 
-} // namespace Aria::Internal
+} // namespace ariac

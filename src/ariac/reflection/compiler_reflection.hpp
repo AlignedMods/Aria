@@ -3,7 +3,7 @@
 #include <unordered_map>
 #include <string>
 
-namespace Aria::Internal {
+namespace ariac {
 
     enum class ReflectionKind {
         Variable,
@@ -19,4 +19,4 @@ namespace Aria::Internal {
         std::unordered_map<std::string, CompilerReflectionDeclaration> declarations;
     };
 
-} // namespace Aria::Internal
+} // namespace ariac

@@ -1,6 +1,6 @@
 #include "ariac/codegen/codegen.hpp"
 
-namespace Aria::Internal {
+namespace ariac {
 
     void Codegen::gen_var_decl(Decl* decl) {
         VarDecl& var = decl->var;
@@ -229,4 +229,4 @@ namespace Aria::Internal {
         }
     }
 
-} // namespace Aria::Internal
+} // namespace ariac

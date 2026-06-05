@@ -1,6 +1,6 @@
 #include "ariac/semantic_analyzer/semantic_analyzer.hpp"
 
-namespace Aria::Internal {
+namespace ariac {
 
     void SemanticAnalyzer::resolve_block_stmt(Stmt* stmt) {
         BlockStmt block = stmt->block;
@@ -182,4 +182,4 @@ namespace Aria::Internal {
         }
     }
 
-} // namespace Aria::Internal
+} // namespace ariac

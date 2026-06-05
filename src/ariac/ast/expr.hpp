@@ -8,7 +8,7 @@
 
 #include <variant>
 
-namespace Aria::Internal {
+namespace ariac {
 
     enum class ExprKind {
         Invalid = 0,
@@ -202,10 +202,10 @@ namespace Aria::Internal {
     };
     
     struct FloatingLiteralExpr {
-        FloatingLiteralExpr(f64 value)
+        FloatingLiteralExpr(double value)
             : value(value) {}
 
-        f64 value = 0.0;
+        double value = 0.0;
     };
 
     struct StringLiteralExpr {
@@ -517,4 +517,4 @@ namespace Aria::Internal {
 
     inline Expr error_expr = Expr(SourceLocation(), SourceRange(), ExprKind::Error, ExprValueKind::RValue, nullptr, ErrorExpr());
 
-} // namespace Aria::Internal
+} // namespace ariac

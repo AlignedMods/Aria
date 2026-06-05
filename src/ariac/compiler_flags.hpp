@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace Aria::Internal {
+namespace ariac {
     
     struct CompilerFlags {
         bool no_codegen = false;

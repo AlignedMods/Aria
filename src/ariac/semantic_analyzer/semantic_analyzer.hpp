@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <any>
 
-namespace Aria::Internal {
+namespace ariac {
 
     struct ConversionCost {
         CastKind kind = CastKind::Invalid;
@@ -80,6 +80,8 @@ namespace Aria::Internal {
 
         void resolve_expr(Expr* expr);
 
+        void resolve_name_specifier(Specifier* specifier);
+
         void resolve_translation_unit_decl(Decl* decl);
         void resolve_var_decl(Decl* decl);
         void resolve_param_decl(Decl* decl);
@@ -143,4 +145,4 @@ namespace Aria::Internal {
         CompilationContext* m_context = nullptr;
     };
 
-} // namespace Aria::Internal
+} // namespace ariac

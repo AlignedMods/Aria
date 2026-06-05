@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 
-namespace Aria::Internal {
+namespace ariac {
 
     using i8  = int8_t;
     using i16 = int16_t;
@@ -14,7 +14,4 @@ namespace Aria::Internal {
     using u32 = uint32_t;
     using u64 = uint64_t;
 
-    using f32 = float;
-    using f64 = double;
-
-} // namespace Aria::Internal
+} // namespace ariac

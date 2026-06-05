@@ -1,6 +1,6 @@
 #include "ariac/codegen/codegen.hpp"
 
-namespace Aria::Internal {
+namespace ariac {
 
     void Codegen::gen_block_stmt(Stmt* stmt) {
         BlockStmt& block = stmt->block;
@@ -66,4 +66,4 @@ namespace Aria::Internal {
         }
     }
 
-} // namespace Aria::Internal
+} // namespace ariac

@@ -5,11 +5,10 @@
 #include <cstddef>
 #include <utility>
 
-namespace Aria {
+namespace ariac {
 
     // The allocator which gets used internally
     // NOTE: This allocator WON'T call destructors, so NEVER store std::string, std::vector, etc in the compiler!
-    // If you don't provide an allocator you must call Aria::SetupDefaultAllocator() to set up a default one
     class ArenaAllocator {
     public:
         inline ArenaAllocator(size_t bytes)
@@ -57,4 +56,4 @@ namespace Aria {
         size_t m_index = 0;
     };
 
-} // namespace Aria
+} // namespace ariac

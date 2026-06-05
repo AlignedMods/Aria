@@ -2,7 +2,7 @@
 
 #include <cstring>
 
-namespace Aria::Internal {
+namespace ariac {
 
     struct CompilationContext;
 
@@ -48,4 +48,4 @@ namespace Aria::Internal {
         inline const_iterator rend() const { return items - 1; }
     };
 
-} // namespace Aria::Internal
+} // namespace ariac

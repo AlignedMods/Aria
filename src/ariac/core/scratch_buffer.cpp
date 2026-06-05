@@ -4,7 +4,7 @@
 
 #include <cassert>
 
-namespace Aria::Internal {
+namespace ariac {
     
     constexpr size_t SCRATCH_BUF_SIZE = 1024 * 1024;
     static char buffer[SCRATCH_BUF_SIZE];
@@ -44,4 +44,4 @@ namespace Aria::Internal {
         return std::string_view(buf, size);
     }
 
-} // namespace Aria::Internal
+} // namespace ariac

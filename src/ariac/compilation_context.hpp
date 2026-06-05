@@ -6,7 +6,7 @@
 #include "ariac/lexer/tokens.hpp"
 #include "ariac/reflection/compiler_reflection.hpp"
 
-namespace Aria::Internal {
+namespace ariac {
 
     struct Stmt;
     struct Decl;
@@ -136,7 +136,7 @@ namespace Aria::Internal {
         void compile_stdlib(const CompilerFlags& flags);
         void finish_compilation(const CompilerFlags& flags);
 
-        void print_diag(Internal::CompilerDiagnostic* diag);
+        void print_diag(CompilerDiagnostic* diag);
 
         void lex();
         void parse();
@@ -145,6 +145,7 @@ namespace Aria::Internal {
 
         Module* find_or_create_module(std::string_view name);
 
+    public:
         ArenaAllocator* arena = nullptr;
 
         std::vector<CompilationUnit*> compilation_units;
@@ -161,4 +162,4 @@ namespace Aria::Internal {
         std::vector<CompilerDiagnostic> diagnostics;
     };
 
-} // namespace Aria::Internal
+} // namespace ariac

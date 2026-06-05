@@ -10,7 +10,7 @@
 #include <unordered_map>
 #include <functional>
 
-namespace Aria::Internal {
+namespace ariac {
 
     class Parser {
     public:
@@ -111,4 +111,4 @@ namespace Aria::Internal {
         CompilationContext* m_context = nullptr;
     };
 
-} // namespace Aria::Internal
+} // namespace ariac

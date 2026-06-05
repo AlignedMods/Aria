@@ -6,7 +6,7 @@
 
 #include <string_view>
 
-namespace Aria::Internal {
+namespace ariac {
 
     struct Expr;
     struct Decl;
@@ -188,4 +188,4 @@ namespace Aria::Internal {
     inline TypeInfo char_ptr_type =   { TypeKind::Ptr, &char_type };
     inline TypeInfo char_slice_type = { TypeKind::Slice, &char_type };
 
-} // namespace Aria::Internal
+} // namespace ariac

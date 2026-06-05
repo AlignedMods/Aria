@@ -8,7 +8,7 @@
 #include <filesystem>
 #include <fstream>
 
-namespace Aria::Internal {
+namespace ariac {
 
     static const char* stdlib_files[] = {
         "io/io.aria",
@@ -111,7 +111,7 @@ namespace Aria::Internal {
         }
     }
 
-    void CompilationContext::print_diag(Internal::CompilerDiagnostic* diag) {
+    void CompilationContext::print_diag(CompilerDiagnostic* diag) {
         if (diag->line && diag->column) {
             fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", diag->unit->filename, diag->line, diag->column);
         }
@@ -159,4 +159,4 @@ namespace Aria::Internal {
         return mod;
     }
 
-} // namespace Aria::Internal
+} // namespace ariac

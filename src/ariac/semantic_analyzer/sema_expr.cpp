@@ -1,7 +1,7 @@
 #include "ariac/semantic_analyzer/semantic_analyzer.hpp"
 #include "ariac/core/scratch_buffer.hpp"
 
-namespace Aria::Internal {
+namespace ariac {
 
     void SemanticAnalyzer::resolve_boolean_literal_expr(Expr* expr) {
         if (expr->result_discarded) {
@@ -74,28 +74,13 @@ namespace Aria::Internal {
 
         if (ref.name_specifier) {
             ARIA_ASSERT(ref.name_specifier->kind == SpecifierKind::Name, "Invalid specifier");
-
-            // We may be referencing ourselves
-            if (compare_module_names(ref.name_specifier->name.identifier, m_context->active_comp_unit->parent->name)) {
-                mod = m_context->active_comp_unit->parent;
-            }
-
-            for (Stmt* import : m_context->active_comp_unit->imports) {
-                ARIA_ASSERT(import->kind == StmtKind::Import, "Invalid import stmt");
-
-                if (compare_module_names(ref.name_specifier->name.identifier, import->import.name)) {
-                    mod = import->import.resolved_module;
-                    break;
-                }
-            }
+            resolve_name_specifier(ref.name_specifier);
+            mod = ref.name_specifier->name.referenced_module;
 
             if (!mod) {
-                m_context->report_compiler_diagnostic(ref.name_specifier->loc, ref.name_specifier->range, fmt::format("Could not find module '{}'", ref.name_specifier->name.identifier));
-                expr->type = &error_type;
                 ref.referenced_decl = &error_decl;
+                expr->type = &error_type;
                 return;
-            } else {
-                ref.name_specifier->name.referenced_module = mod;
             }
         } else {
             mod = m_context->active_comp_unit->parent;
@@ -1152,6 +1137,32 @@ namespace Aria::Internal {
         }
     }
 
+    void SemanticAnalyzer::resolve_name_specifier(Specifier* specifier) {
+        NameSpecifier& name = specifier->name;
+        Module* mod = nullptr;
+        
+        // We may be referencing ourselves
+        if (compare_module_names(name.identifier, m_context->active_comp_unit->parent->name)) {
+            mod = m_context->active_comp_unit->parent;
+        }
+
+        for (Stmt* import : m_context->active_comp_unit->imports) {
+            ARIA_ASSERT(import->kind == StmtKind::Import, "Invalid import stmt");
+
+            if (compare_module_names(name.identifier, import->import.name)) {
+                mod = import->import.resolved_module;
+                break;
+            }
+        }
+
+        if (!mod) {
+            m_context->report_compiler_diagnostic(specifier->loc, specifier->range, fmt::format("Could not find module '{}'", name.identifier));
+            return;
+        } else {
+            name.referenced_module = mod;
+        }
+    }
+
     bool SemanticAnalyzer::is_const_expr(Expr* expr) {
         switch (expr->kind) {
             case ExprKind::Error:
@@ -1337,4 +1348,4 @@ namespace Aria::Internal {
         ARIA_UNREACHABLE();
     }
 
-} // namespace Aria::Internal
+} // namespace ariac

@@ -1,6 +1,6 @@
 #include "ariac/semantic_analyzer/semantic_analyzer.hpp"
 
-namespace Aria::Internal {
+namespace ariac {
 
     void SemanticAnalyzer::resolve_type(SourceLocation loc, SourceRange range, TypeInfo* type) {
         if (type->kind == TypeKind::Unresolved) {
@@ -234,4 +234,4 @@ namespace Aria::Internal {
         }
     }
 
-} // namespace Aria::Internal
+} // namespace ariac

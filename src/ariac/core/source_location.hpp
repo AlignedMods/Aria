@@ -2,7 +2,7 @@
 
 #include <cstddef>
 
-namespace Aria::Internal {
+namespace ariac {
 
     struct SourceLocation {
         size_t line = 0;
@@ -26,4 +26,4 @@ namespace Aria::Internal {
             : start(sl, sc), end(el, ec) {}
     };
 
-} // namespace Aria::Internal
+} // namespace ariac

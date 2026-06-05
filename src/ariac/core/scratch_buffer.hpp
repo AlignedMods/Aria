@@ -2,7 +2,7 @@
 
 #include <string_view>
 
-namespace Aria::Internal {
+namespace ariac {
 
     struct CompilationContext;
 

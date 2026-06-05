@@ -1,6 +1,6 @@
 #include "ariac/semantic_analyzer/semantic_analyzer.hpp"
 
-namespace Aria::Internal {
+namespace ariac {
 
     void SemanticAnalyzer::pass_imports() {
         for (CompilationUnit* unit : m_context->compilation_units) {
@@ -236,4 +236,4 @@ namespace Aria::Internal {
         resolve_stmt(unit->root_ast_node);
     }
 
-} // namespace Aria::Internal
+} // namespace ariac

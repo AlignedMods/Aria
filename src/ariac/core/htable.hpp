@@ -4,7 +4,7 @@
 
 #include <string_view>
 
-namespace Aria::Internal {
+namespace ariac {
 
     struct CompilationContext;
 
@@ -92,4 +92,4 @@ namespace Aria::Internal {
         Node** items = nullptr; // Base address of linked list
     };
 
-} // namespace Aria::Internal
+} // namespace ariac

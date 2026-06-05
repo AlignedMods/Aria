@@ -1,6 +1,6 @@
 #include "ariac/semantic_analyzer/semantic_analyzer.hpp"
 
-namespace Aria::Internal {
+namespace ariac {
 
     void SemanticAnalyzer::resolve_translation_unit_decl(Decl* decl) {
         TranslationUnitDecl tu = decl->translation_unit;
@@ -318,4 +318,4 @@ namespace Aria::Internal {
         return ident;
     }
 
-} // namespace Aria::Internal
+} // namespace ariac

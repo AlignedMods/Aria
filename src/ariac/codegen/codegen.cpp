@@ -1,6 +1,6 @@
 #include "ariac/codegen/codegen.hpp"
 
-namespace Aria::Internal {
+namespace ariac {
 
     Codegen::Codegen(CompilationContext* ctx) {
         m_context = ctx;
@@ -343,4 +343,4 @@ namespace Aria::Internal {
         return TmpB.CreateAlloca(t, nullptr, name);
     }
 
-} // namespace Aria::Internal
+} // namespace ariac

@@ -6,7 +6,7 @@
 #include <cstring>
 #include <vector>
 
-namespace Aria::Internal {
+namespace ariac {
     
     static void print_help(const char* prog_name) {
         fmt::println("{}: help: ", prog_name);
@@ -65,6 +65,6 @@ namespace Aria::Internal {
         return 0;
     }
 
-} // namespace Aria::Internal
+} // namespace ariac
 
-int main(int argc, char** argv) { return Aria::Internal::main_real(argc, argv); }
+int main(int argc, char** argv) { return ariac::main_real(argc, argv); }

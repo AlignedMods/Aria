@@ -6,7 +6,7 @@
 
 #include <string_view>
 
-namespace Aria::Internal {
+namespace ariac {
 
     enum class StmtKind {
         Invalid = 0,
@@ -152,4 +152,4 @@ namespace Aria::Internal {
 
     inline Stmt error_stmt = Stmt(StmtKind::Error, SourceLocation(), SourceRange(), ErrorStmt());
 
-} // namespace Aria::Internal
+} // namespace ariac

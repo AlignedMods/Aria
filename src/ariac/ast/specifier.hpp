@@ -4,7 +4,7 @@
 
 #include <string_view>
 
-namespace Aria::Internal {
+namespace ariac {
 
     struct Decl;
 
@@ -39,4 +39,4 @@ namespace Aria::Internal {
             : loc(loc), range(range), kind(kind), name(name) {}
     };
 
-} // namespace Aria::Internal
+} // namespace ariac

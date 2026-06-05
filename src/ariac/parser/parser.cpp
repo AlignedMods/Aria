@@ -20,7 +20,7 @@ static constexpr size_t PREC_SHIFT = 70;
 static constexpr size_t PREC_MULTIPLICATIVE = 80;
 static constexpr size_t PREC_CALL = 90;
 
-namespace Aria::Internal {
+namespace ariac {
 
     Parser::Parser(CompilationContext* ctx) {
         m_context = ctx;
@@ -1577,4 +1577,4 @@ namespace Aria::Internal {
         return true;
     }
 
-} // namespace Aria::Internal
+} // namespace ariac

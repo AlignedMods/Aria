@@ -7,7 +7,7 @@
 #include <vector>
 #include <string_view>
 
-namespace Aria::Internal {
+namespace ariac {
 
     enum class TokenKind {
         // VVV Punctuation VVV //
@@ -222,9 +222,9 @@ namespace Aria::Internal {
 
         std::string_view string;
         u64 integer = 0;
-        f64 number = 0.0;
+        double number = 0.0;
     };
 
     using Tokens = std::vector<Token>;
 
-} // namespace Aria::Internal
+} // namespace ariac

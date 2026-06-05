@@ -5,7 +5,7 @@
 
 #include <string_view>
 
-namespace Aria::Internal {
+namespace ariac {
 
     struct Module;
     struct CompilationUnit;
@@ -311,4 +311,4 @@ namespace Aria::Internal {
 
     inline Decl error_decl = Decl(SourceLocation(), SourceRange(), DeclKind::Error, DeclVisibility::Public, ErrorDecl());
 
-} // namespace Aria::Internal
+} // namespace ariac
