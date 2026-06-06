@@ -50,6 +50,7 @@ namespace ariac {
                 case DeclKind::Function: { return d->function.type; }
                 case DeclKind::OverloadedFunction: { return &error_type; }
                 case DeclKind::Struct: { return &error_type; }
+                case DeclKind::Typedef: { return &error_type; }
 
                 default: ARIA_UNREACHABLE();
             }      
@@ -228,6 +229,8 @@ namespace ariac {
                     mem.implicit_deref = true;
                     break;
                 }
+
+                case TypeKind::Typedef: { parent_type = parent_type->typedef_.base_type; break; }
 
                 default: {
                     m_context->report_compiler_diagnostic(mem.parent->loc, mem.parent->range, fmt::format("Expression must be of slice or struct type but is '{}'", type_info_to_string(parent_type)));
@@ -1006,7 +1009,7 @@ namespace ariac {
             case BinaryOperatorKind::Shl:
             case BinaryOperatorKind::Shr: {
                 if (!LHS->type->is_error()) {
-                    if (!LHS->type->is_integral() && !LHS->type->is_string()) {
+                    if (!LHS->type->is_integral()) {
                         m_context->report_compiler_diagnostic(LHS->loc, LHS->range, fmt::format("Expression must be of a integral type but is of type '{}'", type_info_to_string(LHS->type)));
                     }
 

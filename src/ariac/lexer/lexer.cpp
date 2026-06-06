@@ -484,42 +484,44 @@ namespace ariac {
             }
         }
 
-        if (scratch_buffer_cmp("true"))     { add_token(TokenKind::True,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "true");   return; }
-        if (scratch_buffer_cmp("false"))    { add_token(TokenKind::False,  SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "false");  return; }
-        if (scratch_buffer_cmp("null"))     { add_token(TokenKind::Null,  SourceRange(start, SourceLocation(m_current_line, get_column(m_index))),  "null");  return; }
+        if (scratch_buffer_cmp("true"))     { add_token(TokenKind::True,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "true");     return; }
+        if (scratch_buffer_cmp("false"))    { add_token(TokenKind::False,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "false");    return; }
+        if (scratch_buffer_cmp("null"))     { add_token(TokenKind::Null,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "null");     return; }
 
-        if (scratch_buffer_cmp("module"))   { add_token(TokenKind::Module, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "module"); return; }
-        if (scratch_buffer_cmp("import"))   { add_token(TokenKind::Import, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "import"); return; }
-        if (scratch_buffer_cmp("let"))      { add_token(TokenKind::Let,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "let");    return; }
-        if (scratch_buffer_cmp("if"))       { add_token(TokenKind::If,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "if");     return; }
-        if (scratch_buffer_cmp("else"))     { add_token(TokenKind::Else,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "else");   return; }
-        if (scratch_buffer_cmp("while"))    { add_token(TokenKind::While,  SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "while");  return; }
-        if (scratch_buffer_cmp("do"))       { add_token(TokenKind::Do,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "do");     return; }
-        if (scratch_buffer_cmp("for"))      { add_token(TokenKind::For,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "for");    return; }
-        if (scratch_buffer_cmp("break"))    { add_token(TokenKind::Break,  SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "break");  return; }
-        if (scratch_buffer_cmp("continue")) { add_token(TokenKind::Continue,  SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "continue");  return; }
-        if (scratch_buffer_cmp("return"))   { add_token(TokenKind::Return, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "return"); return; }
-        if (scratch_buffer_cmp("fn"))       { add_token(TokenKind::Fn,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "fn");     return; }
-        if (scratch_buffer_cmp("struct"))   { add_token(TokenKind::Struct, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "struct"); return; }
-        if (scratch_buffer_cmp("impl"))     { add_token(TokenKind::Impl,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "impl");   return; }
-        if (scratch_buffer_cmp("new"))      { add_token(TokenKind::New,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "new");    return; }
-        if (scratch_buffer_cmp("delete"))   { add_token(TokenKind::Delete, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "delete"); return; }
-        if (scratch_buffer_cmp("extern"))   { add_token(TokenKind::Extern, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "extern"); return; }
-        if (scratch_buffer_cmp("sizeof"))   { add_token(TokenKind::Sizeof, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "sizeof"); return; }
+        if (scratch_buffer_cmp("module"))   { add_token(TokenKind::Module,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "module");   return; }
+        if (scratch_buffer_cmp("import"))   { add_token(TokenKind::Import,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "import");   return; }
+        if (scratch_buffer_cmp("let"))      { add_token(TokenKind::Let,      SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "let");      return; }
+        if (scratch_buffer_cmp("if"))       { add_token(TokenKind::If,       SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "if");       return; }
+        if (scratch_buffer_cmp("else"))     { add_token(TokenKind::Else,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "else");     return; }
+        if (scratch_buffer_cmp("while"))    { add_token(TokenKind::While,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "while");    return; }
+        if (scratch_buffer_cmp("do"))       { add_token(TokenKind::Do,       SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "do");       return; }
+        if (scratch_buffer_cmp("for"))      { add_token(TokenKind::For,      SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "for");      return; }
+        if (scratch_buffer_cmp("break"))    { add_token(TokenKind::Break,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "break");    return; }
+        if (scratch_buffer_cmp("continue")) { add_token(TokenKind::Continue, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "continue"); return; }
+        if (scratch_buffer_cmp("return"))   { add_token(TokenKind::Return,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "return");   return; }
+        if (scratch_buffer_cmp("fn"))       { add_token(TokenKind::Fn,       SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "fn");       return; }
+        if (scratch_buffer_cmp("struct"))   { add_token(TokenKind::Struct,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "struct");   return; }
+        if (scratch_buffer_cmp("impl"))     { add_token(TokenKind::Impl,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "impl");     return; }
+        if (scratch_buffer_cmp("new"))      { add_token(TokenKind::New,      SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "new");      return; }
+        if (scratch_buffer_cmp("delete"))   { add_token(TokenKind::Delete,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "delete");   return; }
+        if (scratch_buffer_cmp("extern"))   { add_token(TokenKind::Extern,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "extern");   return; }
+        if (scratch_buffer_cmp("sizeof"))   { add_token(TokenKind::Sizeof,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "sizeof");   return; }
+        if (scratch_buffer_cmp("typedef"))  { add_token(TokenKind::Typedef,  SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "typedef");  return; }
+        if (scratch_buffer_cmp("as"))       { add_token(TokenKind::As,       SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "as");       return; }
 
-        if (scratch_buffer_cmp("void"))     { add_token(TokenKind::Void,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "void");   return; }
-        if (scratch_buffer_cmp("bool"))     { add_token(TokenKind::Bool,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "bool");   return; }
-        if (scratch_buffer_cmp("char"))     { add_token(TokenKind::Char,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "char");   return; }
-        if (scratch_buffer_cmp("uchar"))    { add_token(TokenKind::UChar,  SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "uchar");  return; }
-        if (scratch_buffer_cmp("short"))    { add_token(TokenKind::Short,  SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "short");  return; }
-        if (scratch_buffer_cmp("ushort"))   { add_token(TokenKind::UShort, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "ushort"); return; }
-        if (scratch_buffer_cmp("int"))      { add_token(TokenKind::Int,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "int");    return; }
-        if (scratch_buffer_cmp("uint"))     { add_token(TokenKind::UInt,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "uint");   return; }
-        if (scratch_buffer_cmp("long"))     { add_token(TokenKind::Long,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "long");   return; }
-        if (scratch_buffer_cmp("ulong"))    { add_token(TokenKind::ULong,  SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "ulong");  return; }
-        if (scratch_buffer_cmp("float"))    { add_token(TokenKind::Float,  SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "float");  return; }
-        if (scratch_buffer_cmp("double"))   { add_token(TokenKind::Double, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "double"); return; }
-        if (scratch_buffer_cmp("string"))   { add_token(TokenKind::String, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "string"); return; }
+        if (scratch_buffer_cmp("void"))     { add_token(TokenKind::Void,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "void");     return; }
+        if (scratch_buffer_cmp("bool"))     { add_token(TokenKind::Bool,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "bool");     return; }
+        if (scratch_buffer_cmp("char"))     { add_token(TokenKind::Char,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "char");     return; }
+        if (scratch_buffer_cmp("uchar"))    { add_token(TokenKind::UChar,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "uchar");    return; }
+        if (scratch_buffer_cmp("short"))    { add_token(TokenKind::Short,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "short");    return; }
+        if (scratch_buffer_cmp("ushort"))   { add_token(TokenKind::UShort,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "ushort");   return; }
+        if (scratch_buffer_cmp("int"))      { add_token(TokenKind::Int,      SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "int");      return; }
+        if (scratch_buffer_cmp("uint"))     { add_token(TokenKind::UInt,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "uint");     return; }
+        if (scratch_buffer_cmp("long"))     { add_token(TokenKind::Long,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "long");     return; }
+        if (scratch_buffer_cmp("ulong"))    { add_token(TokenKind::ULong,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "ulong");    return; }
+        if (scratch_buffer_cmp("float"))    { add_token(TokenKind::Float,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "float");    return; }
+        if (scratch_buffer_cmp("double"))   { add_token(TokenKind::Double,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "double");   return; }
+        if (scratch_buffer_cmp("string"))   { add_token(TokenKind::String,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "string");   return; }
 
         add_token(TokenKind::Identifier, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), scratch_buffer_to_str(m_context));
     }

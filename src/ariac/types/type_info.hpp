@@ -33,8 +33,8 @@ namespace ariac {
         Function,
         Method,
 
-        String,
         Structure,
+        Typedef,
 
         Unresolved
     };
@@ -43,6 +43,12 @@ namespace ariac {
 
     struct StructDeclaration {
         std::string_view identifier;
+        Decl* source_decl = nullptr;
+    };
+
+    struct TypedefDeclaration {
+        std::string_view identifier;
+        TypeInfo* base_type = nullptr;
         Decl* source_decl = nullptr;
     };
 
@@ -69,6 +75,7 @@ namespace ariac {
             FunctionDeclaration function;
             ArrayDeclaration array;
             StructDeclaration struct_;
+            TypedefDeclaration typedef_;
             UnresolvedType unresolved;
         };
 
@@ -78,7 +85,7 @@ namespace ariac {
         bool is_error() const { return kind == TypeKind::Error; }
 
         bool is_primitive() const {
-            return is_void() || is_boolean() || is_numeric() || is_pointer() || is_slice() || is_string() || is_reference();
+            return is_void() || is_boolean() || is_numeric() || is_pointer() || is_slice() || is_reference();
         }
 
         bool is_void() const {
@@ -128,8 +135,8 @@ namespace ariac {
             return kind == TypeKind::Structure;
         }
 
-        bool is_string() const {
-            return kind == TypeKind::String;
+        bool is_typdef() const {
+            return kind == TypeKind::Typedef;
         }
 
         bool is_signed() const {
@@ -167,7 +174,7 @@ namespace ariac {
         }
     };
 
-    std::string type_info_to_string(TypeInfo* type);
+    std::string type_info_to_string(TypeInfo* type, bool pretty = true);
 
     // To avoid unnecessary allocations of primitive types we declare them here globally
     inline TypeInfo error_type =      { TypeKind::Error };
@@ -183,7 +190,6 @@ namespace ariac {
     inline TypeInfo ulong_type =      { TypeKind::ULong };
     inline TypeInfo double_type =     { TypeKind::Double };
     inline TypeInfo float_type =      { TypeKind::Float };
-    inline TypeInfo string_type =     { TypeKind::String };
     inline TypeInfo void_ptr_type =   { TypeKind::Ptr, &void_type };
     inline TypeInfo char_ptr_type =   { TypeKind::Ptr, &char_type };
     inline TypeInfo char_slice_type = { TypeKind::Slice, &char_type };

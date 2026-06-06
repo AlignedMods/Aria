@@ -77,6 +77,8 @@ namespace ariac {
         Delete,
         Extern,
         Sizeof,
+        Typedef,
+        As,
         AtNoMangle, // @nomangle
         AtPrivate, // @private
         DollarFormat, // $format
@@ -190,6 +192,8 @@ namespace ariac {
             case TokenKind::Delete: return "delete";
             case TokenKind::Extern: return "extern";
             case TokenKind::Sizeof: return "sizeof";
+            case TokenKind::Typedef: return "typedef";
+            case TokenKind::As: return "as";
             case TokenKind::AtNoMangle: return "@nomangle";
             case TokenKind::AtPrivate: return "@private";
             // ^^^ Keywords ^^^ //

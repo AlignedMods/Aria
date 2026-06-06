@@ -184,6 +184,8 @@ namespace ariac {
             types.reserve(t->struct_.source_decl->struct_.fields.size);
             for (Decl* field : t->struct_.source_decl->struct_.fields) { types.push_back(type_info_to_llvm_type(field->field.type)); }
             return llvm::StructType::get(*m_active_module_context.context, types);
+        } else if (t->kind == TypeKind::Typedef) {
+            return type_info_to_llvm_type(t->typedef_.base_type);
         } else {
             ARIA_UNREACHABLE();
         }

@@ -27,6 +27,21 @@ namespace ariac {
 
                 type->kind = TypeKind::Structure;
                 type->struct_ = StructDeclaration(t.ident->decl_ref.identifier, t.ident->decl_ref.referenced_decl);
+            } else if (t.ident->decl_ref.referenced_decl->kind == DeclKind::Typedef) {
+                if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
+                    CompilationUnit* old_unit = m_context->active_comp_unit;
+                    m_context->active_comp_unit = t.ident->decl_ref.referenced_decl->parent_unit;
+                    resolve_typedef_decl(t.ident->decl_ref.referenced_decl);
+                    m_context->active_comp_unit = old_unit;
+                }
+                else if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::InProgress) {
+                    m_context->report_compiler_diagnostic(loc, range, "Recursive definition of typedef");
+                    type->kind = TypeKind::Error;
+                    return;
+                }
+
+                type->kind = TypeKind::Typedef;
+                type->typedef_ = TypedefDeclaration(t.ident->decl_ref.identifier, t.ident->decl_ref.referenced_decl->typedef_.type, t.ident->decl_ref.referenced_decl);
             } else {
                 m_context->report_compiler_diagnostic(loc, range, fmt::format("'{}' is not a type", t.ident->decl_ref.identifier));
                 return;
@@ -144,6 +159,9 @@ namespace ariac {
         if (lhs->is_reference()) { lhs = lhs->base; }
         if (rhs->is_reference()) { rhs = rhs->base; }
 
+        while (lhs->is_typdef()) { lhs = lhs->typedef_.base_type; }
+        while (rhs->is_typdef()) { rhs = rhs->typedef_.base_type; }
+
         if (lhs->is_array() && rhs->is_array()) {
             return type_is_equal(lhs->array.type, rhs->array.type) && lhs->array.size == rhs->array.size;
         }
@@ -151,10 +169,6 @@ namespace ariac {
         if (lhs->is_primitive() && rhs->is_primitive()) {
             if (lhs->is_pointer() && rhs->is_pointer()) { return type_is_equal(lhs->base, rhs->base); }
             return lhs->kind == rhs->kind;
-        }
-
-        if (lhs->is_string() && rhs->is_string()) {
-            return true;
         }
 
         if (lhs->is_function() && rhs->is_function()) {
@@ -205,9 +219,6 @@ namespace ariac {
 
     bool SemanticAnalyzer::type_is_trivial(TypeInfo* t) {
         switch (t->kind) {
-            case TypeKind::String:
-                return false;
-
             case TypeKind::Structure: {
                 StructDeclaration& sDecl = t->struct_;
 

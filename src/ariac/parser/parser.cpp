@@ -628,7 +628,7 @@ namespace ariac {
         if (!rp) { return &error_expr; }
     
         return Expr::Create(m_context, f.range.start, SourceRange(f.range.start, rp->range.end), ExprKind::Format,
-            ExprValueKind::RValue, &string_type, 
+            ExprValueKind::RValue, &char_slice_type, 
             FormatExpr(args));
     }
 
@@ -740,8 +740,6 @@ namespace ariac {
 
             case TokenKind::Float:      type->kind = TypeKind::Float; break;
             case TokenKind::Double:     type->kind = TypeKind::Double; break;
-
-            case TokenKind::String:     type->kind = TypeKind::String; break;
 
             case TokenKind::Identifier: {
                 Expr* ident = parse_identifier(*peek(-1));
@@ -1432,6 +1430,30 @@ namespace ariac {
         }
     }
 
+    Decl* Parser::parse_typedef_decl() {
+        Token& td = consume(); // consume "typedef"
+
+        if (is_primitive_type() || match(TokenKind::Identifier)) {
+            TypeInfo* type = parse_type();
+            try_consume(TokenKind::As, "as");
+
+            Token* name = try_consume(TokenKind::Identifier, "identifier");
+            if (!name) {
+                sync_global();
+                return &error_decl;
+            }
+
+            try_consume(TokenKind::Semi, ";");
+
+            Decl* d = Decl::Create(m_context, td.range.start, SourceRange(td.range.start, peek(-1)->range.end), DeclKind::Typedef, m_current_visibility, TypedefDecl(type, name->string));
+            m_context->active_comp_unit->typedefs.push_back(d);
+            return d;
+        }
+
+        error_expected("type", peek()->range.start, peek()->range);
+        return &error_decl;
+    }
+
     std::string_view Parser::parse_module_path() {
         scratch_buffer_clear();
 
@@ -1483,6 +1505,13 @@ namespace ariac {
 
             case TokenKind::Impl: {
                 Decl* decl = parse_impl_decl();
+                if (!decl_ok(decl)) { return &error_stmt; }
+
+                return Stmt::Create(m_context, decl->loc, decl->range, StmtKind::Decl, decl);
+            }
+
+            case TokenKind::Typedef: {
+                Decl* decl = parse_typedef_decl();
                 if (!decl_ok(decl)) { return &error_stmt; }
 
                 return Stmt::Create(m_context, decl->loc, decl->range, StmtKind::Decl, decl);

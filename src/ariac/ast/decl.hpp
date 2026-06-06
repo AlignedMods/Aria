@@ -22,6 +22,7 @@ namespace ariac {
         OverloadedFunction,
         Struct,
         Impl,
+        Typedef,
         Field,
         Constructor,
         Destructor,
@@ -185,6 +186,14 @@ namespace ariac {
         Decl* parent = nullptr;
     };
 
+    struct TypedefDecl {
+        TypedefDecl(TypeInfo* type, std::string_view identifier)
+            : type(type), identifier(identifier) {}
+
+        TypeInfo* type = nullptr;
+        std::string_view identifier;
+    };
+
     struct FieldDecl {
         FieldDecl(std::string_view identifier, TypeInfo* type)
             : identifier(identifier), type(type) {}
@@ -259,6 +268,7 @@ namespace ariac {
             OverloadedFunctionDecl overloaded_function;
             StructDecl struct_;
             ImplDecl impl;
+            TypedefDecl typedef_;
             FieldDecl field;
             ConstructorDecl constructor;
             DestructorDecl destructor;
@@ -292,6 +302,9 @@ namespace ariac {
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, ImplDecl impl)
             : loc(loc), range(range), kind(kind), visibility(visibility), impl(impl) {}
+
+        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, TypedefDecl typedef_)
+            : loc(loc), range(range), kind(kind), visibility(visibility), typedef_(typedef_) {}
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, FieldDecl field)
             : loc(loc), range(range), kind(kind), visibility(visibility), field(field) {}

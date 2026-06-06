@@ -89,6 +89,7 @@ namespace ariac {
         void resolve_function_decl(Decl* decl);
         void resolve_struct_decl(Decl* decl);
         void resolve_impl_decl(Decl* decl);
+        void resolve_typedef_decl(Decl* decl);
 
         void resolve_decl(Decl* decl);
 

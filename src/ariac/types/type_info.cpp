@@ -16,7 +16,7 @@ namespace ariac {
         return t;
     }
 
-    std::string type_info_to_string(TypeInfo* type) {
+    std::string type_info_to_string(TypeInfo* type, bool pretty) {
         std::string str;
 
         switch (type->kind) {
@@ -39,38 +39,36 @@ namespace ariac {
 
             case TypeKind::Ptr: {
                 TypeInfo* t = type->base;
-                str = fmt::format("{}*", type_info_to_string(t));
+                str = fmt::format("{}*", type_info_to_string(t), pretty);
                 break;
             }
 
             case TypeKind::Array: {
                 ArrayDeclaration& arr = type->array;
-                str = fmt::format("{}[{}]", type_info_to_string(arr.type), arr.size);
+                str = fmt::format("{}[{}]", type_info_to_string(arr.type, pretty), arr.size);
                 break;
             }
 
             case TypeKind::Slice: {
                 TypeInfo* t = type->base;
-                str = fmt::format("{}[]", type_info_to_string(t));
+                str = fmt::format("{}[]", type_info_to_string(t), pretty);
                 break;
             }
 
             case TypeKind::Ref: {
                 TypeInfo* t = type->base;
-                str = fmt::format("{}&", type_info_to_string(t));
+                str = fmt::format("{}&", type_info_to_string(t), pretty);
                 break;
             }
-
-            case TypeKind::String: str = "string"; break;
 
             case TypeKind::Function: {
                 FunctionDeclaration decl = type->function;
 
-                str += type_info_to_string(decl.return_type);
+                str += type_info_to_string(decl.return_type, pretty);
                 str += "(";
 
                 for (size_t i = 0; i < decl.param_types.size; i++) {
-                    str += type_info_to_string(decl.param_types.items[i]);
+                    str += type_info_to_string(decl.param_types.items[i], pretty);
                     if (i != decl.param_types.size - 1) {
                         str += ", ";
                     }
@@ -85,11 +83,11 @@ namespace ariac {
             case TypeKind::Method: {
                 FunctionDeclaration decl = type->function;
 
-                str += type_info_to_string(decl.return_type);
+                str += type_info_to_string(decl.return_type, pretty);
                 str += "(";
 
                 for (size_t i = 0; i < decl.param_types.size; i++) {
-                    str += type_info_to_string(decl.param_types.items[i]);
+                    str += type_info_to_string(decl.param_types.items[i], pretty);
                     if (i != decl.param_types.size - 1) {
                         str += ", ";
                     }
@@ -105,6 +103,17 @@ namespace ariac {
                 StructDeclaration decl = type->struct_;
 
                 str = (decl.source_decl && decl.source_decl->parent_module) ? fmt::format("struct {}::{}", decl.source_decl->parent_module->name, decl.identifier) : fmt::format("struct {}", decl.identifier);
+                break;
+            }
+
+            case TypeKind::Typedef: {
+                TypedefDeclaration decl = type->typedef_;
+
+                if (pretty) {
+                    str = (decl.source_decl && decl.source_decl->parent_module) ? fmt::format("{}::{} (aka '{}')", decl.source_decl->parent_module->name, decl.identifier, type_info_to_string(decl.base_type, pretty)) : fmt::format("{} (aka '{}')", decl.identifier, type_info_to_string(decl.base_type, pretty));
+                } else {
+                    str = (decl.source_decl && decl.source_decl->parent_module) ? fmt::format("{}::{}':'{}", decl.source_decl->parent_module->name, decl.identifier, type_info_to_string(decl.base_type, pretty)) : fmt::format("{}':'{}", decl.identifier, type_info_to_string(decl.base_type, pretty));
+                }
                 break;
             }
 

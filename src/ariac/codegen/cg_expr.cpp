@@ -138,6 +138,8 @@ namespace ariac {
             val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(&void_ptr_type), val);
         }
 
+        while (type->kind == TypeKind::Typedef) { type = type->typedef_.base_type; }
+
         switch (type->kind) {
             case TypeKind::Slice: {
                 if (mem.member == "mem") {

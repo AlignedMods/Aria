@@ -262,6 +262,10 @@ namespace ariac {
         decl->resolve_status = ResolveStatus::Done;
     }
 
+    void SemanticAnalyzer::resolve_typedef_decl(Decl* decl) {
+        TypedefDecl& td = decl->typedef_;
+    }
+
     void SemanticAnalyzer::resolve_decl(Decl* decl) {
         switch (decl->kind) {
             case DeclKind::Error:
@@ -281,6 +285,7 @@ namespace ariac {
             case DeclKind::Function: return resolve_function_decl(decl);
             case DeclKind::Struct: return resolve_struct_decl(decl);
             case DeclKind::Impl: return;
+            case DeclKind::Typedef: return resolve_typedef_decl(decl);
 
             default: ARIA_UNREACHABLE();
         }

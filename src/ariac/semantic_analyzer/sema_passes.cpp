@@ -103,6 +103,17 @@ namespace ariac {
             module->symbols[ident] = struc;
             unit->local_symbols[ident] = struc;
         }
+
+        for (Decl* td : unit->typedefs) {
+            td->parent_module = module;
+            td->parent_unit = unit;
+
+            TypedefDecl& t = td->typedef_;
+            std::string_view ident = t.identifier;
+
+            module->symbols[ident] = td;
+            unit->local_symbols[ident] = td;
+        }
     }
 
     void SemanticAnalyzer::resolve_unit_decls(Module* module, CompilationUnit* unit) {
