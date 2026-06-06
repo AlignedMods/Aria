@@ -53,15 +53,15 @@ namespace ariac {
         DeclRefExpr& dr = expr->decl_ref;
             
         if (dr.referenced_decl->kind == DeclKind::Function) {
-            if (!m_functions.contains(dr.referenced_decl)) {
+            if (!m_active_module_context.functions.contains(dr.referenced_decl)) {
                 gen_function_prototype(dr.referenced_decl);
             }
 
-            return m_functions.at(dr.referenced_decl);
+            return m_active_module_context.functions.at(dr.referenced_decl);
         }
 
-        ARIA_ASSERT(m_named_values.contains(dr.referenced_decl), "Invalid DeclRef expression");
-        llvm::Value* val = m_named_values.at(dr.referenced_decl);
+        ARIA_ASSERT(m_active_module_context.named_values.contains(dr.referenced_decl), "Invalid DeclRef expression");
+        llvm::Value* val = m_active_module_context.named_values.at(dr.referenced_decl);
 
         if (dr.referenced_decl->kind == DeclKind::Param && get_abi_type_info(expr->type).pass_by_ptr || expr->type->is_reference()) {
             return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(&void_ptr_type), val);
@@ -116,11 +116,11 @@ namespace ariac {
             }
 
             case DeclKind::Method: {
-                if (!m_functions.contains(mem.referenced_member)) {
+                if (!m_active_module_context.functions.contains(mem.referenced_member)) {
                     gen_method_prototype(mem.referenced_member);
                 }
 
-                return m_functions.at(mem.referenced_member);
+                return m_active_module_context.functions.at(mem.referenced_member);
             }
 
             default: ARIA_UNREACHABLE();
@@ -183,6 +183,28 @@ namespace ariac {
         return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(llvm::dyn_cast<llvm::FunctionType>(type_info_to_llvm_type(call.callee->type)), callee), args, expr->type->is_void() ? "" : "call");
     }
 
+    llvm::Value* Codegen::gen_construct_expr(Expr* expr) {
+        ConstructExpr& ct = expr->construct;
+
+        llvm::Type* type = type_info_to_llvm_type(expr->type);
+
+        llvm::Value* temp = alloca_at_entry(m_active_module_context.function, "construct", expr->type);
+        llvm::Value* zero = llvm::Constant::getNullValue(type);
+        m_active_module_context.builder->CreateStore(zero, temp);
+
+        if (ct.ctor) { ARIA_TODO("Calling constructors"); }
+        else {
+            for (size_t i = 0; i < ct.arguments.size; i++) {
+                llvm::Value* arg = gen_expr(ct.arguments.items[i]);
+                llvm::Value* field = m_active_module_context.builder->CreateStructGEP(type, temp, static_cast<unsigned>(i));
+
+                m_active_module_context.builder->CreateStore(arg, field);
+            }
+        }
+
+        return m_active_module_context.builder->CreateLoad(type, temp);
+    }
+
     llvm::Value* Codegen::gen_method_call_expr(Expr* expr) {
         MethodCallExpr& mc = expr->method_call;
 
@@ -204,6 +226,7 @@ namespace ariac {
         }
 
         llvm::Value* callee = gen_expr(mc.callee);
+
         return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(llvm::dyn_cast<llvm::FunctionType>(type_info_to_llvm_type(mc.callee->type)), callee), args, expr->type->is_void() ? "" : "call");
     }
 
@@ -247,6 +270,19 @@ namespace ariac {
                     } else {
                         return m_active_module_context.builder->CreateZExt(val, type_info_to_llvm_type(expr->type), "zext");
                     }
+                }
+
+                ARIA_UNREACHABLE();
+                break;
+            }
+
+            case CastKind::Floating: {
+                llvm::Value* val = gen_expr(ic.expression);
+
+                if (ic.expression->type->get_bit_size() > expr->type->get_bit_size()) {
+                    return m_active_module_context.builder->CreateFPTrunc(val, type_info_to_llvm_type(expr->type), "fptrunc");
+                } else {
+                    return m_active_module_context.builder->CreateFPExt(val, type_info_to_llvm_type(expr->type), "fpext");
                 }
 
                 ARIA_UNREACHABLE();
@@ -453,6 +489,7 @@ namespace ariac {
             case ExprKind::BuiltinMember: return gen_builtin_member_expr(expr);
             case ExprKind::Self: return gen_self_expr(expr);
             case ExprKind::Call: return gen_call_expr(expr);
+            case ExprKind::Construct: return gen_construct_expr(expr);
             case ExprKind::MethodCall: return gen_method_call_expr(expr);
             case ExprKind::Delete: return gen_delete_expr(expr);
             case ExprKind::Sizeof: return gen_sizeof_expr(expr);

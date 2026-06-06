@@ -418,6 +418,8 @@ namespace ariac {
                 return;
             }
         } else { // Initializer list
+            construct.ctor = nullptr;
+
             if (construct.arguments.size > s->struct_.fields.size) {
                 m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("Too many initializers for '{}', expected {} but provided {}", type_info_to_string(expr->type), s->struct_.fields.size, construct.arguments.size));
                 expr->type = &error_type;

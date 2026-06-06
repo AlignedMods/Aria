@@ -40,31 +40,6 @@ namespace ariac {
 
         for (auto& file : files) { compile_file(file, flags, false); }
         finish_compilation(flags);
-
-        if (flags.dump_ast) {
-            if (flags.ast_dump_output.empty()) {
-                for (CompilationUnit* unit : compilation_units) {
-                    if (!unit->is_stdlib) {
-                        ASTDumper d(unit->root_ast_node);
-                        fmt::println("'{}'\n\n{}", unit->filename, d.get_output());
-                    }
-                }
-            } else {
-                std::ofstream out(flags.ast_dump_output);
-
-                if (!out) {
-                    fmt::print(stderr, "Failed to open AST output file '{}'\n", flags.ast_dump_output);
-                    return;
-                }
-
-                for (CompilationUnit* unit : compilation_units) {
-                    if (!unit->is_stdlib) {
-                        ASTDumper d(unit->root_ast_node);
-                        out << fmt::format("'{}'\n\n{}", unit->filename, d.get_output());
-                    }
-                }
-            }
-        }
     }
 
     void CompilationContext::compile_file(const std::string& file, const CompilerFlags& flags, bool std) {
@@ -102,6 +77,32 @@ namespace ariac {
 
     void CompilationContext::finish_compilation(const CompilerFlags& flags) {
         analyze();
+
+        if (flags.dump_ast) {
+            if (flags.ast_dump_output.empty()) {
+                for (CompilationUnit* unit : compilation_units) {
+                    if (!unit->is_stdlib) {
+                        ASTDumper d(unit->root_ast_node);
+                        fmt::println("'{}'\n\n{}", unit->filename, d.get_output());
+                    }
+                }
+            } else {
+                std::ofstream out(flags.ast_dump_output);
+
+                if (!out) {
+                    fmt::print(stderr, "Failed to open AST output file '{}'\n", flags.ast_dump_output);
+                    return;
+                }
+
+                for (CompilationUnit* unit : compilation_units) {
+                    if (!unit->is_stdlib) {
+                        ASTDumper d(unit->root_ast_node);
+                        out << fmt::format("'{}'\n\n{}", unit->filename, d.get_output());
+                    }
+                }
+            }
+        }
+
         if (!has_errors && !flags.no_codegen) {
             codegen();
         }

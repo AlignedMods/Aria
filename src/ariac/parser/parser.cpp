@@ -908,10 +908,15 @@ namespace ariac {
 
     Stmt* Parser::parse_return() {
         Token r = consume(); // consume "return"
-        Expr* value = parse_expression();
+
+        Expr* val = nullptr;
+
+        if (!match(TokenKind::Semi)) {
+            val = parse_expression();
+        }
+
         try_consume(TokenKind::Semi, ";");
-        
-        return Stmt::Create(m_context, r.range.start, SourceRange(r.range.start, peek(-1)->range.end), StmtKind::Return, ReturnStmt(value));
+        return Stmt::Create(m_context, r.range.start, SourceRange(r.range.start, peek(-1)->range.end), StmtKind::Return, ReturnStmt(val));
     }
 
     Stmt* Parser::parse_expression_statement() {
@@ -1063,6 +1068,7 @@ namespace ariac {
             case TokenKind::Module:
             case TokenKind::Import:
             case TokenKind::Else:
+            case TokenKind::Extern:
             case TokenKind::Arrow:
             case TokenKind::RightParen:
             case TokenKind::LeftBracket:
@@ -1071,7 +1077,8 @@ namespace ariac {
             case TokenKind::Comma:
             case TokenKind::Colon:
             case TokenKind::ColonColon:
-            case TokenKind::Dot: {
+            case TokenKind::Dot:
+            case TokenKind::TripleDot: {
                 Token& tok = consume();
                 m_context->report_compiler_diagnostic(tok.range.start, tok.range, fmt::format("Unexpected token '{}' while looking for statement", TokenKindToString(tok.kind)));
                 return &error_stmt;

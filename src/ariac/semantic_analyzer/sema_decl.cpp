@@ -106,12 +106,11 @@ namespace ariac {
 
             s.field_lookup.insert(m_context, field->field.identifier, field);
         }
+        decl->resolve_status = ResolveStatus::Done;
 
         for (Decl* impl : s.impls) {
             resolve_impl_decl(impl);
         }
-
-        decl->resolve_status = ResolveStatus::Done;
     }
 
     void SemanticAnalyzer::resolve_impl_decl(Decl* decl) {
@@ -190,6 +189,7 @@ namespace ariac {
         for (Decl* field : i.fields) {
             switch (field->kind) {
                 case DeclKind::Method: {
+                    resolve_type(field->loc, field->range, field->method.type->function.return_type);
                     m_active_return_type = field->method.type->function.return_type;
                     push_scope();
                     for (Decl* p : field->method.parameters) {

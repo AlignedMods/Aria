@@ -7,6 +7,9 @@ namespace ariac {
         gen_impl();
     }
 
+    Codegen::~Codegen() {
+    }
+
     void Codegen::gen_impl() {
         llvm::InitializeAllTargetInfos();
         llvm::InitializeAllTargets();
@@ -18,6 +21,7 @@ namespace ariac {
         m_triple = llvm::Triple(target_triple);
 
         ARIA_ASSERT(m_triple.isOSWindows() && m_triple.isX86_64(), "Unsupported platform");
+        m_triple.setEnvironment(llvm::Triple::GNU);
 
         std::string error;
         const llvm::Target* target = llvm::TargetRegistry::lookupTarget(m_triple, error);
@@ -30,17 +34,13 @@ namespace ariac {
         std::vector<std::string> object_files;
 
         for (Module* mod : m_context->modules) {
-            auto ctx_ptr = m_active_module_context.context;
-            auto mod_ptr = m_active_module_context.module;
-            auto build_ptr = m_active_module_context.builder;
+            ModuleContext ctx;
+            ctx.context = new llvm::LLVMContext();
+            ctx.module = new llvm::Module(llvm::StringRef(mod->name), *ctx.context);
+            ctx.builder = new llvm::IRBuilder<>(*ctx.context);
 
-            m_active_module_context.context = new llvm::LLVMContext();
-            m_active_module_context.module = new llvm::Module(llvm::StringRef(mod->name), *m_active_module_context.context);
-            m_active_module_context.builder = new llvm::IRBuilder<>(*m_active_module_context.context);
-
-            delete mod_ptr;
-            delete build_ptr;
-            delete ctx_ptr;
+            m_active_module_context = ctx;
+            m_module_contexts[mod] = ctx;
 
             gen_builtin_types();
 
@@ -201,6 +201,10 @@ namespace ariac {
                     case llvm::Triple::ArchType::x86_64: {
                         if (t->is_slice()) {
                             info.pass_by_ptr = true;
+                        } else if (t->is_structure()) {
+                            size_t size = get_type_size(t);
+                            if (size > 8) { info.pass_by_ptr = true; }
+                            else { info.pass_by_integer = true; }
                         } else {
                             info.pass_direct = true;
                         }
@@ -237,7 +241,7 @@ namespace ariac {
 
             case TypeKind::Ptr: {
                 if (m_triple.isX86_64()) { return 8; }
-                else if (m_triple.isX32()) { return 4; }
+                else if (m_triple.isX86_32()) { return 4; }
                 else { ARIA_UNREACHABLE(); }
 
                 return 0;
@@ -251,8 +255,69 @@ namespace ariac {
                 return 0;
             }
 
+            case TypeKind::Structure: {
+                size_t size = 0;
+                size_t alignment = get_type_alignment(t);
+
+                for (Decl* field : t->struct_.source_decl->struct_.fields) {
+                    size += align_value(get_type_size(field->field.type), alignment);
+                }
+
+                return size;
+            }
+
             default: ARIA_UNREACHABLE();
         }
+    }
+
+    uint64_t Codegen::get_type_alignment(TypeInfo* t) {
+        switch (t->kind) {
+            case TypeKind::Bool:
+            case TypeKind::Char:
+            case TypeKind::UChar: return 1;
+            case TypeKind::Short:
+            case TypeKind::UShort: return 2;
+            case TypeKind::Int:
+            case TypeKind::UInt: return 4;
+            case TypeKind::Long:
+            case TypeKind::ULong: return 8;
+
+            case TypeKind::Float: return 4;
+            case TypeKind::Double: return 8;
+
+            case TypeKind::Ptr: {
+                if (m_triple.isX86_64()) { return 8; }
+                else if (m_triple.isX86_32()) { return 4; }
+                else { ARIA_UNREACHABLE(); }
+
+                return 0;
+            }
+
+            case TypeKind::Slice: {
+                if (m_triple.isX86_64()) { return 8; }
+                else if (m_triple.isX86_32()) { return 4; }
+                else { ARIA_UNREACHABLE(); }
+
+                return 0;
+            }
+
+            case TypeKind::Structure: {
+                size_t alignment = 0;
+
+                for (Decl* field : t->struct_.source_decl->struct_.fields) {
+                    size_t new_alignment = get_type_alignment(field->field.type);
+                    alignment = (new_alignment > alignment) ? new_alignment : alignment;
+                }
+
+                return alignment;
+            }
+
+            default: ARIA_UNREACHABLE();
+        }
+    }
+
+    u64 Codegen::align_value(u64 val, u64 alignment) {
+        return ((val + alignment - 1) / alignment) * alignment;
     }
 
     std::string Codegen::mangle_function(Decl* fn) {
@@ -315,6 +380,10 @@ namespace ariac {
 
             case TypeKind::Ref: {
                 return fmt::format("R{}", mangle_type(t->base));
+            }
+
+            case TypeKind::Structure: {
+                return fmt::format("{}{}{}{}", t->struct_.source_decl->parent_module->name.length(), valid_module_name(t->struct_.source_decl->parent_module->name), t->struct_.identifier.length(), t->struct_.identifier);
             }
 
             default: ARIA_UNREACHABLE();

@@ -40,6 +40,9 @@ namespace ariac {
             llvm::IRBuilder<>* builder = nullptr;
             llvm::Function* function = nullptr;
             llvm::Instruction* alloca_marker = nullptr;
+
+            std::unordered_map<Decl*, llvm::Function*> functions;
+            std::unordered_map<Decl*, llvm::AllocaInst*> named_values;
         };
 
         struct ABITypeInfo {
@@ -48,11 +51,13 @@ namespace ariac {
             struct {
                 bool pass_direct : 1 = false;
                 bool pass_by_ptr : 1 = false;
+                bool pass_by_integer : 1 = false; // Pass a structure as a single integer
             };
         };
 
     public:
         Codegen(CompilationContext* ctx);
+        ~Codegen();
 
     private:
         void gen_impl();
@@ -114,7 +119,9 @@ namespace ariac {
 
         llvm::Type* type_info_to_llvm_type(TypeInfo* t);
         ABITypeInfo get_abi_type_info(TypeInfo* t);
-        uint64_t get_type_size(TypeInfo* t);
+        u64 get_type_size(TypeInfo* t);
+        u64 get_type_alignment(TypeInfo* t);
+        u64 align_value(u64 val, u64 alignment);
 
         std::string mangle_function(Decl* fn);
         std::string mangle_type(TypeInfo* t);
@@ -128,11 +135,10 @@ namespace ariac {
 
     private:
         ModuleContext m_active_module_context;
+        std::unordered_map<Module*, ModuleContext> m_module_contexts;
         llvm::Triple m_triple;
 
-        std::unordered_map<Decl*, llvm::AllocaInst*> m_named_values;
         llvm::AllocaInst* m_self_value = nullptr;
-        std::unordered_map<Decl*, llvm::Function*> m_functions;
     
         CompilationContext* m_context = nullptr;
     };
