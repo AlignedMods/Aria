@@ -220,6 +220,16 @@ namespace ariac {
         return nullptr;
     }
 
+    llvm::Value* Codegen::gen_sizeof_expr(Expr* expr) {
+        SizeofExpr& sz = expr->sizeof_;
+
+        if (sz.type) {
+            return m_active_module_context.builder->getInt64(get_type_size(sz.type));
+        } else {
+            return m_active_module_context.builder->getInt64(get_type_size(sz.expression->type));
+        }
+    }
+
     llvm::Value* Codegen::gen_implicit_cast_expr(Expr* expr) {
         ImplicitCastExpr& ic = expr->implicit_cast;
 
@@ -443,6 +453,7 @@ namespace ariac {
             case ExprKind::Call: return gen_call_expr(expr);
             case ExprKind::MethodCall: return gen_method_call_expr(expr);
             case ExprKind::Delete: return gen_delete_expr(expr);
+            case ExprKind::Sizeof: return gen_sizeof_expr(expr);
             case ExprKind::ImplicitCast: return gen_implicit_cast_expr(expr);
             case ExprKind::Cast: return gen_cast_expr(expr);
             case ExprKind::UnaryOperator: return gen_unary_operator_expr(expr);

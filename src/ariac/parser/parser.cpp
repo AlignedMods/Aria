@@ -102,6 +102,7 @@ namespace ariac {
         m_expr_rules[TokenKind::Identifier] =        { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::New] =               { BIND_PARSE_RULE(parse_new), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Delete] =            { BIND_PARSE_RULE(parse_delete), nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Sizeof] =            { BIND_PARSE_RULE(parse_sizeof), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::DollarFormat] =      { BIND_PARSE_RULE(parse_format),  nullptr, PREC_NONE };
     }
 
@@ -574,6 +575,29 @@ namespace ariac {
             DeleteExpr(expr));
     }
 
+    Expr* Parser::parse_sizeof(Expr* left) {
+        ARIA_ASSERT(left == nullptr, "Parser::parse_sizeof() should not have a left side");
+
+        TypeInfo* type = nullptr;
+        Expr* expr = nullptr;
+
+        Token& s = consume(); // consume "sizeof"
+        try_consume(TokenKind::LeftParen, "(");
+
+        if (is_primitive_type()) { type = parse_type(); }
+        else { expr = parse_expression(); }
+
+        try_consume(TokenKind::RightParen, ")");
+
+        if (!expr_ok(expr)) {
+            return &error_expr;
+        }
+
+        return Expr::Create(m_context, s.range.start, SourceRange(s.range.start, peek(-1)->range.end), ExprKind::Sizeof,
+            ExprValueKind::RValue, &ulong_type,
+            expr ? SizeofExpr(expr) : SizeofExpr(type));
+    }
+
     Expr* Parser::parse_format(Expr* left) {
         ARIA_ASSERT(left == nullptr, "Parser::parse_format() should not have a left side");
 
@@ -763,7 +787,7 @@ namespace ariac {
         Token* l = try_consume(TokenKind::LeftCurly, "{");
         if (!l) { return &error_stmt; }
 
-        while (!match(TokenKind::RightCurly)) {
+        while (peek() && !match(TokenKind::RightCurly)) {
             Stmt* stmt = parse_statement();
 
             if (stmt != nullptr) {
@@ -915,6 +939,10 @@ namespace ariac {
     }
 
     Stmt* Parser::parse_statement() {
+        if (!peek()) {
+            return nullptr;
+        }
+
         switch (peek()->kind) {
             case TokenKind::Semi: {
                 Token& tok = consume();
@@ -1521,7 +1549,8 @@ namespace ariac {
     }
 
     void Parser::sync_local() {
-        consume();
+        if (peek()) { consume(); }
+        else { return; }
 
         while (peek()) {
             TokenKind type = peek()->kind;

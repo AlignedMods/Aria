@@ -670,6 +670,26 @@ namespace ariac {
         }
     }
 
+    void SemanticAnalyzer::resolve_sizeof_expr(Expr* expr) {
+        SizeofExpr& sz = expr->sizeof_;
+
+        if (sz.expression) {
+            resolve_expr(sz.expression);
+
+            if (sz.expression->kind == ExprKind::DeclRef && sz.expression->decl_ref.referenced_decl->kind == DeclKind::Struct) {
+                if (sz.expression->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
+                    CompilationUnit* old_unit = m_context->active_comp_unit;
+                    m_context->active_comp_unit = sz.expression->decl_ref.referenced_decl->parent_unit;
+                    resolve_struct_decl(sz.expression->decl_ref.referenced_decl);
+                    m_context->active_comp_unit = old_unit;
+                }
+
+                sz.type = TypeInfo::Create(m_context, TypeKind::Structure);
+                sz.type->struct_ = StructDeclaration(sz.expression->decl_ref.identifier, sz.expression->decl_ref.referenced_decl);
+            }
+        }
+    }
+
     void SemanticAnalyzer::resolve_format_expr(Expr* expr) {
         ARIA_TODO("SemanticAnalyzer::resolve_Format_expr()");
         // FormatExpr& format = expr->Format;
@@ -1127,6 +1147,7 @@ namespace ariac {
             case ExprKind::ToSlice: resolve_to_slice_expr(expr); break;
             case ExprKind::New: resolve_new_expr(expr); break;
             case ExprKind::Delete: resolve_delete_expr(expr); break;
+            case ExprKind::Sizeof: resolve_sizeof_expr(expr); break;
             case ExprKind::Format: resolve_format_expr(expr); break;
             case ExprKind::Paren: resolve_paren_expr(expr); break;
             case ExprKind::Cast: resolve_cast_expr(expr); break;

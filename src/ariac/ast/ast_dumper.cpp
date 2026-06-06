@@ -152,6 +152,12 @@ namespace ariac {
                 dump_expr(expr->delete_.expression, indentation + 4);
                 return;
 
+            case ExprKind::Sizeof: m_output += fmt::format("SizeofExpr '{}' '{}' {}\n",
+                type_info_to_string(expr->sizeof_.expression ? expr->sizeof_.expression->type : expr->sizeof_.type), type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
+
+                if (expr->sizeof_.expression) { dump_expr(expr->sizeof_.expression, indentation + 4); }
+                return;
+
             case ExprKind::Paren: m_output += fmt::format("ParenExpr '{}' {}\n",
                 type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
 

@@ -71,6 +71,7 @@ namespace ariac {
         void resolve_to_slice_expr(Expr* expr);
         void resolve_new_expr(Expr* expr);
         void resolve_delete_expr(Expr* expr);
+        void resolve_sizeof_expr(Expr* expr);
         void resolve_format_expr(Expr* expr);
         void resolve_paren_expr(Expr* expr);
         void resolve_cast_expr(Expr* expr);

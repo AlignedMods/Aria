@@ -33,6 +33,7 @@ namespace ariac {
         ToSlice,
         New,
         Delete,
+        Sizeof,
         Format,
         Paren,
         Cast,
@@ -309,6 +310,17 @@ namespace ariac {
 
         Expr* expression = nullptr;
     };
+
+    struct SizeofExpr {
+        SizeofExpr(Expr* expr)
+            : expression(expr) {}
+
+        SizeofExpr(TypeInfo* type)
+            : type(type) {}
+
+        Expr* expression = nullptr;
+        TypeInfo* type = nullptr;
+    };
     
     struct FormatExpr {
         struct FormatArg {
@@ -430,6 +442,7 @@ namespace ariac {
             ToSliceExpr to_slice;
             NewExpr new_;
             DeleteExpr delete_;
+            SizeofExpr sizeof_;
             FormatExpr format;
             ParenExpr paren;
             CastExpr cast;
@@ -492,6 +505,9 @@ namespace ariac {
 
         Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, DeleteExpr delete_)
             : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), delete_(delete_) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, SizeofExpr sizeof_)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), sizeof_(sizeof_) {}
 
         Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, FormatExpr format)
             : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), format(format) {}
