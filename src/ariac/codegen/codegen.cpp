@@ -150,35 +150,45 @@ namespace ariac {
             return llvm::PointerType::get(*m_active_module_context.context, 0);
         } else if (t->kind == TypeKind::Ref) {
             return llvm::PointerType::get(*m_active_module_context.context, 0);
-        } else if (t->kind == TypeKind::Function) {
-            std::vector<llvm::Type*> args;
-            args.reserve(t->function.param_types.size);
+        } else if (t->kind == TypeKind::Function || t->kind == TypeKind::Method) {
+            std::vector<llvm::Type*> params;
+
+            // Return type
+            llvm::Type* ret_type = llvm::Type::getVoidTy(*m_active_module_context.context);
+            {
+                ABIRetTypeInfo info = get_ret_abi_type_info(t->function.return_type);
+
+                if (info.ret_direct) {
+                    ret_type = type_info_to_llvm_type(info.type);
+                } else if (info.ret_by_ptr) {
+                    // Return via first parameter
+                    params.push_back(llvm::PointerType::get(*m_active_module_context.context, 0));
+                } else if (info.ret_by_integer) {
+                    ret_type = llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(info.int_bits));
+                } else {
+                    ARIA_UNREACHABLE();
+                }
+            }
+            
+            if (t->kind == TypeKind::Method) {
+                params.push_back(type_info_to_llvm_type(&void_ptr_type)); // self
+            }
 
             for (TypeInfo* type : t->function.param_types) {
-                ABITypeInfo info = get_abi_type_info(type);
+                ABIParamTypeInfo info = get_param_abi_type_info(type);
+
                 if (info.pass_direct) {
-                    args.push_back(type_info_to_llvm_type(type));
+                    params.push_back(type_info_to_llvm_type(type));
                 } else if (info.pass_by_ptr) {
-                    args.push_back(type_info_to_llvm_type(&void_ptr_type));
+                    params.push_back(llvm::PointerType::get(*m_active_module_context.context, 0));
+                } else if (info.pass_by_integer) {
+                    params.push_back(llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(info.int_bits)));
+                } else {
+                    ARIA_UNREACHABLE();
                 }
             }
 
-            return llvm::FunctionType::get(type_info_to_llvm_type(t->function.return_type), args, t->function.var_arg);
-        } else if (t->kind == TypeKind::Method) {
-            std::vector<llvm::Type*> args;
-            args.reserve(t->function.param_types.size + 1);
-            args.push_back(type_info_to_llvm_type(&void_ptr_type)); // self
-
-            for (TypeInfo* type : t->function.param_types) {
-                ABITypeInfo info = get_abi_type_info(type);
-                if (info.pass_direct) {
-                    args.push_back(type_info_to_llvm_type(type));
-                } else if (info.pass_by_ptr) {
-                    args.push_back(type_info_to_llvm_type(&void_ptr_type));
-                }
-            }
-
-            return llvm::FunctionType::get(type_info_to_llvm_type(t->function.return_type), args, t->function.var_arg);
+            return llvm::FunctionType::get(ret_type, params, t->function.var_arg);
         } else if (t->kind == TypeKind::Structure) {
             std::vector<llvm::Type*> types;
             types.reserve(t->struct_.source_decl->struct_.fields.size);
@@ -189,39 +199,6 @@ namespace ariac {
         } else {
             ARIA_UNREACHABLE();
         }
-    }
-
-    Codegen::ABITypeInfo Codegen::get_abi_type_info(TypeInfo* t) {
-        ABITypeInfo info;
-        info.type = t;
-        
-        switch (m_triple.getOS()) {
-            case llvm::Triple::OSType::Win32: {
-                switch (m_triple.getArch()) {
-                    case llvm::Triple::ArchType::x86_64: {
-                        if (t->is_slice()) {
-                            info.pass_by_ptr = true;
-                        } else if (t->is_structure()) {
-                            size_t size = get_type_size(t);
-                            if (size > 8) { info.pass_by_ptr = true; }
-                            else { info.pass_by_integer = true; }
-                        } else {
-                            info.pass_direct = true;
-                        }
-
-                        break;
-                    }
-
-                    default: ARIA_UNREACHABLE();
-                }
-
-                break;
-            }
-
-            default: ARIA_UNREACHABLE();
-        }
-
-        return info;
     }
 
     uint64_t Codegen::get_type_size(TypeInfo* t) {
@@ -407,11 +384,14 @@ namespace ariac {
     }
 
     llvm::AllocaInst* Codegen::alloca_at_entry(llvm::Function* f, llvm::StringRef name, TypeInfo* type) {
-        ARIA_ASSERT(m_active_module_context.alloca_marker, "alloca_marker needs to be set");
-
-        llvm::IRBuilder<> TmpB(m_active_module_context.alloca_marker);
         llvm::Type* t = type_info_to_llvm_type(type);
-        return TmpB.CreateAlloca(t, nullptr, name);
+        return alloca_at_entry(f, name, t);
+    }
+
+    llvm::AllocaInst* Codegen::alloca_at_entry(llvm::Function* f, llvm::StringRef name, llvm::Type* type) {
+        ARIA_ASSERT(m_active_module_context.alloca_marker, "alloca_marker needs to be set");
+        llvm::IRBuilder<> TmpB(m_active_module_context.alloca_marker);
+        return TmpB.CreateAlloca(type, nullptr, name);
     }
 
 } // namespace ariac

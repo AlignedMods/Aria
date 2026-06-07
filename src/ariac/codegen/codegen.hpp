@@ -45,13 +45,27 @@ namespace ariac {
             std::unordered_map<Decl*, llvm::AllocaInst*> named_values;
         };
 
-        struct ABITypeInfo {
+        struct ABIParamTypeInfo {
             TypeInfo* type = nullptr;
+
+            size_t int_bits = 0; // If we are passing a structure as an integer, how many bits does this integer have
 
             struct {
                 bool pass_direct : 1 = false;
                 bool pass_by_ptr : 1 = false;
                 bool pass_by_integer : 1 = false; // Pass a structure as a single integer
+            };
+        };
+
+        struct ABIRetTypeInfo {
+            TypeInfo* type = nullptr;
+
+            size_t int_bits = 0; // If we are returning a structure as an integer, how many bits does this integer have
+
+            struct {
+                bool ret_direct : 1 = false;
+                bool ret_by_ptr : 1 = false;
+                bool ret_by_integer : 1 = false; // Return a structure as a single integer
             };
         };
 
@@ -118,7 +132,6 @@ namespace ariac {
         void gen_stmt(Stmt* stmt);
 
         llvm::Type* type_info_to_llvm_type(TypeInfo* t);
-        ABITypeInfo get_abi_type_info(TypeInfo* t);
         u64 get_type_size(TypeInfo* t);
         u64 get_type_alignment(TypeInfo* t);
         u64 align_value(u64 val, u64 alignment);
@@ -132,6 +145,11 @@ namespace ariac {
         std::string valid_module_name(std::string_view name);
 
         llvm::AllocaInst* alloca_at_entry(llvm::Function* f, llvm::StringRef name, TypeInfo* type);
+        llvm::AllocaInst* alloca_at_entry(llvm::Function* f, llvm::StringRef name, llvm::Type* type);
+
+        void handle_function_param_type(TypeInfo* type, std::vector<llvm::Type*>& types);
+        ABIParamTypeInfo get_param_abi_type_info(TypeInfo* t);
+        ABIRetTypeInfo get_ret_abi_type_info(TypeInfo* t);
 
     private:
         ModuleContext m_active_module_context;
@@ -139,6 +157,7 @@ namespace ariac {
         llvm::Triple m_triple;
 
         llvm::AllocaInst* m_self_value = nullptr;
+        ABIRetTypeInfo m_ret_type_abi;
     
         CompilationContext* m_context = nullptr;
     };

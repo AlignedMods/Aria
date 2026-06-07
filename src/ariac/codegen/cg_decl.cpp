@@ -37,14 +37,16 @@ namespace ariac {
         m_active_module_context.function = function;
 
         if (fn.body) {
+            m_ret_type_abi = get_ret_abi_type_info(fn.type->function.return_type);
+            unsigned idx = m_ret_type_abi.ret_by_ptr ? 1 : 0;
+
             llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", function);
             m_active_module_context.builder->SetInsertPoint(bb);
 
             m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
 
-            size_t idx = 0;
             for (Decl* param : fn.parameters) {
-                ABITypeInfo info = get_abi_type_info(param->param.type);
+                ABIParamTypeInfo info = get_param_abi_type_info(param->param.type);
 
                 if (info.pass_direct) {
                     llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, param->param.type);
@@ -56,6 +58,13 @@ namespace ariac {
                     m_active_module_context.named_values[param] = a;
 
                     m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
+                } else if (info.pass_by_integer) {
+                    llvm::AllocaInst* a = alloca_at_entry(m_active_module_context.function, param->param.identifier, param->param.type);
+                    m_active_module_context.named_values[param] = a;
+
+                    m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
+                } else {
+                    ARIA_UNREACHABLE();
                 }
             }
 
@@ -70,19 +79,8 @@ namespace ariac {
         FunctionDecl& fn = decl->function;
         std::string sig = mangle_function(decl);
 
-        std::vector<llvm::Type*> params;
-        for (Decl* p : fn.parameters) {
-            ABITypeInfo info = get_abi_type_info(p->param.type);
-
-            if (info.pass_by_ptr) {
-                params.push_back(type_info_to_llvm_type(&void_ptr_type));
-            } else if (info.pass_direct) {
-                params.push_back(type_info_to_llvm_type(p->param.type));
-            }
-        }
-
-        llvm::FunctionType* fn_ty = llvm::FunctionType::get(type_info_to_llvm_type(fn.type->function.return_type), params, fn.type->function.var_arg);
-        llvm::Function* function = llvm::Function::Create(fn_ty, llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
+        llvm::Type* fn_ty = type_info_to_llvm_type(fn.type);
+        llvm::Function* function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
         m_active_module_context.functions[decl] = function;
     }
 
@@ -90,24 +88,9 @@ namespace ariac {
         MethodDecl& m = decl->method;
         std::string sig = mangle_method(&m);
 
-        std::vector<llvm::Type*> params;
-        params.push_back(type_info_to_llvm_type(&void_ptr_type));
-
-        for (Decl* p : m.parameters) {
-            ABITypeInfo info = get_abi_type_info(p->param.type);
-
-            if (info.pass_by_ptr) {
-                params.push_back(type_info_to_llvm_type(&void_ptr_type));
-            } else if (info.pass_direct) {
-                params.push_back(type_info_to_llvm_type(p->param.type));
-            }
-        }
-
-        llvm::FunctionType* fn_ty = llvm::FunctionType::get(type_info_to_llvm_type(m.type->function.return_type), params, m.type->function.var_arg);
-        llvm::Function* function = llvm::Function::Create(fn_ty, llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
+        llvm::Type* fn_ty = type_info_to_llvm_type(m.type);
+        llvm::Function* function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
         m_active_module_context.functions[decl] = function;
-
-        llvm::outs() << *function << '\n';
     }
 
     void Codegen::gen_dtor_prototype(Decl* decl) {
@@ -153,6 +136,9 @@ namespace ariac {
                     m_active_module_context.function = function;
 
                     if (m.body) {
+                        m_ret_type_abi = get_ret_abi_type_info(m.type->function.return_type);
+                        unsigned idx = m_ret_type_abi.ret_by_ptr ? 1 : 0;
+
                         llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", function);
                         m_active_module_context.builder->SetInsertPoint(bb);
 
@@ -161,11 +147,10 @@ namespace ariac {
                         // self
                         llvm::AllocaInst* s = alloca_at_entry(function, "self", &void_ptr_type);
                         m_self_value = s;
-                        m_active_module_context.builder->CreateStore(function->getArg(0), s);
+                        m_active_module_context.builder->CreateStore(function->getArg(idx++), s);
 
-                        size_t idx = 1;
                         for (Decl* param : m.parameters) {
-                            ABITypeInfo info = get_abi_type_info(param->param.type);
+                            ABIParamTypeInfo info = get_param_abi_type_info(param->param.type);
 
                             if (info.pass_direct) {
                                 llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, param->param.type);
@@ -177,6 +162,13 @@ namespace ariac {
                                 m_active_module_context.named_values[param] = a;
 
                                 m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
+                            } else if (info.pass_by_integer) {
+                                llvm::AllocaInst* a = alloca_at_entry(m_active_module_context.function, param->param.identifier, param->param.type);
+                                m_active_module_context.named_values[param] = a;
+
+                                m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
+                            } else {
+                                ARIA_UNREACHABLE();
                             }
                         }
 

@@ -37,7 +37,22 @@ namespace ariac {
 
         if (ret.value) {
             llvm::Value* val = gen_expr(ret.value);
-            m_active_module_context.builder->CreateRet(val);
+
+            if (m_ret_type_abi.ret_direct) {  
+                m_active_module_context.builder->CreateRet(val);
+            } else if (m_ret_type_abi.ret_by_ptr) {
+                llvm::Value* ret_ptr = m_active_module_context.function->getArg(0);
+                m_active_module_context.builder->CreateStore(val, ret_ptr);
+                m_active_module_context.builder->CreateRetVoid();
+            } else if (m_ret_type_abi.ret_by_integer) {
+                llvm::Type* ty = llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(m_ret_type_abi.int_bits));
+                llvm::Value* ret_int = alloca_at_entry(m_active_module_context.function, "ret", ty);
+                m_active_module_context.builder->CreateStore(val, ret_int);
+                llvm::Value* load = m_active_module_context.builder->CreateLoad(ty, ret_int);
+                m_active_module_context.builder->CreateRet(load);
+            } else {
+                ARIA_UNREACHABLE();
+            }
         } else {
             m_active_module_context.builder->CreateRetVoid();
         }

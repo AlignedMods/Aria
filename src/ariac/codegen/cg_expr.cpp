@@ -63,7 +63,7 @@ namespace ariac {
         ARIA_ASSERT(m_active_module_context.named_values.contains(dr.referenced_decl), "Invalid DeclRef expression");
         llvm::Value* val = m_active_module_context.named_values.at(dr.referenced_decl);
 
-        if (dr.referenced_decl->kind == DeclKind::Param && get_abi_type_info(expr->type).pass_by_ptr || expr->type->is_reference()) {
+        if (dr.referenced_decl->kind == DeclKind::Param && get_param_abi_type_info(expr->type).pass_by_ptr || expr->type->is_reference()) {
             return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(&void_ptr_type), val);
         }
 
@@ -166,16 +166,35 @@ namespace ariac {
         std::vector<llvm::Value*> args;
         args.reserve(call.arguments.size);
 
+        size_t idx = -1;
         for (Expr* arg : call.arguments) {
+            idx++;
             llvm::Value* val = gen_expr(arg);
 
-            ABITypeInfo info = get_abi_type_info(arg->type);
+            ABIParamTypeInfo info = get_param_abi_type_info(arg->type);
             if (info.pass_direct) {
+                if (idx >= call.callee->type->function.param_types.size) { // vararg territory
+                    ARIA_ASSERT(call.callee->type->function.var_arg, "Invalid function call");
+
+                    if (arg->type->kind == TypeKind::Float) { // extend to double
+                        llvm::Value* fpext = m_active_module_context.builder->CreateFPExt(val, llvm::Type::getDoubleTy(*m_active_module_context.context), "fpext");
+                        args.push_back(fpext);
+                        continue;
+                    }
+                }
+
                 args.push_back(val);
             } else if (info.pass_by_ptr) {
                 llvm::Value* copy = alloca_at_entry(m_active_module_context.function, "", arg->type);
                 m_active_module_context.builder->CreateStore(val, copy);
                 args.push_back(copy);
+            } else if (info.pass_by_integer) {
+                llvm::Value* copy = alloca_at_entry(m_active_module_context.function, "", arg->type);
+                m_active_module_context.builder->CreateStore(val, copy);
+                llvm::Value* i = m_active_module_context.builder->CreateLoad(llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(info.int_bits)), copy);
+                args.push_back(i);
+            } else {
+                ARIA_UNREACHABLE();
             }
         }
 
@@ -209,25 +228,45 @@ namespace ariac {
         MethodCallExpr& mc = expr->method_call;
 
         std::vector<llvm::Value*> args;
-        args.reserve(mc.arguments.size + 1);
+
+        ABIRetTypeInfo ret_info = get_ret_abi_type_info(mc.callee->type->function.return_type);
+        ARIA_ASSERT(!ret_info.ret_by_ptr, "TODO");
+
         args.push_back(gen_expr(mc.callee->member.parent)); // self
 
         for (Expr* arg : mc.arguments) {
             llvm::Value* val = gen_expr(arg);
 
-            ABITypeInfo info = get_abi_type_info(arg->type);
+            ABIParamTypeInfo info = get_param_abi_type_info(arg->type);
             if (info.pass_direct) {
                 args.push_back(val);
             } else if (info.pass_by_ptr) {
                 llvm::Value* copy = alloca_at_entry(m_active_module_context.function, "", arg->type);
                 m_active_module_context.builder->CreateStore(val, copy);
                 args.push_back(copy);
+            } else if (info.pass_by_integer) {
+                llvm::Value* copy = alloca_at_entry(m_active_module_context.function, "", arg->type);
+                m_active_module_context.builder->CreateStore(val, copy);
+                llvm::Value* i = m_active_module_context.builder->CreateLoad(llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(info.int_bits)), copy);
+                args.push_back(i);
+            } else {
+                ARIA_UNREACHABLE();
             }
         }
 
         llvm::Value* callee = gen_expr(mc.callee);
-
-        return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(llvm::dyn_cast<llvm::FunctionType>(type_info_to_llvm_type(mc.callee->type)), callee), args, expr->type->is_void() ? "" : "call");
+        llvm::Value* call = m_active_module_context.builder->CreateCall(llvm::FunctionCallee(llvm::dyn_cast<llvm::FunctionType>(type_info_to_llvm_type(mc.callee->type)), callee), args, expr->type->is_void() ? "" : "call");
+        
+        if (ret_info.ret_direct) {
+            return call;
+        } else if (ret_info.ret_by_integer) {
+            llvm::Type* ty = type_info_to_llvm_type(mc.callee->type->function.return_type);
+            llvm::Value* temp = alloca_at_entry(m_active_module_context.function, "", ty);
+            m_active_module_context.builder->CreateStore(call, temp);
+            return m_active_module_context.builder->CreateLoad(ty, temp);
+        } else {
+            ARIA_UNREACHABLE();
+        }
     }
 
     llvm::Value* Codegen::gen_delete_expr(Expr* expr) {
