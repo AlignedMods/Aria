@@ -344,8 +344,21 @@ namespace ariac {
 
                     if (fnDecl.var_arg) {
                         for (size_t i = fnDecl.param_types.size; i < call.arguments.size; i++) {
-                            resolve_expr(call.arguments.items[i]);
-                            require_rvalue(call.arguments.items[i]);
+                            Expr* arg = call.arguments.items[i];
+                            resolve_expr(arg);
+                            require_rvalue(arg);
+
+                            if (arg->type->is_integral()) {
+                                if (arg->type->get_bit_size() < 32) { // Promote to int
+                                    insert_implicit_cast(&int_type, arg->type, arg, CastKind::Integral);
+                                }
+                            } else if (arg->type->is_floating_point()) {
+                                if (arg->type->kind == TypeKind::Float) { // Promote to double
+                                    insert_implicit_cast(&double_type, arg->type, arg, CastKind::Floating);
+                                }
+                            } else {
+                                m_context->report_compiler_diagnostic(arg->loc, arg->range, fmt::format("Passing argument of non-trivial type ('{}') is not allowed", type_info_to_string(arg->type)));
+                            }
                         }
                     }
                 }

@@ -173,16 +173,6 @@ namespace ariac {
 
             ABIParamTypeInfo info = get_param_abi_type_info(arg->type);
             if (info.pass_direct) {
-                if (idx >= call.callee->type->function.param_types.size) { // vararg territory
-                    ARIA_ASSERT(call.callee->type->function.var_arg, "Invalid function call");
-
-                    if (arg->type->kind == TypeKind::Float) { // extend to double
-                        llvm::Value* fpext = m_active_module_context.builder->CreateFPExt(val, llvm::Type::getDoubleTy(*m_active_module_context.context), "fpext");
-                        args.push_back(fpext);
-                        continue;
-                    }
-                }
-
                 args.push_back(val);
             } else if (info.pass_by_ptr) {
                 llvm::Value* copy = alloca_at_entry(m_active_module_context.function, "", arg->type);
