@@ -10,10 +10,10 @@ namespace ariac {
         return t;
     }
 
-    TypeInfo* TypeInfo::Create(CompilationContext* ctx, TypeKind kind, TypeQualifier qual) {
+    TypeInfo* TypeInfo::Create(CompilationContext* ctx, TypeKind kind, TypeQualifiers quals) {
         TypeInfo* t = ctx->allocate<TypeInfo>();
         t->kind = kind;
-        t->qual = qual;
+        t->quals = quals;
     
         return t;
     }
@@ -27,23 +27,25 @@ namespace ariac {
     std::string type_info_to_string(TypeInfo* type, bool pretty) {
         std::string str;
 
+        if (type->is_const()) { str = "const "; }
+
         switch (type->kind) {
-            case TypeKind::Error:   str = "error"; break;
-            case TypeKind::Void:    str = "void"; break;
+            case TypeKind::Error:   str += "error"; break;
+            case TypeKind::Void:    str += "void"; break;
 
-            case TypeKind::Bool:    str = "bool"; break;
+            case TypeKind::Bool:    str += "bool"; break;
 
-            case TypeKind::Char:    str = "char"; break;
-            case TypeKind::UChar:   str = "uchar"; break;
-            case TypeKind::Short:   str = "short"; break;
-            case TypeKind::UShort:  str = "ushort"; break;
-            case TypeKind::Int:     str = "int"; break;
-            case TypeKind::UInt:    str = "uint"; break;
-            case TypeKind::Long:    str = "long"; break;
-            case TypeKind::ULong:   str = "ulong"; break;
+            case TypeKind::Char:    str += "char"; break;
+            case TypeKind::UChar:   str += "uchar"; break;
+            case TypeKind::Short:   str += "short"; break;
+            case TypeKind::UShort:  str += "ushort"; break;
+            case TypeKind::Int:     str += "int"; break;
+            case TypeKind::UInt:    str += "uint"; break;
+            case TypeKind::Long:    str += "long"; break;
+            case TypeKind::ULong:   str += "ulong"; break;
 
-            case TypeKind::Float:   str = "float"; break;
-            case TypeKind::Double:  str = "double"; break;
+            case TypeKind::Float:   str += "float"; break;
+            case TypeKind::Double:  str += "double"; break;
 
             case TypeKind::Ptr: {
                 TypeInfo* t = type->base;
@@ -110,7 +112,7 @@ namespace ariac {
             case TypeKind::Structure: {
                 StructDeclaration decl = type->struct_;
 
-                str = (decl.source_decl && decl.source_decl->parent_module) ? fmt::format("struct {}::{}", decl.source_decl->parent_module->name, decl.identifier) : fmt::format("struct {}", decl.identifier);
+                str += (decl.source_decl && decl.source_decl->parent_module) ? fmt::format("struct {}::{}", decl.source_decl->parent_module->name, decl.identifier) : fmt::format("struct {}", decl.identifier);
                 break;
             }
 
@@ -118,9 +120,9 @@ namespace ariac {
                 TypedefDeclaration decl = type->typedef_;
 
                 if (pretty) {
-                    str = (decl.source_decl && decl.source_decl->parent_module) ? fmt::format("{}::{} (aka '{}')", decl.source_decl->parent_module->name, decl.identifier, type_info_to_string(decl.base_type, pretty)) : fmt::format("{} (aka '{}')", decl.identifier, type_info_to_string(decl.base_type, pretty));
+                    str += (decl.source_decl && decl.source_decl->parent_module) ? fmt::format("{}::{} (aka '{}')", decl.source_decl->parent_module->name, decl.identifier, type_info_to_string(decl.base_type, pretty)) : fmt::format("{} (aka '{}')", decl.identifier, type_info_to_string(decl.base_type, pretty));
                 } else {
-                    str = (decl.source_decl && decl.source_decl->parent_module) ? fmt::format("{}::{}':'{}", decl.source_decl->parent_module->name, decl.identifier, type_info_to_string(decl.base_type, pretty)) : fmt::format("{}':'{}", decl.identifier, type_info_to_string(decl.base_type, pretty));
+                    str += (decl.source_decl && decl.source_decl->parent_module) ? fmt::format("{}::{}':'{}", decl.source_decl->parent_module->name, decl.identifier, type_info_to_string(decl.base_type, pretty)) : fmt::format("{}':'{}", decl.identifier, type_info_to_string(decl.base_type, pretty));
                 }
                 break;
             }

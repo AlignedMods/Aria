@@ -725,6 +725,7 @@ namespace ariac {
         TypeInfo* type = TypeInfo::Create(m_context, TypeKind::Error);
         bool search = true;
         bool accept_type_names = true;
+        bool has_const = false;
 
         while (search) {
             if (accept_type_names) {
@@ -760,8 +761,14 @@ namespace ariac {
 
             switch (peek()->kind) {
                 case TokenKind::Const: {
-                    consume();
-                    type->qual |= TypeQualifier::Const;
+                    Token& c = consume();
+                    if (has_const) {
+                        m_context->report_compiler_diagnostic(c.range.start, c.range, "Type already has 'const'");
+                    } else {
+                        type->quals |= TypeQualifiers::Const;
+                    }
+
+                    has_const = true;
                     break;
                 }
 

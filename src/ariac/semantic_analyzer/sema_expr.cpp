@@ -356,7 +356,7 @@ namespace ariac {
                                 if (arg->type->kind == TypeKind::Float) { // Promote to double
                                     insert_implicit_cast(&double_type, arg->type, arg, CastKind::Floating);
                                 }
-                            } else {
+                            } else if (!arg->type->is_pointer()) {
                                 m_context->report_compiler_diagnostic(arg->loc, arg->range, fmt::format("Passing argument of non-trivial type ('{}') is not allowed", type_info_to_string(arg->type)));
                             }
                         }
@@ -1058,6 +1058,11 @@ namespace ariac {
                     return;
                 }
 
+                if (LHS->type->is_const()) {
+                    m_context->report_compiler_diagnostic(LHS->loc, LHS->range, fmt::format("Expression must be of a modifiable type but its type is '{}'", type_info_to_string(LHS->type)));
+                    return;
+                }
+
                 require_rvalue(RHS);
 
                 ConversionCost cost = get_conversion_cost(LHS->type, RHS->type);
@@ -1131,6 +1136,11 @@ namespace ariac {
 
         if (is_const_expr(LHS)) {
             m_context->report_compiler_diagnostic(LHS->loc, LHS->range, "Cannot assign to constant expression");
+            return;
+        }
+
+        if (LHS->type->is_const()) {
+            m_context->report_compiler_diagnostic(LHS->loc, LHS->range, fmt::format("Expression must be of a modifiable type but its type is '{}'", type_info_to_string(LHS->type)));
             return;
         }
         

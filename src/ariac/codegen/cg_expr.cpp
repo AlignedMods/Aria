@@ -259,6 +259,24 @@ namespace ariac {
         }
     }
 
+    llvm::Value* Codegen::gen_array_subscript_expr(Expr* expr) {
+        ArraySubscriptExpr& arr = expr->array_subscript;
+
+        llvm::Value* index = gen_expr(arr.index);
+        llvm::Value* array = gen_expr(arr.array);
+
+        switch (arr.array->type->kind) {
+            case TypeKind::Ptr:
+            case TypeKind::Array:
+                return m_active_module_context.builder->CreateGEP(array->getType(), array, index);
+
+            case TypeKind::Slice: {
+                llvm::Value* mem = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(arr.array->type), array, 0);
+                return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type->base), mem, index);
+            }
+        }
+    }
+
     llvm::Value* Codegen::gen_delete_expr(Expr* expr) {
         // DeleteExpr& del = expr->delete_;
         // 
@@ -520,6 +538,7 @@ namespace ariac {
             case ExprKind::Call: return gen_call_expr(expr);
             case ExprKind::Construct: return gen_construct_expr(expr);
             case ExprKind::MethodCall: return gen_method_call_expr(expr);
+            case ExprKind::ArraySubscript: return gen_array_subscript_expr(expr);
             case ExprKind::Delete: return gen_delete_expr(expr);
             case ExprKind::Sizeof: return gen_sizeof_expr(expr);
             case ExprKind::ImplicitCast: return gen_implicit_cast_expr(expr);
