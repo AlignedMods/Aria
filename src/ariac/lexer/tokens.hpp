@@ -97,7 +97,7 @@ namespace ariac {
         ULong,
         Float,
         Double,
-        String,
+        Const,
         // ^^^ Types ^^^ //
 
         Identifier,
@@ -211,7 +211,7 @@ namespace ariac {
             case TokenKind::ULong: return "ulong";
             case TokenKind::Float: return "float";
             case TokenKind::Double: return "double";
-            case TokenKind::String: return "string";
+            case TokenKind::Const: return "const";
             // ^^^ Types ^^^ //
 
             case TokenKind::Identifier: return "identifier";

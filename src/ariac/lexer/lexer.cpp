@@ -521,7 +521,7 @@ namespace ariac {
         if (scratch_buffer_cmp("ulong"))    { add_token(TokenKind::ULong,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "ulong");    return; }
         if (scratch_buffer_cmp("float"))    { add_token(TokenKind::Float,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "float");    return; }
         if (scratch_buffer_cmp("double"))   { add_token(TokenKind::Double,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "double");   return; }
-        if (scratch_buffer_cmp("string"))   { add_token(TokenKind::String,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "string");   return; }
+        if (scratch_buffer_cmp("const"))    { add_token(TokenKind::Const,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "const");    return; }
 
         add_token(TokenKind::Identifier, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), scratch_buffer_to_str(m_context));
     }

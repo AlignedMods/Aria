@@ -457,7 +457,7 @@ namespace ariac {
 
             case TokenKind::CStrLit: {
                 return Expr::Create(m_context, t.range.start, t.range, ExprKind::StringLiteral,
-                    ExprValueKind::LValue, &char_ptr_type, 
+                    ExprValueKind::LValue, &const_char_ptr_type, 
                     StringLiteralExpr(t.string));
             }
 
@@ -712,7 +712,7 @@ namespace ariac {
             case TokenKind::ULong:
             case TokenKind::Float:
             case TokenKind::Double:
-            case TokenKind::String: return true;
+            case TokenKind::Const: return true;
             default: return false;
         }
 
@@ -723,58 +723,78 @@ namespace ariac {
         ARIA_ASSERT(is_primitive_type() || match(TokenKind::Identifier), "Cannot parse a type out of a non type");
 
         TypeInfo* type = TypeInfo::Create(m_context, TypeKind::Error);
+        bool search = true;
+        bool accept_type_names = true;
 
-        switch (consume().kind) {
-            case TokenKind::Void:       type->kind = TypeKind::Void; break;
+        while (search) {
+            if (accept_type_names) {
+                switch (peek()->kind) {
+                    case TokenKind::Void:       consume(); type->kind = TypeKind::Void; accept_type_names = false; break;
 
-            case TokenKind::Bool:       type->kind = TypeKind::Bool; break;
+                    case TokenKind::Bool:       consume(); type->kind = TypeKind::Bool; accept_type_names = false; break;
 
-            case TokenKind::Char:       type->kind = TypeKind::Char; break;
-            case TokenKind::UChar:      type->kind = TypeKind::UChar; break;
-            case TokenKind::Short:      type->kind = TypeKind::Short; break;
-            case TokenKind::UShort:     type->kind = TypeKind::UShort; break;
-            case TokenKind::Int:        type->kind = TypeKind::Int; break;
-            case TokenKind::UInt:       type->kind = TypeKind::UInt; break;
-            case TokenKind::Long:       type->kind = TypeKind::Long; break;
-            case TokenKind::ULong:      type->kind = TypeKind::ULong; break;
+                    case TokenKind::Char:       consume(); type->kind = TypeKind::Char; accept_type_names = false; break;
+                    case TokenKind::UChar:      consume(); type->kind = TypeKind::UChar; accept_type_names = false; break;
+                    case TokenKind::Short:      consume(); type->kind = TypeKind::Short; accept_type_names = false;  break;
+                    case TokenKind::UShort:     consume(); type->kind = TypeKind::UShort; accept_type_names = false; break;
+                    case TokenKind::Int:        consume(); type->kind = TypeKind::Int; accept_type_names = false; break;
+                    case TokenKind::UInt:       consume(); type->kind = TypeKind::UInt; accept_type_names = false; break;
+                    case TokenKind::Long:       consume(); type->kind = TypeKind::Long; accept_type_names = false; break;
+                    case TokenKind::ULong:      consume(); type->kind = TypeKind::ULong; accept_type_names = false; break;
 
-            case TokenKind::Float:      type->kind = TypeKind::Float; break;
-            case TokenKind::Double:     type->kind = TypeKind::Double; break;
+                    case TokenKind::Float:      consume(); type->kind = TypeKind::Float; accept_type_names = false; break;
+                    case TokenKind::Double:     consume(); type->kind = TypeKind::Double; accept_type_names = false; break;
 
-            case TokenKind::Identifier: {
-                Expr* ident = parse_identifier(*peek(-1));
-                type->kind = TypeKind::Unresolved;
-                type->unresolved = UnresolvedType(ident);
-                break;
+                    case TokenKind::Identifier: {
+                        consume();
+                        Expr* ident = parse_identifier(*peek(-1));
+                        type->kind = TypeKind::Unresolved;
+                        type->unresolved = UnresolvedType(ident);
+                        accept_type_names = false;
+                        break;
+                    }
+
+                    default: break;
+                }
             }
 
-            default: ARIA_UNREACHABLE(); break;
-        }
+            switch (peek()->kind) {
+                case TokenKind::Const: {
+                    consume();
+                    type->qual |= TypeQualifier::Const;
+                    break;
+                }
 
-        while (match(TokenKind::LeftBracket)) {
-            consume();
+                case TokenKind::LeftBracket: {
+                    consume();
+                    if (is_expression()) {
+                        type->array = ArrayDeclaration(TypeInfo::Dup(m_context, type), parse_expression());
+                        type->kind = TypeKind::Array;
+                    } else {
+                        type->base = TypeInfo::Dup(m_context, type);
+                        type->kind = TypeKind::Slice;
+                    }
 
-            if (is_expression()) {
-                type->array = ArrayDeclaration(TypeInfo::Dup(m_context, type), parse_expression());
-                type->kind = TypeKind::Array;
-            } else {
-                type->base = TypeInfo::Dup(m_context, type);
-                type->kind = TypeKind::Slice;
+                    try_consume(TokenKind::RightBracket, "]");
+                    break;
+                }
+
+                case TokenKind::Ampersand: {
+                    consume();
+                    type->base = TypeInfo::Dup(m_context, type);
+                    type->kind = TypeKind::Ref;
+                    break;
+                }
+
+                case TokenKind::Star: {
+                    consume();
+                    type->base = TypeInfo::Dup(m_context, type);
+                    type->kind = TypeKind::Ptr;
+                    break;
+                }
+
+                default: search = false; break;
             }
-
-            try_consume(TokenKind::RightBracket, "]");
-        }
-
-        while (match(TokenKind::Star)) {
-            consume();
-            type->base = TypeInfo::Dup(m_context, type);
-            type->kind = TypeKind::Ptr;
-        }
-
-        if (match(TokenKind::Ampersand)) {
-            consume();
-            type->base = TypeInfo::Dup(m_context, type);
-            type->kind = TypeKind::Ref;
         }
 
         return type;
@@ -1058,8 +1078,7 @@ namespace ariac {
             case TokenKind::Long:
             case TokenKind::ULong:
             case TokenKind::Float:
-            case TokenKind::Double:
-            case TokenKind::String: {
+            case TokenKind::Double: {
                 Token& tok = consume();
                 m_context->report_compiler_diagnostic(tok.range.start, tok.range, fmt::format("Unexpected type '{}', did you mean to declare a variable? (let <name>: <type>)", TokenKindToString(tok.kind)));
                 return &error_stmt;
@@ -1078,7 +1097,8 @@ namespace ariac {
             case TokenKind::Colon:
             case TokenKind::ColonColon:
             case TokenKind::Dot:
-            case TokenKind::TripleDot: {
+            case TokenKind::TripleDot:
+            case TokenKind::Const: {
                 Token& tok = consume();
                 m_context->report_compiler_diagnostic(tok.range.start, tok.range, fmt::format("Unexpected token '{}' while looking for statement", TokenKindToString(tok.kind)));
                 return &error_stmt;
@@ -1326,7 +1346,7 @@ namespace ariac {
         DeclVisibility visibility = DeclVisibility::Public;
 
         try_consume(TokenKind::LeftCurly, "{");
-        while (!match(TokenKind::RightCurly)) {
+        while (peek() && !match(TokenKind::RightCurly)) {
             SourceLocation start = peek()->range.start;
 
             if (match(TokenKind::Identifier)) {
@@ -1554,9 +1574,7 @@ namespace ariac {
             case TokenKind::Long:
             case TokenKind::ULong:
             case TokenKind::Float:
-            case TokenKind::Double:
-            case TokenKind::String:
-            case TokenKind::Identifier: {
+            case TokenKind::Double: {
                 Token& t = consume();
                 m_context->report_compiler_diagnostic(t.range.start, t.range, fmt::format("Unexpected type '{}', did you mean to declare a global variable? (let <name>: <type>)", TokenKindToString(t.kind)));
                 return &error_stmt;

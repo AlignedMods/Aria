@@ -10,6 +10,14 @@ namespace ariac {
         return t;
     }
 
+    TypeInfo* TypeInfo::Create(CompilationContext* ctx, TypeKind kind, TypeQualifier qual) {
+        TypeInfo* t = ctx->allocate<TypeInfo>();
+        t->kind = kind;
+        t->qual = qual;
+    
+        return t;
+    }
+
     TypeInfo* TypeInfo::Dup(CompilationContext* ctx, TypeInfo* type) {
         TypeInfo* t = ctx->allocate<TypeInfo>();
         memcpy(reinterpret_cast<void*>(t), type, sizeof(TypeInfo));

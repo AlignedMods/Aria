@@ -50,6 +50,10 @@ namespace ariac {
             m_context->report_compiler_diagnostic(decl->loc, decl->range, "Function marked 'extern' must not have body");
         }
 
+        if (fnDecl.type->function.var_arg && fnDecl.linkage_kind != LinkageKind::Extern) {
+            m_context->report_compiler_diagnostic(decl->loc, decl->range, "Function with variable amount of parameters (vararg) must be marked 'extern'");
+        }
+
         if (fnDecl.body) {
             m_active_return_type = fnDecl.type->function.return_type;
             push_scope();
