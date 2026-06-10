@@ -7,7 +7,7 @@ fn println(str: char[]) -> void {
     s.append(str);
     s.append('\n');
 
-    printf(s.to_ptr());
+    printf(c"%.*s", s.size, s.data);
 }
 
 fn print(str: char[]) -> void {
@@ -19,4 +19,4 @@ fn print(str: char[]) -> void {
 
 @private
 
-extern fn printf(s: char*) -> int;
+extern fn printf(s: const char*, ...) -> int;

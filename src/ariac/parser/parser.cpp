@@ -956,7 +956,7 @@ namespace ariac {
     }
 
     Stmt* Parser::parse_declaration_statement(bool global) {
-        Decl* decl = parse_variable_decl(global);
+        Decl* decl = parse_let_decl(global);
 
         if (!decl_ok(decl)) {
             sync_local();
@@ -1148,10 +1148,13 @@ namespace ariac {
         return import;
     }
 
+    Decl* Parser::parse_let_decl(bool global) {
+        Token& l = consume(); // consume "let"
+        return parse_variable_decl(global);
+    }
+
     Decl* Parser::parse_variable_decl(bool global) {
         SourceLocation start = peek()->range.start;
-
-        try_consume(TokenKind::Let, "let");
 
         Token* ident = try_consume(TokenKind::Identifier, "identifier");
         if (!ident) { return &error_decl; }

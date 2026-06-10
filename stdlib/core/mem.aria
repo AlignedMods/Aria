@@ -1,7 +1,7 @@
 module std::core;
 
 fn memcpy(dst: void*, src: void*, size: ulong) -> void {
-    for (let i: ulong = 0; i < size; ++i) {
+    for (i: ulong = 0; i < size; ++i) {
         (<uchar*>dst)[i] = (<uchar*>src)[i];
     }
 }

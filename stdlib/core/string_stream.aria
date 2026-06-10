@@ -14,7 +14,7 @@ impl StringStream {
     }
 
     fn append(s: char[]) -> void {
-        for (let i: ulong = 0; i < s.len; i++) {
+        for (i: ulong = 0; i < s.len; i++) {
             append(s[i]);
         }
     }
@@ -61,7 +61,7 @@ impl StringStream {
     fn increase_capacity(cap: ulong) -> void {
         let newData = new char[cap];
         
-        for (let i: ulong = 0; i < size; i++) {
+        for (i: ulong = 0; i < size; i++) {
             newData[i] = data[i];
         }
         

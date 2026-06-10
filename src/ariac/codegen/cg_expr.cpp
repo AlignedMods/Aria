@@ -274,22 +274,55 @@ namespace ariac {
                 llvm::Value* mem = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(arr.array->type), array, 0);
                 return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type->base), mem, index);
             }
+
+            default: ARIA_UNREACHABLE();
         }
     }
 
+    llvm::Value* Codegen::gen_to_slice_expr(Expr* expr) {
+        ToSliceExpr& t = expr->to_slice;
+
+        llvm::Type* type = type_info_to_llvm_type(expr->type);
+        llvm::Value* slice = alloca_at_entry(m_active_module_context.function, "to_slice", type);
+
+        llvm::Value* mem = m_active_module_context.builder->CreateStructGEP(type, slice, 0);
+        llvm::Value* mem_val = gen_expr(t.source);
+        m_active_module_context.builder->CreateStore(mem_val, mem);
+
+        llvm::Value* len = m_active_module_context.builder->CreateStructGEP(type, slice, 1);
+        llvm::Value* len_val = gen_expr(t.source);
+        m_active_module_context.builder->CreateStore(len_val, len);
+
+        return m_active_module_context.builder->CreateLoad(type, slice);
+    }
+
+    llvm::Value* Codegen::gen_new_expr(Expr* expr) {
+        NewExpr& n = expr->new_;
+        
+        llvm::Function* func = m_active_module_context.module->getFunction("calloc");
+        
+        if (!func) {
+            llvm::FunctionType* type = llvm::FunctionType::get(type_info_to_llvm_type(&void_ptr_type), { type_info_to_llvm_type(&ulong_type), type_info_to_llvm_type(&ulong_type) }, false);
+            func = llvm::Function::Create(type, llvm::GlobalValue::ExternalLinkage, "calloc", *m_active_module_context.module);
+        }
+
+        llvm::Value* elem_size = m_active_module_context.builder->getInt64(get_type_size(expr->type->base));
+        llvm::Value* arr_size = n.array ? m_active_module_context.builder->getInt64(1) : gen_expr(n.initializer);
+        return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(func), {{elem_size, arr_size}});
+    }
+
     llvm::Value* Codegen::gen_delete_expr(Expr* expr) {
-        // DeleteExpr& del = expr->delete_;
-        // 
-        // llvm::Function* func = m_active_module_context.module->getFunction("free");
-        // 
-        // if (!func) {
-        //     llvm::FunctionType* type = llvm::FunctionType::get(type_info_to_llvm_type(&void_type), { type_info_to_llvm_type(&void_ptr_type) }, false);
-        //     func = llvm::Function::Create(type, llvm::GlobalValue::ExternalLinkage, "free", *m_active_module_context.module);
-        // }
-        // 
-        // llvm::Value* ptr = gen_expr(del.expression);
-        // return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(func), ptr);
-        return nullptr;
+        DeleteExpr& del = expr->delete_;
+        
+        llvm::Function* func = m_active_module_context.module->getFunction("free");
+        
+        if (!func) {
+            llvm::FunctionType* type = llvm::FunctionType::get(type_info_to_llvm_type(&void_type), { type_info_to_llvm_type(&void_ptr_type) }, false);
+            func = llvm::Function::Create(type, llvm::GlobalValue::ExternalLinkage, "free", *m_active_module_context.module);
+        }
+        
+        llvm::Value* ptr = gen_expr(del.expression);
+        return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(func), ptr);
     }
 
     llvm::Value* Codegen::gen_sizeof_expr(Expr* expr) {
@@ -300,6 +333,11 @@ namespace ariac {
         } else {
             return m_active_module_context.builder->getInt64(get_type_size(sz.expression->type));
         }
+    }
+
+    llvm::Value* Codegen::gen_paren_expr(Expr* expr) {
+        ParenExpr& p = expr->paren;
+        return gen_expr(p.expression);
     }
 
     llvm::Value* Codegen::gen_implicit_cast_expr(Expr* expr) {
@@ -401,6 +439,24 @@ namespace ariac {
                 return gen_expr(un.expression);
             }
 
+            case UnaryOperatorKind::Increment: {
+                llvm::Value* start_val = gen_expr(un.expression);
+                llvm::Value* load = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(un.expression->type), start_val);
+                llvm::Value* inc = nullptr;
+
+                if (un.expression->type->is_integral()) {
+                    inc = m_active_module_context.builder->CreateAdd(load, m_active_module_context.builder->getIntN(un.expression->type->get_bit_size(), 1), "inc");
+                    m_active_module_context.builder->CreateStore(inc, start_val);
+                } else {
+                    ARIA_UNREACHABLE();
+                }
+
+                if (un.infix) { return load; }
+                else { return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(un.expression->type), start_val); }
+
+                ARIA_UNREACHABLE();
+            }
+
             default: ARIA_UNREACHABLE();
         }
     }
@@ -431,6 +487,56 @@ namespace ariac {
                     return m_active_module_context.builder->CreateSub(lhs, rhs, "sub");
                 } else if (expr->type->is_floating_point()) {
                     return m_active_module_context.builder->CreateFSub(lhs, rhs, "fsub");
+                }
+
+                ARIA_UNREACHABLE();
+                break;
+            }
+
+            case BinaryOperatorKind::Mul: {
+                llvm::Value* lhs = gen_expr(bin.lhs);
+                llvm::Value* rhs = gen_expr(bin.rhs);
+
+                if (expr->type->is_integral()) {
+                    return m_active_module_context.builder->CreateMul(lhs, rhs, "mul");
+                } else if (expr->type->is_floating_point()) {
+                    return m_active_module_context.builder->CreateFMul(lhs, rhs, "fmul");
+                }
+
+                ARIA_UNREACHABLE();
+                break;
+            }
+
+            case BinaryOperatorKind::Div: {
+                llvm::Value* lhs = gen_expr(bin.lhs);
+                llvm::Value* rhs = gen_expr(bin.rhs);
+
+                if (expr->type->is_integral()) {
+                    if (expr->type->is_signed()) {
+                        return m_active_module_context.builder->CreateSDiv(lhs, rhs, "div");
+                    } else {
+                        return m_active_module_context.builder->CreateUDiv(lhs, rhs, "div");
+                    }
+                } else if (expr->type->is_floating_point()) {
+                    return m_active_module_context.builder->CreateFDiv(lhs, rhs, "fdiv");
+                }
+
+                ARIA_UNREACHABLE();
+                break;
+            }
+
+            case BinaryOperatorKind::Mod: {
+                llvm::Value* lhs = gen_expr(bin.lhs);
+                llvm::Value* rhs = gen_expr(bin.rhs);
+
+                if (expr->type->is_integral()) {
+                    if (expr->type->is_signed()) {
+                        return m_active_module_context.builder->CreateSRem(lhs, rhs, "rem");
+                    } else {
+                        return m_active_module_context.builder->CreateURem(lhs, rhs, "rem");
+                    }
+                } else if (expr->type->is_floating_point()) {
+                    return m_active_module_context.builder->CreateFRem(lhs, rhs, "frem");
                 }
 
                 ARIA_UNREACHABLE();
@@ -469,11 +575,34 @@ namespace ariac {
                 break;
             }
 
+            case BinaryOperatorKind::GreaterOrEq: {
+                llvm::Value* lhs = gen_expr(bin.lhs);
+                llvm::Value* rhs = gen_expr(bin.rhs);
+
+                if (bin.lhs->type->is_integral()) {
+                    if (bin.lhs->type->is_signed()) {
+                        return m_active_module_context.builder->CreateICmpSGE(lhs, rhs, "ge");
+                    } else {
+                        return m_active_module_context.builder->CreateICmpUGE(lhs, rhs, "ge");
+                    }
+                }
+
+                ARIA_UNREACHABLE();
+                break;
+            }
+
             case BinaryOperatorKind::Eq: {
                 llvm::Value* lhs = gen_expr(bin.lhs);
                 llvm::Value* rhs = gen_expr(bin.rhs);
 
                 return m_active_module_context.builder->CreateStore(rhs, lhs);
+            }
+
+            case BinaryOperatorKind::IsNotEq: {
+                llvm::Value* lhs = gen_expr(bin.lhs);
+                llvm::Value* rhs = gen_expr(bin.rhs);
+
+                return m_active_module_context.builder->CreateICmpNE(rhs, lhs);
             }
 
             default: ARIA_UNREACHABLE();
@@ -518,6 +647,27 @@ namespace ariac {
                 break;
             }
 
+            case BinaryOperatorKind::CompoundDiv: {
+                if (expr->type->is_integral()) {
+                    llvm::Value* div = nullptr;
+                    if (expr->type->is_signed()) {
+                        div = m_active_module_context.builder->CreateSDiv(lhs_val, rhs, "div");
+                    } else {
+                        div = m_active_module_context.builder->CreateUDiv(lhs_val, rhs, "div");
+                    }
+
+                    m_active_module_context.builder->CreateStore(div, lhs);
+                    return lhs;
+                } else if (expr->type->is_floating_point()) {
+                    llvm::Value* div = m_active_module_context.builder->CreateFDiv(lhs_val, rhs, "fdiv");
+                    m_active_module_context.builder->CreateStore(div, lhs);
+                    return lhs;
+                }
+
+                ARIA_UNREACHABLE();
+                break;
+            }
+
             default: ARIA_UNREACHABLE();
         }
     }
@@ -539,8 +689,11 @@ namespace ariac {
             case ExprKind::Construct: return gen_construct_expr(expr);
             case ExprKind::MethodCall: return gen_method_call_expr(expr);
             case ExprKind::ArraySubscript: return gen_array_subscript_expr(expr);
+            case ExprKind::ToSlice: return gen_to_slice_expr(expr);
+            case ExprKind::New: return gen_new_expr(expr);
             case ExprKind::Delete: return gen_delete_expr(expr);
             case ExprKind::Sizeof: return gen_sizeof_expr(expr);
+            case ExprKind::Paren: return gen_paren_expr(expr);
             case ExprKind::ImplicitCast: return gen_implicit_cast_expr(expr);
             case ExprKind::Cast: return gen_cast_expr(expr);
             case ExprKind::UnaryOperator: return gen_unary_operator_expr(expr);

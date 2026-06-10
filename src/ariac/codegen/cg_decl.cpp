@@ -71,7 +71,7 @@ namespace ariac {
             gen_stmt(fn.body);
             m_active_module_context.alloca_marker->eraseFromParent();
             m_active_module_context.alloca_marker = nullptr;
-            llvm::verifyFunction(*function, &llvm::errs());
+            if (llvm::verifyFunction(*function, &llvm::errs())) { throw std::exception(); }
         }
     }
 
@@ -175,7 +175,7 @@ namespace ariac {
                         gen_stmt(m.body);
                         m_active_module_context.alloca_marker->eraseFromParent();
                         m_active_module_context.alloca_marker = nullptr;
-                        llvm::verifyFunction(*function, &llvm::errs());
+                        if (llvm::verifyFunction(*function, &llvm::errs())) { throw std::exception(); }
                     }
 
                     m_active_module_context.functions[field];

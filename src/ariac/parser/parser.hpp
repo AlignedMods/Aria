@@ -72,6 +72,7 @@ namespace ariac {
         // Declarations
         Decl* parse_module_decl();
         Stmt* parse_import_decl();
+        Decl* parse_let_decl(bool global);
         Decl* parse_variable_decl(bool global);
         Decl* parse_function_decl(LinkageKind linkage);
         std::pair<TinyVector<Decl*>, TinyVector<TypeInfo*>> parse_function_params(bool* var_arg);

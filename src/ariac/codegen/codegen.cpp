@@ -33,96 +33,100 @@ namespace ariac {
 
         std::vector<std::string> object_files;
 
-        for (Module* mod : m_context->modules) {
-            ModuleContext ctx;
-            ctx.context = new llvm::LLVMContext();
-            ctx.module = new llvm::Module(llvm::StringRef(mod->name), *ctx.context);
-            ctx.builder = new llvm::IRBuilder<>(*ctx.context);
+        try {
+            for (Module* mod : m_context->modules) {
+                ModuleContext ctx;
+                ctx.context = new llvm::LLVMContext();
+                ctx.module = new llvm::Module(llvm::StringRef(mod->name), *ctx.context);
+                ctx.builder = new llvm::IRBuilder<>(*ctx.context);
 
-            m_active_module_context = ctx;
-            m_module_contexts[mod] = ctx;
+                m_active_module_context = ctx;
+                m_module_contexts[mod] = ctx;
 
-            gen_builtin_types();
+                gen_builtin_types();
 
-            for (CompilationUnit* unit : mod->units) {
-                for (Decl* struct_ : unit->structs) {
-                    gen_struct_decl(struct_);
+                for (CompilationUnit* unit : mod->units) {
+                    for (Decl* struct_ : unit->structs) {
+                        gen_struct_decl(struct_);
+                    }
+                }
+
+                for (CompilationUnit* unit : mod->units) {
+                    for (Decl* global : unit->globals) {
+                        gen_var_decl(global);
+                    }
+                }
+
+                for (CompilationUnit* unit : mod->units) {
+                    for (Decl* func : unit->funcs) {
+                        gen_function_decl(func);
+                    }
+                }
+
+                if (llvm::verifyModule(*m_active_module_context.module)) { continue; }
+
+                const char* cpu = "generic";
+                const char* features = "";
+
+                llvm::TargetOptions opts;
+                llvm::TargetMachine* machine = target->createTargetMachine(m_triple, cpu, features, opts, llvm::Reloc::PIC_);
+
+                m_active_module_context.module->setDataLayout(machine->createDataLayout());
+                m_active_module_context.module->setTargetTriple(m_triple);
+
+                std::string output = fmt::format(".build\\{}.o", valid_module_name(mod->name));
+                std::error_code ec;
+                llvm::raw_fd_ostream stream(output, ec, llvm::sys::fs::OF_None);
+                
+                if (ec) {
+                    fmt::print(stderr, "Could not open file for output '{}': {}\n", output, ec.message());
+                    continue;
+                }
+
+                llvm::legacy::PassManager pass;
+                llvm::CodeGenFileType file_type = llvm::CodeGenFileType::ObjectFile;
+
+                if (machine->addPassesToEmitFile(pass, stream, nullptr, file_type)) {
+                    fmt::print(stderr, "llvm::TargetMachine couldn't emit a file of this type\n");
+                    continue;
+                }
+
+                pass.run(*m_active_module_context.module);
+                stream.flush();
+
+                fmt::println("Generated output file '{}'", output);
+                object_files.push_back(output);
+
+                if (m_context->flags.dump_ir) {
+                    m_active_module_context.module->print(llvm::outs(), nullptr);
                 }
             }
 
-            for (CompilationUnit* unit : mod->units) {
-                for (Decl* global : unit->globals) {
-                    gen_var_decl(global);
-                }
+            std::vector<llvm::StringRef> args;
+            args.push_back("clang");
+            for (auto& o : object_files) {
+                args.push_back(o);
+            }
+            args.push_back("-o");
+            args.push_back(".build\\main.exe");
+
+            llvm::ErrorOr<llvm::StringRef> clang_path = llvm::sys::findProgramByName("clang");
+            if (std::error_code ec = clang_path.getError()) {
+                fmt::print(stderr, "Failed to find clang: '{}'", ec.message());
+                return;
             }
 
-            for (CompilationUnit* unit : mod->units) {
-                for (Decl* func : unit->funcs) {
-                    gen_function_decl(func);
-                }
+            int code = llvm::sys::ExecuteAndWait(clang_path.get(), args);
+
+            if (code == -1) {
+                fmt::print(stderr, "Could not invoke clang to run linker\n");
+                return;
+            } else if (code == -2) {
+                fmt::print(stderr, "Failed to run linker");
+                return;
             }
-
-            if (llvm::verifyModule(*m_active_module_context.module)) { continue; }
-
-            const char* cpu = "generic";
-            const char* features = "";
-
-            llvm::TargetOptions opts;
-            llvm::TargetMachine* machine = target->createTargetMachine(m_triple, cpu, features, opts, llvm::Reloc::PIC_);
-
-            m_active_module_context.module->setDataLayout(machine->createDataLayout());
-            m_active_module_context.module->setTargetTriple(m_triple);
-
-            std::string output = fmt::format(".build\\{}.o", valid_module_name(mod->name));
-            std::error_code ec;
-            llvm::raw_fd_ostream stream(output, ec, llvm::sys::fs::OF_None);
-            
-            if (ec) {
-                fmt::print(stderr, "Could not open file for output '{}': {}\n", output, ec.message());
-                continue;
-            }
-
-            llvm::legacy::PassManager pass;
-            llvm::CodeGenFileType file_type = llvm::CodeGenFileType::ObjectFile;
-
-            if (machine->addPassesToEmitFile(pass, stream, nullptr, file_type)) {
-                fmt::print(stderr, "llvm::TargetMachine couldn't emit a file of this type\n");
-                continue;
-            }
-
-            pass.run(*m_active_module_context.module);
-            stream.flush();
-
-            fmt::println("Generated output file '{}'", output);
-            object_files.push_back(output);
-
-            if (m_context->flags.dump_ir) {
-                m_active_module_context.module->print(llvm::outs(), nullptr);
-            }
-        }
-
-        std::vector<llvm::StringRef> args;
-        args.push_back("clang");
-        for (auto& o : object_files) {
-            args.push_back(o);
-        }
-        args.push_back("-o");
-        args.push_back(".build\\main.exe");
-
-        llvm::ErrorOr<llvm::StringRef> clang_path = llvm::sys::findProgramByName("clang");
-        if (std::error_code ec = clang_path.getError()) {
-            fmt::print(stderr, "Failed to find clang: '{}'", ec.message());
-            return;
-        }
-
-        int code = llvm::sys::ExecuteAndWait(clang_path.get(), args);
-
-        if (code == -1) {
-            fmt::print(stderr, "Could not invoke clang to run linker\n");
-            return;
-        } else if (code == -2) {
-            fmt::print(stderr, "Failed to run linker");
-            return;
+        } catch (std::exception& e) {
+            fmt::println("Codegen failed.");
         }
     }
 
@@ -331,6 +335,8 @@ namespace ariac {
 
     std::string Codegen::mangle_type(TypeInfo* t) {
         switch (t->kind) {
+            case TypeKind::Void: return "v";
+
             case TypeKind::Bool: return "b";
             case TypeKind::Char: return "c";
             case TypeKind::UChar: return "uc";
