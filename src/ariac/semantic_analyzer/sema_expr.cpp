@@ -970,13 +970,7 @@ namespace ariac {
             case BinaryOperatorKind::Sub:
             case BinaryOperatorKind::Mul:
             case BinaryOperatorKind::Div:
-            case BinaryOperatorKind::Mod:
-            case BinaryOperatorKind::Less:
-            case BinaryOperatorKind::LessOrEq:
-            case BinaryOperatorKind::Greater:
-            case BinaryOperatorKind::GreaterOrEq:
-            case BinaryOperatorKind::IsEq: 
-            case BinaryOperatorKind::IsNotEq: {
+            case BinaryOperatorKind::Mod: {
                 if (!LHS->type->is_error()) {
                     if (!LHS->type->is_numeric()) {
                         m_context->report_compiler_diagnostic(LHS->loc, LHS->range, fmt::format("Expression must be of a numeric type but is of type '{}'", type_info_to_string(LHS->type)));
@@ -993,23 +987,39 @@ namespace ariac {
 
                 insert_arithmetic_promotion(LHS, RHS);
 
-                if (binop.op == BinaryOperatorKind::Less ||
-                    binop.op == BinaryOperatorKind::LessOrEq ||
-                    binop.op == BinaryOperatorKind::Greater ||
-                    binop.op == BinaryOperatorKind::GreaterOrEq ||
-                    binop.op == BinaryOperatorKind::IsEq ||
-                    binop.op == BinaryOperatorKind::IsNotEq) 
-                {
-                    expr->type = &bool_type;
-                    expr->value_kind = ExprValueKind::RValue;
+                expr->type = LHS->type;
+                expr->value_kind = ExprValueKind::RValue;
 
-                    if (expr->result_discarded) {
-                        m_context->report_compiler_diagnostic(expr->loc, expr->range, "Discarding result of relational operator", CompilerDiagKind::Warning);
-                    }
-                    return;
+                if (expr->result_discarded) {
+                    m_context->report_compiler_diagnostic(expr->loc, expr->range, "Discarding result of binary operator", CompilerDiagKind::Warning);
                 }
 
-                expr->type = LHS->type;
+                return;
+            }
+
+            case BinaryOperatorKind::Less:
+            case BinaryOperatorKind::LessOrEq:
+            case BinaryOperatorKind::Greater:
+            case BinaryOperatorKind::GreaterOrEq:
+            case BinaryOperatorKind::IsEq: 
+            case BinaryOperatorKind::IsNotEq: {
+                if (!LHS->type->is_error()) {
+                    if (!LHS->type->is_num_or_ptr()) {
+                        m_context->report_compiler_diagnostic(LHS->loc, LHS->range, fmt::format("Expression must be of a numeric or pointer type but is of type '{}'", type_info_to_string(LHS->type)));
+                        expr->type = &error_type;
+                        break;
+                    }
+
+                    if (!RHS->type->is_num_or_ptr()) {
+                        m_context->report_compiler_diagnostic(RHS->loc, RHS->range, fmt::format("Expression must be of a numeric or pointer type but is of type '{}'", type_info_to_string(RHS->type)));
+                        expr->type = &error_type;
+                        break;
+                    }
+                }
+
+                insert_arithmetic_promotion(LHS, RHS);
+
+                expr->type = &bool_type;
                 expr->value_kind = ExprValueKind::RValue;
 
                 if (expr->result_discarded) {
@@ -1386,6 +1396,12 @@ namespace ariac {
                 insert_implicit_cast(rhs->type, lhs->type, lhs, CastKind::Floating);
             }
 
+            return;
+        }
+
+        if (lhs->type->is_pointer() && rhs->type->is_pointer()) {
+            insert_implicit_cast(&void_ptr_type, lhs->type, lhs, CastKind::BitCast);
+            insert_implicit_cast(&void_ptr_type, rhs->type, rhs, CastKind::BitCast);
             return;
         }
 

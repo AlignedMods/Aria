@@ -40,6 +40,9 @@ namespace ariac {
         ImportStmt(std::string_view name)
             : name(name) {}
 
+        ImportStmt(std::string_view name, Module* mod)
+            : name(name), resolved_module(mod) {}
+
         std::string_view name;
         Module* resolved_module = nullptr;
     };

@@ -34,6 +34,7 @@ namespace ariac {
         }
 
         llvm::Function* function = m_active_module_context.functions.at(decl);
+        function->setDSOLocal(true);
         m_active_module_context.function = function;
 
         if (fn.body) {

@@ -126,6 +126,8 @@ namespace ariac {
             return is_integral() || is_floating_point();
         }
 
+        bool is_num_or_ptr() const { return is_numeric() || is_pointer(); }
+
         bool is_pointer() const {
             return kind == TypeKind::Ptr;
         }

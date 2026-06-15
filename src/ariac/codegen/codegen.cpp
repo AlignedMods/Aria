@@ -116,17 +116,18 @@ namespace ariac {
                 return;
             }
 
-            int code = llvm::sys::ExecuteAndWait(clang_path.get(), args);
+            std::string err;
+            int code = llvm::sys::ExecuteAndWait(clang_path.get(), args, {}, {}, 0, 0, &err);
 
             if (code == -1) {
-                fmt::print(stderr, "Could not invoke clang to run linker\n");
+                fmt::print(stderr, "Could not invoke clang to run linker: {}\n", err);
                 return;
             } else if (code == -2) {
-                fmt::print(stderr, "Failed to run linker");
+                fmt::print(stderr, "Failed to run linker: {}", err);
                 return;
             }
         } catch (std::exception& e) {
-            fmt::println("Codegen failed.");
+            fmt::print(fmt::fg(fmt::color::pale_violet_red), "Codegen failed.");
         }
     }
 

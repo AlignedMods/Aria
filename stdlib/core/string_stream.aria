@@ -20,11 +20,13 @@ impl StringStream {
     }
 
     fn append(c: char) -> void {
+        if capacity == 0 { increase_capacity(32); }
+
         if size + 1 >= capacity {
             let newCap = capacity + 1;
             increase_capacity(((newCap + 32 - 1) / 32) * 32); // Align the new capacity to 32 bytes
         }
-        
+
         data[size] = c;
         size += 1;
     }
@@ -61,12 +63,17 @@ impl StringStream {
     fn increase_capacity(cap: ulong) -> void {
         let newData = new char[cap];
         
-        for (i: ulong = 0; i < size; i++) {
-            newData[i] = data[i];
+        if (data != null) {
+            for (i: ulong = 0; i < size; i++) {
+                newData[i] = data[i];
+            }
+            
+            delete data;
         }
         
-        delete data;
         data = newData;
         capacity = cap;
     }
 }
+
+extern fn printf(fmt: const char*, ...) -> int;

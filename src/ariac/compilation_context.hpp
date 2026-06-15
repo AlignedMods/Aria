@@ -155,6 +155,7 @@ namespace ariac {
         CompilerFlags flags;
 
         std::vector<Module*> modules;
+        Module* std_core_module;
         Decl* main_func = nullptr;
 
         CompilerReflectionData reflection_data;

@@ -43,6 +43,8 @@ namespace ariac {
         m_context->active_module = module;
         m_context->active_comp_unit = unit;
 
+        bool imports_std_core = false;
+
         for (size_t i = 0; i < unit->imports.size(); i++) {
             Stmt* stmt = unit->imports[i];
 
@@ -68,9 +70,16 @@ namespace ariac {
 
             if (!resolvedModule) {
                 m_context->report_compiler_diagnostic(stmt->loc, stmt->range, fmt::format("Could not find module '{}'", stmt->import.name));
+                continue;
             }
 
+            if (resolvedModule == m_context->std_core_module) { imports_std_core = true; }
             stmt->import.resolved_module = resolvedModule;
+        }
+
+        if (!imports_std_core && m_context->std_core_module) { // Implicitly import std::core if it is avaliable
+            Stmt* imp = Stmt::Create(m_context, {}, {}, StmtKind::Import, ImportStmt("std::core", m_context->std_core_module));
+            unit->imports.push_back(imp);
         }
 
         add_unit_to_module(module, unit);

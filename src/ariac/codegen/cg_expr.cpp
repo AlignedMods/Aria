@@ -267,12 +267,15 @@ namespace ariac {
 
         switch (arr.array->type->kind) {
             case TypeKind::Ptr:
+                return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type->base), array, index);
+
             case TypeKind::Array:
-                return m_active_module_context.builder->CreateGEP(array->getType(), array, index);
+                return m_active_module_context.builder->CreateGEP(array->getType(), array, { m_active_module_context.builder->getInt64(0), index });
 
             case TypeKind::Slice: {
                 llvm::Value* mem = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(arr.array->type), array, 0);
-                return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type->base), mem, index);
+                llvm::Value* loaded = m_active_module_context.builder->CreateLoad(llvm::PointerType::get(*m_active_module_context.context, 0), mem);
+                return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type->base), loaded, index);
             }
 
             default: ARIA_UNREACHABLE();
@@ -307,7 +310,7 @@ namespace ariac {
         }
 
         llvm::Value* elem_size = m_active_module_context.builder->getInt64(get_type_size(expr->type->base));
-        llvm::Value* arr_size = n.array ? m_active_module_context.builder->getInt64(1) : gen_expr(n.initializer);
+        llvm::Value* arr_size = n.array ? gen_expr(n.initializer) : m_active_module_context.builder->getInt64(1);
         return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(func), {{elem_size, arr_size}});
     }
 
@@ -596,6 +599,13 @@ namespace ariac {
                 llvm::Value* rhs = gen_expr(bin.rhs);
 
                 return m_active_module_context.builder->CreateStore(rhs, lhs);
+            }
+
+            case BinaryOperatorKind::IsEq: {
+                llvm::Value* lhs = gen_expr(bin.lhs);
+                llvm::Value* rhs = gen_expr(bin.rhs);
+
+                return m_active_module_context.builder->CreateICmpEQ(rhs, lhs);
             }
 
             case BinaryOperatorKind::IsNotEq: {

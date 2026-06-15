@@ -157,6 +157,9 @@ namespace ariac {
         Module* mod = new Module();
         mod->name = name;
         modules.push_back(mod);
+
+        if (name == "std::core") { std_core_module = mod; }
+
         return mod;
     }
 

@@ -1,20 +1,18 @@
 module std::io;
 
-import std::core;
-
 fn println(str: char[]) -> void {
     let s: StringStream;
     s.append(str);
     s.append('\n');
 
-    printf(c"%.*s", s.size, s.data);
+    printf(c"%s", s.to_ptr());
 }
 
 fn print(str: char[]) -> void {
     let s: StringStream;
     s.append(str);
 
-    printf(s.to_ptr());
+    printf(c"%s", s.to_ptr());
 }
 
 @private
