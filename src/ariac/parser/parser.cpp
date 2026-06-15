@@ -121,7 +121,7 @@ namespace ariac {
             }
         }
 
-        TranslationUnitDecl root(stmts);
+        TranslationUnitDecl root(m_context->active_comp_unit->filename, stmts);
         Decl* decl = Decl::Create(m_context, SourceLocation(), SourceRange(), DeclKind::TranslationUnit, DeclVisibility::Public, root);
         m_context->active_comp_unit->root_ast_node = Stmt::Create(m_context, SourceLocation(), SourceRange(), StmtKind::Decl, decl);
     }

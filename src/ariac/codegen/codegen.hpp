@@ -77,6 +77,12 @@ namespace ariac {
         void gen_impl();
         void gen_builtin_types();
 
+        void setup_env();
+        void gen_mod_to_ir(Module* mod);
+        void gen_mod_to_obj(Module* mod);
+        void gen_mod_ir_dump(Module* mod);
+        void link();
+
         llvm::Value* gen_boolean_literal_expr(Expr* expr);
         llvm::Value* gen_character_literal_expr(Expr* expr);
         llvm::Value* gen_integer_literal_expr(Expr* expr);
@@ -155,6 +161,9 @@ namespace ariac {
         ModuleContext m_active_module_context;
         std::unordered_map<Module*, ModuleContext> m_module_contexts;
         llvm::Triple m_triple;
+        const llvm::Target* m_target = nullptr;
+        llvm::TargetMachine* m_machine = nullptr;
+        std::vector<std::string> m_object_files;
 
         llvm::AllocaInst* m_self_value = nullptr;
         ABIRetTypeInfo m_ret_type_abi;

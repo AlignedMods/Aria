@@ -109,9 +109,10 @@ namespace ariac {
     // Represents an entire translation unit
     // This should always be the root node of the AST
     struct TranslationUnitDecl {
-        TranslationUnitDecl(TinyVector<Stmt*> stmts)
-            : stmts(stmts) {}
+        TranslationUnitDecl(std::string_view name, TinyVector<Stmt*> stmts)
+            : name(name), stmts(stmts) {}
 
+        std::string_view name;
         TinyVector<Stmt*> stmts;
     };
 

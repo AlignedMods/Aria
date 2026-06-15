@@ -11,6 +11,32 @@ namespace ariac {
     }
 
     void Codegen::gen_impl() {
+        setup_env();
+
+        try {
+            for (Module* mod : m_context->modules) {
+                gen_mod_to_ir(mod);
+                gen_mod_to_obj(mod);
+
+                if (m_context->flags.dump_ir) {
+                    gen_mod_ir_dump(mod);
+                }
+            }
+
+            link();
+        } catch (std::exception& e) {
+            fmt::print(fmt::fg(fmt::color::pale_violet_red), "Codegen failed: {}", e.what());
+        }
+    }
+
+    void Codegen::gen_builtin_types() {
+        llvm::StructType::create({
+            llvm::PointerType::get(*m_active_module_context.context, 0),
+            llvm::Type::getInt64Ty(*m_active_module_context.context)
+        }, "$builtin_slice");
+    }
+
+    void Codegen::setup_env() {
         llvm::InitializeAllTargetInfos();
         llvm::InitializeAllTargets();
         llvm::InitializeAllTargetMCs();
@@ -27,115 +53,110 @@ namespace ariac {
         const llvm::Target* target = llvm::TargetRegistry::lookupTarget(m_triple, error);
 
         if (!target) {
-            fmt::print(stderr, "{}\n", error);
-            return;
+            throw std::runtime_error(fmt::format("{}", error));
         }
 
-        std::vector<std::string> object_files;
+        m_target = target;
 
-        try {
-            for (Module* mod : m_context->modules) {
-                ModuleContext ctx;
-                ctx.context = new llvm::LLVMContext();
-                ctx.module = new llvm::Module(llvm::StringRef(mod->name), *ctx.context);
-                ctx.builder = new llvm::IRBuilder<>(*ctx.context);
-
-                m_active_module_context = ctx;
-                m_module_contexts[mod] = ctx;
-
-                gen_builtin_types();
-
-                for (CompilationUnit* unit : mod->units) {
-                    for (Decl* struct_ : unit->structs) {
-                        gen_struct_decl(struct_);
-                    }
-                }
-
-                for (CompilationUnit* unit : mod->units) {
-                    for (Decl* global : unit->globals) {
-                        gen_var_decl(global);
-                    }
-                }
-
-                for (CompilationUnit* unit : mod->units) {
-                    for (Decl* func : unit->funcs) {
-                        gen_function_decl(func);
-                    }
-                }
-
-                if (llvm::verifyModule(*m_active_module_context.module)) { continue; }
-
-                const char* cpu = "generic";
-                const char* features = "";
-
-                llvm::TargetOptions opts;
-                llvm::TargetMachine* machine = target->createTargetMachine(m_triple, cpu, features, opts, llvm::Reloc::PIC_);
-
-                m_active_module_context.module->setDataLayout(machine->createDataLayout());
-                m_active_module_context.module->setTargetTriple(m_triple);
-
-                std::string output = fmt::format(".build\\{}.o", valid_module_name(mod->name));
-                std::error_code ec;
-                llvm::raw_fd_ostream stream(output, ec, llvm::sys::fs::OF_None);
-                
-                if (ec) {
-                    fmt::print(stderr, "Could not open file for output '{}': {}\n", output, ec.message());
-                    continue;
-                }
-
-                llvm::legacy::PassManager pass;
-                llvm::CodeGenFileType file_type = llvm::CodeGenFileType::ObjectFile;
-
-                if (machine->addPassesToEmitFile(pass, stream, nullptr, file_type)) {
-                    fmt::print(stderr, "llvm::TargetMachine couldn't emit a file of this type\n");
-                    continue;
-                }
-
-                pass.run(*m_active_module_context.module);
-                stream.flush();
-
-                fmt::println("Generated output file '{}'", output);
-                object_files.push_back(output);
-
-                if (m_context->flags.dump_ir) {
-                    m_active_module_context.module->print(llvm::outs(), nullptr);
-                }
-            }
-
-            std::vector<llvm::StringRef> args;
-            args.push_back("clang");
-            for (auto& o : object_files) {
-                args.push_back(o);
-            }
-            args.push_back("-o");
-            args.push_back(".build\\main.exe");
-
-            llvm::ErrorOr<llvm::StringRef> clang_path = llvm::sys::findProgramByName("clang");
-            if (std::error_code ec = clang_path.getError()) {
-                fmt::print(stderr, "Failed to find clang: '{}'", ec.message());
-                return;
-            }
-
-            std::string err;
-            int code = llvm::sys::ExecuteAndWait(clang_path.get(), args, {}, {}, 0, 0, &err);
-
-            if (code == -1) {
-                fmt::print(stderr, "Could not invoke clang to run linker: {}\n", err);
-                return;
-            } else if (code == -2) {
-                fmt::print(stderr, "Failed to run linker: {}", err);
-                return;
-            }
-        } catch (std::exception& e) {
-            fmt::print(fmt::fg(fmt::color::pale_violet_red), "Codegen failed.");
-        }
+        llvm::TargetOptions opts;
+        m_machine = m_target->createTargetMachine(m_triple, "generic", "", opts, llvm::Reloc::PIC_);
     }
 
-    void Codegen::gen_builtin_types() {
-        llvm::StructType::create({
-            llvm::PointerType::get(*m_active_module_context.context, 0),
-            llvm::Type::getInt64Ty(*m_active_module_context.context)
-        }, "$builtin_slice");
+    void Codegen::gen_mod_to_ir(Module* mod) {
+        ModuleContext ctx;
+        ctx.context = new llvm::LLVMContext();
+        ctx.module = new llvm::Module(llvm::StringRef(mod->name), *ctx.context);
+        ctx.builder = new llvm::IRBuilder<>(*ctx.context);
+
+        m_active_module_context = ctx;
+        m_module_contexts[mod] = ctx;
+
+        gen_builtin_types();
+
+        for (CompilationUnit* unit : mod->units) {
+            for (Decl* struct_ : unit->structs) {
+                gen_struct_decl(struct_);
+            }
+        }
+
+        for (CompilationUnit* unit : mod->units) {
+            for (Decl* global : unit->globals) {
+                gen_var_decl(global);
+            }
+        }
+
+        for (CompilationUnit* unit : mod->units) {
+            for (Decl* func : unit->funcs) {
+                gen_function_decl(func);
+            }
+        }
+
+        if (llvm::verifyModule(*m_active_module_context.module)) { throw std::runtime_error(fmt::format("Module '{}' failed verification", mod->name)); }
+
+        m_active_module_context.module->setDataLayout(m_machine->createDataLayout());
+        m_active_module_context.module->setTargetTriple(m_triple);
+    }
+
+    void Codegen::gen_mod_to_obj(Module* mod) {
+        std::string output = fmt::format(".build\\{}.o", valid_module_name(mod->name));
+        std::error_code ec;
+        llvm::raw_fd_ostream stream(output, ec, llvm::sys::fs::OF_None);
+        
+        if (ec) {
+            throw std::runtime_error(fmt::format("Could not open file for output '{}': {}", output, ec.message()));
+        }
+
+        llvm::legacy::PassManager pass;
+        llvm::CodeGenFileType file_type = llvm::CodeGenFileType::ObjectFile;
+
+        if (m_machine->addPassesToEmitFile(pass, stream, nullptr, file_type)) {
+            throw std::runtime_error("llvm::TargetMachine couldn't emit a file of this type");
+        }
+
+        pass.run(*m_active_module_context.module);
+        stream.flush();
+
+        fmt::println("Generated output file '{}'", output);
+        m_object_files.push_back(output);
+    }
+
+    void Codegen::gen_mod_ir_dump(Module* mod) {
+        std::string output = fmt::format(".build\\{}.ll", valid_module_name(mod->name));
+        std::error_code ec;
+        llvm::raw_fd_ostream stream(output, ec, llvm::sys::fs::OF_None);
+        
+        if (ec) {
+            throw std::runtime_error(fmt::format("Could not open file for output '{}': {}\n", output, ec.message()));
+        }
+
+        m_active_module_context.module->print(stream, nullptr);
+        fmt::println("Generated LLVM IR file '{}'", output);
+    }
+
+    void Codegen::link() {
+        std::vector<llvm::StringRef> args;
+        args.push_back("clang");
+        for (auto& o : m_object_files) {
+            args.push_back(o);
+        }
+        args.push_back("-o");
+        args.push_back(".build\\main.exe");
+
+        llvm::ErrorOr<llvm::StringRef> clang_path = llvm::sys::findProgramByName("clang");
+        if (std::error_code ec = clang_path.getError()) {
+            throw std::runtime_error(fmt::format("Failed to find clang: '{}'", ec.message()));
+        }
+
+        std::string err;
+        int code = llvm::sys::ExecuteAndWait(clang_path.get(), args, {}, {}, 0, 0, &err);
+
+        if (code == -1) {
+            throw std::runtime_error(fmt::format("Could not invoke clang to run linker: {}", err));
+        } else if (code == -2) {
+            throw std::runtime_error(fmt::format("Failed to run linker: {}", err));
+        }
+
+        fmt::println("Generated executable '{}'", ".build\\main.exe");
     }
 
     llvm::Type* Codegen::type_info_to_llvm_type(TypeInfo* t) {

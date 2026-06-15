@@ -215,7 +215,7 @@ namespace ariac {
             case DeclKind::Error: m_output += "ErrorDecl\n";
                 return;
 
-            case DeclKind::TranslationUnit: m_output += "TranslationUnitDecl\n";
+            case DeclKind::TranslationUnit: m_output += fmt::format("TranslationUnitDecl '{}'\n", decl->translation_unit.name);
                 for (Stmt* stmt : decl->translation_unit.stmts) {
                     dump_stmt(stmt, indentation + 4);
                 }
