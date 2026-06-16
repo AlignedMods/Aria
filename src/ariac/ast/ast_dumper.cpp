@@ -368,6 +368,10 @@ namespace ariac {
                 dump_expr(stmt->return_.value, indentation + 4);
                 return;
 
+            case StmtKind::Defer: m_output += "DeferStmt\n";
+                dump_expr(stmt->defer.expression, indentation + 4);
+                return;
+
             default: ARIA_UNREACHABLE();
         }
     }

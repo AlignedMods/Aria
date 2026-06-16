@@ -143,6 +143,11 @@ namespace ariac {
         }
     }
 
+    void SemanticAnalyzer::resolve_defer_stmt(Stmt* stmt) {
+        DeferStmt& defer = stmt->defer;
+        resolve_expr(defer.expression);
+    }
+
     void SemanticAnalyzer::resolve_expr_stmt(Stmt* stmt) {
         resolve_expr(stmt->expr);
     }
@@ -177,6 +182,7 @@ namespace ariac {
             case StmtKind::Break: return resolve_break_stmt(stmt);
             case StmtKind::Continue: return resolve_continue_stmt(stmt);
             case StmtKind::Return: return resolve_return_stmt(stmt);
+            case StmtKind::Defer: return resolve_defer_stmt(stmt);
             case StmtKind::Expr: return resolve_expr_stmt(stmt);
             case StmtKind::Decl: return resolve_decl_stmt(stmt);
 

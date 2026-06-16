@@ -101,6 +101,7 @@ namespace ariac {
         void resolve_break_stmt(Stmt* stmt);
         void resolve_continue_stmt(Stmt* stmt);
         void resolve_return_stmt(Stmt* stmt);
+        void resolve_defer_stmt(Stmt* stmt);
         void resolve_expr_stmt(Stmt* stmt);
         void resolve_decl_stmt(Stmt* stmt);
 

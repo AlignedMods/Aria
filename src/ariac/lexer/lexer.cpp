@@ -504,6 +504,7 @@ namespace ariac {
         if (scratch_buffer_cmp("impl"))     { add_token(TokenKind::Impl,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "impl");     return; }
         if (scratch_buffer_cmp("new"))      { add_token(TokenKind::New,      SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "new");      return; }
         if (scratch_buffer_cmp("delete"))   { add_token(TokenKind::Delete,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "delete");   return; }
+        if (scratch_buffer_cmp("defer"))    { add_token(TokenKind::Defer,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "defer");    return; }
         if (scratch_buffer_cmp("extern"))   { add_token(TokenKind::Extern,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "extern");   return; }
         if (scratch_buffer_cmp("sizeof"))   { add_token(TokenKind::Sizeof,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "sizeof");   return; }
         if (scratch_buffer_cmp("typedef"))  { add_token(TokenKind::Typedef,  SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "typedef");  return; }

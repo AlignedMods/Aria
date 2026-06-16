@@ -22,6 +22,7 @@ namespace ariac {
         Break,
         Continue,
         Return,
+        Defer,
         Expr,
         Decl
     };
@@ -98,6 +99,13 @@ namespace ariac {
         Expr* value = nullptr;
     };
 
+    struct DeferStmt {
+        DeferStmt(Expr* expr)
+            : expression(expr) {}
+
+        Expr* expression = nullptr;
+    };
+
     struct Stmt {
         template <typename T>
         static inline Stmt* Create(CompilationContext* ctx, SourceLocation loc, SourceRange range, StmtKind kind, T t) { return ctx->allocate<Stmt>(kind, loc, range, t); }
@@ -118,6 +126,7 @@ namespace ariac {
             ForStmt for_;
             IfStmt if_;
             ReturnStmt return_;
+            DeferStmt defer;
             Expr* expr;
             Decl* decl;
         };
@@ -145,6 +154,9 @@ namespace ariac {
 
         Stmt(StmtKind kind, SourceLocation loc, SourceRange range, ReturnStmt ret)
             : kind(kind), loc(loc), range(range), return_(ret) {}
+
+        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, DeferStmt d)
+            : kind(kind), loc(loc), range(range), defer(d) {}
 
         Stmt(StmtKind kind, SourceLocation loc, SourceRange range, Expr* expr)
             : kind(kind), loc(loc), range(range), expr(expr) {}

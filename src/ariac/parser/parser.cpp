@@ -946,6 +946,14 @@ namespace ariac {
         return Stmt::Create(m_context, r.range.start, SourceRange(r.range.start, peek(-1)->range.end), StmtKind::Return, ReturnStmt(val));
     }
 
+    Stmt* Parser::parse_defer() {
+        Token& d = consume(); // consume "defer"
+
+        Expr* expr = parse_expression();
+        try_consume(TokenKind::Semi, ";");
+        return Stmt::Create(m_context, d.range.start, SourceRange(d.range.start, peek(-1)->range.end), StmtKind::Defer, DeferStmt(expr));
+    }
+
     Stmt* Parser::parse_expression_statement() {
         Expr* expr = parse_expression();
         if (!expr_ok(expr)) { return &error_stmt; }
@@ -1022,6 +1030,9 @@ namespace ariac {
 
             case TokenKind::Return:
                 return parse_return();
+
+            case TokenKind::Defer:
+                return parse_defer();
 
             case TokenKind::Let:
                 return parse_declaration_statement(false);

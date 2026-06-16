@@ -63,6 +63,7 @@ namespace ariac {
         Stmt* parse_break();
         Stmt* parse_continue();
         Stmt* parse_return();
+        Stmt* parse_defer();
 
         Stmt* parse_expression_statement();
         Stmt* parse_declaration_statement(bool global);

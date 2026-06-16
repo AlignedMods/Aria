@@ -114,6 +114,13 @@ namespace ariac {
     void Codegen::gen_return_stmt(Stmt* stmt) {
         ReturnStmt& ret = stmt->return_;
 
+        // Handle defers
+        for (auto it = m_defers.rbegin(); it != m_defers.rend(); it++) {
+            gen_expr(*it);
+        }
+
+        m_defers.clear();
+
         if (ret.value) {
             llvm::Value* val = gen_expr(ret.value);
 
@@ -137,6 +144,11 @@ namespace ariac {
         }
     }
 
+    void Codegen::gen_defer_stmt(Stmt* stmt) {
+        DeferStmt& defer = stmt->defer;
+        m_defers.push_back(defer.expression);
+    }
+
     void Codegen::gen_expr_stmt(Stmt* stmt) {
         Expr* expr = stmt->expr;
         gen_expr(expr);
@@ -157,8 +169,10 @@ namespace ariac {
             case StmtKind::For: return gen_for_stmt(stmt);
             case StmtKind::If: return gen_if_stmt(stmt);
             case StmtKind::Return: return gen_return_stmt(stmt);
+            case StmtKind::Defer: return gen_defer_stmt(stmt);
             case StmtKind::Expr: return gen_expr_stmt(stmt);
             case StmtKind::Decl: return gen_decl_stmt(stmt);
+
             default: ARIA_UNREACHABLE();
         }
     }

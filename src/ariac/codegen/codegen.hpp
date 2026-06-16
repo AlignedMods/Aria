@@ -132,6 +132,7 @@ namespace ariac {
         void gen_break_stmt(Stmt* stmt);
         void gen_continue_stmt(Stmt* stmt);
         void gen_return_stmt(Stmt* stmt);
+        void gen_defer_stmt(Stmt* stmt);
         void gen_expr_stmt(Stmt* stmt);
         void gen_decl_stmt(Stmt* stmt);
 
@@ -164,6 +165,8 @@ namespace ariac {
         const llvm::Target* m_target = nullptr;
         llvm::TargetMachine* m_machine = nullptr;
         std::vector<std::string> m_object_files;
+
+        std::vector<Expr*> m_defers;
 
         llvm::AllocaInst* m_self_value = nullptr;
         ABIRetTypeInfo m_ret_type_abi;

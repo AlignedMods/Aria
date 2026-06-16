@@ -1,5 +1,7 @@
 #include "ariac/codegen/codegen.hpp"
 
+#include <filesystem>
+
 namespace ariac {
 
     Codegen::Codegen(CompilationContext* ctx) {

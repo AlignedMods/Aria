@@ -33,11 +33,10 @@ namespace ariac {
             gen_function_prototype(decl);
         }
 
-        llvm::Function* function = m_active_module_context.functions.at(decl);
-        function->setDSOLocal(true);
-        m_active_module_context.function = function;
-
         if (fn.body) {
+            llvm::Function* function = m_active_module_context.functions.at(decl);
+            m_active_module_context.function = function;
+
             m_ret_type_abi = get_ret_abi_type_info(fn.type->function.return_type);
             unsigned idx = m_ret_type_abi.ret_by_ptr ? 1 : 0;
 

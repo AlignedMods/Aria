@@ -75,6 +75,7 @@ namespace ariac {
         Impl,
         New,
         Delete,
+        Defer,
         Extern,
         Sizeof,
         Typedef,
@@ -190,6 +191,7 @@ namespace ariac {
             case TokenKind::Impl: return "impl";
             case TokenKind::New: return "new";
             case TokenKind::Delete: return "delete";
+            case TokenKind::Defer: return "defer";
             case TokenKind::Extern: return "extern";
             case TokenKind::Sizeof: return "sizeof";
             case TokenKind::Typedef: return "typedef";

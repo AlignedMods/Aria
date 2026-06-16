@@ -1,18 +1,12 @@
 module std::core;
 
 struct StringStream {
-    data: char*;
-    size: ulong;
+    mem: char*;
+    len: ulong;
     capacity: ulong;
 }
 
 impl StringStream {
-    ~StringStream() {
-        delete data;
-        size = 0;
-        capacity = 0;
-    }
-
     fn append(s: char[]) -> void {
         for (i: ulong = 0; i < s.len; i++) {
             append(s[i]);
@@ -22,13 +16,13 @@ impl StringStream {
     fn append(c: char) -> void {
         if capacity == 0 { increase_capacity(32); }
 
-        if size + 1 >= capacity {
+        if len + 1 >= capacity {
             let newCap = capacity + 1;
             increase_capacity(((newCap + 32 - 1) / 32) * 32); // Align the new capacity to 32 bytes
         }
 
-        data[size] = c;
-        size += 1;
+        mem[len] = c;
+        len += 1;
     }
 
     fn append(i: int) -> void {
@@ -52,26 +46,32 @@ impl StringStream {
     }
 
     fn to_slice() -> char[] {
-        return data[:size];
+        return mem[:len];
     }
 
     fn to_ptr() -> char* {
         append('\0');
-        return data;
+        return mem;
+    }
+
+    fn free() -> void {
+        delete mem;
+        len = 0;
+        capacity = 0;
     }
 
     fn increase_capacity(cap: ulong) -> void {
         let newData = new char[cap];
         
-        if (data != null) {
-            for (i: ulong = 0; i < size; i++) {
-                newData[i] = data[i];
+        if (mem != null) {
+            for (i: ulong = 0; i < len; i++) {
+                newData[i] = mem[i];
             }
             
-            delete data;
+            delete mem;
         }
         
-        data = newData;
+        mem = newData;
         capacity = cap;
     }
 }

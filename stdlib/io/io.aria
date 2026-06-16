@@ -2,6 +2,7 @@ module std::io;
 
 fn println(str: char[]) -> void {
     let s: StringStream;
+    defer s.free();
     s.append(str);
     s.append('\n');
 
@@ -10,6 +11,7 @@ fn println(str: char[]) -> void {
 
 fn print(str: char[]) -> void {
     let s: StringStream;
+    defer s.free();
     s.append(str);
 
     printf(c"%s", s.to_ptr());
