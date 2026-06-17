@@ -4,6 +4,8 @@ namespace ariac {
 
     void Codegen::gen_var_decl(Decl* decl) {
         VarDecl& var = decl->var;
+        if (var.const_var) { return;}
+
         llvm::Type* type = type_info_to_llvm_type(var.type);
 
         llvm::AllocaInst* a = nullptr;

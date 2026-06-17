@@ -3,8 +3,8 @@ module std::io;
 fn println(str: char[]) -> void {
     let s: StringStream;
     defer s.free();
-    s.append(str);
-    s.append('\n');
+    s.append_string(str);
+    s.append_char('\n');
 
     printf(c"%s", s.to_ptr());
 }
@@ -12,11 +12,11 @@ fn println(str: char[]) -> void {
 fn print(str: char[]) -> void {
     let s: StringStream;
     defer s.free();
-    s.append(str);
+    s.append_string(str);
 
     printf(c"%s", s.to_ptr());
 }
 
-@private
+#private
 
-extern fn printf(s: const char*, ...) -> int;
+extern fn printf(s: char*, ...) -> int;

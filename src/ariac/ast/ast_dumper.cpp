@@ -200,6 +200,24 @@ namespace ariac {
                 dump_expr(expr->compound_assign.rhs, indentation + 4);
                 return;
 
+            case ExprKind::Const: { m_output += fmt::format("ConstExpr '{}'\n",
+                type_info_to_string(expr->type));
+
+                ident.append(4, ' ');
+                m_output += ident;
+
+                switch (expr->const_.kind) {
+                    case ConstExprKind::Error: m_output += "value: Error error\n"; break;
+                    case ConstExprKind::Boolean: m_output += fmt::format("value: Boolean {}\n", expr->const_.boolean); break;
+                    case ConstExprKind::Integer: m_output += fmt::format("value: Integer {}\n", expr->const_.integer); break;
+                    case ConstExprKind::Floating: m_output += fmt::format("value: Floating {}\n", expr->const_.number); break;
+                    case ConstExprKind::String: m_output += fmt::format("value: String {:?}\n", expr->const_.string); break;
+                    default: ARIA_UNREACHABLE();
+                }
+
+                return;
+            }
+
             default: ARIA_UNREACHABLE();
         }
     }
@@ -225,8 +243,8 @@ namespace ariac {
                 decl->module.name);
                 return;
 
-            case DeclKind::Var: m_output += fmt::format("VarDecl {}'{}' '{}'\n",
-                decl->var.global_var ? "global " : "", decl->var.identifier, type_info_to_string(decl->var.type, false));
+            case DeclKind::Var: m_output += fmt::format("VarDecl {}{}'{}' '{}'\n",
+                decl->var.global_var ? "global " : "", decl->var.const_var ? "const " : "", decl->var.identifier, type_info_to_string(decl->var.type, false));
                 if (decl->var.initializer) {
                     dump_expr(decl->var.initializer, indentation + 4);
                 }
@@ -239,6 +257,8 @@ namespace ariac {
             case DeclKind::Function: m_output += fmt::format("FunctionDecl '{}' {} '{}' {}\n",
                 decl->function.identifier, decl_visibility_to_string(decl->visibility), type_info_to_string(decl->function.type, false), linkage_kind_to_string(decl->function.linkage_kind));
 
+                dump_attributes(decl->attributes, indentation + 4);
+                
                 for (Decl* param : decl->function.parameters) {
                     dump_decl(param, indentation + 4);
                 }
@@ -369,7 +389,7 @@ namespace ariac {
                 return;
 
             case StmtKind::Defer: m_output += "DeferStmt\n";
-                dump_expr(stmt->defer.expression, indentation + 4);
+                dump_stmt(stmt->defer.statement, indentation + 4);
                 return;
 
             default: ARIA_UNREACHABLE();
@@ -389,6 +409,28 @@ namespace ariac {
         }
 
         ARIA_UNREACHABLE();
+    }
+
+    void ASTDumper::dump_attributes(TinyVector<DeclAttribute> attrs, size_t indentation) {
+        for (auto& attr : attrs) {
+            dump_attribute(attr, indentation);
+        }
+    }
+
+    void ASTDumper::dump_attribute(DeclAttribute attr, size_t indentation) {
+        std::string ident;
+        ident.append(indentation, ' ');
+        m_output += ident;
+
+        switch (attr.kind) {
+            case DeclAttributeKind::If: {
+                m_output += "IfAttribute\n";
+                dump_expr(attr.arg, indentation + 4);
+                return;
+            }
+
+            default: ARIA_UNREACHABLE();
+        }
     }
 
 } // namespace ariac

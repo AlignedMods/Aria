@@ -110,6 +110,7 @@ namespace ariac {
         llvm::Value* gen_unary_operator_expr(Expr* expr);
         llvm::Value* gen_binary_operator_expr(Expr* expr);
         llvm::Value* gen_compound_assign_expr(Expr* expr);
+        llvm::Value* gen_const_expr(Expr* expr);
 
         llvm::Value* gen_expr(Expr* expr);
         llvm::Value* gen_init_expr(Expr* expr, llvm::Value* dst);
@@ -166,7 +167,7 @@ namespace ariac {
         llvm::TargetMachine* m_machine = nullptr;
         std::vector<std::string> m_object_files;
 
-        std::vector<Expr*> m_defers;
+        std::vector<Stmt*> m_defers;
 
         llvm::AllocaInst* m_self_value = nullptr;
         ABIRetTypeInfo m_ret_type_abi;

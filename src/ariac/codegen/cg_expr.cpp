@@ -60,6 +60,10 @@ namespace ariac {
             return m_active_module_context.functions.at(dr.referenced_decl);
         }
 
+        if (dr.referenced_decl->kind == DeclKind::Var && dr.referenced_decl->var.const_var) {
+            return gen_expr(dr.referenced_decl->var.initializer);
+        }
+
         ARIA_ASSERT(m_active_module_context.named_values.contains(dr.referenced_decl), "Invalid DeclRef expression");
         llvm::Value* val = m_active_module_context.named_values.at(dr.referenced_decl);
 
@@ -407,6 +411,10 @@ namespace ariac {
             case CastKind::LValueToRValue: {
                 if (ic.expression->kind == ExprKind::StringLiteral) {
                     return gen_expr(ic.expression);
+                } else if (ic.expression->kind == ExprKind::DeclRef) {
+                    if (ic.expression->decl_ref.referenced_decl->kind == DeclKind::Var && ic.expression->decl_ref.referenced_decl->var.const_var) {
+                        return gen_expr(ic.expression);
+                    }
                 }
                 
                 llvm::Value* val = gen_expr(ic.expression);
@@ -682,6 +690,34 @@ namespace ariac {
         }
     }
 
+    llvm::Value* Codegen::gen_const_expr(Expr* expr) {
+        ConstExpr& c = expr->const_;
+
+        switch (c.kind) {
+            case ConstExprKind::Boolean: {
+                if (c.boolean) { return llvm::ConstantInt::getTrue(llvm::Type::getInt1Ty(*m_active_module_context.context)); }
+                else { return llvm::ConstantInt::getFalse(llvm::Type::getInt1Ty(*m_active_module_context.context)); }
+            }
+
+            case ConstExprKind::Integer: { return llvm::ConstantInt::getIntegerValue(
+                llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(expr->type->get_bit_size())),
+                llvm::APInt(expr->type->get_bit_size(), c.integer));
+            }
+
+            case ConstExprKind::Floating: {
+                if (expr->type->kind == TypeKind::Float) {
+                    return llvm::ConstantFP::get(*m_active_module_context.context, llvm::APFloat(static_cast<float>(c.number)));
+                } else {
+                    return llvm::ConstantFP::get(*m_active_module_context.context, llvm::APFloat(c.number));
+                }
+            }
+
+            default: ARIA_UNREACHABLE();
+        }
+
+        return nullptr;
+    }
+
     llvm::Value* Codegen::gen_expr(Expr* expr) {
         switch (expr->kind) {
             case ExprKind::BooleanLiteral: return gen_boolean_literal_expr(expr);
@@ -709,6 +745,7 @@ namespace ariac {
             case ExprKind::UnaryOperator: return gen_unary_operator_expr(expr);
             case ExprKind::BinaryOperator: return gen_binary_operator_expr(expr);
             case ExprKind::CompoundAssign: return gen_compound_assign_expr(expr);
+            case ExprKind::Const: return gen_const_expr(expr);
 
             default: ARIA_UNREACHABLE();
         }

@@ -63,7 +63,8 @@ namespace ariac {
                 return;
             }
 
-            type->array.size = eval_expr_u64(type->array.expression);
+            Expr* cexpr = eval_const_expr(type->array.expression);
+            type->array.size = cexpr->const_.integer;
         } else if (type->kind == TypeKind::Ref) {
             resolve_type(loc, range, type->base);
             if (type->base->is_void()) {

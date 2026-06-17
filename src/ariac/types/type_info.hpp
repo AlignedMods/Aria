@@ -39,19 +39,6 @@ namespace ariac {
         Unresolved
     };
 
-    enum class TypeQualifiers : u32 {
-        None = 0,
-        Const = 1
-    };
-
-    inline bool operator &(TypeQualifiers self, TypeQualifiers other) {
-        return static_cast<bool>(static_cast<u32>(self) & static_cast<u32>(other));
-    }
-
-    inline void operator |=(TypeQualifiers& self, TypeQualifiers other) {
-        self = static_cast<TypeQualifiers>(static_cast<u32>(self) | static_cast<u32>(other));
-    }
-
     struct TypeInfo;
 
     struct StructDeclaration {
@@ -83,7 +70,6 @@ namespace ariac {
 
     struct TypeInfo {
         TypeKind kind = TypeKind::Error;
-        TypeQualifiers quals = TypeQualifiers::None;
         union {
             TypeInfo* base = nullptr;
             FunctionDeclaration function;
@@ -94,7 +80,6 @@ namespace ariac {
         };
 
         static TypeInfo* Create(CompilationContext* ctx, TypeKind kind);
-        static TypeInfo* Create(CompilationContext* ctx, TypeKind kind, TypeQualifiers quals);
         static TypeInfo* Dup(CompilationContext* ctx, TypeInfo* type);
 
         bool is_error() const { return kind == TypeKind::Error; }
@@ -166,10 +151,6 @@ namespace ariac {
             return kind == TypeKind::UChar || kind == TypeKind::UShort || kind == TypeKind::UInt || kind == TypeKind::ULong;
         }
 
-        bool is_const() const {
-            return quals & TypeQualifiers::Const;
-        }
-
         size_t get_bit_size() const {
             switch (kind) {
                 case TypeKind::Bool: return 1;
@@ -205,7 +186,6 @@ namespace ariac {
     inline TypeInfo void_type =           { TypeKind::Void };
     inline TypeInfo bool_type =           { TypeKind::Bool };
     inline TypeInfo char_type =           { TypeKind::Char };
-    inline TypeInfo const_char_type =     { TypeKind::Char, TypeQualifiers::Const };
     inline TypeInfo uchar_type =          { TypeKind::UChar };
     inline TypeInfo short_type =          { TypeKind::Short };
     inline TypeInfo ushort_type =         { TypeKind::UShort };
@@ -215,8 +195,8 @@ namespace ariac {
     inline TypeInfo ulong_type =          { TypeKind::ULong };
     inline TypeInfo double_type =         { TypeKind::Double };
     inline TypeInfo float_type =          { TypeKind::Float };
-    inline TypeInfo void_ptr_type =       { TypeKind::Ptr, TypeQualifiers::None, &void_type };
-    inline TypeInfo const_char_ptr_type = { TypeKind::Ptr, TypeQualifiers::None, &const_char_type };
-    inline TypeInfo char_slice_type =     { TypeKind::Slice, TypeQualifiers::None, &char_type };
+    inline TypeInfo void_ptr_type =       { TypeKind::Ptr, &void_type };
+    inline TypeInfo char_ptr_type =       { TypeKind::Ptr, &char_type };
+    inline TypeInfo char_slice_type =     { TypeKind::Slice, &char_type };
 
 } // namespace ariac

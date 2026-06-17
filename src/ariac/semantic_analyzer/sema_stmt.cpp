@@ -18,10 +18,7 @@ namespace ariac {
 
         if (!wh.condition->type->is_boolean()) {
             ARIA_ASSERT(false, "todo: add error");
-        }
-
-        // Check for loops such as "while true"
-        if (is_const_expr(wh.condition) && eval_expr_bool(wh.condition)) {
+        } else if (is_const_expr(wh.condition) && eval_const_expr(wh.condition)->const_.boolean) {
             m_scopes.back().reaches_end = false;
         }
 
@@ -38,10 +35,7 @@ namespace ariac {
 
         if (!wh.condition->type->is_boolean()) {
             ARIA_ASSERT(false, "todo: add error");
-        }
-
-        // Check for loops such as "do {} while true"
-        if (is_const_expr(wh.condition) && eval_expr_bool(wh.condition)) {
+        } else if (is_const_expr(wh.condition) && eval_const_expr(wh.condition)->const_.boolean) {
             m_scopes.back().reaches_end = false;
         }
 
@@ -62,9 +56,7 @@ namespace ariac {
 
             if (!fs.condition->type->is_boolean() && !fs.condition->type->is_error()) {
                 m_context->report_compiler_diagnostic(fs.condition->loc, fs.condition->range, fmt::format("For loop condition must be of a boolean type but is '{}'", type_info_to_string(fs.condition->type)));
-            }
-
-            if (is_const_expr(fs.condition) && eval_expr_bool(fs.condition)) {
+            } else if (is_const_expr(fs.condition) && eval_const_expr(fs.condition)->const_.boolean) {
                 m_scopes.back().reaches_end = false;
             }
         } else {
@@ -145,7 +137,7 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_defer_stmt(Stmt* stmt) {
         DeferStmt& defer = stmt->defer;
-        resolve_expr(defer.expression);
+        resolve_stmt(defer.statement);
     }
 
     void SemanticAnalyzer::resolve_expr_stmt(Stmt* stmt) {

@@ -130,37 +130,8 @@ namespace ariac {
                         Decl* prev = i.field_lookup.at(field->method.identifier);
 
                         if (prev->kind == DeclKind::Method) {
-                            Decl* overloaded = Decl::Create(m_context, field->loc, field->range, DeclKind::OverloadedMethod, DeclVisibility::Public, OverloadedMethodDecl(field->method.identifier));
-                            i.field_lookup.insert(m_context, field->method.identifier, overloaded);
-                            i.parent->struct_.field_lookup.insert(m_context, field->method.identifier, overloaded);
-
-                            std::string old_mangle = mangle_method(&prev->method);
-                            std::string new_mangle = mangle_method(&field->method);
-
-                            if (old_mangle == new_mangle) {
-                                m_context->report_compiler_diagnostic(field->loc, field->range, fmt::format("Redefining method '{}'", field->method.identifier));
-                                m_context->report_compiler_diagnostic(prev->loc, prev->range, "Previous declaration here", CompilerDiagKind::Note);
-                                field->kind = DeclKind::Error;
-                                continue;
-                            }
-
-                            overloaded->overloaded_method.funcs.append(m_context, prev);
-                            overloaded->overloaded_method.funcs.append(m_context, field);
-                            continue;
-                        } else if (prev->kind == DeclKind::OverloadedMethod) {
-                            for (Decl* overload : prev->overloaded_function.funcs) {
-                                std::string oldMangle = mangle_method(&overload->method);
-                                std::string newMangle = mangle_method(&field->method);
-
-                                if (oldMangle == newMangle) {
-                                    m_context->report_compiler_diagnostic(field->loc, field->range, fmt::format("Redefining overloaded method '{}'", field->method.identifier));
-                                    m_context->report_compiler_diagnostic(prev->loc, prev->range, "Previous declaration here", CompilerDiagKind::Note);
-                                    field->kind = DeclKind::Error;
-                                    continue;
-                                }
-                            }
-
-                            prev->overloaded_method.funcs.append(m_context, field);
+                            m_context->report_compiler_diagnostic(field->loc, field->range, fmt::format("Redeclaring method '{}'", field->method.identifier));
+                            m_context->report_compiler_diagnostic(prev->loc, prev->range, "Previous declaration here", CompilerDiagKind::Note);
                             continue;
                         } else {
                             m_context->report_compiler_diagnostic(field->loc, field->range, fmt::format("Redeclaring field '{}' as method", field->method.identifier));
@@ -270,11 +241,34 @@ namespace ariac {
         TypedefDecl& td = decl->typedef_;
     }
 
+    void SemanticAnalyzer::resolve_decl_attributes(Decl* decl, TinyVector<DeclAttribute> attrs, bool* erase_decl) {
+        for (auto& attr : attrs) {
+            switch (attr.kind) {
+                case DeclAttributeKind::If: {
+                    resolve_expr(attr.arg);
+
+                    if (!is_const_expr(attr.arg)) {
+                        m_context->report_compiler_diagnostic(attr.arg->loc, attr.arg->range, "Expression must be a compile time constant");
+                        break;
+                    }
+
+                    if (!attr.arg->type->is_boolean()) {
+                        m_context->report_compiler_diagnostic(attr.arg->loc, attr.arg->range, "Expression must be of type 'bool'");
+                        break;
+                    }
+
+                    bool result = eval_const_expr(attr.arg)->const_.boolean;
+                    if (!result) { *erase_decl = true; }
+                    break;
+                }
+            }
+        }
+    }
+
     void SemanticAnalyzer::resolve_decl(Decl* decl) {
         switch (decl->kind) {
             case DeclKind::Error:
             case DeclKind::Module:
-            case DeclKind::OverloadedFunction:
             case DeclKind::Field:
             case DeclKind::Constructor:
             case DeclKind::Destructor:
@@ -293,38 +287,6 @@ namespace ariac {
 
             default: ARIA_UNREACHABLE();
         }
-    }
-
-    std::string SemanticAnalyzer::mangle_function(FunctionDecl* fn) {
-        std::string ident = fmt::format("{}(", fn->identifier);
-
-        for (size_t i = 0; i < fn->parameters.size; i++) {
-            ident += type_info_to_string(fn->parameters.items[i]->param.type);
-
-            if (i != fn->parameters.size - 1) {
-                ident += ", ";
-            }
-        }
-
-        ident += ")";
-
-        return ident;
-    }
-
-    std::string SemanticAnalyzer::mangle_method(MethodDecl* m) {
-        std::string ident = fmt::format("{}(", m->identifier);
-
-        for (size_t i = 0; i < m->parameters.size; i++) {
-            ident += type_info_to_string(m->parameters.items[i]->param.type);
-
-            if (i != m->parameters.size - 1) {
-                ident += ", ";
-            }
-        }
-
-        ident += ")";
-
-        return ident;
     }
 
 } // namespace ariac

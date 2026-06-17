@@ -51,6 +51,14 @@ namespace ariac {
             if (!var.type->is_reference()) {
                 require_rvalue(var.initializer);
             }
+
+            if (var.const_var) {
+                if (!is_const_expr(var.initializer)) {
+                    m_context->report_compiler_diagnostic(var.initializer->loc, var.initializer->range, "Initializier of const variable must be a constant expression");
+                } else if (type_is_equal(var.type, var.initializer->type)) {
+                    var.initializer = eval_const_expr(var.initializer);
+                }
+            }
         }
     }
 

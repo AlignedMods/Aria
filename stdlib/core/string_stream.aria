@@ -7,13 +7,13 @@ struct StringStream {
 }
 
 impl StringStream {
-    fn append(s: char[]) -> void {
+    fn append_string(s: char[]) -> void {
         for (i: ulong = 0; i < s.len; i++) {
-            append(s[i]);
+            append_char(s[i]);
         }
     }
 
-    fn append(c: char) -> void {
+    fn append_char(c: char) -> void {
         if capacity == 0 { increase_capacity(32); }
 
         if len + 1 >= capacity {
@@ -25,22 +25,22 @@ impl StringStream {
         len += 1;
     }
 
-    fn append(i: int) -> void {
+    fn append_int(i: int) -> void {
         let u: uint = <uint>i;
     
         if (i < 0) {
-            append('-');
-            append(u);
+            append_char('-');
+            append_uint(u);
         } else {
-            append(u);
+            append_uint(u);
         }
     }
     
-    fn append(u: uint) -> void {
+    fn append_uint(u: uint) -> void {
         let rest = u;
         
         do {
-            append(<char>(<uint>('0') + (rest % 10u)));
+            append_char(<char>(<uint>('0') + (rest % 10u)));
             rest /= 10u;
         } while rest != 0u;
     }
@@ -50,7 +50,7 @@ impl StringStream {
     }
 
     fn to_ptr() -> char* {
-        append('\0');
+        append_char('\0');
         return mem;
     }
 
@@ -75,5 +75,3 @@ impl StringStream {
         capacity = cap;
     }
 }
-
-extern fn printf(fmt: const char*, ...) -> int;

@@ -103,7 +103,6 @@ namespace ariac {
         m_expr_rules[TokenKind::New] =               { BIND_PARSE_RULE(parse_new), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Delete] =            { BIND_PARSE_RULE(parse_delete), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Sizeof] =            { BIND_PARSE_RULE(parse_sizeof), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::DollarFormat] =      { BIND_PARSE_RULE(parse_format),  nullptr, PREC_NONE };
     }
 
     void Parser::parse_impl() {
@@ -457,7 +456,7 @@ namespace ariac {
 
             case TokenKind::CStrLit: {
                 return Expr::Create(m_context, t.range.start, t.range, ExprKind::StringLiteral,
-                    ExprValueKind::LValue, &const_char_ptr_type, 
+                    ExprValueKind::LValue, &char_ptr_type, 
                     StringLiteralExpr(t.string));
             }
 
@@ -725,7 +724,6 @@ namespace ariac {
         TypeInfo* type = TypeInfo::Create(m_context, TypeKind::Error);
         bool search = true;
         bool accept_type_names = true;
-        bool has_const = false;
 
         while (search) {
             if (accept_type_names) {
@@ -760,18 +758,6 @@ namespace ariac {
             }
 
             switch (peek()->kind) {
-                case TokenKind::Const: {
-                    Token& c = consume();
-                    if (has_const) {
-                        m_context->report_compiler_diagnostic(c.range.start, c.range, "Type already has 'const'");
-                    } else {
-                        type->quals |= TypeQualifiers::Const;
-                    }
-
-                    has_const = true;
-                    break;
-                }
-
                 case TokenKind::LeftBracket: {
                     consume();
                     if (is_expression()) {
@@ -875,7 +861,7 @@ namespace ariac {
         if (match(TokenKind::Semi)) {
             consume();
         } else {
-            prologue = parse_variable_decl(false);
+            prologue = parse_variable_decl(false, false);
             if (!decl_ok(prologue)) {
                 sync_local();
 
@@ -949,9 +935,8 @@ namespace ariac {
     Stmt* Parser::parse_defer() {
         Token& d = consume(); // consume "defer"
 
-        Expr* expr = parse_expression();
-        try_consume(TokenKind::Semi, ";");
-        return Stmt::Create(m_context, d.range.start, SourceRange(d.range.start, peek(-1)->range.end), StmtKind::Defer, DeferStmt(expr));
+        Stmt* stmt = parse_statement();
+        return Stmt::Create(m_context, d.range.start, SourceRange(d.range.start, peek(-1)->range.end), StmtKind::Defer, DeferStmt(stmt));
     }
 
     Stmt* Parser::parse_expression_statement() {
@@ -961,19 +946,6 @@ namespace ariac {
         expr->result_discarded = true;
         
         return Stmt::Create(m_context, expr->loc, SourceRange(expr->range.start, peek(-1)->range.end), StmtKind::Expr, expr);
-    }
-
-    Stmt* Parser::parse_declaration_statement(bool global) {
-        Decl* decl = parse_let_decl(global);
-
-        if (!decl_ok(decl)) {
-            sync_local();
-            if (match(TokenKind::Semi)) {
-                consume();
-            }
-        }
-
-        return Stmt::Create(m_context, decl->loc, SourceRange(decl->range.start, peek(-1)->range.end), StmtKind::Decl, decl);
     }
 
     Stmt* Parser::parse_statement() {
@@ -1034,8 +1006,17 @@ namespace ariac {
             case TokenKind::Defer:
                 return parse_defer();
 
-            case TokenKind::Let:
-                return parse_declaration_statement(false);
+            case TokenKind::Const: {
+                Decl* d = parse_const_decl(false);
+                if (!decl_ok(d)) { return &error_stmt; }
+                return Stmt::Create(m_context, d->loc, d->range, StmtKind::Decl, d);
+            }
+
+            case TokenKind::Let: {
+                Decl* d = parse_let_decl();
+                if (!decl_ok(d)) { return &error_stmt; }
+                return Stmt::Create(m_context, d->loc, d->range, StmtKind::Decl, d);
+            }
 
             case TokenKind::Fn: {
                 Token& tok = consume();
@@ -1079,12 +1060,6 @@ namespace ariac {
                 return &error_stmt;
             }
 
-            case TokenKind::AtNoMangle: {
-                Token& tok = consume();
-                m_context->report_compiler_diagnostic(tok.range.start, tok.range, fmt::format("Unexpected attribute '{}' while looking for statement", TokenKindToString(tok.kind)));
-                return &error_stmt;
-            }
-
             case TokenKind::Void:
             case TokenKind::Bool:
             case TokenKind::Char:
@@ -1115,8 +1090,7 @@ namespace ariac {
             case TokenKind::Colon:
             case TokenKind::ColonColon:
             case TokenKind::Dot:
-            case TokenKind::TripleDot:
-            case TokenKind::Const: {
+            case TokenKind::TripleDot: {
                 Token& tok = consume();
                 m_context->report_compiler_diagnostic(tok.range.start, tok.range, fmt::format("Unexpected token '{}' while looking for statement", TokenKindToString(tok.kind)));
                 return &error_stmt;
@@ -1159,12 +1133,17 @@ namespace ariac {
         return import;
     }
 
-    Decl* Parser::parse_let_decl(bool global) {
+    Decl* Parser::parse_let_decl() {
         Token& l = consume(); // consume "let"
-        return parse_variable_decl(global);
+        return parse_variable_decl(false, false);
     }
 
-    Decl* Parser::parse_variable_decl(bool global) {
+    Decl* Parser::parse_const_decl(bool global) {
+        Token& c = consume(); // consume "const"
+        return parse_variable_decl(global, true);
+    }
+
+    Decl* Parser::parse_variable_decl(bool global, bool const_) {
         SourceLocation start = peek()->range.start;
 
         Token* ident = try_consume(TokenKind::Identifier, "identifier");
@@ -1186,6 +1165,10 @@ namespace ariac {
         if (match(TokenKind::Eq)) {
             consume();
             initializer = parse_expression();
+        } else if (const_) {
+            m_context->report_compiler_diagnostic(ident->range.start, SourceRange(start, peek()->range.end), "No initializer provided for const variable declaration");
+            type = &error_type;
+            return &error_decl;
         } else if (!type) {
             m_context->report_compiler_diagnostic(ident->range.start, SourceRange(start, peek()->range.end), "No initializer provided for type-inffered variable declaration");
             type = &error_type;
@@ -1195,7 +1178,7 @@ namespace ariac {
 
         try_consume(TokenKind::Semi, ";");
 
-        Decl* decl = Decl::Create(m_context, ident->range.start, SourceRange(start, peek(-1)->range.end), DeclKind::Var, global ? m_current_visibility : DeclVisibility::Public, VarDecl(ident->string, type, initializer, global));
+        Decl* decl = Decl::Create(m_context, ident->range.start, SourceRange(start, peek(-1)->range.end), DeclKind::Var, global ? m_current_visibility : DeclVisibility::Public, VarDecl(ident->string, type, initializer, global, const_));
 
         if (global) {
             m_context->active_comp_unit->globals.push_back(decl);
@@ -1231,6 +1214,8 @@ namespace ariac {
                 type = parse_type();
             }
         }
+
+        TinyVector<DeclAttribute> attrs = parse_decl_attributes();
         
         Stmt* body = nullptr;
 
@@ -1248,6 +1233,7 @@ namespace ariac {
         TypeInfo* finalType = TypeInfo::Create(m_context, TypeKind::Function);
         finalType->function = typeDecl;
         Decl* decl = Decl::Create(m_context, ident->range.start, SourceRange(start, peek(-1)->range.end), DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, finalType, params, body, linkage));
+        decl->attributes = attrs;
 
         m_context->active_comp_unit->funcs.push_back(decl);
         return decl;
@@ -1344,7 +1330,7 @@ namespace ariac {
                 }
 
                 struc->struct_.fields.append(m_context, Decl::Create(m_context, fieldName->range.start, SourceRange(start, peek(-1)->range.end), DeclKind::Field, visibility, FieldDecl(fieldName->string, type)));
-            } else if (match(TokenKind::AtPrivate)) {
+            } else if (match(TokenKind::HashPrivate)) {
                 m_context->report_compiler_diagnostic(start, SourceRange(start, peek()->range.end), "Structs do not support private fields");
                 consume();
             } else {
@@ -1448,7 +1434,7 @@ namespace ariac {
 
                 impl->impl.fields.append(m_context, Decl::Create(m_context, start, SourceRange(start, peek(-1)->range.end), DeclKind::Method,
                     visibility, MethodDecl(impl, name->string, final_type, params, body)));
-            } else if (match(TokenKind::AtPrivate)) {
+            } else if (match(TokenKind::HashPrivate)) {
                 m_context->report_compiler_diagnostic(start, SourceRange(start, peek()->range.end), "Impls do not support private fields");
                 consume();
             } else {
@@ -1502,6 +1488,28 @@ namespace ariac {
         return &error_decl;
     }
 
+    TinyVector<DeclAttribute> Parser::parse_decl_attributes() {
+        TinyVector<DeclAttribute> attrs;
+
+        while (peek()) {
+            switch (peek()->kind) {
+                case TokenKind::AtIf: {
+                    consume();
+                    try_consume(TokenKind::LeftParen, ")");
+                    Expr* arg = parse_expression();
+                    try_consume(TokenKind::RightParen, "(");
+
+                    attrs.append(m_context, DeclAttribute(DeclAttributeKind::If, arg));
+                    break;
+                }
+
+                default: return attrs;
+            }
+        }
+
+        return attrs;
+    }
+
     std::string_view Parser::parse_module_path() {
         scratch_buffer_clear();
 
@@ -1534,8 +1542,17 @@ namespace ariac {
             case TokenKind::Import:
                 return parse_import_decl();
 
-            case TokenKind::Let:
-                return parse_declaration_statement(true);
+            case TokenKind::Const: {
+                Decl* d = parse_const_decl(true);
+                if (!decl_ok(d)) { return &error_stmt; }
+                return Stmt::Create(m_context, d->loc, d->range, StmtKind::Decl, d);
+            }
+
+            case TokenKind::Let: {
+                m_context->report_compiler_diagnostic(peek()->range.start, peek()->range, "'let' cannot be used for global variables, try using 'const' instead"); 
+                consume(); 
+                return &error_stmt;
+            }
 
             case TokenKind::Fn: {
                 Decl* decl = parse_function_decl(LinkageKind::None);
@@ -1578,7 +1595,7 @@ namespace ariac {
                 return &error_stmt;
             }
 
-            case TokenKind::AtPrivate: {
+            case TokenKind::HashPrivate: {
                 consume();
                 m_current_visibility = DeclVisibility::Private;
                 return &error_stmt;

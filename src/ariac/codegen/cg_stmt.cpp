@@ -116,7 +116,7 @@ namespace ariac {
 
         // Handle defers
         for (auto it = m_defers.rbegin(); it != m_defers.rend(); it++) {
-            gen_expr(*it);
+            gen_stmt(*it);
         }
 
         m_defers.clear();
@@ -146,7 +146,7 @@ namespace ariac {
 
     void Codegen::gen_defer_stmt(Stmt* stmt) {
         DeferStmt& defer = stmt->defer;
-        m_defers.push_back(defer.expression);
+        m_defers.push_back(defer.statement);
     }
 
     void Codegen::gen_expr_stmt(Stmt* stmt) {

@@ -1,0 +1,10 @@
+module libc;
+
+const EXIT_FAILURE = 0;
+const EXIT_SUCCESS = 1;
+const RAND_MAX = 0x7fffffff;
+
+extern fn exit(code: int) -> void;
+extern fn abort() -> void;
+
+extern fn malloc() -> void*;

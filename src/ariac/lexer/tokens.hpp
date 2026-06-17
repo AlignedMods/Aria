@@ -80,9 +80,8 @@ namespace ariac {
         Sizeof,
         Typedef,
         As,
-        AtNoMangle, // @nomangle
-        AtPrivate, // @private
-        DollarFormat, // $format
+        HashPrivate, // #private
+        AtIf, // @if
         // ^^^ Keywords ^^^ //
 
         // VVV Types VVV //
@@ -196,8 +195,8 @@ namespace ariac {
             case TokenKind::Sizeof: return "sizeof";
             case TokenKind::Typedef: return "typedef";
             case TokenKind::As: return "as";
-            case TokenKind::AtNoMangle: return "@nomangle";
-            case TokenKind::AtPrivate: return "@private";
+            case TokenKind::HashPrivate: return "#private";
+            case TokenKind::AtIf: return "@if";
             // ^^^ Keywords ^^^ //
             
             // VVV Types VVV //

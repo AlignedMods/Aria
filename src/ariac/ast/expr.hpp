@@ -40,7 +40,8 @@ namespace ariac {
         ImplicitCast,
         UnaryOperator,
         BinaryOperator,
-        CompoundAssign
+        CompoundAssign,
+        Const
     };
 
     enum class CastKind {
@@ -155,6 +156,25 @@ namespace ariac {
             case BinaryOperatorKind::Eq: return "=";
             case BinaryOperatorKind::IsEq: return "==";
             case BinaryOperatorKind::IsNotEq: return "!=";
+
+            default: ARIA_UNREACHABLE();
+        }
+    }
+
+    enum class ConstExprKind {
+        Error = 0,
+        Boolean,
+        Integer,
+        Floating,
+        String
+    };
+    inline const char* const_expr_kind_to_string(ConstExprKind kind) {
+        switch (kind) {
+            case ConstExprKind::Error: return "Error";
+            case ConstExprKind::Boolean: return "Boolean";
+            case ConstExprKind::Integer: return "Integer";
+            case ConstExprKind::Floating: return "Floating";
+            case ConstExprKind::String: return "String";
 
             default: ARIA_UNREACHABLE();
         }
@@ -401,6 +421,31 @@ namespace ariac {
         BinaryOperatorKind op = BinaryOperatorKind::Invalid;
     };
 
+    struct ConstExpr {
+        ConstExpr(ConstExprKind kind)
+            : kind(kind), integer() {}
+
+        ConstExpr(ConstExprKind kind, bool b)
+            : kind(kind), boolean(b) {}
+
+        ConstExpr(ConstExprKind kind, u64 i)
+            : kind(kind), integer(i) {}
+
+        ConstExpr(ConstExprKind kind, double f)
+            : kind(kind), number(f) {}
+
+        ConstExpr(ConstExprKind kind, std::string_view str)
+            : kind(kind), string(str) {}
+
+        ConstExprKind kind = ConstExprKind::Error;
+        union {
+            bool boolean;
+            u64 integer;
+            double number;
+            std::string_view string;
+        };
+    };
+
     struct Expr {
         template <typename T>
         static inline Expr* Create(CompilationContext* ctx, 
@@ -450,6 +495,7 @@ namespace ariac {
             UnaryOperatorExpr unary_operator;
             BinaryOperatorExpr binary_operator;
             CompoundAssignExpr compound_assign;
+            ConstExpr const_;
         };
 
         Expr()
@@ -529,6 +575,9 @@ namespace ariac {
 
         Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, CompoundAssignExpr compound_assign)
             : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), compound_assign(compound_assign) {}
+
+        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ConstExpr const_)
+            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), const_(const_) {}
     };
 
     inline Expr error_expr = Expr(SourceLocation(), SourceRange(), ExprKind::Error, ExprValueKind::RValue, nullptr, ErrorExpr());

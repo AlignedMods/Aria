@@ -100,10 +100,10 @@ namespace ariac {
     };
 
     struct DeferStmt {
-        DeferStmt(Expr* expr)
-            : expression(expr) {}
+        DeferStmt(Stmt* stmt)
+            : statement(stmt) {}
 
-        Expr* expression = nullptr;
+        Stmt* statement = nullptr;
     };
 
     struct Stmt {

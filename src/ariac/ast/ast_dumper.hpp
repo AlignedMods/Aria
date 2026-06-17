@@ -21,6 +21,9 @@ namespace ariac {
         void dump_stmt(Stmt* stmt, size_t indentation);
         void dump_specifier(Specifier* spec, size_t indentation);
 
+        void dump_attributes(TinyVector<DeclAttribute> attrs, size_t indentation);
+        void dump_attribute(DeclAttribute attr, size_t indentation);
+
     private:
         Stmt* m_root_ast_node = nullptr;
         std::string m_output;

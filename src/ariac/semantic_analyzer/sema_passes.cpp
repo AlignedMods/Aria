@@ -160,13 +160,24 @@ namespace ariac {
             unit->local_symbols[var.identifier] = global;       
         }
 
-        for (Decl* func : unit->funcs) {
+        for (size_t i = 0; i < unit->funcs.size(); i++) {
+            Decl* func = unit->funcs[i];
             func->parent_module = module;
             func->parent_unit = unit;
 
             ARIA_ASSERT(func->kind == DeclKind::Function, "Invalid func in funcs");
             FunctionDecl& f = func->function;
             resolve_type(func->loc, func->range, f.type);
+
+            bool erase = false;
+            resolve_decl_attributes(func, func->attributes, &erase);
+            
+            if (erase) {
+                m_context->active_comp_unit->funcs.erase(m_context->active_comp_unit->funcs.begin() + i);
+                i--;
+                replace_decl(func, &error_decl);
+                continue;
+            }
 
             if (f.identifier == "main") {
                 if (m_context->main_func) {
@@ -197,41 +208,17 @@ namespace ariac {
             if (module->symbols.contains(f.identifier)) {
                 Decl* d = module->symbols.at(f.identifier);
 
-                // Handle overloading the first non-overloaded function
                 if (d->kind == DeclKind::Function) {
-                    Decl* overloaded = Decl::Create(m_context, d->loc, d->range, DeclKind::OverloadedFunction, d->visibility, OverloadedFunctionDecl(f.identifier));
-                    module->symbols[f.identifier] = overloaded;
-                    unit->local_symbols[f.identifier] = overloaded;
-
-                    std::string oldMangle = mangle_function(&d->function);
-                    std::string newMangle = mangle_function(&f);
-
-                    if (oldMangle == newMangle) {
-                        m_context->report_compiler_diagnostic(func->loc, func->range, fmt::format("Redefining function '{}'", f.identifier));
-                        func->kind = DeclKind::Error;
-                        continue;
-                    }
-
-                    overloaded->overloaded_function.funcs.append(m_context, d);
-                    overloaded->overloaded_function.funcs.append(m_context, func);
-                    continue;
-                } else if (d->kind == DeclKind::OverloadedFunction) {
-                    for (Decl* overload : d->overloaded_function.funcs) {
-                        std::string oldMangle = mangle_function(&overload->function);
-                        std::string newMangle = mangle_function(&f);
-
-                        if (oldMangle == newMangle) {
-                            m_context->report_compiler_diagnostic(func->loc, func->range, fmt::format("Redefining overloaded function '{}'", f.identifier));
-                            func->kind = DeclKind::Error;
-                        }
-                    }
-
-                    d->overloaded_function.funcs.append(m_context, func);
-                    continue;
+                    m_context->report_compiler_diagnostic(func->loc, func->range, fmt::format("Redefining function '{}'", f.identifier));
+                    m_context->report_compiler_diagnostic(func->loc, func->range, "Previous declaration here", CompilerDiagKind::Note, func->parent_unit);
                 } else if (d->kind == DeclKind::Var) {
                     m_context->report_compiler_diagnostic(func->loc, func->range, fmt::format("Redefining global variable '{}' as function", f.identifier));
+                    m_context->report_compiler_diagnostic(func->loc, func->range, "Previous declaration here", CompilerDiagKind::Note, func->parent_unit);
                 } else if (d->kind == DeclKind::Struct) {
                     m_context->report_compiler_diagnostic(func->loc, func->range, fmt::format("Redefining struct '{}' as function", f.identifier));
+                    m_context->report_compiler_diagnostic(func->loc, func->range, "Previous declaration here", CompilerDiagKind::Note, func->parent_unit);
+                } else {
+                    ARIA_UNREACHABLE();
                 }
 
                 func->kind = DeclKind::Error;

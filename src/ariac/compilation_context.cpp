@@ -11,6 +11,7 @@
 namespace ariac {
 
     static const char* stdlib_files[] = {
+        "libc.aria",
         "io/io.aria",
         "core/string_stream.aria",
         "core/string.aria",

@@ -48,7 +48,6 @@ namespace ariac {
                 case DeclKind::Var: { return d->var.type; }
                 case DeclKind::Param: { return d->param.type; }
                 case DeclKind::Function: { return d->function.type; }
-                case DeclKind::OverloadedFunction: { return &error_type; }
                 case DeclKind::Struct: { return &error_type; }
                 case DeclKind::Typedef: { return &error_type; }
 
@@ -283,52 +282,7 @@ namespace ariac {
         }
 
         if (call.callee->decl_ref.referenced_decl->kind != DeclKind::Error) {
-            if (call.callee->kind == ExprKind::DeclRef && call.callee->decl_ref.referenced_decl->kind == DeclKind::OverloadedFunction) { // Overloaded function
-                resolve_decl(call.callee->decl_ref.referenced_decl);
-                m_temporary_context = true;
-                for (Expr* arg : call.arguments) {
-                    resolve_expr(arg);
-                }
-                m_temporary_context = false;
-                
-                Decl* resolved = nullptr;
-
-                for (Decl* func : call.callee->decl_ref.referenced_decl->overloaded_function.funcs) {
-                    if (func->function.type->function.param_types.size != call.arguments.size) { goto again; }
-
-                    for (size_t i = 0; i < func->function.type->function.param_types.size; i++) {
-                        if (!type_is_equal(func->function.type->function.param_types.items[i], call.arguments.items[i]->type)) { goto again; }
-                    }
-
-                    goto done;
-
-                done:
-                    resolved = func;
-                    break;
-
-                again:
-                    continue;
-                }
-
-                if (!resolved) {
-                    m_context->report_compiler_diagnostic(expr->loc, expr->range, fmt::format("No matching overloaded function '{}' to call", call.callee->decl_ref.identifier));
-                    for (size_t i = 0; i < call.arguments.size; i++) {
-                        call.arguments.items[i]->type = &error_type;
-                    }
-
-                    expr->type = &error_type;
-                    return;
-                }
-
-                for (size_t i = 0; i < resolved->function.type->function.param_types.size; i++) {
-                    if (!resolved->function.type->function.param_types.items[i]->is_reference()) { require_rvalue(call.arguments.items[i]); }
-                }
-
-                call.callee->decl_ref.referenced_decl = resolved;
-                call.callee->type = resolved->function.type;
-                expr->type = resolved->function.type->function.return_type;
-                return;
-            } else if (!call.callee->type->is_error()) { // Normal function
+            if (!call.callee->type->is_error()) {
                 resolve_type(call.callee->decl_ref.referenced_decl->loc, call.callee->decl_ref.referenced_decl->range, call.callee->decl_ref.referenced_decl->function.type);
                 FunctionDeclaration& fnDecl = calleeType->function;
 
@@ -1068,11 +1022,6 @@ namespace ariac {
                     return;
                 }
 
-                if (LHS->type->is_const()) {
-                    m_context->report_compiler_diagnostic(LHS->loc, LHS->range, fmt::format("Expression must be of a modifiable type but its type is '{}'", type_info_to_string(LHS->type)));
-                    return;
-                }
-
                 require_rvalue(RHS);
 
                 ConversionCost cost = get_conversion_cost(LHS->type, RHS->type);
@@ -1149,11 +1098,6 @@ namespace ariac {
             return;
         }
 
-        if (LHS->type->is_const()) {
-            m_context->report_compiler_diagnostic(LHS->loc, LHS->range, fmt::format("Expression must be of a modifiable type but its type is '{}'", type_info_to_string(LHS->type)));
-            return;
-        }
-        
         ConversionCost cost = get_conversion_cost(LHS->type, RHS->type);
         
         if (cost.cast_needed) {
@@ -1233,8 +1177,14 @@ namespace ariac {
             case ExprKind::Null:
                 return true;
 
+            case ExprKind::DeclRef:
+                return expr->decl_ref.referenced_decl->kind == DeclKind::Var && expr->decl_ref.referenced_decl->var.const_var;
+
             case ExprKind::Paren:
                 return is_const_expr(expr->paren.expression);
+
+            case ExprKind::ImplicitCast:
+                return is_const_expr(expr->implicit_cast.expression);
 
             case ExprKind::UnaryOperator:
                 return is_const_expr(expr->unary_operator.expression);
@@ -1246,63 +1196,118 @@ namespace ariac {
         }
     }
 
-    bool SemanticAnalyzer::eval_expr_bool(Expr* expr) {
+    Expr* SemanticAnalyzer::eval_const_expr(Expr* expr) {
         ARIA_ASSERT(is_const_expr(expr), "Cannot evaulate a non-constant expression");
-        ARIA_ASSERT(expr->type->is_boolean(), "Type of expression must be bool");
 
         switch (expr->kind) {
-            case ExprKind::BooleanLiteral: return expr->boolean_literal.value;
+            case ExprKind::Error: 
+                return Expr::Create(m_context, expr->loc, expr->range, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Error));
 
-            case ExprKind::Paren: return eval_expr_bool(expr->paren.expression);
+            case ExprKind::BooleanLiteral: 
+                return Expr::Create(m_context, expr->loc, expr->range, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Boolean, expr->boolean_literal.value));
 
-            case ExprKind::BinaryOperator: {
-                bool lhs = eval_expr_bool(expr->binary_operator.lhs);
-                bool rhs = eval_expr_bool(expr->binary_operator.rhs);
+            case ExprKind::IntegerLiteral: 
+                return Expr::Create(m_context, expr->loc, expr->range, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Integer, expr->integer_literal.value));
 
-                switch (expr->binary_operator.op) {
-                    case BinaryOperatorKind::Eq: return lhs == rhs;
-                    case BinaryOperatorKind::IsNotEq: return lhs != rhs;
-                    case BinaryOperatorKind::LogAnd: return lhs && rhs;
-                    case BinaryOperatorKind::LogOr: return lhs || rhs;
+            case ExprKind::FloatingLiteral: 
+                return Expr::Create(m_context, expr->loc, expr->range, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Floating, expr->floating_literal.value));
+
+            case ExprKind::StringLiteral: 
+                return Expr::Create(m_context, expr->loc, expr->range, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::String, expr->string_literal.value));
+
+            case ExprKind::DeclRef:
+                return expr->decl_ref.referenced_decl->var.initializer;
+
+            case ExprKind::Paren:
+                return eval_const_expr(expr->paren.expression);
+
+            case ExprKind::UnaryOperator: {
+                Expr* val = eval_const_expr(expr->unary_operator.expression);
+
+                switch (expr->unary_operator.op) {
+                    case UnaryOperatorKind::Negate: {
+                        switch (val->const_.kind) {
+                            case ConstExprKind::Integer: {
+                                val->const_.integer = static_cast<u64>(-static_cast<i64>(val->const_.integer));
+                                return val;
+                            }
+
+                            case ConstExprKind::Floating: {
+                                val->const_.number = -val->const_.number;
+                                return val;
+                            }
+
+                            default: ARIA_UNREACHABLE();
+                        }
+                    }
+
                     default: ARIA_UNREACHABLE();
                 }
 
-                break;
+                return nullptr;
             }
 
-            default: ARIA_UNREACHABLE();
-        }
-    }
-
-    u64 SemanticAnalyzer::eval_expr_u64(Expr* expr) {
-        ARIA_ASSERT(is_const_expr(expr), "Cannot evaulate a non-constant expression");
-        ARIA_ASSERT(expr->type->is_integral(), "Expression must be of integral type");
-
-        switch (expr->kind) {
-            case ExprKind::IntegerLiteral: return expr->integer_literal.value;
-
-            case ExprKind::Paren: return eval_expr_u64(expr->paren.expression);
-
-            case ExprKind::BinaryOperator: {
-                u64 lhs = eval_expr_u64(expr->binary_operator.lhs);
-                u64 rhs = eval_expr_u64(expr->binary_operator.rhs);
-
-                switch (expr->binary_operator.op) {
-                    case BinaryOperatorKind::Add: return lhs + rhs;
-                    case BinaryOperatorKind::Sub: return lhs - rhs;
-                    case BinaryOperatorKind::Mul: return lhs * rhs;
-                    case BinaryOperatorKind::Div: return lhs / rhs;
-                    case BinaryOperatorKind::Mod: return lhs % rhs;
-                    case BinaryOperatorKind::BitAnd: return lhs & rhs;
-                    case BinaryOperatorKind::BitOr: return lhs | rhs;
-                    case BinaryOperatorKind::BitXor: return lhs ^ rhs;
-                    case BinaryOperatorKind::Shl: return lhs << rhs;
-                    case BinaryOperatorKind::Shr: return lhs >> rhs;
+            case ExprKind::ImplicitCast: {
+                switch (expr->implicit_cast.kind) {
+                    case CastKind::LValueToRValue: {
+                        return eval_const_expr(expr->implicit_cast.expression);
+                    }
 
                     default: ARIA_UNREACHABLE();
                 }
 
-                break;
+                return nullptr;
+            }
+
+            case ExprKind::BinaryOperator: {
+                Expr* lhs = eval_const_expr(expr->binary_operator.lhs);
+                Expr* rhs = eval_const_expr(expr->binary_operator.rhs);
+
+                switch (expr->binary_operator.op) {
+                    case BinaryOperatorKind::Add: {
+                        switch (lhs->const_.kind) {
+                            case ConstExprKind::Integer: {
+                                return Expr::Create(m_context, expr->loc, SourceRange(lhs->range.start, rhs->range.end), ExprKind::Const, 
+                                    ExprValueKind::RValue, lhs->type, 
+                                    ConstExpr(ConstExprKind::Integer, lhs->const_.integer + rhs->const_.integer));
+                            }
+
+                            case ConstExprKind::Floating: {
+                                return Expr::Create(m_context, expr->loc, SourceRange(lhs->range.start, rhs->range.end), ExprKind::Const, 
+                                    ExprValueKind::RValue, lhs->type, 
+                                    ConstExpr(ConstExprKind::Floating, lhs->const_.number + rhs->const_.number));
+                            }
+
+                            default: ARIA_UNREACHABLE();
+                        }
+
+                        return nullptr;
+                    }
+
+                    case BinaryOperatorKind::Mul: {
+                        switch (lhs->const_.kind) {
+                            case ConstExprKind::Integer: {
+                                return Expr::Create(m_context, expr->loc, SourceRange(lhs->range.start, rhs->range.end), ExprKind::Const, 
+                                    ExprValueKind::RValue, lhs->type, 
+                                    ConstExpr(ConstExprKind::Integer, lhs->const_.integer * rhs->const_.integer));
+                            }
+
+                            case ConstExprKind::Floating: {
+                                return Expr::Create(m_context, expr->loc, SourceRange(lhs->range.start, rhs->range.end), ExprKind::Const, 
+                                    ExprValueKind::RValue, lhs->type, 
+                                    ConstExpr(ConstExprKind::Floating, lhs->const_.number * rhs->const_.number));
+                            }
+
+                            default: ARIA_UNREACHABLE();
+                        }
+
+                        return nullptr;
+                    }
+
+                    default: ARIA_UNREACHABLE();
+                }
+
+                return nullptr;
             }
 
             default: ARIA_UNREACHABLE();

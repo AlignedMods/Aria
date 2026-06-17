@@ -123,15 +123,15 @@ namespace ariac {
                     else { add_token(TokenKind::Greater, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), ">"); break; }
                 }
 
-                case '@': {
+                case '#': {
                     backtrack();
-                    parse_at_symbol();
+                    parse_hash_symbol();
                     break;
                 }
 
-                case '$': {
+                case '@': {
                     backtrack();
-                    parse_dollar_symbol();
+                    parse_at_symbol();
                     break;
                 }
 
@@ -174,8 +174,8 @@ namespace ariac {
                     }
 
                     fmt::print("Unknown character: {} ({:x})\n", c, c);
+                    consume();
 
-                    ARIA_UNREACHABLE();
                     break;
                 }
             }
@@ -429,6 +429,27 @@ namespace ariac {
         add_token(c_style ? TokenKind::CStrLit : TokenKind::StrLit, SourceRange(start, end), scratch_buffer_to_str(m_context));
     }
 
+    void Lexer::parse_hash_symbol() {
+        scratch_buffer_clear();
+        SourceLocation start = SourceLocation(m_current_line, get_column(m_index));
+
+        scratch_buffer_append('#');
+        consume();
+
+        while (true) {
+            if (std::isalpha(peek())) {
+                scratch_buffer_append(peek());
+                consume();
+            } else {
+                break;
+            }
+        }
+
+        if (scratch_buffer_cmp("#private")) { add_token(TokenKind::HashPrivate, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "#private"); return; }
+
+        m_context->report_compiler_diagnostic(start, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "Unknown identifier following '#'");
+    }
+
     void Lexer::parse_at_symbol() {
         scratch_buffer_clear();
         SourceLocation start = SourceLocation(m_current_line, get_column(m_index));
@@ -445,30 +466,9 @@ namespace ariac {
             }
         }
 
-        if (scratch_buffer_cmp("@nomangle")) { add_token(TokenKind::AtNoMangle, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "@nomangle"); return; }
-        else if (scratch_buffer_cmp("@private")) { add_token(TokenKind::AtPrivate, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "@private"); return; }
+        if (scratch_buffer_cmp("@if")) { add_token(TokenKind::AtIf, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "@if"); return; }
 
-        m_context->report_compiler_diagnostic(start, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "Unknown attribute starting with '@'");
-    }
-
-    void Lexer::parse_dollar_symbol() {
-        scratch_buffer_clear();
-        SourceLocation start = SourceLocation(m_current_line, get_column(m_index));
-
-        scratch_buffer_append('$');
-        consume();
-
-        while (true) {
-            if (std::isalpha(peek())) {
-                scratch_buffer_append(peek());
-                consume();
-            } else {
-                break;
-            }
-        }
-
-        if (scratch_buffer_cmp("$format")) { add_token(TokenKind::DollarFormat, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "$format"); return; }
-        m_context->report_compiler_diagnostic(start, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "Unknown identifier following '$'");
+        m_context->report_compiler_diagnostic(start, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "Unknown identifier following '@'");
     }
 
     void Lexer::parse_identifier() {

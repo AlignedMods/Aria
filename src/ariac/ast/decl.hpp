@@ -19,7 +19,6 @@ namespace ariac {
         Var,
         Param,
         Function,
-        OverloadedFunction,
         Struct,
         Impl,
         Typedef,
@@ -39,7 +38,6 @@ namespace ariac {
             case DeclKind::Var: return "Var";
             case DeclKind::Param: return "Param";
             case DeclKind::Function: return "Function";
-            case DeclKind::OverloadedFunction: return "OverloadedFunction";
             case DeclKind::Struct: return "Struct";
 
             default: ARIA_UNREACHABLE();
@@ -59,6 +57,22 @@ namespace ariac {
             default: ARIA_UNREACHABLE();
         }
     }
+
+    enum class DeclAttributeKind {
+        None,
+        If
+    };
+
+    struct DeclAttribute {
+        DeclAttribute(DeclAttributeKind kind)
+            : kind(kind), arg(nullptr) {}
+
+        DeclAttribute(DeclAttributeKind kind, Expr* arg)
+            : kind(kind), arg(arg) {}
+
+        DeclAttributeKind kind = DeclAttributeKind::None;
+        Expr* arg = nullptr;
+    };
 
     enum class ResolveStatus {
         NotStarted,
@@ -124,13 +138,14 @@ namespace ariac {
     };
 
     struct VarDecl {
-        VarDecl(std::string_view identifier, TypeInfo* type, Expr* initializer, bool global)
-            : identifier(identifier), type(type), initializer(initializer), global_var(global) {}
+        VarDecl(std::string_view identifier, TypeInfo* type, Expr* initializer, bool global, bool const_)
+            : identifier(identifier), type(type), initializer(initializer), global_var(global), const_var(const_) {}
 
         std::string_view identifier;
         TypeInfo* type = nullptr;
         Expr* initializer = nullptr;
         bool global_var = false;
+        bool const_var = false;
     };
 
     struct ParamDecl {
@@ -150,14 +165,6 @@ namespace ariac {
         TinyVector<Decl*> parameters;
         Stmt* body = nullptr;
         LinkageKind linkage_kind = LinkageKind::None;
-    };
-
-    struct OverloadedFunctionDecl {
-        OverloadedFunctionDecl(std::string_view identifier)
-            : identifier(identifier) {}
-
-        std::string_view identifier;
-        TinyVector<Decl*> funcs;
     };
 
     struct StructDecl {
@@ -250,6 +257,7 @@ namespace ariac {
 
         DeclKind kind = DeclKind::Invalid;
         DeclVisibility visibility = DeclVisibility::Public;
+        TinyVector<DeclAttribute> attributes;
 
         SourceLocation loc;
         SourceRange range;
@@ -266,7 +274,6 @@ namespace ariac {
             VarDecl var;
             ParamDecl param;
             FunctionDecl function;
-            OverloadedFunctionDecl overloaded_function;
             StructDecl struct_;
             ImplDecl impl;
             TypedefDecl typedef_;
@@ -294,9 +301,6 @@ namespace ariac {
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, FunctionDecl function)
             : loc(loc), range(range), kind(kind), visibility(visibility), function(function) {}
-
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, OverloadedFunctionDecl overloaded_function)
-            : loc(loc), range(range), kind(kind), visibility(visibility), overloaded_function(overloaded_function) {}
 
         Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, StructDecl struc)
             : loc(loc), range(range), kind(kind), visibility(visibility), struct_(struc) {}

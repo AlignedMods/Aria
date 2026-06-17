@@ -91,6 +91,8 @@ namespace ariac {
         void resolve_impl_decl(Decl* decl);
         void resolve_typedef_decl(Decl* decl);
 
+        void resolve_decl_attributes(Decl* decl, TinyVector<DeclAttribute> attrs, bool* erase_decl);
+
         void resolve_decl(Decl* decl);
 
         void resolve_block_stmt(Stmt* stmt);
@@ -113,8 +115,7 @@ namespace ariac {
         void resolve_param_initializer(TypeInfo* param_type, Expr* arg);
 
         bool is_const_expr(Expr* expr);
-        bool eval_expr_bool(Expr* expr);
-        u64 eval_expr_u64(Expr* expr);
+        Expr* eval_const_expr(Expr* expr);
 
         void push_scope(bool allow_break = false, bool allow_continue = false);
         void pop_scope();
@@ -134,9 +135,6 @@ namespace ariac {
         bool type_is_equal(TypeInfo* lhs, TypeInfo* rhs);
         size_t type_get_size(TypeInfo* t);
         bool type_is_trivial(TypeInfo* t);
-
-        std::string mangle_function(FunctionDecl* fn);
-        std::string mangle_method(MethodDecl* m);
 
     private:
         bool m_temporary_context = false;

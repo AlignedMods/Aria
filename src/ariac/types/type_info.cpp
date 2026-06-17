@@ -10,14 +10,6 @@ namespace ariac {
         return t;
     }
 
-    TypeInfo* TypeInfo::Create(CompilationContext* ctx, TypeKind kind, TypeQualifiers quals) {
-        TypeInfo* t = ctx->allocate<TypeInfo>();
-        t->kind = kind;
-        t->quals = quals;
-    
-        return t;
-    }
-
     TypeInfo* TypeInfo::Dup(CompilationContext* ctx, TypeInfo* type) {
         TypeInfo* t = ctx->allocate<TypeInfo>();
         memcpy(reinterpret_cast<void*>(t), type, sizeof(TypeInfo));
@@ -26,8 +18,6 @@ namespace ariac {
 
     std::string type_info_to_string(TypeInfo* type, bool pretty) {
         std::string str;
-
-        if (type->is_const()) { str = "const "; }
 
         switch (type->kind) {
             case TypeKind::Error:   str += "error"; break;
