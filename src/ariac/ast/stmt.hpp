@@ -108,12 +108,11 @@ namespace ariac {
 
     struct Stmt {
         template <typename T>
-        static inline Stmt* Create(CompilationContext* ctx, SourceLocation loc, SourceRange range, StmtKind kind, T t) { return ctx->allocate<Stmt>(kind, loc, range, t); }
+        static inline Stmt* Create(CompilationContext* ctx, SourceLoc loc,  StmtKind kind, T t) { return ctx->allocate<Stmt>(kind, loc, t); }
 
         StmtKind kind = StmtKind::Invalid;
 
-        SourceLocation loc;
-        SourceRange range;
+        SourceLoc loc;
 
         bool reached = true; // A flag to see if this statement can ever be reached in a function body
 
@@ -131,40 +130,40 @@ namespace ariac {
             Decl* decl;
         };
 
-        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, ErrorStmt error)
-            : kind(kind), loc(loc), range(range), error(error) {}
+        Stmt(StmtKind kind, SourceLoc loc, ErrorStmt error)
+            : kind(kind), loc(loc), error(error) {}
 
-        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, ImportStmt import)
-            : kind(kind), loc(loc), range(range), import(import) {}
+        Stmt(StmtKind kind, SourceLoc loc, ImportStmt import)
+            : kind(kind), loc(loc), import(import) {}
 
-        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, BlockStmt block)
-            : kind(kind), loc(loc), range(range), block(block) {}
+        Stmt(StmtKind kind, SourceLoc loc, BlockStmt block)
+            : kind(kind), loc(loc), block(block) {}
 
-        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, WhileStmt wh)
-            : kind(kind), loc(loc), range(range), while_(wh) {}
+        Stmt(StmtKind kind, SourceLoc loc, WhileStmt wh)
+            : kind(kind), loc(loc), while_(wh) {}
 
-        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, DoWhileStmt dowh)
-            : kind(kind), loc(loc), range(range), do_while(dowh) {}
+        Stmt(StmtKind kind, SourceLoc loc, DoWhileStmt dowh)
+            : kind(kind), loc(loc), do_while(dowh) {}
 
-        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, ForStmt f)
-            : kind(kind), loc(loc), range(range), for_(f) {}
+        Stmt(StmtKind kind, SourceLoc loc, ForStmt f)
+            : kind(kind), loc(loc), for_(f) {}
 
-        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, IfStmt i)
-            : kind(kind), loc(loc), range(range), if_(i) {}
+        Stmt(StmtKind kind, SourceLoc loc, IfStmt i)
+            : kind(kind), loc(loc), if_(i) {}
 
-        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, ReturnStmt ret)
-            : kind(kind), loc(loc), range(range), return_(ret) {}
+        Stmt(StmtKind kind, SourceLoc loc, ReturnStmt ret)
+            : kind(kind), loc(loc), return_(ret) {}
 
-        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, DeferStmt d)
-            : kind(kind), loc(loc), range(range), defer(d) {}
+        Stmt(StmtKind kind, SourceLoc loc, DeferStmt d)
+            : kind(kind), loc(loc), defer(d) {}
 
-        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, Expr* expr)
-            : kind(kind), loc(loc), range(range), expr(expr) {}
+        Stmt(StmtKind kind, SourceLoc loc, Expr* expr)
+            : kind(kind), loc(loc), expr(expr) {}
 
-        Stmt(StmtKind kind, SourceLocation loc, SourceRange range, Decl* decl)
-            : kind(kind), loc(loc), range(range), decl(decl) {}
+        Stmt(StmtKind kind, SourceLoc loc, Decl* decl)
+            : kind(kind), loc(loc), decl(decl) {}
     };
 
-    inline Stmt error_stmt = Stmt(StmtKind::Error, SourceLocation(), SourceRange(), ErrorStmt());
+    inline Stmt error_stmt = Stmt(StmtKind::Error, SourceLoc(), ErrorStmt());
 
 } // namespace ariac

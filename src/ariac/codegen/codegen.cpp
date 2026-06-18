@@ -144,7 +144,7 @@ namespace ariac {
         args.push_back("-o");
         args.push_back(".build\\main.exe");
 
-        llvm::ErrorOr<llvm::StringRef> clang_path = llvm::sys::findProgramByName("clang");
+        llvm::ErrorOr<std::string> clang_path = llvm::sys::findProgramByName("clang");
         if (std::error_code ec = clang_path.getError()) {
             throw std::runtime_error(fmt::format("Failed to find clang: '{}'", ec.message()));
         }

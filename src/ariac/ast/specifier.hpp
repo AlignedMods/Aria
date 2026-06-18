@@ -24,19 +24,18 @@ namespace ariac {
 
     struct Specifier {
         template <typename T>
-        static inline Specifier* Create(CompilationContext* ctx, SourceLocation loc, SourceRange range, SpecifierKind kind, T t) { return ctx->allocate<Specifier>(loc, range, kind, t); }
+        static inline Specifier* Create(CompilationContext* ctx, SourceLoc loc, SpecifierKind kind, T t) { return ctx->allocate<Specifier>(loc, kind, t); }
 
         SpecifierKind kind = SpecifierKind::Invalid;
 
-        SourceLocation loc;
-        SourceRange range;
+        SourceLoc loc;
 
         union {
             NameSpecifier name;
         };
 
-        Specifier(SourceLocation loc, SourceRange range, SpecifierKind kind, NameSpecifier name)
-            : loc(loc), range(range), kind(kind), name(name) {}
+        Specifier(SourceLoc loc, SpecifierKind kind, NameSpecifier name)
+            : loc(loc), kind(kind), name(name) {}
     };
 
 } // namespace ariac

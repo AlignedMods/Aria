@@ -251,16 +251,15 @@ namespace ariac {
     struct Decl {
         template <typename T>
         static inline Decl* Create(CompilationContext* ctx, 
-            SourceLocation loc, SourceRange range,
+            SourceLoc loc,
             DeclKind kind, DeclVisibility visibility, 
-            T t = ErrorDecl{}) { return ctx->allocate<Decl>(loc, range, kind, visibility, t); }
+            T t = ErrorDecl{}) { return ctx->allocate<Decl>(loc, kind, visibility, t); }
 
         DeclKind kind = DeclKind::Invalid;
         DeclVisibility visibility = DeclVisibility::Public;
         TinyVector<DeclAttribute> attributes;
 
-        SourceLocation loc;
-        SourceRange range;
+        SourceLoc loc;
 
         ResolveStatus resolve_status = ResolveStatus::NotStarted;
 
@@ -284,49 +283,49 @@ namespace ariac {
             OverloadedMethodDecl overloaded_method;
         };
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, ErrorDecl error)
-            : loc(loc), range(range), kind(kind), visibility(visibility), error(error) {}
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, ErrorDecl error)
+            : loc(loc), kind(kind), visibility(visibility), error(error) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, TranslationUnitDecl translation_unit)
-            : loc(loc), range(range), kind(kind), visibility(visibility), translation_unit(translation_unit) {}
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, TranslationUnitDecl translation_unit)
+            : loc(loc), kind(kind), visibility(visibility), translation_unit(translation_unit) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, ModuleDecl module)
-            : loc(loc), range(range), kind(kind), visibility(visibility), module(module) {}
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, ModuleDecl module)
+            : loc(loc), kind(kind), visibility(visibility), module(module) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, VarDecl var)
-            : loc(loc), range(range), kind(kind), visibility(visibility), var(var) {}
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, VarDecl var)
+            : loc(loc), kind(kind), visibility(visibility), var(var) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, ParamDecl param)
-            : loc(loc), range(range), kind(kind), visibility(visibility), param(param) {}
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, ParamDecl param)
+            : loc(loc), kind(kind), visibility(visibility), param(param) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, FunctionDecl function)
-            : loc(loc), range(range), kind(kind), visibility(visibility), function(function) {}
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, FunctionDecl function)
+            : loc(loc), kind(kind), visibility(visibility), function(function) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, StructDecl struc)
-            : loc(loc), range(range), kind(kind), visibility(visibility), struct_(struc) {}
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, StructDecl struc)
+            : loc(loc), kind(kind), visibility(visibility), struct_(struc) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, ImplDecl impl)
-            : loc(loc), range(range), kind(kind), visibility(visibility), impl(impl) {}
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, ImplDecl impl)
+            : loc(loc), kind(kind), visibility(visibility), impl(impl) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, TypedefDecl typedef_)
-            : loc(loc), range(range), kind(kind), visibility(visibility), typedef_(typedef_) {}
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, TypedefDecl typedef_)
+            : loc(loc), kind(kind), visibility(visibility), typedef_(typedef_) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, FieldDecl field)
-            : loc(loc), range(range), kind(kind), visibility(visibility), field(field) {}
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, FieldDecl field)
+            : loc(loc), kind(kind), visibility(visibility), field(field) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, ConstructorDecl ctor)
-            : loc(loc), range(range), kind(kind), visibility(visibility), constructor(ctor) {}
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, ConstructorDecl ctor)
+            : loc(loc), kind(kind), visibility(visibility), constructor(ctor) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, DestructorDecl dtor)
-            : loc(loc), range(range), kind(kind), visibility(visibility), destructor(dtor) {}
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, DestructorDecl dtor)
+            : loc(loc), kind(kind), visibility(visibility), destructor(dtor) {}
 
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, MethodDecl method)
-            : loc(loc), range(range), kind(kind), visibility(visibility), method(method) {}
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, MethodDecl method)
+            : loc(loc), kind(kind), visibility(visibility), method(method) {}
         
-        Decl(SourceLocation loc, SourceRange range, DeclKind kind, DeclVisibility visibility, OverloadedMethodDecl overloaded_method)
-            : loc(loc), range(range), kind(kind), visibility(visibility), overloaded_method(overloaded_method) {}
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, OverloadedMethodDecl overloaded_method)
+            : loc(loc), kind(kind), visibility(visibility), overloaded_method(overloaded_method) {}
     };
 
-    inline Decl error_decl = Decl(SourceLocation(), SourceRange(), DeclKind::Error, DeclVisibility::Public, ErrorDecl());
+    inline Decl error_decl = Decl(SourceLoc(), DeclKind::Error, DeclVisibility::Public, ErrorDecl());
 
 } // namespace ariac

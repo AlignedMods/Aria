@@ -2,7 +2,7 @@
 
 namespace ariac {
 
-    void SemanticAnalyzer::resolve_type(SourceLocation loc, SourceRange range, TypeInfo* type) {
+    void SemanticAnalyzer::resolve_type(SourceLoc loc, TypeInfo* type) {
         if (type->kind == TypeKind::Unresolved) {
             UnresolvedType& t = type->unresolved;
             resolve_expr(t.ident);
@@ -20,7 +20,7 @@ namespace ariac {
                     m_context->active_comp_unit = old_unit;
                 }
                 else if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::InProgress) {
-                    m_context->report_compiler_diagnostic(loc, range, "Recursive definition of struct");
+                    m_context->report_compiler_diagnostic(loc, "Recursive definition of struct");
                     type->kind = TypeKind::Error;
                     return;
                 }
@@ -35,7 +35,7 @@ namespace ariac {
                     m_context->active_comp_unit = old_unit;
                 }
                 else if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::InProgress) {
-                    m_context->report_compiler_diagnostic(loc, range, "Recursive definition of typedef");
+                    m_context->report_compiler_diagnostic(loc, "Recursive definition of typedef");
                     type->kind = TypeKind::Error;
                     return;
                 }
@@ -43,42 +43,42 @@ namespace ariac {
                 type->kind = TypeKind::Typedef;
                 type->typedef_ = TypedefDeclaration(t.ident->decl_ref.identifier, t.ident->decl_ref.referenced_decl->typedef_.type, t.ident->decl_ref.referenced_decl);
             } else {
-                m_context->report_compiler_diagnostic(loc, range, fmt::format("'{}' is not a type", t.ident->decl_ref.identifier));
+                m_context->report_compiler_diagnostic(loc, fmt::format("'{}' is not a type", t.ident->decl_ref.identifier));
                 return;
             }
         } else if (type->kind == TypeKind::Ptr) {
-            resolve_type(loc, range, type->base);
+            resolve_type(loc, type->base);
         } else if (type->kind == TypeKind::Array) {
-            resolve_type(loc, range, type->array.type);
+            resolve_type(loc, type->array.type);
             resolve_expr(type->array.expression);
 
             if (!is_const_expr(type->array.expression)) {
-                m_context->report_compiler_diagnostic(type->array.expression->loc, type->array.expression->range, "Size of array must be a compile time constant");
+                m_context->report_compiler_diagnostic(type->array.expression->loc, "Size of array must be a compile time constant");
                 return;
             }
 
             ConversionCost cost = get_conversion_cost(&ulong_type, type->array.expression->type);
             if (cost.cast_needed && !cost.implicit_cast_possible) {
-                m_context->report_compiler_diagnostic(type->array.expression->loc, type->array.expression->range, "Size of array must be convertable to 'ulong'");
+                m_context->report_compiler_diagnostic(type->array.expression->loc, "Size of array must be convertable to 'ulong'");
                 return;
             }
 
             Expr* cexpr = eval_const_expr(type->array.expression);
             type->array.size = cexpr->const_.integer;
         } else if (type->kind == TypeKind::Ref) {
-            resolve_type(loc, range, type->base);
+            resolve_type(loc, type->base);
             if (type->base->is_void()) {
-                m_context->report_compiler_diagnostic(loc, range, "Cannot declare reference to 'void'");
+                m_context->report_compiler_diagnostic(loc, "Cannot declare reference to 'void'");
                 type->kind = TypeKind::Error;
             }
         } else if (type->kind == TypeKind::Function) {
             FunctionDeclaration& fn = type->function;
 
             for (TypeInfo* param : fn.param_types) {
-                resolve_type(loc, range, param);
+                resolve_type(loc, param);
             }
 
-            resolve_type(loc, range, fn.return_type);
+            resolve_type(loc, fn.return_type);
         }
     }
 

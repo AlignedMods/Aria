@@ -449,10 +449,10 @@ namespace ariac {
     struct Expr {
         template <typename T>
         static inline Expr* Create(CompilationContext* ctx, 
-            SourceLocation loc, SourceRange range,
+            SourceLoc loc, 
             ExprKind kind, 
             ExprValueKind value_kind, TypeInfo* type, 
-            T t = ErrorExpr()) { return ctx->allocate<Expr>(loc, range, kind, value_kind, type, t); }
+            T t = ErrorExpr()) { return ctx->allocate<Expr>(loc, kind, value_kind, type, t); }
 
         static inline Expr* Dup(CompilationContext* ctx, Expr* other) {
             Expr* newExpr = ctx->allocate<Expr>();
@@ -466,8 +466,7 @@ namespace ariac {
 
         bool result_discarded = false;
 
-        SourceLocation loc;
-        SourceRange range;
+        SourceLoc loc;
 
         union {
             ErrorExpr error;
@@ -501,85 +500,85 @@ namespace ariac {
         Expr()
             : boolean_literal(false) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ErrorExpr error)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), error(error) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ErrorExpr error)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), error(error) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, BooleanLiteralExpr boolean_literal)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), boolean_literal(boolean_literal) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, BooleanLiteralExpr boolean_literal)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), boolean_literal(boolean_literal) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, CharacterLiteralExpr character_literal)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), character_literal(character_literal) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, CharacterLiteralExpr character_literal)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), character_literal(character_literal) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, IntegerLiteralExpr integer_literal)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), integer_literal(integer_literal) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, IntegerLiteralExpr integer_literal)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), integer_literal(integer_literal) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, FloatingLiteralExpr floating_literal)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), floating_literal(floating_literal) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, FloatingLiteralExpr floating_literal)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), floating_literal(floating_literal) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, StringLiteralExpr string_literal)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), string_literal(string_literal) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, StringLiteralExpr string_literal)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), string_literal(string_literal) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ArrayFillerExpr array_filler)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), array_filler(array_filler) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ArrayFillerExpr array_filler)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), array_filler(array_filler) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, DeclRefExpr decl_ref)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), decl_ref(decl_ref) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, DeclRefExpr decl_ref)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), decl_ref(decl_ref) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, MemberExpr member)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), member(member) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, MemberExpr member)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), member(member) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, TemporaryExpr temporary)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), temporary(temporary) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, TemporaryExpr temporary)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), temporary(temporary) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, CallExpr call)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), call(call) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, CallExpr call)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), call(call) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ConstructExpr construct)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), construct(construct) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ConstructExpr construct)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), construct(construct) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, MethodCallExpr method_call)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), method_call(method_call) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, MethodCallExpr method_call)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), method_call(method_call) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ArraySubscriptExpr arr_subs)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), array_subscript(arr_subs) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ArraySubscriptExpr arr_subs)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), array_subscript(arr_subs) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ToSliceExpr to_slice)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), to_slice(to_slice) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ToSliceExpr to_slice)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), to_slice(to_slice) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, NewExpr new_)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), new_(new_) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, NewExpr new_)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), new_(new_) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, DeleteExpr delete_)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), delete_(delete_) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, DeleteExpr delete_)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), delete_(delete_) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, SizeofExpr sizeof_)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), sizeof_(sizeof_) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, SizeofExpr sizeof_)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), sizeof_(sizeof_) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, FormatExpr format)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), format(format) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, FormatExpr format)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), format(format) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ParenExpr paren)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), paren(paren) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ParenExpr paren)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), paren(paren) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, CastExpr cast)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), cast(cast) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, CastExpr cast)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), cast(cast) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ImplicitCastExpr implicit_cast)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), implicit_cast(implicit_cast) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ImplicitCastExpr implicit_cast)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), implicit_cast(implicit_cast) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, UnaryOperatorExpr unary_operator)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), unary_operator(unary_operator) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, UnaryOperatorExpr unary_operator)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), unary_operator(unary_operator) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, BinaryOperatorExpr binary_operator)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), binary_operator(binary_operator) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, BinaryOperatorExpr binary_operator)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), binary_operator(binary_operator) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, CompoundAssignExpr compound_assign)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), compound_assign(compound_assign) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, CompoundAssignExpr compound_assign)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), compound_assign(compound_assign) {}
 
-        Expr(SourceLocation loc, SourceRange range, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ConstExpr const_)
-            : loc(loc), range(range), kind(kind), value_kind(value_kind), type(type), const_(const_) {}
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ConstExpr const_)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), const_(const_) {}
     };
 
-    inline Expr error_expr = Expr(SourceLocation(), SourceRange(), ExprKind::Error, ExprValueKind::RValue, nullptr, ErrorExpr());
+    inline Expr error_expr = Expr(SourceLoc(), ExprKind::Error, ExprValueKind::RValue, nullptr, ErrorExpr());
 
 } // namespace ariac

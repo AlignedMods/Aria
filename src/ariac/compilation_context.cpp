@@ -114,8 +114,8 @@ namespace ariac {
     }
 
     void CompilationContext::print_diag(CompilerDiagnostic* diag) {
-        if (diag->line && diag->column) {
-            fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", diag->unit->filename, diag->line, diag->column);
+        if (diag->loc.line && diag->loc.col) {
+            fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", diag->unit->filename, diag->loc.line, diag->loc.col);
         }
 
         if (diag->kind == CompilerDiagKind::Error) {
@@ -128,15 +128,15 @@ namespace ariac {
 
         fmt::print("{}\n", diag->message);
 
-        if (diag->line && diag->column) {
+        if (diag->loc.line && diag->loc.col) {
             // fmt format strings from: https://hackingcpp.com/cpp/libs/fmt
-            fmt::print(" {:6} | {}\n", diag->line, get_line(diag->unit->source, diag->line));
-            fmt::print("        | {:>{w}}\n", "^", fmt::arg("w", diag->column));
+            fmt::print(" {:6} | {}\n", diag->loc.line, get_line(diag->unit->source, diag->loc.line));
+            fmt::print("        | {:>{w}}\n", std::string(diag->loc.len, '^'), fmt::arg("w", diag->loc.col + diag->loc.len - 1));
         }
 
         for (auto& note : diag->notes) {
-            if (diag->line && diag->column) {
-                fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", diag->unit->filename, diag->line, diag->column);
+            if (diag->loc.line && diag->loc.col) {
+                fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", diag->unit->filename, diag->loc.line, diag->loc.col);
             }
             fmt::print(fg(fmt::color::light_blue), "note: ");
             fmt::print("{}\n", note);

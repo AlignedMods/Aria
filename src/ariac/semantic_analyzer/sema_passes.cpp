@@ -52,7 +52,7 @@ namespace ariac {
             ARIA_ASSERT(stmt->kind == StmtKind::Import, "Invalid stmt in Imports");
 
             if (stmt->import.name == module->name) {
-                m_context->report_compiler_diagnostic(stmt->loc, stmt->range, "Including self is not allowed");
+                m_context->report_compiler_diagnostic(stmt->loc, "Including self is not allowed");
                 stmt->kind = StmtKind::Error;
                 return;
             }
@@ -69,7 +69,7 @@ namespace ariac {
             }
 
             if (!resolvedModule) {
-                m_context->report_compiler_diagnostic(stmt->loc, stmt->range, fmt::format("Could not find module '{}'", stmt->import.name));
+                m_context->report_compiler_diagnostic(stmt->loc, fmt::format("Could not find module '{}'", stmt->import.name));
                 continue;
             }
 
@@ -78,7 +78,7 @@ namespace ariac {
         }
 
         if (!imports_std_core && m_context->std_core_module) { // Implicitly import std::core if it is avaliable
-            Stmt* imp = Stmt::Create(m_context, {}, {}, StmtKind::Import, ImportStmt("std::core", m_context->std_core_module));
+            Stmt* imp = Stmt::Create(m_context, {}, StmtKind::Import, ImportStmt("std::core", m_context->std_core_module));
             unit->imports.push_back(imp);
         }
 
@@ -134,13 +134,13 @@ namespace ariac {
 
             ImplDecl& i = impl->impl;
             if (!module->symbols.contains(i.identifier)) {
-                m_context->report_compiler_diagnostic(impl->loc, impl->range, fmt::format("No such struct '{}' to create an implementation for", i.identifier));
+                m_context->report_compiler_diagnostic(impl->loc, fmt::format("No such struct '{}' to create an implementation for", i.identifier));
             } else {
                 Decl* sym = module->symbols.at(i.identifier);
 
                 if (sym->kind != DeclKind::Struct) {
-                    m_context->report_compiler_diagnostic(impl->loc, impl->range, fmt::format("'{}' is not a struct", i.identifier));
-                    m_context->report_compiler_diagnostic(sym->loc, sym->range, "Declared here", CompilerDiagKind::Note, sym->parent_unit);
+                    m_context->report_compiler_diagnostic(impl->loc, fmt::format("'{}' is not a struct", i.identifier));
+                    m_context->report_compiler_diagnostic(sym->loc, "Declared here", CompilerDiagKind::Note, sym->parent_unit);
                     continue;
                 }
 
@@ -167,7 +167,7 @@ namespace ariac {
 
             ARIA_ASSERT(func->kind == DeclKind::Function, "Invalid func in funcs");
             FunctionDecl& f = func->function;
-            resolve_type(func->loc, func->range, f.type);
+            resolve_type(func->loc, f.type);
 
             bool erase = false;
             resolve_decl_attributes(func, func->attributes, &erase);
@@ -181,21 +181,21 @@ namespace ariac {
 
             if (f.identifier == "main") {
                 if (m_context->main_func) {
-                    m_context->report_compiler_diagnostic(func->loc, func->range, "Redefining main function");
-                    m_context->report_compiler_diagnostic(m_context->main_func->loc, m_context->main_func->range, "Previous declaration here", CompilerDiagKind::Note, m_context->main_func->parent_unit);
+                    m_context->report_compiler_diagnostic(func->loc, "Redefining main function");
+                    m_context->report_compiler_diagnostic(m_context->main_func->loc, "Previous declaration here", CompilerDiagKind::Note, m_context->main_func->parent_unit);
                     func->kind = DeclKind::Error;
                     continue;
                 }
 
                 if (f.parameters.size > 1) {
-                    m_context->report_compiler_diagnostic(func->loc, func->range, "Main function must have one or zero parameters");
+                    m_context->report_compiler_diagnostic(func->loc, "Main function must have one or zero parameters");
                 }
 
                 if (f.parameters.size >= 1) {
                     TypeInfo* type = TypeInfo::Create(m_context, TypeKind::Slice);
                     type->base = &char_slice_type;
                     if (!type_is_equal(f.parameters.items[0]->param.type, type)) {
-                        m_context->report_compiler_diagnostic(f.parameters.items[0]->loc, f.parameters.items[0]->range, fmt::format("First parameter of 'main' function must be of type '{}'", type_info_to_string(type)));
+                        m_context->report_compiler_diagnostic(f.parameters.items[0]->loc, fmt::format("First parameter of 'main' function must be of type '{}'", type_info_to_string(type)));
                     }
                 }
 
@@ -209,14 +209,14 @@ namespace ariac {
                 Decl* d = module->symbols.at(f.identifier);
 
                 if (d->kind == DeclKind::Function) {
-                    m_context->report_compiler_diagnostic(func->loc, func->range, fmt::format("Redefining function '{}'", f.identifier));
-                    m_context->report_compiler_diagnostic(func->loc, func->range, "Previous declaration here", CompilerDiagKind::Note, func->parent_unit);
+                    m_context->report_compiler_diagnostic(func->loc, fmt::format("Redefining function '{}'", f.identifier));
+                    m_context->report_compiler_diagnostic(func->loc, "Previous declaration here", CompilerDiagKind::Note, func->parent_unit);
                 } else if (d->kind == DeclKind::Var) {
-                    m_context->report_compiler_diagnostic(func->loc, func->range, fmt::format("Redefining global variable '{}' as function", f.identifier));
-                    m_context->report_compiler_diagnostic(func->loc, func->range, "Previous declaration here", CompilerDiagKind::Note, func->parent_unit);
+                    m_context->report_compiler_diagnostic(func->loc, fmt::format("Redefining global variable '{}' as function", f.identifier));
+                    m_context->report_compiler_diagnostic(func->loc, "Previous declaration here", CompilerDiagKind::Note, func->parent_unit);
                 } else if (d->kind == DeclKind::Struct) {
-                    m_context->report_compiler_diagnostic(func->loc, func->range, fmt::format("Redefining struct '{}' as function", f.identifier));
-                    m_context->report_compiler_diagnostic(func->loc, func->range, "Previous declaration here", CompilerDiagKind::Note, func->parent_unit);
+                    m_context->report_compiler_diagnostic(func->loc, fmt::format("Redefining struct '{}' as function", f.identifier));
+                    m_context->report_compiler_diagnostic(func->loc, "Previous declaration here", CompilerDiagKind::Note, func->parent_unit);
                 } else {
                     ARIA_UNREACHABLE();
                 }

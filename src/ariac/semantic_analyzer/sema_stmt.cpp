@@ -55,7 +55,7 @@ namespace ariac {
             require_rvalue(fs.condition);
 
             if (!fs.condition->type->is_boolean() && !fs.condition->type->is_error()) {
-                m_context->report_compiler_diagnostic(fs.condition->loc, fs.condition->range, fmt::format("For loop condition must be of a boolean type but is '{}'", type_info_to_string(fs.condition->type)));
+                m_context->report_compiler_diagnostic(fs.condition->loc, fmt::format("For loop condition must be of a boolean type but is '{}'", type_info_to_string(fs.condition->type)));
             } else if (is_const_expr(fs.condition) && eval_const_expr(fs.condition)->const_.boolean) {
                 m_scopes.back().reaches_end = false;
             }
@@ -91,7 +91,7 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_break_stmt(Stmt* stmt) {
         if (!m_scopes.back().allow_break_stmt) {
-            m_context->report_compiler_diagnostic(stmt->loc, stmt->range, "Cannot use 'break' here");
+            m_context->report_compiler_diagnostic(stmt->loc, "Cannot use 'break' here");
         } else {
             m_scopes.back().reaches_end = false;
         }
@@ -99,7 +99,7 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_continue_stmt(Stmt* stmt) {
         if (!m_scopes.back().allow_break_stmt) {
-            m_context->report_compiler_diagnostic(stmt->loc, stmt->range, "Cannot use 'continue' here");
+            m_context->report_compiler_diagnostic(stmt->loc, "Cannot use 'continue' here");
         } else {
             m_scopes.back().reaches_end = false;
         }
@@ -109,7 +109,7 @@ namespace ariac {
         ReturnStmt& ret = stmt->return_;
         
         if (m_active_return_type == nullptr) {
-            m_context->report_compiler_diagnostic(stmt->loc, stmt->range, "'return' statement out of function body is not allowed");
+            m_context->report_compiler_diagnostic(stmt->loc, "'return' statement out of function body is not allowed");
             ret.value->type = &error_type;
             return;
         }
@@ -129,7 +129,7 @@ namespace ariac {
                 if (cost.implicit_cast_possible) {
                     insert_implicit_cast(m_active_return_type, ret.value->type, ret.value, cost.kind);
                 } else {
-                    m_context->report_compiler_diagnostic(ret.value->loc, ret.value->range, fmt::format("Cannot implicitly convert '{}' to return type '{}'", type_info_to_string(ret.value->type), type_info_to_string(m_active_return_type)));
+                    m_context->report_compiler_diagnostic(ret.value->loc, fmt::format("Cannot implicitly convert '{}' to return type '{}'", type_info_to_string(ret.value->type), type_info_to_string(m_active_return_type)));
                 }
             }
         }

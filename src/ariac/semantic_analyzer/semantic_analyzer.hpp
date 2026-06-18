@@ -109,7 +109,7 @@ namespace ariac {
 
         void resolve_stmt(Stmt* stmt);
 
-        void resolve_type(SourceLocation loc, SourceRange range, TypeInfo* type);
+        void resolve_type(SourceLoc loc,  TypeInfo* type);
 
         void resolve_var_initializer(Decl* decl);
         void resolve_param_initializer(TypeInfo* param_type, Expr* arg);

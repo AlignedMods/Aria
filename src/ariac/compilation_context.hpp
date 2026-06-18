@@ -21,10 +21,8 @@ namespace ariac {
     struct CompilerDiagnostic {
         CompilerDiagKind kind = CompilerDiagKind::Warning;
 
-        size_t line = 0; size_t column = 0;
-        size_t start_line = 0; size_t start_column = 0;
+        SourceLoc loc;
 
-        size_t end_line = 0; size_t end_column = 0;
         std::string message;
         std::vector<std::string> notes;
 
@@ -93,15 +91,10 @@ namespace ariac {
             return arena->allocate(size);
         }
 
-        inline void report_compiler_diagnostic(SourceLocation loc, SourceRange range, const std::string& error, CompilerDiagKind kind = CompilerDiagKind::Error, CompilationUnit* unit = nullptr) {
+        inline void report_compiler_diagnostic(SourceLoc loc, const std::string& error, CompilerDiagKind kind = CompilerDiagKind::Error, CompilationUnit* unit = nullptr) {
             CompilerDiagnostic d;
             d.kind = kind;
-            d.line = loc.line;
-            d.column = loc.column;
-            d.start_line = range.start.line;
-            d.start_column = range.start.column;
-            d.end_line = range.end.line;
-            d.end_column = range.end.column;
+            d.loc = loc;
             d.message = error;
             d.unit = unit ? unit : active_comp_unit;
 
@@ -112,15 +105,10 @@ namespace ariac {
             }
         }
 
-        inline void report_compiler_diagnostic_with_notes(SourceLocation loc, SourceRange range, const std::string& error, std::initializer_list<std::string> notes, CompilerDiagKind kind = CompilerDiagKind::Error, CompilationUnit* unit = nullptr) {
+        inline void report_compiler_diagnostic_with_notes(SourceLoc loc, const std::string& error, std::initializer_list<std::string> notes, CompilerDiagKind kind = CompilerDiagKind::Error, CompilationUnit* unit = nullptr) {
             CompilerDiagnostic d;
             d.kind = kind;
-            d.line = loc.line;
-            d.column = loc.column;
-            d.start_line = range.start.line;
-            d.start_column = range.start.column;
-            d.end_line = range.end.line;
-            d.end_column = range.end.column;
+            d.loc = loc;
             d.message = error;
             d.notes = notes;
             d.unit = unit ? unit : active_comp_unit;
@@ -155,7 +143,7 @@ namespace ariac {
         CompilerFlags flags;
 
         std::vector<Module*> modules;
-        Module* std_core_module;
+        Module* std_core_module = nullptr;
         Decl* main_func = nullptr;
 
         CompilerReflectionData reflection_data;

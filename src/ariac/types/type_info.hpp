@@ -70,6 +70,7 @@ namespace ariac {
 
     struct TypeInfo {
         TypeKind kind = TypeKind::Error;
+        SourceLoc loc;
         union {
             TypeInfo* base = nullptr;
             FunctionDeclaration function;
@@ -195,8 +196,8 @@ namespace ariac {
     inline TypeInfo ulong_type =          { TypeKind::ULong };
     inline TypeInfo double_type =         { TypeKind::Double };
     inline TypeInfo float_type =          { TypeKind::Float };
-    inline TypeInfo void_ptr_type =       { TypeKind::Ptr, &void_type };
-    inline TypeInfo char_ptr_type =       { TypeKind::Ptr, &char_type };
-    inline TypeInfo char_slice_type =     { TypeKind::Slice, &char_type };
+    inline TypeInfo void_ptr_type =       { TypeKind::Ptr, {}, &void_type };
+    inline TypeInfo char_ptr_type =       { TypeKind::Ptr, {}, &char_type };
+    inline TypeInfo char_slice_type =     { TypeKind::Slice, {}, &char_type };
 
 } // namespace ariac

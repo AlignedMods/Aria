@@ -225,7 +225,7 @@ namespace ariac {
 
     struct Token {
         TokenKind kind = TokenKind::Semi;
-        SourceRange range;
+        SourceLoc loc;
 
         std::string_view string;
         u64 integer = 0;

@@ -34,9 +34,9 @@ namespace ariac {
 
         char parse_char();
 
-        void add_token(TokenKind kind, const SourceRange& range, std::string_view string);
-        void add_token_with_integer(TokenKind kind, const SourceRange& range, u64 integer);
-        void add_token_with_number(TokenKind kind, const SourceRange& range, double number);
+        void add_token(TokenKind kind, const SourceLoc& loc, std::string_view string);
+        void add_token_with_integer(TokenKind kind, const SourceLoc& loc, u64 integer);
+        void add_token_with_number(TokenKind kind, const SourceLoc& loc, double number);
 
         size_t get_column(size_t index);
 

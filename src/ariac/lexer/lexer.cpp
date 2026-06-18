@@ -17,7 +17,6 @@ namespace ariac {
         while (true) {
             skip_whitespace();
 
-            SourceLocation start = SourceLocation(m_current_line, get_column(m_index));
             char c = peek();
 
             if (c == '\0') {
@@ -31,96 +30,99 @@ namespace ariac {
                 case '\n': { m_current_line++; m_current_line_start = m_index - 1; break; }
 
                 // Punctuation
-                case ';': add_token(TokenKind::Semi, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), ";");
-                          break;
-                case '(': add_token(TokenKind::LeftParen, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "(");
-                          break;
-                case ')': add_token(TokenKind::RightParen, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), ")");
-                          break;
-                case '[': add_token(TokenKind::LeftBracket, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "[");
-                          break;
-                case ']': add_token(TokenKind::RightBracket, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "]");
-                          break;
-                case '{': add_token(TokenKind::LeftCurly, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "{");
-                          break;
-                case '}': add_token(TokenKind::RightCurly, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "}");
-                          break;
-                case '~': add_token(TokenKind::Squigly, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "~");
-                          break;
-                case ',': add_token(TokenKind::Comma, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), ",");
-                          break;
+                case ';': add_token(TokenKind::Semi, SourceLoc(m_current_line, get_column(m_index), m_index, 1), ";"); break;
+                case '(': add_token(TokenKind::LeftParen, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "("); break;
+                case ')': add_token(TokenKind::RightParen, SourceLoc(m_current_line, get_column(m_index), m_index, 1), ")"); break;
+                case '[': add_token(TokenKind::LeftBracket, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "["); break;
+                case ']': add_token(TokenKind::RightBracket, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "]"); break;
+                case '{': add_token(TokenKind::LeftCurly, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "{"); break;
+                case '}': add_token(TokenKind::RightCurly, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "}"); break;
+                case '~': add_token(TokenKind::Squigly, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "~"); break;
+                case ',': add_token(TokenKind::Comma, SourceLoc(m_current_line, get_column(m_index), m_index, 1), ","); break;
                 case ':': {
-                    if (try_consume(':')) { add_token(TokenKind::ColonColon, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "::"); break; }
-                    else { add_token(TokenKind::Colon, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), ":"); break; }
+                    if (try_consume(':')) { add_token(TokenKind::ColonColon, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "::"); break; }
+                    else { add_token(TokenKind::Colon, SourceLoc(m_current_line, get_column(m_index), m_index, 1), ":"); break; }
                 }
+
                 case '.': {
-                    if (peek() == '.' && peek(1) == '.') { consume(2); add_token(TokenKind::TripleDot, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "..."); break; }
-                    else { add_token(TokenKind::Dot, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "."); break; }
+                    if (peek() == '.' && peek(1) == '.') { consume(2); add_token(TokenKind::TripleDot, SourceLoc(m_current_line, get_column(m_index), m_index, 3), "..."); break; }
+                    else { add_token(TokenKind::Dot, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "."); break; }
                 }
 
                 // Operators
                 case '+': {
-                    if (try_consume('=')) { add_token(TokenKind::PlusEq, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "+="); break; }
-                    else if (try_consume('+')) { add_token(TokenKind::PlusPlus, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "++"); break; }
-                    else { add_token(TokenKind::Plus, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "+"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::PlusEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "+="); break; }
+                    else if (try_consume('+')) { add_token(TokenKind::PlusPlus, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "++"); break; }
+                    else { add_token(TokenKind::Plus, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "+"); break; }
                 }
+
                 case '-': {
-                    if (try_consume('=')) { add_token(TokenKind::MinusEq, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "-="); break; }
-                    else if (try_consume('-')) { add_token(TokenKind::MinusMinus, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "--"); break; }
-                    else if (try_consume('>')) { add_token(TokenKind::Arrow, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "->"); break; }
-                    else { add_token(TokenKind::Minus, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "-"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::MinusEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "-="); break; }
+                    else if (try_consume('-')) { add_token(TokenKind::MinusMinus, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "--"); break; }
+                    else if (try_consume('>')) { add_token(TokenKind::Arrow, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "->"); break; }
+                    else { add_token(TokenKind::Minus, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "-"); break; }
                 }
+
                 case '*': {
-                    if (try_consume('=')) { add_token(TokenKind::StarEq, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "*="); break; }
-                    else { add_token(TokenKind::Star, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "*"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::StarEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "*="); break; }
+                    else { add_token(TokenKind::Star, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "*"); break; }
                 }
+
                 case '/': {
-                    if (try_consume('=')) { add_token(TokenKind::SlashEq, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "/="); break; }
-                    else { add_token(TokenKind::Slash, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "/"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::SlashEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "/="); break; }
+                    else { add_token(TokenKind::Slash, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "/"); break; }
                 }
+
                 case '%': {
-                    if (try_consume('=')) { add_token(TokenKind::PercentEq, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "%="); break; }
-                    else { add_token(TokenKind::Percent, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "%"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::PercentEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "%="); break; }
+                    else { add_token(TokenKind::Percent, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "%"); break; }
                 }
+
                 case '&': {
-                    if (try_consume('=')) { add_token(TokenKind::AmpersandEq, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "&="); break; }
-                    else if (try_consume('&')) { add_token(TokenKind::DoubleAmpersand, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "&&"); break; }
-                    else { add_token(TokenKind::Ampersand, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "&"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::AmpersandEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "&="); break; }
+                    else if (try_consume('&')) { add_token(TokenKind::DoubleAmpersand, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "&&"); break; }
+                    else { add_token(TokenKind::Ampersand, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "&"); break; }
                 }
+
                 case '|': {
-                    if (try_consume('=')) { add_token(TokenKind::PipeEq, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "|="); break; }
-                    else if (try_consume('|')) { add_token(TokenKind::DoublePipe, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "||"); break; }
-                    else { add_token(TokenKind::Pipe, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "|"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::PipeEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "|="); break; }
+                    else if (try_consume('|')) { add_token(TokenKind::DoublePipe, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "||"); break; }
+                    else { add_token(TokenKind::Pipe, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "|"); break; }
                 }
+
                 case '^': {
-                    if (try_consume('=')) { add_token(TokenKind::UpArrowEq, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "^="); break; }
-                    else { add_token(TokenKind::UpArrow, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "^"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::UpArrowEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "^="); break; }
+                    else { add_token(TokenKind::UpArrow, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "^"); break; }
                 }
+
                 case '=': {
-                    if (try_consume('=')) { add_token(TokenKind::EqEq, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "=="); break; }
-                    else { add_token(TokenKind::Eq, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "="); break; }
+                    if (try_consume('=')) { add_token(TokenKind::EqEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "=="); break; }
+                    else { add_token(TokenKind::Eq, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "="); break; }
                 }
+
                 case '!': {
-                    if (try_consume('=')) { add_token(TokenKind::BangEq, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "!="); break; }
-                    else { add_token(TokenKind::Bang, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "!"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::BangEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "!="); break; }
+                    else { add_token(TokenKind::Bang, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "!"); break; }
                 }
+
                 case '<': {
                     if (try_consume('<')) {
-                        if (try_consume('=')) { add_token(TokenKind::LessLessEq, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "<<="); break; }
-                        else { add_token(TokenKind::LessLess, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "<<"); break; }
+                        if (try_consume('=')) { add_token(TokenKind::LessLessEq, SourceLoc(m_current_line, get_column(m_index), m_index, 3), "<<="); break; }
+                        else { add_token(TokenKind::LessLess, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "<<"); break; }
                     }
 
-                    if (try_consume('=')) { add_token(TokenKind::LessEq, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "<="); break; }
-                    else { add_token(TokenKind::Less, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "<"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::LessEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "<="); break; }
+                    else { add_token(TokenKind::Less, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "<"); break; }
                 }
+
                 case '>': {
                     if (try_consume('>')) {
-                        if (try_consume('=')) { add_token(TokenKind::GreaterGreaterEq, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), ">>="); break; }
-                        else { add_token(TokenKind::GreaterGreater, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), ">>"); break; }
+                        if (try_consume('=')) { add_token(TokenKind::GreaterGreaterEq, SourceLoc(m_current_line, get_column(m_index), m_index, 3), ">>="); break; }
+                        else { add_token(TokenKind::GreaterGreater, SourceLoc(m_current_line, get_column(m_index), m_index, 2), ">>"); break; }
                     }
 
-                    if (try_consume('=')) { add_token(TokenKind::GreaterEq, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), ">="); break; }
-                    else { add_token(TokenKind::Greater, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), ">"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::GreaterEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), ">="); break; }
+                    else { add_token(TokenKind::Greater, SourceLoc(m_current_line, get_column(m_index), m_index, 1), ">"); break; }
                 }
 
                 case '#': {
@@ -173,9 +175,8 @@ namespace ariac {
                         break;
                     }
 
-                    fmt::print("Unknown character: {} ({:x})\n", c, c);
+                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("Unknown character '{}' ({:x})", c, c));
                     consume();
-
                     break;
                 }
             }
@@ -210,24 +211,24 @@ namespace ariac {
     }
 
     void Lexer::parse_char_literal() {
-        SourceLocation start = SourceLocation(m_current_line, get_column(m_index));
+        SourceLoc loc = SourceLoc(m_current_line, get_column(m_index), m_index);
+        size_t start_index = m_index;
 
         if (try_consume('\'')) {
-            SourceLocation loc = SourceLocation(m_current_line, get_column(m_index));
-            m_context->report_compiler_diagnostic(loc, SourceRange(start, loc), "Empty character literal");
+            loc.len = m_index - start_index;
+            m_context->report_compiler_diagnostic(loc, "Empty character literals are not allowed");
             return;
         }
 
         char c = parse_char();
+        loc.len = m_index - start_index;
 
         if (!try_consume('\'')) {
-            SourceLocation loc = SourceLocation(m_current_line, get_column(m_index));
-            m_context->report_compiler_diagnostic(loc, SourceRange(start, loc), "Unterminated character literal");
+            m_context->report_compiler_diagnostic(loc, "Unterminated character literal");
             return;
         }
 
-        SourceLocation loc = SourceLocation(m_current_line, get_column(m_index));
-        add_token_with_integer(TokenKind::CharLit, SourceRange(start, loc), static_cast<u64>(c));
+        add_token_with_integer(TokenKind::CharLit, loc, static_cast<u64>(c));
     }
 
     void Lexer::parse_decimal_literal() {
@@ -270,8 +271,7 @@ namespace ariac {
                 } else if (std::tolower(peek()) == 'a' || std::tolower(peek()) == 'b'
                         || std::tolower(peek()) == 'c' || std::tolower(peek()) == 'd'
                         || std::tolower(peek()) == 'e' || std::tolower(peek()) == 'f') {
-                    SourceLocation loc = SourceLocation(m_current_line, get_column(m_index));
-                    m_context->report_compiler_diagnostic(loc, SourceRange(loc, loc), fmt::format("invalid hexadecimal digit '{}' in decimal literal", peek()));
+                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("invalid hexadecimal digit '{}' in decimal literal", peek()));
                     consume();
                     errored = true;
                 } else {
@@ -289,15 +289,13 @@ namespace ariac {
                 if (peek() >= '0' && peek() <= '8') {
                     consume();
                 } else if (peek() == '9') {
-                    SourceLocation loc = SourceLocation(m_current_line, get_column(m_index));
-                    m_context->report_compiler_diagnostic(loc, SourceRange(loc, loc), "invalid digit '9' in octal literal");
+                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), "invalid digit '9' in octal literal");
                     consume();
                     errored = true;
                 } else if (std::tolower(peek()) == 'a' || std::tolower(peek()) == 'b'
                         || std::tolower(peek()) == 'c' || std::tolower(peek()) == 'd'
                         || std::tolower(peek()) == 'e' || std::tolower(peek()) == 'f') {
-                    SourceLocation loc = SourceLocation(m_current_line, get_column(m_index));
-                    m_context->report_compiler_diagnostic(loc, SourceRange(loc, loc), fmt::format("invalid hexadecimal digit '{}' in octal literal", peek()));
+                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("invalid hexadecimal digit '{}' in octal literal", peek()));
                     consume();
                     errored = true;
                 } else {
@@ -307,15 +305,13 @@ namespace ariac {
                 if (peek() == '0' || peek() == '1') {
                     consume();
                 } else if (std::isdigit(peek())) {
-                    SourceLocation loc = SourceLocation(m_current_line, get_column(m_index));
-                    m_context->report_compiler_diagnostic(loc, SourceRange(loc, loc), fmt::format("invalid digit '{}' in binary literal", peek()));
+                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("invalid digit '{}' in binary literal", peek()));
                     consume();
                     errored = true;
                 } else if (std::tolower(peek()) == 'a' || std::tolower(peek()) == 'b'
                         || std::tolower(peek()) == 'c' || std::tolower(peek()) == 'd'
                         || std::tolower(peek()) == 'e' || std::tolower(peek()) == 'f') {
-                    SourceLocation loc = SourceLocation(m_current_line, get_column(m_index));
-                    m_context->report_compiler_diagnostic(loc, SourceRange(loc, loc), fmt::format("invalid hexadecimal digit '{}' in binary literal", peek()));
+                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("invalid hexadecimal digit '{}' in binary literal", peek()));
                     consume();
                     errored = true;
                 } else {
@@ -329,8 +325,7 @@ namespace ariac {
         // Check for unsigned
         if (peek() && std::tolower(peek()) == 'u') {
             if (encounteredPeriod) {
-                SourceLocation loc = SourceLocation(m_current_line, get_column(m_index));
-                m_context->report_compiler_diagnostic(loc, SourceRange(loc, loc), fmt::format("cannot use 'u' suffix in a floating-point literal"));
+                m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), 1), fmt::format("cannot use 'u' suffix in a floating-point literal"));
                 consume();
                 errored = true;
             } else {
@@ -345,15 +340,13 @@ namespace ariac {
                 auto [ptr, ec] = std::from_chars(buf.data(), buf.data() + buf.length(), number); 
 
                 if (ec == std::errc::result_out_of_range) {
-                    SourceLocation loc(m_current_line, get_column(m_index - buf.length()));
-                    m_context->report_compiler_diagnostic(loc, SourceRange(loc, SourceLocation(m_current_line, get_column(m_index))), 
-                                                   "magnitude of floating-point literal is too large, maximum is 1.7976931348623157E+308");
+                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()), "magnitude of floating-point literal is too large, maximum is 1.7976931348623157E+308");
                     number = 0.0;
                 }
             }
 
             add_token_with_number(TokenKind::NumLit,
-                SourceRange(m_current_line, get_column(startIndex), m_current_line, get_column(m_index)),
+                SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()),
                 number);
         } else {
             u64 integer = 0;
@@ -367,9 +360,8 @@ namespace ariac {
                 auto [ptr, ec] = std::from_chars(buf.data(), buf.data() + buf.length(), integer, base); 
 
                 if (ec == std::errc::result_out_of_range) {
-                    SourceLocation loc(m_current_line, get_column(m_index - buf.length()));
-                    m_context->report_compiler_diagnostic(loc, SourceRange(loc, SourceLocation(m_current_line, get_column(m_index))), 
-                                                   "integer literal is too large to fit into any integer type");
+                    SourceLoc loc;
+                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()), "integer literal is too large to fit into any integer type");
                     integer = 0;
                 }
             }
@@ -377,21 +369,21 @@ namespace ariac {
             if (isUnsigned) {
                 if (integer <= UINT32_MAX) {
                     add_token_with_integer(TokenKind::UIntLit,
-                        SourceRange(m_current_line, get_column(m_index - buf.length()), m_current_line, get_column(m_index)),
+                        SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()),
                         integer);
                 } else {
                     add_token_with_integer(TokenKind::ULongLit,
-                        SourceRange(m_current_line, get_column(m_index - buf.length()), m_current_line, get_column(m_index)),
+                        SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()),
                         integer);
                 }
             } else {
                 if (integer <= INT32_MAX) {
                     add_token_with_integer(TokenKind::IntLit,
-                        SourceRange(m_current_line, get_column(m_index - buf.length()), m_current_line, get_column(m_index)),
+                        SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()),
                         integer);
                 } else {
                     add_token_with_integer(TokenKind::LongLit,
-                        SourceRange(m_current_line, get_column(m_index - buf.length()), m_current_line, get_column(m_index)),
+                        SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()),
                         integer);
                 }
             }
@@ -399,45 +391,48 @@ namespace ariac {
     }
 
     void Lexer::parse_string_literal(bool c_style) {
-        SourceLocation start = SourceLocation(m_current_line, get_column(m_index - 1));
-        SourceLocation end;
+        size_t start_index = m_index - (c_style) ? 2 : 1;
+        SourceLoc loc = SourceLoc(m_current_line, get_column(start_index), m_index, (c_style) ? 2 : 1);
 
         scratch_buffer_clear();
 
-        while (!end.is_valid()) {
+        bool loop = true;
+        while (loop) {
             switch (peek()) {
                 case '"': {
                     consume();
-                    end = SourceLocation(m_current_line, get_column(m_index));
+                    loop = false;
                     break;
                 }
 
                 case '\n':
                 case '\0': {
-                    end = SourceLocation(m_current_line, get_column(m_index));
-                    m_context->report_compiler_diagnostic(start, SourceRange(start, end), "Unterminated string literal");
+                    loop = false;
+                    m_context->report_compiler_diagnostic(loc, "Unterminated string literal");
                     return;
                 }
 
                 default: {
+                    loc.len++;
                     scratch_buffer_append(parse_char());
                     break;
                 }
             }
         }
 
-        add_token(c_style ? TokenKind::CStrLit : TokenKind::StrLit, SourceRange(start, end), scratch_buffer_to_str(m_context));
+        add_token(c_style ? TokenKind::CStrLit : TokenKind::StrLit, loc, scratch_buffer_to_str(m_context));
     }
 
     void Lexer::parse_hash_symbol() {
+        SourceLoc loc = SourceLoc(m_current_line, get_column(m_index), m_index, 1);
         scratch_buffer_clear();
-        SourceLocation start = SourceLocation(m_current_line, get_column(m_index));
 
         scratch_buffer_append('#');
         consume();
 
         while (true) {
             if (std::isalpha(peek())) {
+                loc.len++;
                 scratch_buffer_append(peek());
                 consume();
             } else {
@@ -445,20 +440,21 @@ namespace ariac {
             }
         }
 
-        if (scratch_buffer_cmp("#private")) { add_token(TokenKind::HashPrivate, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "#private"); return; }
+        if (scratch_buffer_cmp("#private")) { add_token(TokenKind::HashPrivate, loc, "#private"); return; }
 
-        m_context->report_compiler_diagnostic(start, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "Unknown identifier following '#'");
+        m_context->report_compiler_diagnostic(loc, "Unknown identifier following '#'");
     }
 
     void Lexer::parse_at_symbol() {
+        SourceLoc loc = SourceLoc(m_current_line, get_column(m_index), m_index, 1);
         scratch_buffer_clear();
-        SourceLocation start = SourceLocation(m_current_line, get_column(m_index));
 
         scratch_buffer_append('@');
         consume();
 
         while (true) {
             if (std::isalpha(peek())) {
+                loc.len++;
                 scratch_buffer_append(peek());
                 consume();
             } else {
@@ -466,17 +462,18 @@ namespace ariac {
             }
         }
 
-        if (scratch_buffer_cmp("@if")) { add_token(TokenKind::AtIf, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "@if"); return; }
+        if (scratch_buffer_cmp("@if")) { add_token(TokenKind::AtIf, loc, "@if"); return; }
 
-        m_context->report_compiler_diagnostic(start, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "Unknown identifier following '@'");
+        m_context->report_compiler_diagnostic(loc, "Unknown identifier following '@'");
     }
 
     void Lexer::parse_identifier() {
+        SourceLoc loc = SourceLoc(m_current_line, get_column(m_index), m_index, 0);
         scratch_buffer_clear();
-        SourceLocation start = SourceLocation(m_current_line, get_column(m_index));
 
         while (true) {
             if (std::isalnum(peek()) || peek() == '_') {
+                loc.len++;
                 scratch_buffer_append(peek());
                 consume();
             } else {
@@ -484,47 +481,47 @@ namespace ariac {
             }
         }
 
-        if (scratch_buffer_cmp("true"))     { add_token(TokenKind::True,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "true");     return; }
-        if (scratch_buffer_cmp("false"))    { add_token(TokenKind::False,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "false");    return; }
-        if (scratch_buffer_cmp("null"))     { add_token(TokenKind::Null,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "null");     return; }
+        if (scratch_buffer_cmp("true"))     { add_token(TokenKind::True,     loc, "true");     return; }
+        if (scratch_buffer_cmp("false"))    { add_token(TokenKind::False,    loc, "false");    return; }
+        if (scratch_buffer_cmp("null"))     { add_token(TokenKind::Null,     loc, "null");     return; }
 
-        if (scratch_buffer_cmp("module"))   { add_token(TokenKind::Module,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "module");   return; }
-        if (scratch_buffer_cmp("import"))   { add_token(TokenKind::Import,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "import");   return; }
-        if (scratch_buffer_cmp("let"))      { add_token(TokenKind::Let,      SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "let");      return; }
-        if (scratch_buffer_cmp("if"))       { add_token(TokenKind::If,       SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "if");       return; }
-        if (scratch_buffer_cmp("else"))     { add_token(TokenKind::Else,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "else");     return; }
-        if (scratch_buffer_cmp("while"))    { add_token(TokenKind::While,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "while");    return; }
-        if (scratch_buffer_cmp("do"))       { add_token(TokenKind::Do,       SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "do");       return; }
-        if (scratch_buffer_cmp("for"))      { add_token(TokenKind::For,      SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "for");      return; }
-        if (scratch_buffer_cmp("break"))    { add_token(TokenKind::Break,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "break");    return; }
-        if (scratch_buffer_cmp("continue")) { add_token(TokenKind::Continue, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "continue"); return; }
-        if (scratch_buffer_cmp("return"))   { add_token(TokenKind::Return,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "return");   return; }
-        if (scratch_buffer_cmp("fn"))       { add_token(TokenKind::Fn,       SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "fn");       return; }
-        if (scratch_buffer_cmp("struct"))   { add_token(TokenKind::Struct,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "struct");   return; }
-        if (scratch_buffer_cmp("impl"))     { add_token(TokenKind::Impl,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "impl");     return; }
-        if (scratch_buffer_cmp("new"))      { add_token(TokenKind::New,      SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "new");      return; }
-        if (scratch_buffer_cmp("delete"))   { add_token(TokenKind::Delete,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "delete");   return; }
-        if (scratch_buffer_cmp("defer"))    { add_token(TokenKind::Defer,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "defer");    return; }
-        if (scratch_buffer_cmp("extern"))   { add_token(TokenKind::Extern,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "extern");   return; }
-        if (scratch_buffer_cmp("sizeof"))   { add_token(TokenKind::Sizeof,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "sizeof");   return; }
-        if (scratch_buffer_cmp("typedef"))  { add_token(TokenKind::Typedef,  SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "typedef");  return; }
-        if (scratch_buffer_cmp("as"))       { add_token(TokenKind::As,       SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "as");       return; }
+        if (scratch_buffer_cmp("module"))   { add_token(TokenKind::Module,   loc, "module");   return; }
+        if (scratch_buffer_cmp("import"))   { add_token(TokenKind::Import,   loc, "import");   return; }
+        if (scratch_buffer_cmp("let"))      { add_token(TokenKind::Let,      loc, "let");      return; }
+        if (scratch_buffer_cmp("if"))       { add_token(TokenKind::If,       loc, "if");       return; }
+        if (scratch_buffer_cmp("else"))     { add_token(TokenKind::Else,     loc, "else");     return; }
+        if (scratch_buffer_cmp("while"))    { add_token(TokenKind::While,    loc, "while");    return; }
+        if (scratch_buffer_cmp("do"))       { add_token(TokenKind::Do,       loc, "do");       return; }
+        if (scratch_buffer_cmp("for"))      { add_token(TokenKind::For,      loc, "for");      return; }
+        if (scratch_buffer_cmp("break"))    { add_token(TokenKind::Break,    loc, "break");    return; }
+        if (scratch_buffer_cmp("continue")) { add_token(TokenKind::Continue, loc, "continue"); return; }
+        if (scratch_buffer_cmp("return"))   { add_token(TokenKind::Return,   loc, "return");   return; }
+        if (scratch_buffer_cmp("fn"))       { add_token(TokenKind::Fn,       loc, "fn");       return; }
+        if (scratch_buffer_cmp("struct"))   { add_token(TokenKind::Struct,   loc, "struct");   return; }
+        if (scratch_buffer_cmp("impl"))     { add_token(TokenKind::Impl,     loc, "impl");     return; }
+        if (scratch_buffer_cmp("new"))      { add_token(TokenKind::New,      loc, "new");      return; }
+        if (scratch_buffer_cmp("delete"))   { add_token(TokenKind::Delete,   loc, "delete");   return; }
+        if (scratch_buffer_cmp("defer"))    { add_token(TokenKind::Defer,    loc, "defer");    return; }
+        if (scratch_buffer_cmp("extern"))   { add_token(TokenKind::Extern,   loc, "extern");   return; }
+        if (scratch_buffer_cmp("sizeof"))   { add_token(TokenKind::Sizeof,   loc, "sizeof");   return; }
+        if (scratch_buffer_cmp("typedef"))  { add_token(TokenKind::Typedef,  loc, "typedef");  return; }
+        if (scratch_buffer_cmp("as"))       { add_token(TokenKind::As,       loc, "as");       return; }
 
-        if (scratch_buffer_cmp("void"))     { add_token(TokenKind::Void,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "void");     return; }
-        if (scratch_buffer_cmp("bool"))     { add_token(TokenKind::Bool,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "bool");     return; }
-        if (scratch_buffer_cmp("char"))     { add_token(TokenKind::Char,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "char");     return; }
-        if (scratch_buffer_cmp("uchar"))    { add_token(TokenKind::UChar,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "uchar");    return; }
-        if (scratch_buffer_cmp("short"))    { add_token(TokenKind::Short,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "short");    return; }
-        if (scratch_buffer_cmp("ushort"))   { add_token(TokenKind::UShort,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "ushort");   return; }
-        if (scratch_buffer_cmp("int"))      { add_token(TokenKind::Int,      SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "int");      return; }
-        if (scratch_buffer_cmp("uint"))     { add_token(TokenKind::UInt,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "uint");     return; }
-        if (scratch_buffer_cmp("long"))     { add_token(TokenKind::Long,     SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "long");     return; }
-        if (scratch_buffer_cmp("ulong"))    { add_token(TokenKind::ULong,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "ulong");    return; }
-        if (scratch_buffer_cmp("float"))    { add_token(TokenKind::Float,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "float");    return; }
-        if (scratch_buffer_cmp("double"))   { add_token(TokenKind::Double,   SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "double");   return; }
-        if (scratch_buffer_cmp("const"))    { add_token(TokenKind::Const,    SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), "const");    return; }
+        if (scratch_buffer_cmp("void"))     { add_token(TokenKind::Void,     loc, "void");     return; }
+        if (scratch_buffer_cmp("bool"))     { add_token(TokenKind::Bool,     loc, "bool");     return; }
+        if (scratch_buffer_cmp("char"))     { add_token(TokenKind::Char,     loc, "char");     return; }
+        if (scratch_buffer_cmp("uchar"))    { add_token(TokenKind::UChar,    loc, "uchar");    return; }
+        if (scratch_buffer_cmp("short"))    { add_token(TokenKind::Short,    loc, "short");    return; }
+        if (scratch_buffer_cmp("ushort"))   { add_token(TokenKind::UShort,   loc, "ushort");   return; }
+        if (scratch_buffer_cmp("int"))      { add_token(TokenKind::Int,      loc, "int");      return; }
+        if (scratch_buffer_cmp("uint"))     { add_token(TokenKind::UInt,     loc, "uint");     return; }
+        if (scratch_buffer_cmp("long"))     { add_token(TokenKind::Long,     loc, "long");     return; }
+        if (scratch_buffer_cmp("ulong"))    { add_token(TokenKind::ULong,    loc, "ulong");    return; }
+        if (scratch_buffer_cmp("float"))    { add_token(TokenKind::Float,    loc, "float");    return; }
+        if (scratch_buffer_cmp("double"))   { add_token(TokenKind::Double,   loc, "double");   return; }
+        if (scratch_buffer_cmp("const"))    { add_token(TokenKind::Const,    loc, "const");    return; }
 
-        add_token(TokenKind::Identifier, SourceRange(start, SourceLocation(m_current_line, get_column(m_index))), scratch_buffer_to_str(m_context));
+        add_token(TokenKind::Identifier, loc, scratch_buffer_to_str(m_context));
     }
 
     void Lexer::parse_single_line_comment() {
@@ -592,8 +589,7 @@ namespace ariac {
                 case '\'': consume(); return '\'';
 
                 default: {
-                    SourceLocation loc = SourceLocation(m_current_line, get_column(m_index));
-                    m_context->report_compiler_diagnostic(loc, SourceRange(loc, loc), "Unknown escape sequence");
+                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 2), "Unknown escape sequence");
                     return '\\';
                 }
             }
@@ -605,28 +601,28 @@ namespace ariac {
         ARIA_UNREACHABLE();
     }
 
-    void Lexer::add_token(TokenKind kind, const SourceRange& range, std::string_view string) {
+    void Lexer::add_token(TokenKind kind, const SourceLoc& loc, std::string_view string) {
         Token token;
         token.kind = kind;
-        token.range = range;
+        token.loc = loc;
         token.string = string;
 
         m_tokens.push_back(token);
     }
 
-    void Lexer::add_token_with_integer(TokenKind kind, const SourceRange& range, u64 integer) {
+    void Lexer::add_token_with_integer(TokenKind kind, const SourceLoc& loc, u64 integer) {
         Token token;
         token.kind = kind;
-        token.range = range;
+        token.loc = loc;
         token.integer = integer;
 
         m_tokens.push_back(token);
     }
 
-    void Lexer::add_token_with_number(TokenKind kind, const SourceRange& range, double number) {
+    void Lexer::add_token_with_number(TokenKind kind, const SourceLoc& loc, double number) {
         Token token;
         token.kind = kind;
-        token.range = range;
+        token.loc = loc;
         token.number = number;
 
         m_tokens.push_back(token);
