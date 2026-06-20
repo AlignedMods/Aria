@@ -294,20 +294,6 @@ namespace ariac {
                 decl->field.identifier, type_info_to_string(decl->field.type, false), decl_visibility_to_string(decl->visibility));
                 return;
 
-            case DeclKind::Constructor: m_output += fmt::format("ConstructorDecl '{}' {}\n",
-                type_info_to_string(decl->constructor.type, false), constructor_kind_to_string(decl->constructor.kind));
-
-                for (Decl* param : decl->constructor.parameters) {
-                    dump_decl(param, indentation + 4);
-                }
-
-                if (decl->constructor.body) { dump_stmt(decl->constructor.body, indentation + 4); }
-                return;
-
-            case DeclKind::Destructor: m_output += "DestructorDecl\n";
-                dump_stmt(decl->destructor.body, indentation + 4);
-                return;
-
             case DeclKind::Method: m_output += fmt::format("MethodDecl '{}' '{}'\n",
                 decl->method.identifier, type_info_to_string(decl->method.type, false));
 

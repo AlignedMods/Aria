@@ -2,24 +2,4 @@ module std::core;
 
 import std::io;
 
-struct String {
-    data: char*;
-    len: ulong;
-}
-
-impl String {
-    String(s: char[]) {
-        len = s.len;
-
-        data = new char[s.len];
-        memcpy(data, s.mem, s.len);
-
-        io::print(s.mem[:s.len]);
-    }
-
-    ~String() {
-        len = 0;
-        delete data;
-        data = null;
-    }
-}
+typedef char[] as String;

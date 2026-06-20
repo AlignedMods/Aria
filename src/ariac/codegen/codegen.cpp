@@ -136,11 +136,20 @@ namespace ariac {
     }
 
     void Codegen::link() {
+        if (m_triple.isOSWindows()) {
+            link_windows();
+        } else {
+            ARIA_UNREACHABLE();
+        }
+    }
+
+    void Codegen::link_windows() {
         std::vector<llvm::StringRef> args;
         args.push_back("clang");
         for (auto& o : m_object_files) {
             args.push_back(o);
         }
+        args.push_back("-Wl,--subsystem,console");
         args.push_back("-o");
         args.push_back(".build\\main.exe");
 
@@ -153,12 +162,14 @@ namespace ariac {
         int code = llvm::sys::ExecuteAndWait(clang_path.get(), args, {}, {}, 0, 0, &err);
 
         if (code == -1) {
-            throw std::runtime_error(fmt::format("Could not invoke clang to run linker: {}", err));
+            throw std::runtime_error(fmt::format("Could not invoke linker: {}", err));
         } else if (code == -2) {
             throw std::runtime_error(fmt::format("Failed to run linker: {}", err));
+        } else if (code > 0) {
+            throw std::runtime_error(fmt::format("Linker failed with exit code {}", code));
+        } else {
+            fmt::println("Generated executable '{}'", ".build\\main.exe");
         }
-
-        fmt::println("Generated executable '{}'", ".build\\main.exe");
     }
 
     llvm::Type* Codegen::type_info_to_llvm_type(TypeInfo* t) {
@@ -323,78 +334,6 @@ namespace ariac {
 
     u64 Codegen::align_value(u64 val, u64 alignment) {
         return ((val + alignment - 1) / alignment) * alignment;
-    }
-
-    std::string Codegen::mangle_function(Decl* fn) {
-        if (fn->function.identifier == "main") { return "main"; }
-        if (fn->function.linkage_kind == LinkageKind::Extern) { return fmt::format("{}", fn->function.identifier); }
-
-        std::string mod_name = valid_module_name(fn->parent_module->name);
-        std::string sig = fmt::format("A_{}{}{}{}", mod_name.length(), mod_name, fn->function.identifier.length(), fn->function.identifier);
-
-        for (size_t i = 0; i < fn->function.parameters.size; i++) {
-            sig += mangle_type(fn->function.parameters.items[i]->param.type);
-        }
-
-        return sig;
-    }
-
-    std::string Codegen::mangle_dtor(DestructorDecl* dtor) {
-        std::string mod_name = valid_module_name(dtor->parent->parent_module->name);
-        std::string sig = fmt::format("A_{}{}{}{}D", mod_name.length(), mod_name, dtor->parent->struct_.identifier.length(), dtor->parent->struct_.identifier);
-
-        return sig;
-    }
-
-    std::string Codegen::mangle_method(MethodDecl* md) {
-        std::string mod_name = valid_module_name(md->parent->parent_module->name);
-        std::string sig = fmt::format("A_{}{}{}{}{}{}", mod_name.length(), mod_name, md->parent->struct_.identifier.length(), md->parent->struct_.identifier, md->identifier.length(), md->identifier);
-
-        for (size_t i = 0; i < md->parameters.size; i++) {
-            sig += mangle_type(md->parameters.items[i]->param.type);
-        }
-
-        return sig;
-    }
-
-    std::string Codegen::mangle_type(TypeInfo* t) {
-        switch (t->kind) {
-            case TypeKind::Void: return "v";
-
-            case TypeKind::Bool: return "b";
-            case TypeKind::Char: return "c";
-            case TypeKind::UChar: return "uc";
-            case TypeKind::Short: return "s";
-            case TypeKind::UShort: return "us";
-            case TypeKind::Int: return "i";
-            case TypeKind::UInt: return "ui";
-            case TypeKind::Long: return "l";
-            case TypeKind::ULong: return "ul";
-            case TypeKind::Float: return "f";
-            case TypeKind::Double: return "d";
-
-            case TypeKind::Ptr: {
-                return fmt::format("P{}", mangle_type(t->base));
-            }
-
-            case TypeKind::Array: {
-                return fmt::format("A{}{}", t->array.size, mangle_type(t->array.type));
-            }
-
-            case TypeKind::Slice: {
-                return fmt::format("S{}", mangle_type(t->base));
-            }
-
-            case TypeKind::Ref: {
-                return fmt::format("R{}", mangle_type(t->base));
-            }
-
-            case TypeKind::Structure: {
-                return fmt::format("{}{}{}{}", t->struct_.source_decl->parent_module->name.length(), valid_module_name(t->struct_.source_decl->parent_module->name), t->struct_.identifier.length(), t->struct_.identifier);
-            }
-
-            default: ARIA_UNREACHABLE();
-        }
     }
 
     std::string Codegen::valid_module_name(std::string_view name) {

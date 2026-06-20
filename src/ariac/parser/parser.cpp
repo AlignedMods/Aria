@@ -1365,50 +1365,8 @@ namespace ariac {
             SourceLoc loc = peek()->loc;
 
             if (match(TokenKind::Identifier)) {
-                if (peek()->string == ident->string) { // Check for constructor
-                    consume();
-                    bool is_var_arg = false;
-                    auto[params, param_types] = parse_function_params(&is_var_arg);
-                    Stmt* body = nullptr;
-                    ConstructorKind kind = ConstructorKind::UserDefined;
-
-                    if (match(TokenKind::Eq)) {
-                        consume();
-                        try_consume(TokenKind::Delete, "delete");
-                        try_consume(TokenKind::Semi, ";");
-
-                        kind = ConstructorKind::Deleted;
-                    } else {
-                        body = parse_block();
-                    }
-
-                    FunctionDeclaration fn;
-                    fn.param_types = param_types;
-                    fn.return_type = &void_type;
-                    fn.var_arg = is_var_arg;
-
-                    TypeInfo* type = TypeInfo::Create(m_context, TypeKind::Function);
-                    type->function = fn;
-
-                    impl->impl.fields.append(m_context, Decl::Create(m_context, loc + peek(-1)->loc, DeclKind::Constructor, visibility, ConstructorDecl(impl, params, type, body, kind)));
-                } else {
-                    m_context->report_compiler_diagnostic(loc, "Unexpected identifier found, did you mean to put 'fn' before it?");
-                    sync_local();
-                }
-            } else if (match(TokenKind::Squigly)) {
-                consume();
-
-                Token* dtor = try_consume(TokenKind::Identifier, "identifier");
-                if (!dtor) { sync_local(); continue; }
-
-                if (dtor->string != ident->string) { m_context->report_compiler_diagnostic(dtor->loc, "Name of destructor must match name of struct"); }
-
-                try_consume(TokenKind::LeftParen, "(");
-                try_consume(TokenKind::RightParen, ")");
-
-                Stmt* body = parse_block();
-
-                impl->impl.fields.append(m_context, Decl::Create(m_context, loc + peek(-1)->loc, DeclKind::Destructor, visibility, DestructorDecl(impl, body)));
+                m_context->report_compiler_diagnostic(loc, "Unexpected identifier found, did you mean to put 'fn' before it?");
+                sync_local();
             } else if (match(TokenKind::Fn)) {
                 consume();
 
@@ -1446,7 +1404,7 @@ namespace ariac {
                 m_context->report_compiler_diagnostic(loc + peek()->loc, "Impls do not support private fields");
                 consume();
             } else {
-                m_context->report_compiler_diagnostic(loc, "Expected identifier, 'fn' or '~'");
+                m_context->report_compiler_diagnostic(loc, "Expected 'fn'");
                 sync_local();
                 if (match(TokenKind::Semi)) { consume(); }
             }

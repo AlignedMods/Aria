@@ -1,9 +1,11 @@
 #pragma once
 
+#include "ariac/core/platform.hpp"
+
 #include "fmt/printf.h"
 #include "fmt/color.h"
 
-#ifdef _WIN32
+#ifdef PLATFORM_WINDOWS
     #define ARIA_DEBUGBREAK() __debugbreak()
 #elif __linux__
     #include <signal.h>

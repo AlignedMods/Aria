@@ -144,14 +144,6 @@ namespace ariac {
                     i.parent->struct_.field_lookup.insert(m_context, field->method.identifier, field);
                     break;
                 }
-
-                case DeclKind::Constructor: 
-                    i.parent->struct_.definition.ctors.append(m_context, field);
-                    break;
-
-                case DeclKind::Destructor:
-                    i.parent->struct_.definition.dtor = field;
-                    break;
             }
         }
 
@@ -183,49 +175,6 @@ namespace ariac {
 
                     pop_scope();
                     m_active_return_type = nullptr;
-                    break;
-                }
-
-                case DeclKind::Constructor: {
-                    if (field->constructor.parameters.size == 0) { i.parent->struct_.definition.default_ctor = field; }
-
-                    for (Decl* field : i.fields) {
-                        if (field->kind == DeclKind::Field) {
-                            if (!type_is_trivial(field->field.type)) {
-                                ARIA_TODO("Propagating constructors");
-                            }
-                        }
-                    }
-
-                    if (field->constructor.kind != ConstructorKind::Deleted) {
-                        push_scope();
-                        for (Decl* param : field->constructor.parameters) {
-                            resolve_param_decl(param);
-                        }
-
-                        resolve_stmt(field->constructor.body);
-                        pop_scope();
-                    }
-                    break;
-                }
-
-                case DeclKind::Destructor: {
-                    for (Decl* field : i.fields) {
-                        if (field->kind == DeclKind::Field) {
-                            if (!type_is_trivial(field->field.type)) {
-                                ARIA_TODO("Propagating destructors");
-                            }
-                        }
-                    }
-
-                    push_scope();
-                    resolve_block_stmt(field->destructor.body);
-
-                    if (m_scopes.back().reaches_end) {
-                        field->destructor.body->block.stmts.append(m_context, Stmt::Create(m_context, decl->loc, StmtKind::Return, ReturnStmt(nullptr)));
-                    }
-                    pop_scope();
-
                     break;
                 }
 
@@ -270,12 +219,7 @@ namespace ariac {
             case DeclKind::Error:
             case DeclKind::Module:
             case DeclKind::Field:
-            case DeclKind::Constructor:
-            case DeclKind::Destructor:
-            case DeclKind::Method:
-            case DeclKind::OverloadedMethod:
-            case DeclKind::BuiltinCopyConstructor:
-            case DeclKind::BuiltinDestructor: return;
+            case DeclKind::Method: return;
 
             case DeclKind::TranslationUnit: return resolve_translation_unit_decl(decl);
             case DeclKind::Var: return resolve_var_decl(decl);

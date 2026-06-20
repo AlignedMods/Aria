@@ -23,12 +23,7 @@ namespace ariac {
         Impl,
         Typedef,
         Field,
-        Constructor,
-        Destructor,
         Method,
-        OverloadedMethod,
-        BuiltinCopyConstructor,
-        BuiltinDestructor
     };
 
     inline const char* decl_kind_to_string(DeclKind kind) {
@@ -80,22 +75,6 @@ namespace ariac {
         Done
     };
 
-    enum class ConstructorKind {
-        Default,
-        UserDefined,
-        Deleted
-    };
-
-    inline const char* constructor_kind_to_string(ConstructorKind kind) {
-        switch (kind) {
-            case ConstructorKind::Default: return "default";
-            case ConstructorKind::UserDefined: return "user_defined";
-            case ConstructorKind::Deleted: return "deleted";
-
-            default: ARIA_UNREACHABLE();
-        }
-    }
-
     enum class LinkageKind {
         None,
         Extern
@@ -112,9 +91,6 @@ namespace ariac {
 
     struct Expr;
     struct Stmt;
-
-    struct ConstructorDecl;
-    struct DestructorDecl;
 
     struct ErrorDecl {
         ErrorDecl() = default;
@@ -168,12 +144,6 @@ namespace ariac {
     };
 
     struct StructDecl {
-        struct Definition {
-            Decl* default_ctor = nullptr;
-            TinyVector<Decl*> ctors;
-            Decl* dtor = nullptr;
-        };
-
         StructDecl(std::string_view identifier, TinyVector<Decl*> fields)
             : identifier(identifier), fields(fields) {}
 
@@ -181,7 +151,6 @@ namespace ariac {
         TinyVector<Decl*> fields;
         HTable<Decl*> field_lookup;
         TinyVector<Decl*> impls;
-        Definition definition;
     };
 
     struct ImplDecl {
@@ -210,25 +179,6 @@ namespace ariac {
         TypeInfo* type = nullptr;
     };
 
-    struct ConstructorDecl {
-        ConstructorDecl(Decl* parent, TinyVector<Decl*> parameters, TypeInfo* type, Stmt* body, ConstructorKind kind)
-            : parent(parent), parameters(parameters), type(type), body(body), kind(kind) {}
-
-        Decl* parent = nullptr;
-        TinyVector<Decl*> parameters;
-        TypeInfo* type = nullptr;
-        Stmt* body = nullptr;
-        ConstructorKind kind = ConstructorKind::Default;
-    };
-
-    struct DestructorDecl {
-        DestructorDecl(Decl* parent, Stmt* body)
-            : parent(parent), body(body) {}
-
-        Decl* parent = nullptr;
-        Stmt* body = nullptr;
-    };
-
     struct MethodDecl {
         MethodDecl(Decl* parent, std::string_view identifier, TypeInfo* type, TinyVector<Decl*> parameters, Stmt* body)
             : parent(parent), identifier(identifier), type(type), parameters(parameters), body(body) {}
@@ -238,14 +188,6 @@ namespace ariac {
         TypeInfo* type = nullptr;
         TinyVector<Decl*> parameters;
         Stmt* body = nullptr;
-    };
-
-    struct OverloadedMethodDecl {
-        OverloadedMethodDecl(std::string_view identifier)
-            : identifier(identifier) {}
-
-        std::string_view identifier;
-        TinyVector<Decl*> funcs;
     };
 
     struct Decl {
@@ -277,10 +219,7 @@ namespace ariac {
             ImplDecl impl;
             TypedefDecl typedef_;
             FieldDecl field;
-            ConstructorDecl constructor;
-            DestructorDecl destructor;
             MethodDecl method;
-            OverloadedMethodDecl overloaded_method;
         };
 
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, ErrorDecl error)
@@ -313,17 +252,8 @@ namespace ariac {
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, FieldDecl field)
             : loc(loc), kind(kind), visibility(visibility), field(field) {}
 
-        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, ConstructorDecl ctor)
-            : loc(loc), kind(kind), visibility(visibility), constructor(ctor) {}
-
-        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, DestructorDecl dtor)
-            : loc(loc), kind(kind), visibility(visibility), destructor(dtor) {}
-
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, MethodDecl method)
             : loc(loc), kind(kind), visibility(visibility), method(method) {}
-        
-        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, OverloadedMethodDecl overloaded_method)
-            : loc(loc), kind(kind), visibility(visibility), overloaded_method(overloaded_method) {}
     };
 
     inline Decl error_decl = Decl(SourceLoc(), DeclKind::Error, DeclVisibility::Public, ErrorDecl());

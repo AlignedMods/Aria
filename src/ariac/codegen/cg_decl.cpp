@@ -79,7 +79,13 @@ namespace ariac {
 
     void Codegen::gen_function_prototype(Decl* decl) {
         FunctionDecl& fn = decl->function;
-        std::string sig = mangle_function(decl);
+        std::string sig;
+        
+        if (fn.linkage_kind == LinkageKind::Extern || fn.identifier == "main") {
+            sig = fn.identifier;
+        } else {
+            sig = fmt::format("{}.{}", valid_module_name(decl->parent_module->name), fn.identifier);
+        }
 
         llvm::Type* fn_ty = type_info_to_llvm_type(fn.type);
         llvm::Function* function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
@@ -88,22 +94,23 @@ namespace ariac {
 
     void Codegen::gen_method_prototype(Decl* decl) {
         MethodDecl& m = decl->method;
-        std::string sig = mangle_method(&m);
+        std::string_view parent_name;
+
+        ARIA_ASSERT(m.parent->kind == DeclKind::Impl, "Invalid method parent");
+
+        switch (m.parent->impl.parent->kind) {
+            case DeclKind::Struct: parent_name = m.parent->impl.parent->struct_.identifier; break;
+            case DeclKind::Typedef: parent_name = m.parent->impl.parent->typedef_.identifier; break;
+            default: ARIA_UNREACHABLE();
+        }
+
+        std::string sig = fmt::format("{}.{}.{}", valid_module_name(m.parent->parent_module->name), parent_name, m.identifier);
 
         llvm::Type* fn_ty = type_info_to_llvm_type(m.type);
         llvm::Function* function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
         m_active_module_context.functions[decl] = function;
     }
 
-    void Codegen::gen_dtor_prototype(Decl* decl) {
-        DestructorDecl& dtor = decl->destructor;
-        std::string sig = mangle_dtor(&dtor);
-
-        llvm::FunctionType* fn_ty = llvm::FunctionType::get(type_info_to_llvm_type(&void_type), { type_info_to_llvm_type(&void_ptr_type) }, false);
-        llvm::Function* function = llvm::Function::Create(fn_ty, llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
-        m_active_module_context.functions[decl] = function;
-    }
-        
     void Codegen::gen_struct_decl(Decl* decl) {
         StructDecl& struc = decl->struct_;
 
@@ -179,35 +186,6 @@ namespace ariac {
                         m_active_module_context.alloca_marker = nullptr;
                         if (llvm::verifyFunction(*function, &llvm::errs())) { throw std::exception(); }
                     }
-
-                    m_active_module_context.functions[field];
-                    break;
-                }
-
-                case DeclKind::Destructor: {
-                    DestructorDecl& dtor = field->destructor;
-
-                    if (!m_active_module_context.functions.contains(field)) {
-                        gen_dtor_prototype(field);
-                    }
-
-                    llvm::Function* function = m_active_module_context.functions.at(field);
-                    m_active_module_context.function = function;
-
-                    llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", function);
-                    m_active_module_context.builder->SetInsertPoint(bb);
-
-                    m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
-
-                    // self
-                    llvm::AllocaInst* s = alloca_at_entry(function, "self", &void_ptr_type);
-                    m_self_value = s;
-                    m_active_module_context.builder->CreateStore(function->getArg(0), s);
-
-                    gen_stmt(dtor.body);
-                    m_active_module_context.alloca_marker->eraseFromParent();
-                    m_active_module_context.alloca_marker = nullptr;
-                    llvm::verifyFunction(*function, &llvm::errs());
 
                     m_active_module_context.functions[field];
                     break;

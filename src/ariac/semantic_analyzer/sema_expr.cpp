@@ -117,7 +117,6 @@ namespace ariac {
                 switch (source->kind) {
                     case DeclKind::Field: mem_type = source->field.type; break;
                     case DeclKind::Method: mem_type = source->method.type; break;
-                    case DeclKind::OverloadedMethod: mem_type = &error_type; break;
                     default: ARIA_UNREACHABLE();
                 }
 
@@ -190,7 +189,6 @@ namespace ariac {
                     switch (fd->kind) {
                         case DeclKind::Field: member_type = fd->field.type; break;
                         case DeclKind::Method: member_type = fd->method.type; break;
-                        case DeclKind::OverloadedMethod: member_type = &error_type; break;
                         default: ARIA_UNREACHABLE();
                     }
                     mem.referenced_member = fd;
@@ -344,75 +342,31 @@ namespace ariac {
         resolve_type(expr->loc, expr->type);
         Decl* s = expr->type->struct_.source_decl;
 
-        if (s->struct_.definition.ctors.size > 0) { // Constructor call
-            for (Expr* arg : construct.arguments) {
-                resolve_expr(arg);
+        if (construct.arguments.size > s->struct_.fields.size) {
+            m_context->report_compiler_diagnostic(expr->loc, fmt::format("Too many initializers for '{}', expected {} but provided {}", type_info_to_string(expr->type), s->struct_.fields.size, construct.arguments.size));
+            expr->type = &error_type;
+            return;
+        }
 
-                Decl* resolved = nullptr;
+        size_t i = 0;
+        for (Expr* arg : construct.arguments) {
+            resolve_expr(arg);
 
-                for (Decl* ctor : s->struct_.definition.ctors) {
-                    if (ctor->constructor.type->function.param_types.size != construct.arguments.size) { goto again; }
+            Decl* fd = s->struct_.fields.items[i++];
+            if (fd->kind == DeclKind::Error) { continue; }
 
-                    for (size_t i = 0; i < ctor->constructor.type->function.param_types.size; i++) {
-                        if (!type_is_equal(ctor->constructor.type->function.param_types.items[i], construct.arguments.items[i]->type)) { goto again; }
-                    }
-
-                    goto done;
-
-                done:
-                    resolved = ctor;
-                    break;
-
-                again:
-                    continue;
+            ConversionCost cost = get_conversion_cost(fd->field.type, arg->type);
+            if (cost.cast_needed) {
+                if (cost.implicit_cast_possible) {
+                    insert_implicit_cast(fd->field.type, arg->type, arg, cost.kind);
+                } else {
+                    m_context->report_compiler_diagnostic(arg->loc, fmt::format("Could not convert from '{}' to field type '{}'", type_info_to_string(arg->type), type_info_to_string(fd->field.type)));
                 }
-
-                if (!resolved) {
-                    m_context->report_compiler_diagnostic(expr->loc, "No matching constructor to call");
-                    for (size_t i = 0; i < construct.arguments.size; i++) {
-                        construct.arguments.items[i]->type = &error_type;
-                    }
-
-                    expr->type = &error_type;
-                    return;
-                }
-
-                for (size_t i = 0; i < resolved->constructor.type->function.param_types.size; i++) {
-                    if (!resolved->constructor.type->function.param_types.items[i]->is_reference()) { require_rvalue(construct.arguments.items[i]); }
-                }
-
-                construct.ctor = &resolved->constructor;
-                return;
-            }
-        } else { // Initializer list
-            construct.ctor = nullptr;
-
-            if (construct.arguments.size > s->struct_.fields.size) {
-                m_context->report_compiler_diagnostic(expr->loc, fmt::format("Too many initializers for '{}', expected {} but provided {}", type_info_to_string(expr->type), s->struct_.fields.size, construct.arguments.size));
-                expr->type = &error_type;
-                return;
             }
 
-            size_t i = 0;
-            for (Expr* arg : construct.arguments) {
-                resolve_expr(arg);
-
-                Decl* fd = s->struct_.fields.items[i++];
-                if (fd->kind == DeclKind::Error) { continue; }
-
-                ConversionCost cost = get_conversion_cost(fd->field.type, arg->type);
-                if (cost.cast_needed) {
-                    if (cost.implicit_cast_possible) {
-                        insert_implicit_cast(fd->field.type, arg->type, arg, cost.kind);
-                    } else {
-                        m_context->report_compiler_diagnostic(arg->loc, fmt::format("Could not convert from '{}' to field type '{}'", type_info_to_string(arg->type), type_info_to_string(fd->field.type)));
-                    }
-                }
-
-                if (fd->visibility == DeclVisibility::Private) {
-                    m_context->report_compiler_diagnostic(arg->loc, fmt::format("Cannot initialize private field '{}'", fd->field.identifier));
-                    m_context->report_compiler_diagnostic(fd->loc, "Declared here", CompilerDiagKind::Note, fd->parent_unit);
-                }
+            if (fd->visibility == DeclVisibility::Private) {
+                m_context->report_compiler_diagnostic(arg->loc, fmt::format("Cannot initialize private field '{}'", fd->field.identifier));
+                m_context->report_compiler_diagnostic(fd->loc, "Declared here", CompilerDiagKind::Note, fd->parent_unit);
             }
         }
     }
@@ -430,69 +384,24 @@ namespace ariac {
         }
 
         if (mc.callee->member.referenced_member->kind != DeclKind::Error) {
-            if (mc.callee->member.referenced_member->kind == DeclKind::OverloadedMethod) {
-                resolve_decl(mc.callee->member.referenced_member);
-                m_temporary_context = true;
-                for (Expr* arg : mc.arguments) {
-                    resolve_expr(arg);
+            ARIA_ASSERT(mc.callee->member.referenced_member->kind == DeclKind::Method, "Invalid referenced member");
+
+            resolve_type(mc.callee->member.referenced_member->loc, mc.callee->member.referenced_member->method.type);
+            FunctionDeclaration& fnDecl = callee_type->function;
+
+            if (fnDecl.param_types.size != mc.arguments.size) {
+                m_context->report_compiler_diagnostic(expr->loc, fmt::format("Mismatched argument count, method expects {} but got {}", fnDecl.param_types.size, mc.arguments.size));
+                for (size_t i = 0; i < mc.arguments.size; i++) {
+                    resolve_expr(mc.arguments.items[i]);
                 }
-                m_temporary_context = false;
-
-                Decl* resolved = nullptr;
-
-                for (Decl* func : mc.callee->member.referenced_member->overloaded_method.funcs) {
-                    if (func->method.type->function.param_types.size != mc.arguments.size) { goto again; }
-
-                    for (size_t i = 0; i < func->method.type->function.param_types.size; i++) {
-                        if (!type_is_equal(func->method.type->function.param_types.items[i], mc.arguments.items[i]->type)) { goto again; }
-                    }
-
-                    goto done;
-
-                done:
-                    resolved = func;
-                    break;
-
-                again:
-                    continue;
+            } else {
+                for (size_t i = 0; i < fnDecl.param_types.size; i++) {
+                    resolve_param_initializer(fnDecl.param_types.items[i], mc.arguments.items[i]);
                 }
-
-                if (!resolved) {
-                    m_context->report_compiler_diagnostic(expr->loc, fmt::format("No matching overloaded method '{}' to call", mc.callee->member.member));
-                    for (size_t i = 0; i < mc.arguments.size; i++) {
-                        mc.arguments.items[i]->type = &error_type;
-                    }
-
-                    expr->type = &error_type;
-                    return;
-                }
-
-                for (size_t i = 0; i < resolved->method.type->function.param_types.size; i++) {
-                    if (!resolved->method.type->function.param_types.items[i]->is_reference()) { require_rvalue(mc.arguments.items[i]); }
-                }
-
-                mc.callee->member.referenced_member = resolved;
-                mc.callee->type = resolved->method.type;
-                expr->type = resolved->method.type->function.return_type;
-                expr->value_kind = (resolved->method.type->function.return_type->is_reference()) ? ExprValueKind::LValue : ExprValueKind::RValue;
-            } else if (mc.callee->member.referenced_member->kind == DeclKind::Method) {
-                resolve_type(mc.callee->member.referenced_member->loc, mc.callee->member.referenced_member->method.type);
-                FunctionDeclaration& fnDecl = callee_type->function;
-
-                if (fnDecl.param_types.size != mc.arguments.size) {
-                    m_context->report_compiler_diagnostic(expr->loc, fmt::format("Mismatched argument count, method expects {} but got {}", fnDecl.param_types.size, mc.arguments.size));
-                    for (size_t i = 0; i < mc.arguments.size; i++) {
-                        resolve_expr(mc.arguments.items[i]);
-                    }
-                } else {
-                    for (size_t i = 0; i < fnDecl.param_types.size; i++) {
-                        resolve_param_initializer(fnDecl.param_types.items[i], mc.arguments.items[i]);
-                    }
-                }
-
-                expr->type = fnDecl.return_type;
-                expr->value_kind = (fnDecl.return_type->is_reference()) ? ExprValueKind::LValue : ExprValueKind::RValue;
             }
+
+            expr->type = fnDecl.return_type;
+            expr->value_kind = (fnDecl.return_type->is_reference()) ? ExprValueKind::LValue : ExprValueKind::RValue;
         } else {
             for (Expr* arg : mc.arguments) {
                 resolve_expr(arg);

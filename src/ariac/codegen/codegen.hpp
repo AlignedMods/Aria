@@ -83,6 +83,8 @@ namespace ariac {
         void gen_mod_ir_dump(Module* mod);
         void link();
 
+        void link_windows();
+
         llvm::Value* gen_boolean_literal_expr(Expr* expr);
         llvm::Value* gen_character_literal_expr(Expr* expr);
         llvm::Value* gen_integer_literal_expr(Expr* expr);
@@ -119,7 +121,6 @@ namespace ariac {
         void gen_function_decl(Decl* decl);
         void gen_function_prototype(Decl* decl);
         void gen_method_prototype(Decl* decl);
-        void gen_dtor_prototype(Decl* decl);
         void gen_struct_decl(Decl* decl);
         void gen_impl_decl(Decl* decl);
 
@@ -143,12 +144,6 @@ namespace ariac {
         u64 get_type_size(TypeInfo* t);
         u64 get_type_alignment(TypeInfo* t);
         u64 align_value(u64 val, u64 alignment);
-
-        std::string mangle_function(Decl* fn);
-        std::string mangle_type(TypeInfo* t);
-        std::string mangle_ctor(ConstructorDecl* ctor);
-        std::string mangle_dtor(DestructorDecl* dtor);
-        std::string mangle_method(MethodDecl* md);
 
         std::string valid_module_name(std::string_view name);
 

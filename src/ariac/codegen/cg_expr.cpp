@@ -205,14 +205,11 @@ namespace ariac {
         llvm::Value* zero = llvm::Constant::getNullValue(type);
         m_active_module_context.builder->CreateStore(zero, temp);
 
-        if (ct.ctor) { ARIA_TODO("Calling constructors"); }
-        else {
-            for (size_t i = 0; i < ct.arguments.size; i++) {
-                llvm::Value* arg = gen_expr(ct.arguments.items[i]);
-                llvm::Value* field = m_active_module_context.builder->CreateStructGEP(type, temp, static_cast<unsigned>(i));
+        for (size_t i = 0; i < ct.arguments.size; i++) {
+            llvm::Value* arg = gen_expr(ct.arguments.items[i]);
+            llvm::Value* field = m_active_module_context.builder->CreateStructGEP(type, temp, static_cast<unsigned>(i));
 
-                m_active_module_context.builder->CreateStore(arg, field);
-            }
+            m_active_module_context.builder->CreateStore(arg, field);
         }
 
         return m_active_module_context.builder->CreateLoad(type, temp);
@@ -375,6 +372,19 @@ namespace ariac {
                     return m_active_module_context.builder->CreateFPTrunc(val, type_info_to_llvm_type(expr->type), "fptrunc");
                 } else {
                     return m_active_module_context.builder->CreateFPExt(val, type_info_to_llvm_type(expr->type), "fpext");
+                }
+
+                ARIA_UNREACHABLE();
+                break;
+            }
+
+            case CastKind::IntegralToFloating: {
+                llvm::Value* val = gen_expr(ic.expression);
+
+                if (ic.expression->type->is_signed()) {
+                    return m_active_module_context.builder->CreateSIToFP(val, type_info_to_llvm_type(expr->type), "sifp");
+                } else {
+                    return m_active_module_context.builder->CreateUIToFP(val, type_info_to_llvm_type(expr->type), "uifp");
                 }
 
                 ARIA_UNREACHABLE();
