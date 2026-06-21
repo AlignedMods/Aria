@@ -166,7 +166,9 @@ namespace ariac {
         Boolean,
         Integer,
         Floating,
-        String
+        String,
+        Struct,
+        Var
     };
     inline const char* const_expr_kind_to_string(ConstExprKind kind) {
         switch (kind) {
@@ -175,6 +177,8 @@ namespace ariac {
             case ConstExprKind::Integer: return "Integer";
             case ConstExprKind::Floating: return "Floating";
             case ConstExprKind::String: return "String";
+            case ConstExprKind::Struct: return "Struct";
+            case ConstExprKind::Var: return "Var";
 
             default: ARIA_UNREACHABLE();
         }
@@ -287,6 +291,7 @@ namespace ariac {
             : arguments(args) {}
 
         TinyVector<Expr*> arguments;
+        bool is_const = true;
     };
 
     struct MethodCallExpr {
@@ -436,12 +441,20 @@ namespace ariac {
         ConstExpr(ConstExprKind kind, std::string_view str)
             : kind(kind), string(str) {}
 
+        ConstExpr(ConstExprKind kind, TinyVector<Expr*> vals)
+            : kind(kind), values(vals) {}
+
+        ConstExpr(ConstExprKind kind, Expr* e)
+            : kind(kind), value(e) {}
+
         ConstExprKind kind = ConstExprKind::Error;
         union {
             bool boolean;
             u64 integer;
             double number;
             std::string_view string;
+            TinyVector<Expr*> values;
+            Expr* value;
         };
     };
 

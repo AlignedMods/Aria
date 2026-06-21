@@ -56,7 +56,7 @@ namespace ariac {
 
                     m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
                 } else if (info.pass_by_ptr) {
-                    llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, &void_ptr_type);
+                    llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, llvm::PointerType::get(*m_active_module_context.context, 0));
                     m_active_module_context.named_values[param] = a;
 
                     m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
@@ -154,7 +154,7 @@ namespace ariac {
                         m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
 
                         // self
-                        llvm::AllocaInst* s = alloca_at_entry(function, "self", &void_ptr_type);
+                        llvm::AllocaInst* s = alloca_at_entry(function, "self", llvm::PointerType::get(*m_active_module_context.context, 0));
                         m_self_value = s;
                         m_active_module_context.builder->CreateStore(function->getArg(idx++), s);
 
@@ -167,7 +167,7 @@ namespace ariac {
 
                                 m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
                             } else if (info.pass_by_ptr) {
-                                llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, &void_ptr_type);
+                                llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, llvm::PointerType::get(*m_active_module_context.context, 0));
                                 m_active_module_context.named_values[param] = a;
 
                                 m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);

@@ -26,7 +26,7 @@ namespace ariac {
         m_context = ctx;
         m_tokens = ctx->active_comp_unit->tokens;
 
-        if (error_expr.type == nullptr) { error_expr.type = &error_type; }
+        if (error_expr.type == nullptr) { error_expr.type = TypeInfo::get_error(m_context); }
 
         add_expr_rules();
         parse_impl();
@@ -39,6 +39,7 @@ namespace ariac {
         m_expr_rules[TokenKind::LeftParen] =         { BIND_PARSE_RULE(parse_grouping), BIND_PARSE_RULE(parse_call), PREC_CALL };
         m_expr_rules[TokenKind::LeftBracket] =       { nullptr, BIND_PARSE_RULE(parse_array_subscript), PREC_CALL };
         m_expr_rules[TokenKind::Dot] =               { nullptr, BIND_PARSE_RULE(parse_member), PREC_CALL };
+        m_expr_rules[TokenKind::Bang] =              { BIND_PARSE_RULE(parse_unary), nullptr, PREC_CALL };
         m_expr_rules[TokenKind::PlusPlus] =          { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_infix_unary), PREC_CALL };
         m_expr_rules[TokenKind::MinusMinus] =        { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_infix_unary), PREC_CALL };
 
@@ -201,7 +202,7 @@ namespace ariac {
             type = parse_type();
         } else {
             m_context->report_compiler_diagnostic(peek()->loc, "Expected a type");
-            type = &error_type;
+            type = TypeInfo::get_error(m_context);
         }
 
         if (!try_consume(TokenKind::Greater, ">")) {
@@ -259,6 +260,7 @@ namespace ariac {
 
     UnaryOperatorKind Parser::get_unary_operator_from_token(Token* token) {
         switch (token->kind) {
+            case TokenKind::Bang: return UnaryOperatorKind::Not;
             case TokenKind::Minus: return UnaryOperatorKind::Negate;
             case TokenKind::Ampersand: return UnaryOperatorKind::AddressOf;
             case TokenKind::DoubleAmpersand: return UnaryOperatorKind::RValueAddressOf;
@@ -401,68 +403,68 @@ namespace ariac {
         switch (t.kind) {
             case TokenKind::False: {
                 return Expr::Create(m_context, t.loc, ExprKind::BooleanLiteral, 
-                    ExprValueKind::RValue, &bool_type, 
+                    ExprValueKind::RValue, TypeInfo::get_basic(m_context, TypeKind::Bool), 
                     BooleanLiteralExpr(false));
             }
 
             case TokenKind::True: {
                 return Expr::Create(m_context, t.loc, ExprKind::BooleanLiteral, 
-                    ExprValueKind::RValue, &bool_type, 
+                    ExprValueKind::RValue, TypeInfo::get_basic(m_context, TypeKind::Bool), 
                     BooleanLiteralExpr(true));
             }
 
             case TokenKind::CharLit: {
                 int8_t ch = static_cast<int8_t>(t.integer);
                 return Expr::Create(m_context, t.loc, ExprKind::CharacterLiteral, 
-                    ExprValueKind::RValue, &char_type, 
+                    ExprValueKind::RValue, TypeInfo::get_basic(m_context, TypeKind::Char), 
                     CharacterLiteralExpr(ch));
             }
     
             case TokenKind::IntLit: {
                 return Expr::Create(m_context, t.loc, ExprKind::IntegerLiteral,
-                    ExprValueKind::RValue, &int_type, 
+                    ExprValueKind::RValue, TypeInfo::get_basic(m_context, TypeKind::Int), 
                     IntegerLiteralExpr(t.integer));
             }
 
             case TokenKind::UIntLit: {
                 return Expr::Create(m_context, t.loc, ExprKind::IntegerLiteral, 
-                    ExprValueKind::RValue, &uint_type, 
+                    ExprValueKind::RValue, TypeInfo::get_basic(m_context, TypeKind::UInt), 
                     IntegerLiteralExpr(t.integer));
             }
 
             case TokenKind::LongLit: {
                 return Expr::Create(m_context, t.loc, ExprKind::IntegerLiteral,
-                    ExprValueKind::RValue, &long_type, 
+                    ExprValueKind::RValue, TypeInfo::get_basic(m_context, TypeKind::Long), 
                     IntegerLiteralExpr(t.integer));
             }
 
             case TokenKind::ULongLit: {
                 return Expr::Create(m_context, t.loc, ExprKind::IntegerLiteral, 
-                    ExprValueKind::RValue, &ulong_type, 
+                    ExprValueKind::RValue, TypeInfo::get_basic(m_context, TypeKind::ULong), 
                     IntegerLiteralExpr(t.integer));
             }
     
             case TokenKind::NumLit: {
                 return Expr::Create(m_context, t.loc, ExprKind::FloatingLiteral,
-                    ExprValueKind::RValue, &double_type, 
+                    ExprValueKind::RValue, TypeInfo::get_basic(m_context, TypeKind::Double), 
                     FloatingLiteralExpr(t.number));
             }
     
             case TokenKind::StrLit: {
                 return Expr::Create(m_context, t.loc, ExprKind::StringLiteral,
-                    ExprValueKind::LValue, &char_slice_type, 
+                    ExprValueKind::LValue, nullptr, 
                     StringLiteralExpr(t.string));
             }
 
             case TokenKind::CStrLit: {
                 return Expr::Create(m_context, t.loc, ExprKind::StringLiteral,
-                    ExprValueKind::LValue, &char_ptr_type, 
+                    ExprValueKind::LValue, TypeInfo::get_char_ptr(m_context), 
                     StringLiteralExpr(t.string));
             }
 
             case TokenKind::Null: {
                 return Expr::Create(m_context, t.loc, ExprKind::Null,
-                    ExprValueKind::RValue, &void_ptr_type, ErrorExpr());
+                    ExprValueKind::RValue, TypeInfo::get_void_ptr(m_context), ErrorExpr());
             }
 
             case TokenKind::Identifier: {
@@ -501,7 +503,7 @@ namespace ariac {
                 break;
             }
 
-            Specifier* specifier = Specifier::Create(m_context, t.loc + col.loc, SpecifierKind::Name, 
+            Specifier* specifier = Specifier::Create(m_context, t.loc, SpecifierKind::Name, 
                 NameSpecifier(scratch_buffer_to_str(m_context)));
 
             Expr* declRef = Expr::Create(m_context, var->loc, ExprKind::DeclRef,
@@ -529,10 +531,10 @@ namespace ariac {
             type = parse_type();
         } else {
             m_context->report_compiler_diagnostic(peek()->loc, "Expected a type");
-            type = &error_type;
+            type = TypeInfo::get_error(m_context);
         }
 
-        type->base = TypeInfo::Dup(m_context, type);
+        type->base = TypeInfo::dup(m_context, type);
         type->kind = TypeKind::Ptr;
 
         // parse_type() will handle array types
@@ -541,7 +543,7 @@ namespace ariac {
 
         if (array) {
             initializer = type->base->array.expression;
-            type->base = type->base->array.type;
+            type->base = type->base->array.base;
         } else if (match(TokenKind::LeftParen)) {
             consume();
 
@@ -570,7 +572,7 @@ namespace ariac {
         }
 
         return Expr::Create(m_context, d.loc + peek(-1)->loc, ExprKind::Delete,
-            ExprValueKind::RValue, &void_type,
+            ExprValueKind::RValue, TypeInfo::get_void(m_context),
             DeleteExpr(expr));
     }
 
@@ -593,7 +595,7 @@ namespace ariac {
         }
 
         return Expr::Create(m_context, s.loc + peek(-1)->loc, ExprKind::Sizeof,
-            ExprValueKind::RValue, &ulong_type,
+            ExprValueKind::RValue, TypeInfo::get_basic(m_context, TypeKind::ULong),
             expr ? SizeofExpr(expr) : SizeofExpr(type));
     }
 
@@ -627,7 +629,7 @@ namespace ariac {
         if (!rp) { return &error_expr; }
     
         return Expr::Create(m_context, f.loc + rp->loc, ExprKind::Format,
-            ExprValueKind::RValue, &char_slice_type, 
+            ExprValueKind::RValue, TypeInfo::get_string(m_context), 
             FormatExpr(args));
     }
 
@@ -721,7 +723,7 @@ namespace ariac {
     TypeInfo* Parser::parse_type() {
         ARIA_ASSERT(is_primitive_type() || match(TokenKind::Identifier), "Cannot parse a type out of a non type");
 
-        TypeInfo* type = TypeInfo::Create(m_context, TypeKind::Error);
+        TypeInfo* type = TypeInfo::create_basic(m_context, TypeKind::Error);
         bool search = true;
         bool accept_type_names = true;
 
@@ -763,10 +765,10 @@ namespace ariac {
                 case TokenKind::LeftBracket: {
                     consume();
                     if (is_expression()) {
-                        type->array = ArrayDeclaration(TypeInfo::Dup(m_context, type), parse_expression());
+                        type->array = ArrayType(TypeInfo::dup(m_context, type), parse_expression());
                         type->kind = TypeKind::Array;
                     } else {
-                        type->base = TypeInfo::Dup(m_context, type);
+                        type->base = TypeInfo::dup(m_context, type);
                         type->kind = TypeKind::Slice;
                     }
 
@@ -777,7 +779,7 @@ namespace ariac {
 
                 case TokenKind::Ampersand: {
                     consume();
-                    type->base = TypeInfo::Dup(m_context, type);
+                    type->base = TypeInfo::dup(m_context, type);
                     type->kind = TypeKind::Ref;
 
                     type->loc += peek(-1)->loc;
@@ -786,7 +788,7 @@ namespace ariac {
 
                 case TokenKind::Star: {
                     consume();
-                    type->base = TypeInfo::Dup(m_context, type);
+                    type->base = TypeInfo::dup(m_context, type);
                     type->kind = TypeKind::Ptr;
 
                     type->loc += peek(-1)->loc;
@@ -1164,7 +1166,7 @@ namespace ariac {
                 type = parse_type();
             } else {
                 m_context->report_compiler_diagnostic(peek()->loc, "Expected a type after ':'");
-                type = &error_type;
+                type = TypeInfo::get_error(m_context);
             }
         }
 
@@ -1173,11 +1175,11 @@ namespace ariac {
             initializer = parse_expression();
         } else if (const_) {
             m_context->report_compiler_diagnostic(ident->loc, "No initializer provided for const variable declaration");
-            type = &error_type;
+            type = TypeInfo::get_error(m_context);
             return &error_decl;
         } else if (!type) {
             m_context->report_compiler_diagnostic(ident->loc, "No initializer provided for type-inffered variable declaration");
-            type = &error_type;
+            type = TypeInfo::get_error(m_context);
 
             return &error_decl;
         }
@@ -1196,7 +1198,7 @@ namespace ariac {
     Decl* Parser::parse_function_decl(LinkageKind linkage) {
         SourceLoc loc = peek()->loc;
         Token fn = consume(); // consume "fn"
-        TypeInfo* type = &error_type;
+        TypeInfo* ret_type = TypeInfo::get_error(m_context);
 
         if (is_primitive_type()) {
             m_context->report_compiler_diagnostic(peek()->loc, "Expected an indentifier but got a type (NOTE: function declarations look like: fn name() -> type {...})");
@@ -1210,14 +1212,14 @@ namespace ariac {
         }
 
         bool is_var_arg = false;
-        auto[params, paramTypes] = parse_function_params(&is_var_arg);
+        auto[params, param_types] = parse_function_params(&is_var_arg);
 
         if (try_consume(TokenKind::Arrow, "->")) {
             if (!(is_primitive_type() || match(TokenKind::Identifier))) {
                 m_context->report_compiler_diagnostic(peek()->loc, "Expected a type after '->'");
                 sync_local();
-            } else if (type->is_error()) {
-                type = parse_type();
+            } else if (ret_type->is_error()) {
+                ret_type = parse_type();
             }
         }
 
@@ -1231,14 +1233,8 @@ namespace ariac {
             try_consume(TokenKind::Semi, ";");
         }
 
-        FunctionDeclaration typeDecl;
-        typeDecl.return_type = type;
-        typeDecl.param_types = paramTypes;
-        typeDecl.var_arg = is_var_arg;
-
-        TypeInfo* finalType = TypeInfo::Create(m_context, TypeKind::Function);
-        finalType->function = typeDecl;
-        Decl* decl = Decl::Create(m_context, ident->loc + type->loc, DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, finalType, params, body, linkage));
+        TypeInfo* final_type = TypeInfo::create_function(m_context, TypeKind::Function, ret_type, param_types, is_var_arg);
+        Decl* decl = Decl::Create(m_context, ident->loc + ret_type->loc, DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, final_type, params, body, linkage));
         decl->attributes = attrs;
 
         m_context->active_comp_unit->funcs.push_back(decl);
@@ -1247,7 +1243,7 @@ namespace ariac {
 
     std::pair<TinyVector<Decl*>, TinyVector<TypeInfo*>> Parser::parse_function_params(bool* var_arg) {
         TinyVector<Decl*> params;
-        TinyVector<TypeInfo*> paramTypes;
+        TinyVector<TypeInfo*> param_types;
 
         try_consume(TokenKind::LeftParen, "(");
 
@@ -1272,9 +1268,9 @@ namespace ariac {
                     sync_params();
                 }
             } else {
-                Token* paramIdent = try_consume(TokenKind::Identifier, "identifier");
+                Token* param_ident = try_consume(TokenKind::Identifier, "identifier");
             
-                if (!paramIdent) {
+                if (!param_ident) {
                     sync_params();
                     continue;
                 }
@@ -1289,8 +1285,8 @@ namespace ariac {
 
                 TypeInfo* paramType = parse_type();
                 
-                params.append(m_context, Decl::Create(m_context, paramIdent->loc, DeclKind::Param, DeclVisibility::Public, ParamDecl(paramIdent->string, paramType)));
-                paramTypes.append(m_context, paramType);
+                params.append(m_context, Decl::Create(m_context, param_ident->loc, DeclKind::Param, DeclVisibility::Public, ParamDecl(param_ident->string, paramType)));
+                param_types.append(m_context, paramType);
 
                 if (match(TokenKind::Comma)) { consume(); continue; }
                 if (match(TokenKind::RightParen)) { break; }
@@ -1302,7 +1298,7 @@ namespace ariac {
 
         try_consume(TokenKind::RightParen, ")");
 
-        return { params, paramTypes };
+        return { params, param_types };
     }
 
     Decl* Parser::parse_struct_decl() {
@@ -1376,13 +1372,13 @@ namespace ariac {
                 bool is_var_arg = false;
                 auto[params, param_types] = parse_function_params(&is_var_arg);
 
-                TypeInfo* ret_type = &error_type;
+                TypeInfo* ret_type = TypeInfo::get_error(m_context);
 
                 if (try_consume(TokenKind::Arrow, "->")) {
                     if (!(is_primitive_type() || match(TokenKind::Identifier))) {
                         m_context->report_compiler_diagnostic(peek()->loc, "Expected a type after '->'");
                         sync_local();
-                        ret_type = &error_type;
+                        ret_type = TypeInfo::get_error(m_context);
                     } else {
                         ret_type = parse_type();
                     }
@@ -1390,14 +1386,7 @@ namespace ariac {
 
                 Stmt* body = parse_block();
 
-                FunctionDeclaration fn;
-                fn.return_type = ret_type;
-                fn.param_types = param_types;
-                fn.var_arg = is_var_arg;
-
-                TypeInfo* final_type = TypeInfo::Create(m_context, TypeKind::Method);
-                final_type->function = fn;
-
+                TypeInfo* final_type = TypeInfo::create_function(m_context, TypeKind::Method, ret_type, param_types, is_var_arg);
                 impl->impl.fields.append(m_context, Decl::Create(m_context, loc + peek(-1)->loc, DeclKind::Method,
                     visibility, MethodDecl(impl, name->string, final_type, params, body)));
             } else if (match(TokenKind::HashPrivate)) {

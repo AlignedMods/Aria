@@ -17,7 +17,7 @@ namespace ariac {
         require_rvalue(wh.condition);
 
         if (!wh.condition->type->is_boolean()) {
-            ARIA_ASSERT(false, "todo: add error");
+            m_context->report_compiler_diagnostic(wh.condition->loc, fmt::format("Expression must be of type 'bool' but is '{}'", type_info_to_string(wh.condition->type)));
         } else if (is_const_expr(wh.condition) && eval_const_expr(wh.condition)->const_.boolean) {
             m_scopes.back().reaches_end = false;
         }
@@ -110,7 +110,7 @@ namespace ariac {
         
         if (m_active_return_type == nullptr) {
             m_context->report_compiler_diagnostic(stmt->loc, "'return' statement out of function body is not allowed");
-            ret.value->type = &error_type;
+            ret.value->type = TypeInfo::get_error(m_context);
             return;
         }
         

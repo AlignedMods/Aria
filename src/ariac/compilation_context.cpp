@@ -1,4 +1,5 @@
 #include "ariac/compilation_context.hpp"
+#include "ariac/core/platform.hpp"
 #include "ariac/lexer/lexer.hpp"
 #include "ariac/parser/parser.hpp"
 #include "ariac/semantic_analyzer/semantic_analyzer.hpp"
@@ -7,6 +8,10 @@
 
 #include <filesystem>
 #include <fstream>
+
+#ifdef PLATFORM_WINDOWS
+    #include <io.h>
+#endif
 
 namespace ariac {
 
@@ -66,13 +71,13 @@ namespace ariac {
     }
 
     void CompilationContext::compile_stdlib(const CompilerFlags& flags) {
-        if (!std::filesystem::exists("stdlib/")) {
+        if (!std::filesystem::exists(flags.stdlib_path)) {
             fmt::print(stderr, "Could not find standard library");
             return;
         }
 
         for (const char* file : stdlib_files) {
-            compile_file(fmt::format("stdlib/{}", file), flags, true);
+            compile_file((flags.stdlib_path / file).string(), flags, true);
         }
     }
 
@@ -114,32 +119,67 @@ namespace ariac {
     }
 
     void CompilationContext::print_diag(CompilerDiagnostic* diag) {
+        bool is_tty = _isatty(_fileno(stdout));
         if (diag->loc.line && diag->loc.col) {
-            fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", diag->unit->filename, diag->loc.line, diag->loc.col);
+            if (is_tty) {
+                fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", diag->unit->filename, diag->loc.line, diag->loc.col);
+            } else {
+                fmt::print(stderr, "{}:{}:{}: ", diag->unit->filename, diag->loc.line, diag->loc.col);
+            }
         }
 
         if (diag->kind == CompilerDiagKind::Error) {
-            fmt::print(fg(fmt::color::pale_violet_red), "error: ");
+            if (is_tty) {
+                fmt::print(fg(fmt::color::pale_violet_red), "error: ");
+            } else {
+                fmt::print(stderr, "error: ");
+            }
         } else if (diag->kind == CompilerDiagKind::Warning) {
-            fmt::print(fg(fmt::color::yellow), "warning: ");
+            if (is_tty) {
+                fmt::print(fg(fmt::color::yellow), "warning: ");
+            } else {
+                fmt::print(stderr, "warning: ");
+            }
         } else if (diag->kind == CompilerDiagKind::Note) {
-            fmt::print(fg(fmt::color::light_blue), "note: ");
+            if (is_tty) {
+                fmt::print(fg(fmt::color::light_blue), "note: ");
+            } else {
+                fmt::print(stderr, "note: ");
+            }
         }
 
-        fmt::print("{}\n", diag->message);
+        if (is_tty) {
+            fmt::print("{}\n", diag->message);
+        } else {
+            fmt::print(stderr, "{}\n", diag->message);
+        }
 
         if (diag->loc.line && diag->loc.col) {
             // fmt format strings from: https://hackingcpp.com/cpp/libs/fmt
-            fmt::print(" {:6} | {}\n", diag->loc.line, get_line(diag->unit->source, diag->loc.line));
-            fmt::print("        | {:>{w}}\n", std::string(diag->loc.len, '^'), fmt::arg("w", diag->loc.col + diag->loc.len - 1));
+            if (is_tty) {
+                fmt::print(" {:6} | {}\n", diag->loc.line, get_line(diag->unit->source, diag->loc.line));
+                fmt::print("        | {:>{w}}\n", std::string(diag->loc.len, '^'), fmt::arg("w", diag->loc.col + diag->loc.len - 1));
+            } else {
+                fmt::print(stderr, " {:6} | {}\n", diag->loc.line, get_line(diag->unit->source, diag->loc.line));
+                fmt::print(stderr, "        | {:>{w}}\n", std::string(diag->loc.len, '^'), fmt::arg("w", diag->loc.col + diag->loc.len - 1));
+            }
         }
 
         for (auto& note : diag->notes) {
             if (diag->loc.line && diag->loc.col) {
-                fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", diag->unit->filename, diag->loc.line, diag->loc.col);
+                if (is_tty) {
+                    fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", diag->unit->filename, diag->loc.line, diag->loc.col);
+                } else {
+                    fmt::print(stderr, "{}:{}:{}: ", diag->unit->filename, diag->loc.line, diag->loc.col);
+                }
             }
-            fmt::print(fg(fmt::color::light_blue), "note: ");
-            fmt::print("{}\n", note);
+
+            if (is_tty) {
+                fmt::print(fg(fmt::color::light_blue), "note: ");
+                fmt::print("{}\n", note);
+            } else {
+                fmt::print(stderr, "note: {}\n", note);
+            }
         }
     }
 

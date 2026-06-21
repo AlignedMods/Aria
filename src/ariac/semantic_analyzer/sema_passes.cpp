@@ -156,6 +156,7 @@ namespace ariac {
             ARIA_ASSERT(global->kind == DeclKind::Var, "Invalid global in globals");
 
             VarDecl& var = global->var;
+
             module->symbols[var.identifier] = global;
             unit->local_symbols[var.identifier] = global;       
         }
@@ -192,8 +193,7 @@ namespace ariac {
                 }
 
                 if (f.parameters.size >= 1) {
-                    TypeInfo* type = TypeInfo::Create(m_context, TypeKind::Slice);
-                    type->base = &char_slice_type;
+                    TypeInfo* type = TypeInfo::get_string(m_context);
                     if (!type_is_equal(f.parameters.items[0]->param.type, type)) {
                         m_context->report_compiler_diagnostic(f.parameters.items[0]->loc, fmt::format("First parameter of 'main' function must be of type '{}'", type_info_to_string(type)));
                     }

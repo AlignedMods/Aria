@@ -26,7 +26,7 @@ namespace ariac {
                 }
 
                 type->kind = TypeKind::Structure;
-                type->struct_ = StructDeclaration(t.ident->decl_ref.identifier, t.ident->decl_ref.referenced_decl);
+                type->struct_ = StructType(t.ident->decl_ref.identifier, t.ident->decl_ref.referenced_decl);
             } else if (t.ident->decl_ref.referenced_decl->kind == DeclKind::Typedef) {
                 if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
                     CompilationUnit* old_unit = m_context->active_comp_unit;
@@ -41,7 +41,7 @@ namespace ariac {
                 }
 
                 type->kind = TypeKind::Typedef;
-                type->typedef_ = TypedefDeclaration(t.ident->decl_ref.identifier, t.ident->decl_ref.referenced_decl->typedef_.type, t.ident->decl_ref.referenced_decl);
+                type->typedef_ = TypedefType(t.ident->decl_ref.identifier, t.ident->decl_ref.referenced_decl->typedef_.type, t.ident->decl_ref.referenced_decl);
             } else {
                 m_context->report_compiler_diagnostic(loc, fmt::format("'{}' is not a type", t.ident->decl_ref.identifier));
                 return;
@@ -49,7 +49,7 @@ namespace ariac {
         } else if (type->kind == TypeKind::Ptr) {
             resolve_type(loc, type->base);
         } else if (type->kind == TypeKind::Array) {
-            resolve_type(loc, type->array.type);
+            resolve_type(loc, type->array.base);
             resolve_expr(type->array.expression);
 
             if (!is_const_expr(type->array.expression)) {
@@ -57,7 +57,7 @@ namespace ariac {
                 return;
             }
 
-            ConversionCost cost = get_conversion_cost(&ulong_type, type->array.expression->type);
+            ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(m_context, TypeKind::ULong), type->array.expression->type);
             if (cost.cast_needed && !cost.implicit_cast_possible) {
                 m_context->report_compiler_diagnostic(type->array.expression->loc, "Size of array must be convertable to 'ulong'");
                 return;
@@ -72,7 +72,7 @@ namespace ariac {
                 type->kind = TypeKind::Error;
             }
         } else if (type->kind == TypeKind::Function) {
-            FunctionDeclaration& fn = type->function;
+            FunctionType& fn = type->function;
 
             for (TypeInfo* param : fn.param_types) {
                 resolve_type(loc, param);
@@ -142,10 +142,10 @@ namespace ariac {
         }
 
         if (src->is_array()) {
-            if (dst->is_slice() && type_is_equal(dst->base, src->array.type)) {
+            if (dst->is_slice() && type_is_equal(dst->base, src->array.base)) {
                 cost.kind = CastKind::ArrayToSlice;
                 return cost;
-            } else if (dst->is_pointer() && type_is_equal(dst->base, src->array.type)) {
+            } else if (dst->is_pointer() && type_is_equal(dst->base, src->array.base)) {
                 cost.kind = CastKind::ArrayToPointer;
                 return cost;
             }
@@ -160,11 +160,11 @@ namespace ariac {
         if (lhs->is_reference()) { lhs = lhs->base; }
         if (rhs->is_reference()) { rhs = rhs->base; }
 
-        while (lhs->is_typdef()) { lhs = lhs->typedef_.base_type; }
-        while (rhs->is_typdef()) { rhs = rhs->typedef_.base_type; }
+        while (lhs->is_typdef()) { lhs = lhs->typedef_.base; }
+        while (rhs->is_typdef()) { rhs = rhs->typedef_.base; }
 
         if (lhs->is_array() && rhs->is_array()) {
-            return type_is_equal(lhs->array.type, rhs->array.type) && lhs->array.size == rhs->array.size;
+            return type_is_equal(lhs->array.base, rhs->array.base) && lhs->array.size == rhs->array.size;
         }
 
         if (lhs->is_primitive() && rhs->is_primitive()) {
@@ -173,8 +173,8 @@ namespace ariac {
         }
 
         if (lhs->is_function() && rhs->is_function()) {
-            FunctionDeclaration& fLhs = lhs->function;
-            FunctionDeclaration& fRhs = rhs->function;
+            FunctionType& fLhs = lhs->function;
+            FunctionType& fRhs = rhs->function;
 
             if (!type_is_equal(fLhs.return_type, fRhs.return_type)) { return false; }
             if (fLhs.param_types.size != fRhs.param_types.size) { return false; }
@@ -187,8 +187,8 @@ namespace ariac {
         }
 
         if (lhs->is_structure() && rhs->is_structure()) {
-            StructDeclaration& sLhs = lhs->struct_;
-            StructDeclaration& sRhs = rhs->struct_;
+            StructType& sLhs = lhs->struct_;
+            StructType& sRhs = rhs->struct_;
 
             return sLhs.identifier == sRhs.identifier;
         }
@@ -221,7 +221,7 @@ namespace ariac {
     bool SemanticAnalyzer::type_is_trivial(TypeInfo* t) {
         switch (t->kind) {
             case TypeKind::Structure: {
-                StructDeclaration& sDecl = t->struct_;
+                StructType& sDecl = t->struct_;
 
                 if (sDecl.source_decl) {
                     ARIA_ASSERT(sDecl.source_decl->kind == DeclKind::Struct, "Invalid source decl");

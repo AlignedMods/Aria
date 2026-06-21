@@ -32,9 +32,9 @@ namespace ariac {
     llvm::Value* Codegen::gen_string_literal_expr(Expr* expr) {
         StringLiteralExpr& sl = expr->string_literal;
        
-        if (expr->type->is_slice()) {
-            llvm::Value* str = m_active_module_context.builder->CreateGlobalString(sl.value, "str", 0, nullptr, false);
-            llvm::Constant* vals[2] = { llvm::dyn_cast<llvm::Constant>(str), m_active_module_context.builder->getInt64(sl.value.length()) };
+        if (expr->type->is_string()) {
+            llvm::GlobalVariable* str = m_active_module_context.builder->CreateGlobalString(sl.value, "str", 0, nullptr, false);
+            llvm::Constant* vals[2] = { str, m_active_module_context.builder->getInt64(sl.value.length()) };
             return llvm::ConstantStruct::get(llvm::dyn_cast<llvm::StructType>(type_info_to_llvm_type(expr->type)), llvm::ArrayRef(vals));
         } else {
             return m_active_module_context.builder->CreateGlobalString(sl.value, "cstr");
@@ -68,7 +68,7 @@ namespace ariac {
         llvm::Value* val = m_active_module_context.named_values.at(dr.referenced_decl);
 
         if (dr.referenced_decl->kind == DeclKind::Param && get_param_abi_type_info(expr->type).pass_by_ptr || expr->type->is_reference()) {
-            return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(&void_ptr_type), val);
+            return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr(m_context)), val);
         }
 
         return val;
@@ -87,7 +87,7 @@ namespace ariac {
                 if (mem.implicit_deref) {
                     fields = mem.parent->type->base->struct_.source_decl->struct_.fields;
                     type = mem.parent->type->base;
-                    val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(&void_ptr_type), val);
+                    val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr(m_context)), val);
                 }
 
                 switch (mem.parent->type->kind) {
@@ -113,7 +113,7 @@ namespace ariac {
                 llvm::Value* gep = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, static_cast<unsigned>(idx));
 
                 if (expr->type->is_reference()) {
-                    return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(&void_ptr_type), gep);
+                    return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr(m_context)), gep);
                 } else {
                     return gep;
                 }
@@ -139,10 +139,10 @@ namespace ariac {
 
         if (mem.implicit_deref) {
             type = mem.parent->type->base;
-            val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(&void_ptr_type), val);
+            val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr(m_context)), val);
         }
 
-        while (type->kind == TypeKind::Typedef) { type = type->typedef_.base_type; }
+        while (type->kind == TypeKind::Typedef) { type = type->typedef_.base; }
 
         switch (type->kind) {
             case TypeKind::Slice: {
@@ -161,7 +161,7 @@ namespace ariac {
     }
 
     llvm::Value* Codegen::gen_self_expr(Expr* expr) {
-        return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(&void_ptr_type), m_self_value);
+        return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr(m_context)), m_self_value);
     }
 
     llvm::Value* Codegen::gen_call_expr(Expr* expr) {
@@ -306,13 +306,14 @@ namespace ariac {
         llvm::Function* func = m_active_module_context.module->getFunction("calloc");
         
         if (!func) {
-            llvm::FunctionType* type = llvm::FunctionType::get(type_info_to_llvm_type(&void_ptr_type), { type_info_to_llvm_type(&ulong_type), type_info_to_llvm_type(&ulong_type) }, false);
+            llvm::Type* ulong_ty = llvm::IntegerType::get(*m_active_module_context.context, 64);
+            llvm::FunctionType* type = llvm::FunctionType::get(llvm::PointerType::get(*m_active_module_context.context, 0), { ulong_ty, ulong_ty }, false);
             func = llvm::Function::Create(type, llvm::GlobalValue::ExternalLinkage, "calloc", *m_active_module_context.module);
         }
 
         llvm::Value* elem_size = m_active_module_context.builder->getInt64(get_type_size(expr->type->base));
         llvm::Value* arr_size = n.array ? gen_expr(n.initializer) : m_active_module_context.builder->getInt64(1);
-        return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(func), {{elem_size, arr_size}});
+        return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(func), {{elem_size, arr_size}}, "new");
     }
 
     llvm::Value* Codegen::gen_delete_expr(Expr* expr) {
@@ -321,7 +322,7 @@ namespace ariac {
         llvm::Function* func = m_active_module_context.module->getFunction("free");
         
         if (!func) {
-            llvm::FunctionType* type = llvm::FunctionType::get(type_info_to_llvm_type(&void_type), { type_info_to_llvm_type(&void_ptr_type) }, false);
+            llvm::FunctionType* type = llvm::FunctionType::get(type_info_to_llvm_type(TypeInfo::get_void(m_context)), { type_info_to_llvm_type(TypeInfo::get_void_ptr(m_context)) }, false);
             func = llvm::Function::Create(type, llvm::GlobalValue::ExternalLinkage, "free", *m_active_module_context.module);
         }
         
@@ -444,6 +445,11 @@ namespace ariac {
         UnaryOperatorExpr& un = expr->unary_operator;
 
         switch (un.op) {
+            case UnaryOperatorKind::Not: {
+                llvm::Value* val = gen_expr(un.expression);
+                return m_active_module_context.builder->CreateNot(val, "not");
+            }
+
             case UnaryOperatorKind::AddressOf: {
                 return gen_expr(un.expression);
             }
@@ -720,6 +726,16 @@ namespace ariac {
                 } else {
                     return llvm::ConstantFP::get(*m_active_module_context.context, llvm::APFloat(c.number));
                 }
+            }
+
+            case ConstExprKind::Struct: {
+                std::vector<llvm::Constant*> vals;
+
+                for (Expr* val : c.values) {
+                    vals.push_back(llvm::dyn_cast<llvm::Constant>(gen_expr(val)));
+                }
+
+                return llvm::ConstantStruct::get(llvm::dyn_cast<llvm::StructType>(type_info_to_llvm_type(expr->type)), vals);
             }
 
             default: ARIA_UNREACHABLE();

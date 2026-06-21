@@ -212,6 +212,18 @@ namespace ariac {
                     case ConstExprKind::Integer: m_output += fmt::format("value: Integer {}\n", expr->const_.integer); break;
                     case ConstExprKind::Floating: m_output += fmt::format("value: Floating {}\n", expr->const_.number); break;
                     case ConstExprKind::String: m_output += fmt::format("value: String {:?}\n", expr->const_.string); break;
+                    case ConstExprKind::Struct: {
+                        m_output += "value: Struct {\n";
+
+                        for (size_t i = 0; i < expr->const_.values.size; i++) {
+                            dump_expr(expr->const_.values.items[i], indentation + 8);
+                        }
+
+                        m_output += ident;
+                        m_output += "}\n";
+
+                        break;
+                    }
                     default: ARIA_UNREACHABLE();
                 }
 

@@ -11,6 +11,9 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_var_decl(Decl* decl) {
+        if (decl->resolve_status == ResolveStatus::Done || decl->resolve_status == ResolveStatus::InProgress) { return; }
+        decl->resolve_status = ResolveStatus::InProgress;
+
         VarDecl& varDecl = decl->var;
         std::string_view ident = varDecl.identifier;
 
@@ -31,6 +34,8 @@ namespace ariac {
 
             m_scopes.back().declarations[ident] = { varDecl.type, decl, DeclKind::Var };
         }
+
+        decl->resolve_status = ResolveStatus::Done;
     }
 
     void SemanticAnalyzer::resolve_param_decl(Decl* decl) {
@@ -147,11 +152,7 @@ namespace ariac {
             }
         }
 
-        StructDeclaration sd;
-        sd.identifier = i.identifier;
-        sd.source_decl = i.parent;
-        m_active_struct = TypeInfo::Create(m_context, TypeKind::Structure);
-        m_active_struct->struct_ = sd;
+        m_active_struct = TypeInfo::create_struct(m_context, i.parent);
 
         for (Decl* field : i.fields) {
             switch (field->kind) {

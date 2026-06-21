@@ -1,5 +1,7 @@
 module std::core;
 
+extern fn printf(fmt: char*, ...) -> int;
+
 struct StringStream {
     mem: char*;
     len: ulong;
@@ -9,6 +11,8 @@ struct StringStream {
 impl StringStream {
     fn append_string(s: char[]) -> void {
         for (i: ulong = 0; i < s.len; i++) {
+            // printf(c"%lu\n", s.len);
+            // printf(c"%p\n", &s[i]);
             append_char(s[i]);
         }
     }

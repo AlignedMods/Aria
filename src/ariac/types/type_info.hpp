@@ -41,27 +41,39 @@ namespace ariac {
 
     struct TypeInfo;
 
-    struct StructDeclaration {
-        std::string_view identifier;
-        Decl* source_decl = nullptr;
-    };
+    struct FunctionType {
+        FunctionType(TypeInfo* ret, TinyVector<TypeInfo*> params, bool var_arg)
+            : return_type(ret), param_types(params), var_arg(var_arg) {}
 
-    struct TypedefDeclaration {
-        std::string_view identifier;
-        TypeInfo* base_type = nullptr;
-        Decl* source_decl = nullptr;
-    };
-
-    struct FunctionDeclaration {
         TypeInfo* return_type = nullptr;
         TinyVector<TypeInfo*> param_types;
         bool var_arg = false;
     };
 
-    struct ArrayDeclaration {
-        TypeInfo* type = nullptr;
+    struct ArrayType {
+        ArrayType(TypeInfo* base, Expr* expr)
+            : base(base), expression(expr) {}
+
+        TypeInfo* base = nullptr;
         Expr* expression = nullptr;
         u64 size = 0;
+    };
+
+    struct StructType {
+        StructType(std::string_view identifer, Decl* source)
+            : identifier(identifer), source_decl(source) {}
+
+        std::string_view identifier;
+        Decl* source_decl = nullptr;
+    };
+
+    struct TypedefType {
+        TypedefType(std::string_view identifer, TypeInfo* base, Decl* source)
+            : identifier(identifer), base(base), source_decl(source) {}
+
+        std::string_view identifier;
+        TypeInfo* base = nullptr;
+        Decl* source_decl = nullptr;
     };
 
     struct UnresolvedType {
@@ -73,15 +85,27 @@ namespace ariac {
         SourceLoc loc;
         union {
             TypeInfo* base = nullptr;
-            FunctionDeclaration function;
-            ArrayDeclaration array;
-            StructDeclaration struct_;
-            TypedefDeclaration typedef_;
+            FunctionType function;
+            ArrayType array;
+            StructType struct_;
+            TypedefType typedef_;
             UnresolvedType unresolved;
         };
 
-        static TypeInfo* Create(CompilationContext* ctx, TypeKind kind);
-        static TypeInfo* Dup(CompilationContext* ctx, TypeInfo* type);
+        static TypeInfo* create_basic(CompilationContext* ctx, TypeKind kind, SourceLoc loc = {});
+        static TypeInfo* create_with_base(CompilationContext* ctx, TypeKind kind, TypeInfo* base, SourceLoc loc = {});
+        static TypeInfo* create_function(CompilationContext* ctx, TypeKind kind, TypeInfo* ret, TinyVector<TypeInfo*> params, bool var_arg, SourceLoc loc = {});
+        static TypeInfo* create_struct(CompilationContext* ctx, Decl* d, SourceLoc loc = {});
+        static TypeInfo* create_typedef(CompilationContext* ctx, Decl* d, SourceLoc loc = {});
+
+        static TypeInfo* get_error(CompilationContext* ctx);
+        static TypeInfo* get_void(CompilationContext* ctx);
+        static TypeInfo* get_basic(CompilationContext* ctx, TypeKind kind);
+        static TypeInfo* get_void_ptr(CompilationContext* ctx);
+        static TypeInfo* get_char_ptr(CompilationContext* ctx);
+        static TypeInfo* get_string(CompilationContext* ctx);
+
+        static TypeInfo* dup(CompilationContext* ctx, TypeInfo* type);
 
         bool is_error() const { return kind == TypeKind::Error; }
 
@@ -142,14 +166,20 @@ namespace ariac {
             return kind == TypeKind::Typedef;
         }
 
+        bool is_string() const;
+
         bool is_signed() const {
-            ARIA_ASSERT(is_integral(), "is_signed() cannot operate on a non-integral type");
             return kind == TypeKind::Char || kind == TypeKind::Short || kind == TypeKind::Int || kind == TypeKind::Long;
+            ARIA_ASSERT(is_integral(), "is_signed() cannot operate on a non-integral type");
         }
 
         bool is_unsigned() const {
             ARIA_ASSERT(is_integral(), "is_unsigned() cannot operate on a non-integral type");
             return kind == TypeKind::UChar || kind == TypeKind::UShort || kind == TypeKind::UInt || kind == TypeKind::ULong;
+        }
+
+        bool is_reference() const {
+            return kind == TypeKind::Ref;
         }
 
         size_t get_bit_size() const {
@@ -174,30 +204,8 @@ namespace ariac {
                 default: ARIA_UNREACHABLE();
             }
         }
-
-        bool is_reference() const {
-            return kind == TypeKind::Ref;
-        }
     };
 
     std::string type_info_to_string(TypeInfo* type, bool pretty = true);
-
-    // To avoid unnecessary allocations of primitive types we declare them here globally
-    inline TypeInfo error_type =          { TypeKind::Error };
-    inline TypeInfo void_type =           { TypeKind::Void };
-    inline TypeInfo bool_type =           { TypeKind::Bool };
-    inline TypeInfo char_type =           { TypeKind::Char };
-    inline TypeInfo uchar_type =          { TypeKind::UChar };
-    inline TypeInfo short_type =          { TypeKind::Short };
-    inline TypeInfo ushort_type =         { TypeKind::UShort };
-    inline TypeInfo int_type =            { TypeKind::Int };
-    inline TypeInfo uint_type =           { TypeKind::UInt };
-    inline TypeInfo long_type =           { TypeKind::Long };
-    inline TypeInfo ulong_type =          { TypeKind::ULong };
-    inline TypeInfo double_type =         { TypeKind::Double };
-    inline TypeInfo float_type =          { TypeKind::Float };
-    inline TypeInfo void_ptr_type =       { TypeKind::Ptr, {}, &void_type };
-    inline TypeInfo char_ptr_type =       { TypeKind::Ptr, {}, &char_type };
-    inline TypeInfo char_slice_type =     { TypeKind::Slice, {}, &char_type };
 
 } // namespace ariac

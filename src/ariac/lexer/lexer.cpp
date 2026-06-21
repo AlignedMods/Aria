@@ -391,7 +391,7 @@ namespace ariac {
     }
 
     void Lexer::parse_string_literal(bool c_style) {
-        size_t start_index = m_index - (c_style) ? 2 : 1;
+        size_t start_index = m_index - ((c_style) ? 2 : 1);
         SourceLoc loc = SourceLoc(m_current_line, get_column(start_index), m_index, (c_style) ? 2 : 1);
 
         scratch_buffer_clear();
@@ -401,6 +401,7 @@ namespace ariac {
             switch (peek()) {
                 case '"': {
                     consume();
+                    loc += SourceLoc(m_current_line, get_column(m_index), m_index, 1);
                     loop = false;
                     break;
                 }
@@ -413,7 +414,6 @@ namespace ariac {
                 }
 
                 default: {
-                    loc.len++;
                     scratch_buffer_append(parse_char());
                     break;
                 }

@@ -2,6 +2,10 @@
 
 #include <filesystem>
 
+#ifdef PLATFORM_WINDOWS
+    #include <io.h>
+#endif
+
 namespace ariac {
 
     Codegen::Codegen(CompilationContext* ctx) {
@@ -27,7 +31,13 @@ namespace ariac {
 
             link();
         } catch (std::exception& e) {
-            fmt::print(fmt::fg(fmt::color::pale_violet_red), "Codegen failed: {}", e.what());
+            bool is_tty = _isatty(_fileno(stdout));
+
+            if (is_tty) {
+                fmt::print(fmt::fg(fmt::color::pale_violet_red), "Codegen failed: {}\n", e.what());
+            } else {
+                fmt::print(stderr, "Codegen failed: {}\n", e.what());
+            }
         }
     }
 
@@ -145,10 +155,31 @@ namespace ariac {
 
     void Codegen::link_windows() {
         std::vector<llvm::StringRef> args;
+
+        std::vector<std::string> libs;
+        std::vector<std::string> libdirs;
+
+        for (auto& lib : m_context->flags.libs) {
+            libs.push_back(fmt::format("-l{}", lib));
+        }
+
+        for (auto& libdir : m_context->flags.libdirs) {
+            libdirs.push_back(fmt::format("-L{}", libdir));
+        }
+
         args.push_back("clang");
         for (auto& o : m_object_files) {
             args.push_back(o);
         }
+
+        for (auto& lib : libs) {
+            args.push_back(lib);
+        }
+
+        for (auto& libdir : libdirs) {
+            args.push_back(libdir);
+        }
+
         args.push_back("-Wl,--subsystem,console");
         args.push_back("-o");
         args.push_back(".build\\main.exe");
@@ -175,6 +206,8 @@ namespace ariac {
     llvm::Type* Codegen::type_info_to_llvm_type(TypeInfo* t) {
         if (t->is_void()) {
             return llvm::Type::getVoidTy(*m_active_module_context.context);
+        } else if (t->is_boolean()) {
+            return llvm::Type::getInt1Ty(*m_active_module_context.context);
         } else if (t->is_integral()) {
             return llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(t->get_bit_size()));
         } else if (t->kind == TypeKind::Float) {
@@ -182,7 +215,7 @@ namespace ariac {
         } else if (t->kind == TypeKind::Double) {
             return llvm::Type::getDoubleTy(*m_active_module_context.context);
         } else if (t->kind == TypeKind::Array) {
-            return llvm::ArrayType::get(type_info_to_llvm_type(t->array.type), static_cast<size_t>(t->array.size));
+            return llvm::ArrayType::get(type_info_to_llvm_type(t->array.base), static_cast<size_t>(t->array.size));
         } else if (t->kind == TypeKind::Slice) {
             return llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice");
         } else if (t->kind == TypeKind::Ptr) {
@@ -210,7 +243,7 @@ namespace ariac {
             }
             
             if (t->kind == TypeKind::Method) {
-                params.push_back(type_info_to_llvm_type(&void_ptr_type)); // self
+                params.push_back(llvm::PointerType::get(*m_active_module_context.context, 0)); // self
             }
 
             for (TypeInfo* type : t->function.param_types) {
@@ -229,12 +262,19 @@ namespace ariac {
 
             return llvm::FunctionType::get(ret_type, params, t->function.var_arg);
         } else if (t->kind == TypeKind::Structure) {
-            std::vector<llvm::Type*> types;
-            types.reserve(t->struct_.source_decl->struct_.fields.size);
-            for (Decl* field : t->struct_.source_decl->struct_.fields) { types.push_back(type_info_to_llvm_type(field->field.type)); }
-            return llvm::StructType::get(*m_active_module_context.context, types);
+            std::string name = fmt::format("{}.{}", valid_module_name(t->struct_.source_decl->parent_module->name), t->struct_.identifier);
+            llvm::Type* s = llvm::StructType::getTypeByName(*m_active_module_context.context, name);
+
+            if (!s) {
+                std::vector<llvm::Type*> types;
+                types.reserve(t->struct_.source_decl->struct_.fields.size);
+                for (Decl* field : t->struct_.source_decl->struct_.fields) { types.push_back(type_info_to_llvm_type(field->field.type)); }
+                s = llvm::StructType::create(*m_active_module_context.context, types, name);
+            }
+
+            return s;
         } else if (t->kind == TypeKind::Typedef) {
-            return type_info_to_llvm_type(t->typedef_.base_type);
+            return type_info_to_llvm_type(t->typedef_.base);
         } else {
             ARIA_UNREACHABLE();
         }
