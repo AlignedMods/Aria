@@ -244,12 +244,15 @@ namespace ariac {
             if (peek() == '0' && std::tolower(peek(1)) == 'x') {
                 consume(2);
                 isHex = true;
+                isUnsigned = true;
             } else if (peek() == '0' && std::tolower(peek(1)) == 'b') {
                 consume(2);
                 isBinary = true;
+                isUnsigned = true;
             } else if (peek() == '0' && std::tolower(peek(1)) == 'o') {
                 consume(2);
                 isOctal = true;
+                isUnsigned = true;
             }
         }
 
@@ -286,10 +289,10 @@ namespace ariac {
                     break;
                 }
             } else if (isOctal) {
-                if (peek() >= '0' && peek() <= '8') {
+                if (peek() >= '0' && peek() <= '7') {
                     consume();
-                } else if (peek() == '9') {
-                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), "invalid digit '9' in octal literal");
+                } else if (peek() == '8' || peek() == '9') {
+                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("invalid digit '{}' in octal literal", peek()));
                     consume();
                     errored = true;
                 } else if (std::tolower(peek()) == 'a' || std::tolower(peek()) == 'b'
@@ -322,15 +325,19 @@ namespace ariac {
 
         std::string_view buf(m_source.data() + startIndex, m_index - startIndex);
         
-        // Check for unsigned
-        if (peek() && std::tolower(peek()) == 'u') {
-            if (encounteredPeriod) {
-                m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), 1), fmt::format("cannot use 'u' suffix in a floating-point literal"));
-                consume();
-                errored = true;
-            } else {
-                consume();
-                isUnsigned = true;
+        // Check for suffix
+        if (peek()) {
+            char suffix = std::tolower(peek());
+            if (suffix == 'u' || suffix == 'i') {
+                if (encounteredPeriod) {
+                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), 1), fmt::format("cannot use '{}' suffix in a floating-point literal", suffix));
+                    consume();
+                    errored = true;
+                } else {
+                    consume();
+
+                    isUnsigned = (suffix == 'u') ? true : false;
+                }
             }
         }
 
@@ -506,11 +513,12 @@ namespace ariac {
         if (scratch_buffer_cmp("sizeof"))   { add_token(TokenKind::Sizeof,   loc, "sizeof");   return; }
         if (scratch_buffer_cmp("typedef"))  { add_token(TokenKind::Typedef,  loc, "typedef");  return; }
         if (scratch_buffer_cmp("as"))       { add_token(TokenKind::As,       loc, "as");       return; }
+        if (scratch_buffer_cmp("const"))    { add_token(TokenKind::Const,    loc, "const");    return; }
 
         if (scratch_buffer_cmp("void"))     { add_token(TokenKind::Void,     loc, "void");     return; }
         if (scratch_buffer_cmp("bool"))     { add_token(TokenKind::Bool,     loc, "bool");     return; }
         if (scratch_buffer_cmp("char"))     { add_token(TokenKind::Char,     loc, "char");     return; }
-        if (scratch_buffer_cmp("uchar"))    { add_token(TokenKind::UChar,    loc, "uchar");    return; }
+        if (scratch_buffer_cmp("ichar"))    { add_token(TokenKind::IChar,    loc, "ichar");    return; }
         if (scratch_buffer_cmp("short"))    { add_token(TokenKind::Short,    loc, "short");    return; }
         if (scratch_buffer_cmp("ushort"))   { add_token(TokenKind::UShort,   loc, "ushort");   return; }
         if (scratch_buffer_cmp("int"))      { add_token(TokenKind::Int,      loc, "int");      return; }
@@ -519,7 +527,6 @@ namespace ariac {
         if (scratch_buffer_cmp("ulong"))    { add_token(TokenKind::ULong,    loc, "ulong");    return; }
         if (scratch_buffer_cmp("float"))    { add_token(TokenKind::Float,    loc, "float");    return; }
         if (scratch_buffer_cmp("double"))   { add_token(TokenKind::Double,   loc, "double");   return; }
-        if (scratch_buffer_cmp("const"))    { add_token(TokenKind::Const,    loc, "const");    return; }
 
         add_token(TokenKind::Identifier, loc, scratch_buffer_to_str(m_context));
     }

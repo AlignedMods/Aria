@@ -704,7 +704,7 @@ namespace ariac {
             case TokenKind::Void:
             case TokenKind::Bool:
             case TokenKind::Char:
-            case TokenKind::UChar:
+            case TokenKind::IChar:
             case TokenKind::Short:
             case TokenKind::UShort:
             case TokenKind::Int:
@@ -737,7 +737,7 @@ namespace ariac {
                     case TokenKind::Bool:       consume(); type->kind = TypeKind::Bool; accept_type_names = false; break;
 
                     case TokenKind::Char:       consume(); type->kind = TypeKind::Char; accept_type_names = false; break;
-                    case TokenKind::UChar:      consume(); type->kind = TypeKind::UChar; accept_type_names = false; break;
+                    case TokenKind::IChar:      consume(); type->kind = TypeKind::IChar; accept_type_names = false; break;
                     case TokenKind::Short:      consume(); type->kind = TypeKind::Short; accept_type_names = false;  break;
                     case TokenKind::UShort:     consume(); type->kind = TypeKind::UShort; accept_type_names = false; break;
                     case TokenKind::Int:        consume(); type->kind = TypeKind::Int; accept_type_names = false; break;
@@ -1071,7 +1071,7 @@ namespace ariac {
             case TokenKind::Void:
             case TokenKind::Bool:
             case TokenKind::Char:
-            case TokenKind::UChar:
+            case TokenKind::IChar:
             case TokenKind::Short:
             case TokenKind::UShort:
             case TokenKind::Int:
@@ -1559,7 +1559,7 @@ namespace ariac {
             case TokenKind::Void:
             case TokenKind::Bool:
             case TokenKind::Char:
-            case TokenKind::UChar:
+            case TokenKind::IChar:
             case TokenKind::Short:
             case TokenKind::UShort:
             case TokenKind::Int:

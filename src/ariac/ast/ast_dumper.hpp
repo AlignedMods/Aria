@@ -21,6 +21,8 @@ namespace ariac {
         void dump_stmt(Stmt* stmt, size_t indentation);
         void dump_specifier(Specifier* spec, size_t indentation);
 
+        void dump_const_expr_val(ConstExpr* val, size_t indentation);
+
         void dump_attributes(TinyVector<DeclAttribute> attrs, size_t indentation);
         void dump_attribute(DeclAttribute attr, size_t indentation);
 

@@ -75,7 +75,7 @@ namespace ariac {
         require_rvalue(ifs.condition);
 
         if (!ifs.condition->type->is_boolean()) {
-            ARIA_ASSERT(false, "todo: add error");
+            m_context->report_compiler_diagnostic(ifs.condition->loc, fmt::format("Expression must be of type 'bool' but is '{}'", type_info_to_string(ifs.condition->type)));
         }
 
         push_scope();

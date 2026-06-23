@@ -7,7 +7,7 @@ namespace ariac {
     static TypeInfo* void_type;
     static TypeInfo* bool_type;
     static TypeInfo* char_type;
-    static TypeInfo* uchar_type;
+    static TypeInfo* ichar_type;
     static TypeInfo* short_type;
     static TypeInfo* ushort_type;
     static TypeInfo* int_type;
@@ -81,7 +81,7 @@ namespace ariac {
             TYPE(Void, void_type)
             TYPE(Bool, bool_type)
             TYPE(Char, char_type)
-            TYPE(UChar, uchar_type)
+            TYPE(IChar, ichar_type)
             TYPE(Short, short_type)
             TYPE(UShort, ushort_type)
             TYPE(Int, int_type)
@@ -143,7 +143,7 @@ namespace ariac {
             case TypeKind::Bool:    str += "bool"; break;
 
             case TypeKind::Char:    str += "char"; break;
-            case TypeKind::UChar:   str += "uchar"; break;
+            case TypeKind::IChar:   str += "ichar"; break;
             case TypeKind::Short:   str += "short"; break;
             case TypeKind::UShort:  str += "ushort"; break;
             case TypeKind::Int:     str += "int"; break;

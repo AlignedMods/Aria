@@ -17,7 +17,7 @@ namespace ariac {
 
         Bool,
 
-        Char, UChar,
+        Char, IChar,
         Short, UShort,
         Int, UInt,
         Long, ULong,
@@ -122,7 +122,7 @@ namespace ariac {
         }
 
         bool is_integral() const {
-            return kind == TypeKind::Char  || kind == TypeKind::UChar  ||
+            return kind == TypeKind::Char  || kind == TypeKind::IChar  ||
                    kind == TypeKind::Short || kind == TypeKind::UShort ||
                    kind == TypeKind::Int   || kind == TypeKind::UInt   ||
                    kind == TypeKind::Long  || kind == TypeKind::ULong;
@@ -169,13 +169,13 @@ namespace ariac {
         bool is_string() const;
 
         bool is_signed() const {
-            return kind == TypeKind::Char || kind == TypeKind::Short || kind == TypeKind::Int || kind == TypeKind::Long;
+            return kind == TypeKind::IChar || kind == TypeKind::Short || kind == TypeKind::Int || kind == TypeKind::Long;
             ARIA_ASSERT(is_integral(), "is_signed() cannot operate on a non-integral type");
         }
 
         bool is_unsigned() const {
             ARIA_ASSERT(is_integral(), "is_unsigned() cannot operate on a non-integral type");
-            return kind == TypeKind::UChar || kind == TypeKind::UShort || kind == TypeKind::UInt || kind == TypeKind::ULong;
+            return kind == TypeKind::Char || kind == TypeKind::UShort || kind == TypeKind::UInt || kind == TypeKind::ULong;
         }
 
         bool is_reference() const {
@@ -187,7 +187,7 @@ namespace ariac {
                 case TypeKind::Bool: return 1;
 
                 case TypeKind::Char:
-                case TypeKind::UChar: return 8;
+                case TypeKind::IChar: return 8;
 
                 case TypeKind::Short:
                 case TypeKind::UShort: return 16;

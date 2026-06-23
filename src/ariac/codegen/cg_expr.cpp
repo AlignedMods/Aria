@@ -392,6 +392,19 @@ namespace ariac {
                 break;
             }
 
+            case CastKind::FloatingToIntegral: {
+                llvm::Value* val = gen_expr(ic.expression);
+
+                if (expr->type->is_signed()) {
+                    return m_active_module_context.builder->CreateFPToSI(val, type_info_to_llvm_type(expr->type), "fpsi");
+                } else {
+                    return m_active_module_context.builder->CreateFPToUI(val, type_info_to_llvm_type(expr->type), "fpui");
+                }
+
+                ARIA_UNREACHABLE();
+                break;
+            }
+
             case CastKind::BitCast: {
                 return gen_expr(ic.expression);
             }
@@ -432,7 +445,7 @@ namespace ariac {
                 return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(expr->type), val);
             }
 
-            default: ARIA_UNREACHABLE();
+            default: fmt::print(stderr, "{}", cast_kind_to_string(ic.kind)); ARIA_UNREACHABLE();
         }
     }
 
@@ -448,6 +461,19 @@ namespace ariac {
             case UnaryOperatorKind::Not: {
                 llvm::Value* val = gen_expr(un.expression);
                 return m_active_module_context.builder->CreateNot(val, "not");
+            }
+
+            case UnaryOperatorKind::Negate: {
+                llvm::Value* val = gen_expr(un.expression);
+
+                if (un.expression->type->is_integral()) {
+                    return m_active_module_context.builder->CreateNeg(val, "neg");
+                } else if (un.expression->type->is_floating_point()) {
+                    return m_active_module_context.builder->CreateFNeg(val, "fneg");
+                }
+
+                ARIA_UNREACHABLE();
+                return nullptr;
             }
 
             case UnaryOperatorKind::AddressOf: {
@@ -580,6 +606,8 @@ namespace ariac {
                     } else {    
                         return m_active_module_context.builder->CreateICmpULT(lhs, rhs, "lt");
                     }
+                } else if (bin.lhs->type->is_floating_point()) {
+                    return m_active_module_context.builder->CreateFCmpULT(lhs, rhs, "flt");
                 }
 
                 ARIA_UNREACHABLE();
@@ -596,6 +624,8 @@ namespace ariac {
                     } else {
                         return m_active_module_context.builder->CreateICmpUGT(lhs, rhs, "gt");
                     }
+                } else if (bin.lhs->type->is_floating_point()) {
+                    return m_active_module_context.builder->CreateFCmpUGT(lhs, rhs, "fgt");
                 }
 
                 ARIA_UNREACHABLE();

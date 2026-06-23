@@ -203,29 +203,7 @@ namespace ariac {
             case ExprKind::Const: { m_output += fmt::format("ConstExpr '{}'\n",
                 type_info_to_string(expr->type));
 
-                ident.append(4, ' ');
-                m_output += ident;
-
-                switch (expr->const_.kind) {
-                    case ConstExprKind::Error: m_output += "value: Error error\n"; break;
-                    case ConstExprKind::Boolean: m_output += fmt::format("value: Boolean {}\n", expr->const_.boolean); break;
-                    case ConstExprKind::Integer: m_output += fmt::format("value: Integer {}\n", expr->const_.integer); break;
-                    case ConstExprKind::Floating: m_output += fmt::format("value: Floating {}\n", expr->const_.number); break;
-                    case ConstExprKind::String: m_output += fmt::format("value: String {:?}\n", expr->const_.string); break;
-                    case ConstExprKind::Struct: {
-                        m_output += "value: Struct {\n";
-
-                        for (size_t i = 0; i < expr->const_.values.size; i++) {
-                            dump_expr(expr->const_.values.items[i], indentation + 8);
-                        }
-
-                        m_output += ident;
-                        m_output += "}\n";
-
-                        break;
-                    }
-                    default: ARIA_UNREACHABLE();
-                }
+                dump_const_expr_val(&expr->const_, indentation + 4);
 
                 return;
             }
@@ -407,6 +385,32 @@ namespace ariac {
         }
 
         ARIA_UNREACHABLE();
+    }
+
+    void ASTDumper::dump_const_expr_val(ConstExpr* val, size_t indentation) {
+        std::string ident;
+        ident.append(indentation, ' ');
+        m_output += ident;
+
+        switch (val->kind) {
+            case ConstExprKind::Error: m_output += "value: Error error\n"; break;
+            case ConstExprKind::Boolean: m_output += fmt::format("value: Boolean {}\n", val->boolean); break;
+            case ConstExprKind::Integer: m_output += fmt::format("value: Integer {}\n",val->integer); break;
+            case ConstExprKind::Floating: m_output += fmt::format("value: Floating {}\n", val->number); break;
+            case ConstExprKind::String: m_output += fmt::format("value: String {:?}\n", val->string); break;
+            case ConstExprKind::Struct: {
+                m_output += "value: Struct\n";
+
+                for (size_t i = 0; i < val->values.size; i++) {
+                    ARIA_ASSERT(val->values.items[i]->kind == ExprKind::Const, "Not a constant expression");
+                    dump_const_expr_val(&val->values.items[i]->const_, indentation + 4);
+                }
+
+                break;
+            }
+
+            default: ARIA_ASSERT(false, static_cast<u64>(val->kind));
+        }
     }
 
     void ASTDumper::dump_attributes(TinyVector<DeclAttribute> attrs, size_t indentation) {

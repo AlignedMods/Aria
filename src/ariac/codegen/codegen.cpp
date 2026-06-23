@@ -284,7 +284,7 @@ namespace ariac {
         switch (t->kind) {
             case TypeKind::Bool:
             case TypeKind::Char:
-            case TypeKind::UChar: return 1;
+            case TypeKind::IChar: return 1;
             case TypeKind::Short:
             case TypeKind::UShort: return 2;
             case TypeKind::Int:
@@ -330,7 +330,7 @@ namespace ariac {
         switch (t->kind) {
             case TypeKind::Bool:
             case TypeKind::Char:
-            case TypeKind::UChar: return 1;
+            case TypeKind::IChar: return 1;
             case TypeKind::Short:
             case TypeKind::UShort: return 2;
             case TypeKind::Int:

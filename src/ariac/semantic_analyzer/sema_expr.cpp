@@ -1149,9 +1149,17 @@ namespace ariac {
                 return Expr::Create(m_context, expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::String, expr->string_literal.value));
 
             case ExprKind::DeclRef:
-                return Expr::Create(m_context, expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Var, expr));
+                resolve_decl(expr->decl_ref.referenced_decl);
+                ARIA_ASSERT(expr->decl_ref.referenced_decl->kind == DeclKind::Var, "Referenced decl must be a var");
+                ARIA_ASSERT(expr->decl_ref.referenced_decl->var.const_var, "Referenced decl must be const");
+
+                return expr->decl_ref.referenced_decl->var.initializer;
 
             case ExprKind::Construct:
+                for (Expr*& arg : expr->construct.arguments) {
+                    arg = eval_const_expr(arg);
+                }
+
                 return Expr::Create(m_context, expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Struct, expr->construct.arguments));
 
             case ExprKind::Paren:
@@ -1175,6 +1183,8 @@ namespace ariac {
 
                             default: ARIA_UNREACHABLE();
                         }
+
+                        ARIA_UNREACHABLE();
                     }
 
                     default: ARIA_UNREACHABLE();
@@ -1184,13 +1194,56 @@ namespace ariac {
             }
 
             case ExprKind::ImplicitCast: {
+                #define CAST(t, e) static_cast<t>(e)
+                #define INT(x) Expr::Create(m_context, expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Integer, x))
+
                 switch (expr->implicit_cast.kind) {
+                    case CastKind::Integral: {
+                        if (expr->implicit_cast.expression->type->is_signed()) {
+                            i64 val = eval_const_expr(expr->implicit_cast.expression)->const_.integer;
+
+                            switch (expr->type->kind) {
+                                case TypeKind::Char: return INT(CAST(u64, CAST(u8, val)));
+                                case TypeKind::IChar: return INT(CAST(i64, CAST(i8, val)));
+                                case TypeKind::Short: return INT(CAST(i64, CAST(i16, val)));
+                                case TypeKind::UShort: return INT(CAST(u64, CAST(u16, val)));
+                                case TypeKind::Int: return INT(CAST(i64, CAST(i32, val)));
+                                case TypeKind::UInt: return INT(CAST(u64, CAST(u32, val)));
+                                case TypeKind::Long: return INT(CAST(i64, val));
+                                case TypeKind::ULong: return INT(CAST(u64, val));
+
+                                default: ARIA_UNREACHABLE();
+                            }
+                        } else {
+                            u64 val = eval_const_expr(expr->implicit_cast.expression)->const_.integer;
+
+                            switch (expr->type->kind) {
+                                case TypeKind::Char: return INT(CAST(u64, CAST(u8, val)));
+                                case TypeKind::IChar: return INT(CAST(i64, CAST(i8, val)));
+                                case TypeKind::Short: return INT(CAST(i64, CAST(i16, val)));
+                                case TypeKind::UShort: return INT(CAST(u64, CAST(u16, val)));
+                                case TypeKind::Int: return INT(CAST(i64, CAST(i32, val)));
+                                case TypeKind::UInt: return INT(CAST(u64, CAST(u32, val)));
+                                case TypeKind::Long: return INT(CAST(i64, val));
+                                case TypeKind::ULong: return INT(CAST(u64, val));
+
+                                default: ARIA_UNREACHABLE();
+                            }
+                        }
+
+                        ARIA_UNREACHABLE();
+                        return nullptr;
+                    }
+
                     case CastKind::LValueToRValue: {
                         return eval_const_expr(expr->implicit_cast.expression);
                     }
 
                     default: ARIA_UNREACHABLE();
                 }
+
+                #undef INT
+                #undef CAST
 
                 return nullptr;
             }
@@ -1240,6 +1293,30 @@ namespace ariac {
                         return nullptr;
                     }
 
+                    case BinaryOperatorKind::Div: {
+                        switch (lhs->const_.kind) {
+                            case ConstExprKind::Integer: {
+                                if (lhs->type->is_signed() && rhs->type->is_signed()) {
+                                    return Expr::Create(m_context, expr->loc, ExprKind::Const, 
+                                        ExprValueKind::RValue, lhs->type, 
+                                        ConstExpr(ConstExprKind::Integer, static_cast<i64>(lhs->const_.integer) / static_cast<i64>(rhs->const_.integer)));
+                                } else if (lhs->type->is_unsigned() && rhs->type->is_unsigned()) {
+                                    return Expr::Create(m_context, expr->loc, ExprKind::Const, 
+                                        ExprValueKind::RValue, lhs->type, 
+                                        ConstExpr(ConstExprKind::Integer, lhs->const_.integer / rhs->const_.integer));
+                                } else {
+                                    ARIA_UNREACHABLE();
+                                }
+
+                                return nullptr;
+                            }
+
+                            default: ARIA_UNREACHABLE();
+                        }
+
+                        return nullptr;
+                    }
+
                     default: ARIA_UNREACHABLE();
                 }
 
@@ -1269,12 +1346,12 @@ namespace ariac {
 
     void SemanticAnalyzer::maybe_promote_to_int(Expr* expr) {
         switch (expr->type->kind) {
-            case TypeKind::Char:
+            case TypeKind::IChar:
             case TypeKind::Short:
                 insert_implicit_cast(TypeInfo::get_basic(m_context, TypeKind::Int), expr->type, expr, CastKind::Integral);
                 break;
 
-            case TypeKind::UChar:
+            case TypeKind::Char:
             case TypeKind::UShort:
                 insert_implicit_cast(TypeInfo::get_basic(m_context, TypeKind::UInt), expr->type, expr, CastKind::Integral);
                 break;

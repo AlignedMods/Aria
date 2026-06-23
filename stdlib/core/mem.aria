@@ -2,6 +2,6 @@ module std::core;
 
 fn memcpy(dst: void*, src: void*, size: ulong) -> void {
     for (i: ulong = 0; i < size; ++i) {
-        (<uchar*>dst)[i] = (<uchar*>src)[i];
+        (<char*>dst)[i] = (<char*>src)[i];
     }
 }

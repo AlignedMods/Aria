@@ -80,6 +80,7 @@ namespace ariac {
         Sizeof,
         Typedef,
         As,
+        Const,
         HashPrivate, // #private
         AtIf, // @if
         // ^^^ Keywords ^^^ //
@@ -88,7 +89,7 @@ namespace ariac {
         Void,
         Bool,
         Char,
-        UChar,
+        IChar,
         Short,
         UShort,
         Int,
@@ -97,7 +98,6 @@ namespace ariac {
         ULong,
         Float,
         Double,
-        Const,
         // ^^^ Types ^^^ //
 
         Identifier,
@@ -195,6 +195,7 @@ namespace ariac {
             case TokenKind::Sizeof: return "sizeof";
             case TokenKind::Typedef: return "typedef";
             case TokenKind::As: return "as";
+            case TokenKind::Const: return "const";
             case TokenKind::HashPrivate: return "#private";
             case TokenKind::AtIf: return "@if";
             // ^^^ Keywords ^^^ //
@@ -203,7 +204,7 @@ namespace ariac {
             case TokenKind::Void: return "void";
             case TokenKind::Bool: return "bool";
             case TokenKind::Char: return "char";
-            case TokenKind::UChar: return "uchar";
+            case TokenKind::IChar: return "ichar";
             case TokenKind::Short: return "short";
             case TokenKind::UShort: return "ushort";
             case TokenKind::Int: return "int";
@@ -212,7 +213,6 @@ namespace ariac {
             case TokenKind::ULong: return "ulong";
             case TokenKind::Float: return "float";
             case TokenKind::Double: return "double";
-            case TokenKind::Const: return "const";
             // ^^^ Types ^^^ //
 
             case TokenKind::Identifier: return "identifier";

@@ -203,7 +203,7 @@ namespace ariac {
             case TypeKind::Bool:   return 1;
 
             case TypeKind::Char:   return 1;
-            case TypeKind::UChar:  return 1;
+            case TypeKind::IChar:  return 1;
             case TypeKind::Short:  return 2;
             case TypeKind::UShort: return 2;
             case TypeKind::Int:    return 4;

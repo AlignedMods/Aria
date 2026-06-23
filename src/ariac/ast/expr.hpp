@@ -67,7 +67,8 @@ namespace ariac {
             case CastKind::ArrayToSlice: return "ArrayToSlice";
             case CastKind::ArrayToPointer: return "ArrayToPointer";
             case CastKind::LValueToRValue: return "LValueToRValue";
-            default: ARIA_ASSERT(false, "Unreachable");
+
+            default: ARIA_UNREACHABLE();
         }
     }
 
@@ -167,8 +168,7 @@ namespace ariac {
         Integer,
         Floating,
         String,
-        Struct,
-        Var
+        Struct
     };
     inline const char* const_expr_kind_to_string(ConstExprKind kind) {
         switch (kind) {
@@ -178,7 +178,6 @@ namespace ariac {
             case ConstExprKind::Floating: return "Floating";
             case ConstExprKind::String: return "String";
             case ConstExprKind::Struct: return "Struct";
-            case ConstExprKind::Var: return "Var";
 
             default: ARIA_UNREACHABLE();
         }
@@ -434,6 +433,9 @@ namespace ariac {
 
         ConstExpr(ConstExprKind kind, u64 i)
             : kind(kind), integer(i) {}
+
+        ConstExpr(ConstExprKind kind, i64 i)
+            : kind(kind), integer(static_cast<u64>(i)) {}
 
         ConstExpr(ConstExprKind kind, double f)
             : kind(kind), number(f) {}
