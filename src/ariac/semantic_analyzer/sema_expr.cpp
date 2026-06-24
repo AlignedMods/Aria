@@ -42,132 +42,188 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_decl_ref_expr(Expr* expr) {
-        DeclRefExpr& ref = expr->decl_ref;
-        std::string_view ident = ref.identifier;
+        DeclRefExpr& dr = expr->decl_ref;
 
-        auto getType = [this](Decl* d) -> TypeInfo* {
-            switch (d->kind) {
-                case DeclKind::Var: {
-                    resolve_var_decl(d);
-                    return d->var.type;
-                }
-
-                case DeclKind::Param: { return d->param.type; }
-
-                case DeclKind::Function: {
-                    resolve_function_decl(d);
-                    return d->function.type;
-                }
-
-                case DeclKind::Struct: { return TypeInfo::get_error(m_context); }
-                case DeclKind::Typedef: { return TypeInfo::get_error(m_context); }
-
-                default: ARIA_UNREACHABLE();
-            }      
-        };
-
+        std::string pretty_ident = dr.name_specifier ? fmt::format("{}::{}", dr.name_specifier->name.identifier, dr.identifier) : fmt::format("{}", dr.identifier);
+        
         if (expr->result_discarded) {
             m_context->report_compiler_diagnostic(expr->loc, "Discarding result of identifier", CompilerDiagKind::Warning);
         }
 
-        Module* mod = nullptr;
+        auto resolve_with_specifier = [&]() {
+            Module* mod = dr.name_specifier->name.referenced_module;
 
-        if (!ref.name_specifier) {
-            for (auto& scope : m_scopes) {
-                if (scope.declarations.contains(ident)) {
-                    Decl* d = scope.declarations.at(ident).source_decl;
-                    expr->type = getType(d);
-                    ref.referenced_decl = d;
-                    return;
+            if (mod->symbols.contains(dr.identifier)) {
+                Decl* sym = mod->symbols.at(dr.identifier);
+                dr.referenced_decl = sym;
+                
+                if (sym->visibility == DeclVisibility::Private) {
+                    m_context->report_compiler_diagnostic(expr->loc, fmt::format("{} is private and cannot be accessed", pretty_ident));
+                    m_context->report_compiler_diagnostic(sym->loc, "Defined here", CompilerDiagKind::Note, sym->parent_unit);
                 }
-            }
-        }
 
-        if (ref.name_specifier) {
-            ARIA_ASSERT(ref.name_specifier->kind == SpecifierKind::Name, "Invalid specifier");
-            resolve_name_specifier(ref.name_specifier);
-            mod = ref.name_specifier->name.referenced_module;
+                switch (sym->kind) {
+                    case DeclKind::Var: {
+                        if (sym->var.linkage_kind == LinkageKind::Static) {
+                            m_context->report_compiler_diagnostic(expr->loc, fmt::format("{} has static linkage and cannot be accessed", pretty_ident));
+                            m_context->report_compiler_diagnostic(sym->loc, "Defined here", CompilerDiagKind::Note, sym->parent_unit);
+                        }
 
-            if (!mod) {
-                ref.referenced_decl = &error_decl;
-                expr->type = TypeInfo::get_error(m_context);
-                return;
-            }
-        } else {
-            mod = m_context->active_comp_unit->parent;
-        }
+                        resolve_var_decl(sym);
+                        expr->type = sym->var.type;
+                        return;
+                    }
 
-        if (m_context->active_comp_unit->local_symbols.contains(ident)) {
-            Decl* d = m_context->active_comp_unit->local_symbols.at(ident);
-            ref.referenced_decl = d;
-            expr->type = getType(d);
-            return;
-        }
+                    case DeclKind::Function: {
+                        if (sym->function.linkage_kind == LinkageKind::Static) {
+                            m_context->report_compiler_diagnostic(expr->loc, fmt::format("{} has static linkage and cannot be accessed", pretty_ident));
+                            m_context->report_compiler_diagnostic(sym->loc, "Defined here", CompilerDiagKind::Note, sym->parent_unit);
+                        }
 
-        if (mod->symbols.contains(ident)) {
-            Decl* d = mod->symbols.at(ident);
+                        resolve_function_decl(sym);
+                        expr->type = sym->function.type;
+                        return;
+                    }
 
-            if (mod != m_context->active_comp_unit->parent && d->visibility == DeclVisibility::Private) {
-                m_context->report_compiler_diagnostic(expr->loc, fmt::format("Symbol '{}' (declared in '{}') is private and cannot be accessed", ref.identifier, mod->name));
-                m_context->report_compiler_diagnostic(d->loc, "Declared here", CompilerDiagKind::Note, d->parent_unit);
-            }
+                    case DeclKind::Struct:
+                    case DeclKind::Typedef: expr->type = TypeInfo::get_error(m_context); return;
 
-            ref.referenced_decl = d;
-            expr->type = getType(d);
-            return;
-        }
-
-        if (m_active_struct && m_active_struct->struct_.source_decl) {
-            if (m_active_struct->struct_.source_decl->struct_.field_lookup.contains(ident)) {
-                TypeInfo* self_type = TypeInfo::create_with_base(m_context, TypeKind::Ref, m_active_struct);
-
-                Decl* source = m_active_struct->struct_.source_decl->struct_.field_lookup.at(ident);
-                TypeInfo* mem_type = nullptr;
-
-                switch (source->kind) {
-                    case DeclKind::Field: mem_type = source->field.type; break;
-                    case DeclKind::Method: mem_type = source->method.type; break;
                     default: ARIA_UNREACHABLE();
                 }
-
-                Expr* self = Expr::Create(m_context, expr->loc, ExprKind::Self,
-                    ExprValueKind::LValue, self_type, ErrorExpr());
-
-                Expr* member = Expr::Create(m_context, expr->loc, ExprKind::Member,
-                    ExprValueKind::LValue, mem_type,
-                    MemberExpr(ident, self));
-
-                member->member.referenced_member = source;
-
-                replace_expr(expr, member);
-                return;
+            } else {
+                dr.referenced_decl = &error_decl;
+                m_context->report_compiler_diagnostic(expr->loc, fmt::format("Undeclared identifier '{}'", pretty_ident));
+                expr->type = TypeInfo::get_error(m_context);
             }
-        }
+        };
 
-        for (Stmt* import : m_context->active_comp_unit->imports) {
-            ARIA_ASSERT(import->kind == StmtKind::Import, "Invalid import");
+        auto resolve_without_specifier = [&]() {
+            Module* mod = m_context->active_module;
+            Decl* sym = nullptr;
 
-            if (!import->import.resolved_module) { continue; }
+            if (mod->symbols.contains(dr.identifier)) {
+                sym = mod->symbols.at(dr.identifier);
+                dr.referenced_decl = sym;
+            }
 
-            if (import->import.resolved_module->symbols.contains(ident)) {
-                if (import->import.resolved_module->symbols.at(ident)->kind == DeclKind::Struct) {
-                    expr->type = TypeInfo::get_error(m_context);
-                    ref.referenced_decl = import->import.resolved_module->symbols.at(ident);
+            if (m_active_struct) {
+                Decl* struc = m_active_struct->struct_.source_decl;
+                if (struc->struct_.field_lookup.contains(dr.identifier)) {
+                    Decl* field = struc->struct_.field_lookup.at(dr.identifier);
+                    TypeInfo* mem_type = nullptr;
+
+                    switch (field->kind) {
+                        case DeclKind::Field: mem_type = field->field.type; break;
+                        case DeclKind::Method: mem_type = field->method.type; break;
+
+                        default: ARIA_UNREACHABLE();
+                    }
+
+                    Expr* self = Expr::Create(m_context, expr->loc, ExprKind::Self, 
+                        ExprValueKind::LValue, TypeInfo::create_with_base(m_context, TypeKind::Ref, m_active_struct), 
+                        ErrorExpr());
+
+                    Expr* member = Expr::Create(m_context, expr->loc, ExprKind::Member,
+                        ExprValueKind::LValue, mem_type,
+                        MemberExpr(dr.identifier, self));
+
+                    member->member.referenced_member = field;
+                    replace_expr(expr, member);
                     return;
                 }
-                
-                m_context->report_compiler_diagnostic_with_notes(expr->loc, 
-                    "Symbols from other modules must be prefixed with the module name",
-                    { fmt::format("Did you mean to write '{}::{}'?", import->import.name, ref.identifier) });
+            }
+
+            for (auto& scope : m_scopes) {
+                if (scope.declarations.contains(dr.identifier)) {
+                    sym = scope.declarations.at(dr.identifier).source_decl;
+                    dr.referenced_decl = sym;
+                }
+            }
+
+            if (sym) {
+                switch (sym->kind) {
+                    case DeclKind::Var: {
+                        resolve_var_decl(sym);
+                        expr->type = sym->var.type;
+                        return;
+                    }
+
+                    case DeclKind::Param: {
+                        expr->type = sym->param.type;
+                        return;
+                    }
+
+                    case DeclKind::Function: {
+                        resolve_function_decl(sym);
+                        expr->type = sym->function.type;
+                        return;
+                    }
+
+                    case DeclKind::Struct:
+                    case DeclKind::Typedef: expr->type = TypeInfo::get_error(m_context); return;
+
+                    default: ARIA_UNREACHABLE();
+                }
+            } else {
+                for (Stmt* im : m_context->active_comp_unit->imports) {
+                    ARIA_ASSERT(im->kind == StmtKind::Import, "Invalid import");
+                    ImportStmt& import = im->import;
+
+                    if (!import.resolved_module) { continue; }
+
+                    if (import.resolved_module->symbols.contains(dr.identifier)) {
+                        sym = import.resolved_module->symbols.at(dr.identifier);
+                        dr.referenced_decl = sym;
+
+                        switch (sym->kind) {
+                            case DeclKind::Var: {
+                                m_context->report_compiler_diagnostic_with_notes(expr->loc, "Variables from other modules must be prefixed with the module name",
+                                    { fmt::format("Did you mean to write '{}::{}'", import.resolved_module->name, dr.identifier)});
+
+                                resolve_var_decl(sym);
+                                expr->type = sym->var.type;
+                                return;
+                            }
+
+                            case DeclKind::Function: {
+                                m_context->report_compiler_diagnostic_with_notes(expr->loc, "Functions from other modules must be prefixed with the module name",
+                                    { fmt::format("Did you mean to write '{}::{}'", import.resolved_module->name, dr.identifier)});
+
+                                resolve_function_decl(sym);
+                                expr->type = sym->function.type;
+                                return;
+                            }
+
+                            case DeclKind::Struct: 
+                            case DeclKind::Typedef: expr->type = TypeInfo::get_error(m_context); return;
+
+                            default: ARIA_UNREACHABLE();
+                        }
+                    }
+                }
+            }
+
+            dr.referenced_decl = &error_decl;
+            m_context->report_compiler_diagnostic(expr->loc, fmt::format("Undeclared identifier '{}'", pretty_ident));
+            expr->type = TypeInfo::get_error(m_context);
+        };
+
+        if (dr.name_specifier) {
+            ARIA_ASSERT(dr.name_specifier->kind == SpecifierKind::Name, "Invalid name specifier");
+            resolve_name_specifier(dr.name_specifier);
+
+            Module* mod = dr.name_specifier->name.referenced_module;
+            if (!mod) {
+                dr.referenced_decl = &error_decl;
                 expr->type = TypeInfo::get_error(m_context);
-                ref.referenced_decl = &error_decl;
                 return;
             }
+
+            if (mod == m_context->active_module) { return resolve_without_specifier(); }
+            else { return resolve_with_specifier(); }
         }
 
-        expr->type = TypeInfo::get_error(m_context);
-        ref.referenced_decl = &error_decl;
-        m_context->report_compiler_diagnostic(expr->loc, fmt::format("Unknown identifier '{}'", ref.identifier));
+        resolve_without_specifier();
     }
 
     void SemanticAnalyzer::resolve_member_expr(Expr* expr) {
@@ -1081,7 +1137,12 @@ namespace ariac {
         for (Stmt* import : m_context->active_comp_unit->imports) {
             ARIA_ASSERT(import->kind == StmtKind::Import, "Invalid import stmt");
 
-            if (compare_module_names(name.identifier, import->import.name)) {
+            if (compare_module_names(name.identifier, import->import.alias.empty() ? import->import.name : import->import.alias)) {
+                if (mod) {
+                    m_context->report_compiler_diagnostic(specifier->loc, fmt::format("Ambigous name specifier '{}'", name.identifier));
+                    return;
+                }
+
                 mod = import->import.resolved_module;
                 break;
             }

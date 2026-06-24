@@ -88,7 +88,7 @@ namespace ariac {
         IfStmt& i = stmt->if_;
 
         llvm::BasicBlock* if_body = llvm::BasicBlock::Create(*m_active_module_context.context, "if_body", m_active_module_context.function);
-        llvm::BasicBlock* else_body = (i.else_body) ? llvm::BasicBlock::Create(*m_active_module_context.context, "if_body", m_active_module_context.function) : nullptr;
+        llvm::BasicBlock* else_body = (i.else_body) ? llvm::BasicBlock::Create(*m_active_module_context.context, "if_else", m_active_module_context.function) : nullptr;
         llvm::BasicBlock* if_end = llvm::BasicBlock::Create(*m_active_module_context.context, "if_end", m_active_module_context.function);
 
         llvm::Value* cond = gen_expr(i.condition);

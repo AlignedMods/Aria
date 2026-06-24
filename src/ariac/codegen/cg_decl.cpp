@@ -8,13 +8,16 @@ namespace ariac {
 
         llvm::Type* type = type_info_to_llvm_type(var.type);
 
-        llvm::AllocaInst* a = nullptr;
+        llvm::Value* a = nullptr;
         if (var.global_var) {
             std::string ident = fmt::format("{}.{}", valid_module_name(decl->parent_module->name), var.identifier);
-            llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, type, false, llvm::GlobalValue::LinkageTypes::ExternalLinkage, llvm::Constant::getNullValue(type), ident);
+            llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, type, false, linkage_kind_to_llvm(var.linkage_kind), llvm::Constant::getNullValue(type), ident);
+            a = global;
         } else {
             a = alloca_at_entry(m_active_module_context.function, var.identifier, var.type);
         }
+
+        ARIA_ASSERT(a, "Invalid var decl");
         m_active_module_context.named_values[decl] = a;
 
         if (var.global_var) { return; }
@@ -81,7 +84,7 @@ namespace ariac {
         FunctionDecl& fn = decl->function;
         std::string sig;
         
-        if (fn.linkage_kind == LinkageKind::Extern || fn.identifier == "main") {
+        if (fn.linkage_kind == LinkageKind::Extern) {
             sig = fn.identifier;
         } else {
             sig = fmt::format("{}.{}", valid_module_name(decl->parent_module->name), fn.identifier);

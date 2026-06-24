@@ -98,6 +98,7 @@ namespace ariac {
         for (Decl* field : s.fields) {
             field->parent_unit = decl->parent_unit;
             field->parent_module = decl->parent_module;
+            resolve_type(field->field.type->loc, field->field.type);
 
             ARIA_ASSERT(field->kind == DeclKind::Field, "Invalid field");
 

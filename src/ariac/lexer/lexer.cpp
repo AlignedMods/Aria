@@ -510,6 +510,7 @@ namespace ariac {
         if (scratch_buffer_cmp("delete"))   { add_token(TokenKind::Delete,   loc, "delete");   return; }
         if (scratch_buffer_cmp("defer"))    { add_token(TokenKind::Defer,    loc, "defer");    return; }
         if (scratch_buffer_cmp("extern"))   { add_token(TokenKind::Extern,   loc, "extern");   return; }
+        if (scratch_buffer_cmp("static"))   { add_token(TokenKind::Static,   loc, "static");   return; }
         if (scratch_buffer_cmp("sizeof"))   { add_token(TokenKind::Sizeof,   loc, "sizeof");   return; }
         if (scratch_buffer_cmp("typedef"))  { add_token(TokenKind::Typedef,  loc, "typedef");  return; }
         if (scratch_buffer_cmp("as"))       { add_token(TokenKind::As,       loc, "as");       return; }

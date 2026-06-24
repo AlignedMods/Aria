@@ -1134,9 +1134,16 @@ namespace ariac {
         Token& imp = consume(); // consume "import"
 
         std::string_view path = parse_module_path();
+        std::string_view alias;
+
+        if (match(TokenKind::As)) {
+            consume();
+            alias = parse_module_path();
+        }
+
         try_consume(TokenKind::Semi, ";");
 
-        Stmt* import = Stmt::Create(m_context, imp.loc + peek(-1)->loc, StmtKind::Import, ImportStmt(path));
+        Stmt* import = Stmt::Create(m_context, imp.loc + peek(-1)->loc, StmtKind::Import, ImportStmt(path, alias));
         m_context->active_comp_unit->imports.push_back(import);
         return import;
     }
@@ -1151,7 +1158,7 @@ namespace ariac {
         return parse_variable_decl(global, true);
     }
 
-    Decl* Parser::parse_variable_decl(bool global, bool const_) {
+    Decl* Parser::parse_variable_decl(bool global, bool const_, LinkageKind linkage) {
         SourceLoc loc = peek()->loc;
 
         Token* ident = try_consume(TokenKind::Identifier, "identifier");
@@ -1186,7 +1193,7 @@ namespace ariac {
 
         try_consume(TokenKind::Semi, ";");
 
-        Decl* decl = Decl::Create(m_context, ident->loc + peek(-1)->loc, DeclKind::Var, global ? m_current_visibility : DeclVisibility::Public, VarDecl(ident->string, type, initializer, global, const_));
+        Decl* decl = Decl::Create(m_context, ident->loc + peek(-1)->loc, DeclKind::Var, global ? m_current_visibility : DeclVisibility::Public, VarDecl(ident->string, type, initializer, global, const_, linkage));
 
         if (global) {
             m_context->active_comp_unit->globals.push_back(decl);
@@ -1198,7 +1205,7 @@ namespace ariac {
     Decl* Parser::parse_function_decl(LinkageKind linkage) {
         SourceLoc loc = peek()->loc;
         Token fn = consume(); // consume "fn"
-        TypeInfo* ret_type = TypeInfo::get_error(m_context);
+        TypeInfo* ret_type = TypeInfo::get_void(m_context);
 
         if (is_primitive_type()) {
             m_context->report_compiler_diagnostic(peek()->loc, "Expected an indentifier but got a type (NOTE: function declarations look like: fn name() -> type {...})");
@@ -1214,11 +1221,13 @@ namespace ariac {
         bool is_var_arg = false;
         auto[params, param_types] = parse_function_params(&is_var_arg);
 
-        if (try_consume(TokenKind::Arrow, "->")) {
+        if (match(TokenKind::Arrow)) {
+            consume();
+
             if (!(is_primitive_type() || match(TokenKind::Identifier))) {
                 m_context->report_compiler_diagnostic(peek()->loc, "Expected a type after '->'");
                 sync_local();
-            } else if (ret_type->is_error()) {
+            } else {
                 ret_type = parse_type();
             }
         }
@@ -1419,6 +1428,21 @@ namespace ariac {
         }
     }
 
+    Decl* Parser::parse_static_decl() {
+        Token& sta = consume(); // consume "static"
+
+        switch (peek()->kind) {
+            case TokenKind::Identifier: return parse_variable_decl(true, false, LinkageKind::Static);
+
+            default: {
+                Token& tok = consume();
+                m_context->report_compiler_diagnostic(tok.loc, "Expected 'identifier'");
+                sync_global();
+                return &error_decl;
+            }
+        }
+    }
+
     Decl* Parser::parse_typedef_decl() {
         Token& td = consume(); // consume "typedef"
 
@@ -1539,6 +1563,13 @@ namespace ariac {
 
             case TokenKind::Extern: {
                 Decl* decl = parse_extern_decl();
+                if (!decl_ok(decl)) { return &error_stmt; }
+
+                return Stmt::Create(m_context, decl->loc, StmtKind::Decl, decl);
+            }
+
+            case TokenKind::Static: {
+                Decl* decl = parse_static_decl();
                 if (!decl_ok(decl)) { return &error_stmt; }
 
                 return Stmt::Create(m_context, decl->loc, StmtKind::Decl, decl);

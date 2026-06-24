@@ -42,7 +42,7 @@ namespace ariac {
             llvm::Instruction* alloca_marker = nullptr;
 
             std::unordered_map<Decl*, llvm::Function*> functions;
-            std::unordered_map<Decl*, llvm::AllocaInst*> named_values;
+            std::unordered_map<Decl*, llvm::Value*> named_values;
         };
 
         struct ABIParamTypeInfo {
@@ -141,6 +141,7 @@ namespace ariac {
         void gen_stmt(Stmt* stmt);
 
         llvm::Type* type_info_to_llvm_type(TypeInfo* t);
+        llvm::GlobalValue::LinkageTypes linkage_kind_to_llvm(LinkageKind kind);
         u64 get_type_size(TypeInfo* t);
         u64 get_type_alignment(TypeInfo* t);
         u64 align_value(u64 val, u64 alignment);

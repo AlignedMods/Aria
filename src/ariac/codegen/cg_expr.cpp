@@ -66,6 +66,7 @@ namespace ariac {
 
         ARIA_ASSERT(m_active_module_context.named_values.contains(dr.referenced_decl), "Invalid DeclRef expression");
         llvm::Value* val = m_active_module_context.named_values.at(dr.referenced_decl);
+        ARIA_ASSERT(val, "Invalid DeclRef expression");
 
         if (dr.referenced_decl->kind == DeclKind::Param && get_param_abi_type_info(expr->type).pass_by_ptr || expr->type->is_reference()) {
             return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr(m_context)), val);
@@ -110,6 +111,7 @@ namespace ariac {
                     idx++;
                 }
 
+                ARIA_ASSERT(val, "Invalid value for MemberExpr");
                 llvm::Value* gep = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, static_cast<unsigned>(idx));
 
                 if (expr->type->is_reference()) {
@@ -193,7 +195,8 @@ namespace ariac {
         }
 
         llvm::Value* callee = gen_expr(call.callee);
-        return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(llvm::dyn_cast<llvm::FunctionType>(type_info_to_llvm_type(call.callee->type)), callee), args, expr->type->is_void() ? "" : "call");
+        ARIA_ASSERT(callee, "Invalid function callee");
+        return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(llvm::dyn_cast<llvm::Function>(callee)), args, expr->type->is_void() ? "" : "call");
     }
 
     llvm::Value* Codegen::gen_construct_expr(Expr* expr) {
@@ -646,6 +649,30 @@ namespace ariac {
 
                 ARIA_UNREACHABLE();
                 break;
+            }
+
+            case BinaryOperatorKind::LogOr: {
+                llvm::Value* lhs = gen_expr(bin.lhs);
+
+                llvm::BasicBlock* prev_block = m_active_module_context.builder->GetInsertBlock();
+                llvm::BasicBlock* phi_block = llvm::BasicBlock::Create(*m_active_module_context.context, "logor.phi", m_active_module_context.function);
+                llvm::BasicBlock* rhs_block = llvm::BasicBlock::Create(*m_active_module_context.context, "logor.rhs", m_active_module_context.function);
+
+                ARIA_ASSERT(lhs->getType()->isIntegerTy(1), "Not a boolean type");
+                m_active_module_context.builder->CreateCondBr(lhs, phi_block, rhs_block);
+
+                m_active_module_context.builder->SetInsertPoint(rhs_block);
+                llvm::Value* rhs = gen_expr(bin.rhs);
+                ARIA_ASSERT(rhs->getType()->isIntegerTy(1), "Not a boolean type");
+                m_active_module_context.builder->CreateBr(phi_block);
+
+                m_active_module_context.builder->SetInsertPoint(phi_block);
+                
+                llvm::PHINode* phi = m_active_module_context.builder->CreatePHI(llvm::Type::getInt1Ty(*m_active_module_context.context), 2);
+                phi->addIncoming(lhs, prev_block);
+                phi->addIncoming(rhs, rhs_block);
+
+                return phi;
             }
 
             case BinaryOperatorKind::Eq: {

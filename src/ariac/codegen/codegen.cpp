@@ -103,6 +103,38 @@ namespace ariac {
             }
         }
 
+        if (m_context->main_func->parent_module == mod) {
+            llvm::Type* int32 = llvm::Type::getInt32Ty(*m_active_module_context.context);
+            llvm::Type* ptr = llvm::PointerType::get(*m_active_module_context.context, 0);
+            llvm::Function* main = llvm::Function::Create(llvm::FunctionType::get(int32, { int32, ptr}, false), llvm::GlobalValue::LinkageTypes::ExternalLinkage, "main", *m_active_module_context.module);
+            m_active_module_context.function = main;
+
+            llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", main);
+            m_active_module_context.builder->SetInsertPoint(bb);
+            m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
+
+            llvm::Value* argc = alloca_at_entry(main, "argc", int32);
+            llvm::Value* argv = alloca_at_entry(main, "argv", ptr);
+
+            m_active_module_context.builder->CreateStore(main->getArg(0), argc);
+            m_active_module_context.builder->CreateStore(main->getArg(1), argv);
+
+            llvm::FunctionCallee callee = llvm::FunctionCallee(m_active_module_context.functions.at(m_context->main_func));
+
+            llvm::Value* ret = m_active_module_context.builder->CreateCall(callee, {});
+
+            if (m_context->main_func->function.type->function.return_type->is_void()) {
+                m_active_module_context.builder->CreateRet(m_active_module_context.builder->getInt32(0));
+            } else {
+                ARIA_ASSERT(m_context->main_func->function.type->function.return_type->kind == TypeKind::Int, "Invalid return type");
+                m_active_module_context.builder->CreateRet(ret);
+            }
+
+            m_active_module_context.alloca_marker->eraseFromParent();
+            m_active_module_context.alloca_marker = nullptr;
+            if (llvm::verifyFunction(*main, &llvm::errs())) { throw std::exception(); }
+        }
+
         if (llvm::verifyModule(*m_active_module_context.module)) { throw std::runtime_error(fmt::format("Module '{}' failed verification", mod->name)); }
 
         m_active_module_context.module->setDataLayout(m_machine->createDataLayout());
@@ -277,6 +309,16 @@ namespace ariac {
             return type_info_to_llvm_type(t->typedef_.base);
         } else {
             ARIA_UNREACHABLE();
+        }
+    }
+
+    llvm::GlobalValue::LinkageTypes Codegen::linkage_kind_to_llvm(LinkageKind kind) {
+        switch (kind) {
+            case LinkageKind::None: return llvm::GlobalValue::LinkageTypes::ExternalLinkage;
+            case LinkageKind::Extern: return llvm::GlobalValue::LinkageTypes::ExternalLinkage;
+            case LinkageKind::Static: return llvm::GlobalValue::LinkageTypes::InternalLinkage;
+
+            default: ARIA_UNREACHABLE();
         }
     }
 

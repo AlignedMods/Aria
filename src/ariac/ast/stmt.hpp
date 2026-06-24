@@ -38,13 +38,14 @@ namespace ariac {
     };
 
     struct ImportStmt {
-        ImportStmt(std::string_view name)
-            : name(name) {}
+        ImportStmt(std::string_view name, std::string_view alias)
+            : name(name), alias(alias) {}
 
         ImportStmt(std::string_view name, Module* mod)
             : name(name), resolved_module(mod) {}
 
         std::string_view name;
+        std::string_view alias;
         Module* resolved_module = nullptr;
     };
 

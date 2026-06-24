@@ -199,6 +199,10 @@ namespace ariac {
                     }
                 }
 
+                if (!f.type->function.return_type->is_void() && f.type->function.return_type->kind != TypeKind::Int) {
+                    m_context->report_compiler_diagnostic(f.type->loc, "Return type of 'main' function must be 'void' or 'int'");
+                }
+
                 module->symbols[f.identifier] = func;
                 unit->local_symbols[f.identifier] = func;
                 m_context->main_func = func;

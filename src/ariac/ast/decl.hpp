@@ -77,13 +77,15 @@ namespace ariac {
 
     enum class LinkageKind {
         None,
-        Extern
+        Extern,
+        Static
     };
 
     inline const char* linkage_kind_to_string(LinkageKind kind) {
         switch (kind) {
             case LinkageKind::None: return "";
             case LinkageKind::Extern: return "extern";
+            case LinkageKind::Static: return "static";
 
             default: ARIA_UNREACHABLE();
         }
@@ -114,14 +116,15 @@ namespace ariac {
     };
 
     struct VarDecl {
-        VarDecl(std::string_view identifier, TypeInfo* type, Expr* initializer, bool global, bool const_)
-            : identifier(identifier), type(type), initializer(initializer), global_var(global), const_var(const_) {}
+        VarDecl(std::string_view identifier, TypeInfo* type, Expr* initializer, bool global, bool const_, LinkageKind lk)
+            : identifier(identifier), type(type), initializer(initializer), global_var(global), const_var(const_), linkage_kind(lk) {}
 
         std::string_view identifier;
         TypeInfo* type = nullptr;
         Expr* initializer = nullptr;
         bool global_var = false;
         bool const_var = false;
+        LinkageKind linkage_kind = LinkageKind::None;
     };
 
     struct ParamDecl {

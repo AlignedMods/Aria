@@ -77,6 +77,7 @@ namespace ariac {
         Delete,
         Defer,
         Extern,
+        Static,
         Sizeof,
         Typedef,
         As,
@@ -192,6 +193,7 @@ namespace ariac {
             case TokenKind::Delete: return "delete";
             case TokenKind::Defer: return "defer";
             case TokenKind::Extern: return "extern";
+            case TokenKind::Static: return "static";
             case TokenKind::Sizeof: return "sizeof";
             case TokenKind::Typedef: return "typedef";
             case TokenKind::As: return "as";
