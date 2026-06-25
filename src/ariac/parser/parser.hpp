@@ -82,6 +82,7 @@ namespace ariac {
         Decl* parse_extern_decl();
         Decl* parse_static_decl();
         Decl* parse_typedef_decl();
+        Decl* parse_enum_decl();
 
         TinyVector<DeclAttribute> parse_decl_attributes();
 

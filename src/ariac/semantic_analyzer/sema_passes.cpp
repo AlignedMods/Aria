@@ -123,6 +123,17 @@ namespace ariac {
             module->symbols[ident] = td;
             unit->local_symbols[ident] = td;
         }
+
+        for (Decl* en : unit->enums) {
+            en->parent_module = module;
+            en->parent_unit = unit;
+
+            EnumDecl& e = en->enum_;
+            std::string_view ident = e.identifier;
+
+            module->symbols[ident] = en;
+            unit->local_symbols[ident] = en;
+        }
     }
 
     void SemanticAnalyzer::resolve_unit_decls(Module* module, CompilationUnit* unit) {

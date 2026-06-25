@@ -22,6 +22,8 @@ namespace ariac {
         Struct,
         Impl,
         Typedef,
+        Enum,
+        EnumField,
         Field,
         Method,
     };
@@ -34,6 +36,8 @@ namespace ariac {
             case DeclKind::Param: return "Param";
             case DeclKind::Function: return "Function";
             case DeclKind::Struct: return "Struct";
+            case DeclKind::Typedef: return "Typedef";
+            case DeclKind::Enum: return "Enum";
 
             default: ARIA_UNREACHABLE();
         }
@@ -174,6 +178,27 @@ namespace ariac {
         std::string_view identifier;
     };
 
+    struct EnumDecl {
+        EnumDecl(TinyVector<Decl*> fields, std::string_view identifier)
+            : fields(fields), identifier(identifier) {}
+
+        TinyVector<Decl*> fields;
+        HTable<Decl*> field_lookup;
+        std::string_view identifier;
+    };
+
+    struct EnumFieldDecl {
+        EnumFieldDecl(std::string_view identifier)
+            : identifier(identifier), value(nullptr) {}
+
+        EnumFieldDecl(std::string_view identifier, Expr* value)
+            : identifier(identifier), value(value) {}
+
+        std::string_view identifier;
+        Expr* value = nullptr;
+        u64 resolved_value = 0;
+    };
+
     struct FieldDecl {
         FieldDecl(std::string_view identifier, TypeInfo* type)
             : identifier(identifier), type(type) {}
@@ -221,6 +246,8 @@ namespace ariac {
             StructDecl struct_;
             ImplDecl impl;
             TypedefDecl typedef_;
+            EnumDecl enum_;
+            EnumFieldDecl enum_field;
             FieldDecl field;
             MethodDecl method;
         };
@@ -251,6 +278,12 @@ namespace ariac {
 
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, TypedefDecl typedef_)
             : loc(loc), kind(kind), visibility(visibility), typedef_(typedef_) {}
+
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, EnumDecl enum_)
+            : loc(loc), kind(kind), visibility(visibility), enum_(enum_) {}
+
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, EnumFieldDecl field)
+            : loc(loc), kind(kind), visibility(visibility), enum_field(field) {}
 
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, FieldDecl field)
             : loc(loc), kind(kind), visibility(visibility), field(field) {}

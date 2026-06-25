@@ -103,7 +103,7 @@ namespace ariac {
             }
         }
 
-        if (m_context->main_func->parent_module == mod) {
+        if (m_context->main_func && m_context->main_func->parent_module == mod) {
             llvm::Type* int32 = llvm::Type::getInt32Ty(*m_active_module_context.context);
             llvm::Type* ptr = llvm::PointerType::get(*m_active_module_context.context, 0);
             llvm::Function* main = llvm::Function::Create(llvm::FunctionType::get(int32, { int32, ptr}, false), llvm::GlobalValue::LinkageTypes::ExternalLinkage, "main", *m_active_module_context.module);
@@ -307,6 +307,8 @@ namespace ariac {
             return s;
         } else if (t->kind == TypeKind::Typedef) {
             return type_info_to_llvm_type(t->typedef_.base);
+        } else if (t->kind == TypeKind::Enum) {
+            return llvm::IntegerType::getInt32Ty(*m_active_module_context.context);
         } else {
             ARIA_UNREACHABLE();
         }

@@ -129,6 +129,10 @@ namespace ariac {
                 return m_active_module_context.functions.at(mem.referenced_member);
             }
 
+            case DeclKind::EnumField: {
+                return m_active_module_context.builder->getInt32(static_cast<u32>(mem.referenced_member->enum_field.resolved_value));
+            }
+
             default: ARIA_UNREACHABLE();
         }
     }
@@ -723,14 +727,29 @@ namespace ariac {
                 break;
             }
 
-            case BinaryOperatorKind::CompoundMul: {
+            case BinaryOperatorKind::CompoundSub: {
                 if (expr->type->is_integral()) {
-                    llvm::Value* add = m_active_module_context.builder->CreateMul(lhs_val, rhs, "mul");
-                    m_active_module_context.builder->CreateStore(add, lhs);
+                    llvm::Value* sub = m_active_module_context.builder->CreateSub(lhs_val, rhs, "sub");
+                    m_active_module_context.builder->CreateStore(sub, lhs);
                     return lhs;
                 } else if (expr->type->is_floating_point()) {
-                    llvm::Value* add = m_active_module_context.builder->CreateFMul(lhs_val, rhs, "fmul");
-                    m_active_module_context.builder->CreateStore(add, lhs);
+                    llvm::Value* sub = m_active_module_context.builder->CreateFSub(lhs_val, rhs, "fsub");
+                    m_active_module_context.builder->CreateStore(sub, lhs);
+                    return lhs;
+                }
+
+                ARIA_UNREACHABLE();
+                break;
+            }
+
+            case BinaryOperatorKind::CompoundMul: {
+                if (expr->type->is_integral()) {
+                    llvm::Value* mul = m_active_module_context.builder->CreateMul(lhs_val, rhs, "mul");
+                    m_active_module_context.builder->CreateStore(mul, lhs);
+                    return lhs;
+                } else if (expr->type->is_floating_point()) {
+                    llvm::Value* mul = m_active_module_context.builder->CreateFMul(lhs_val, rhs, "fmul");
+                    m_active_module_context.builder->CreateStore(mul, lhs);
                     return lhs;
                 }
 

@@ -160,7 +160,8 @@ namespace ariac {
                     }
 
                     case DeclKind::Struct:
-                    case DeclKind::Typedef: expr->type = TypeInfo::get_error(m_context); return;
+                    case DeclKind::Typedef:
+                    case DeclKind::Enum: expr->type = TypeInfo::get_error(m_context); return;
 
                     default: ARIA_UNREACHABLE();
                 }
@@ -195,7 +196,8 @@ namespace ariac {
                             }
 
                             case DeclKind::Struct: 
-                            case DeclKind::Typedef: expr->type = TypeInfo::get_error(m_context); return;
+                            case DeclKind::Typedef:
+                            case DeclKind::Enum: expr->type = TypeInfo::get_error(m_context); return;
 
                             default: ARIA_UNREACHABLE();
                         }
@@ -237,6 +239,29 @@ namespace ariac {
         while (searching) {
             switch (parent_type->kind) {
                 case TypeKind::Error: {
+                    if (mem.parent->kind == ExprKind::DeclRef) {
+                        switch (mem.parent->decl_ref.referenced_decl->kind) {
+                            case DeclKind::Enum: {
+                                EnumDecl& e = mem.parent->decl_ref.referenced_decl->enum_;
+                                
+                                if (e.field_lookup.contains(mem.member)) {
+                                    Decl* d = e.field_lookup.at(mem.member);
+                                    expr->type = TypeInfo::create_enum(m_context, mem.parent->decl_ref.referenced_decl);
+                                    expr->value_kind = ExprValueKind::RValue;
+                                    mem.referenced_member = d;
+                                } else {
+                                    m_context->report_compiler_diagnostic(expr->loc, fmt::format("Enum '{}' has no field named '{}'", e.identifier, mem.member));
+                                    expr->type = TypeInfo::get_error(m_context);
+                                    mem.referenced_member = &error_decl;
+                                }
+
+                                return;
+                            }
+
+                            default: ARIA_UNREACHABLE();
+                        }
+                    }
+
                     expr->type = TypeInfo::get_error(m_context);
                     mem.referenced_member = &error_decl;
                     return;

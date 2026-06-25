@@ -30,99 +30,99 @@ namespace ariac {
                 case '\n': { m_current_line++; m_current_line_start = m_index - 1; break; }
 
                 // Punctuation
-                case ';': add_token(TokenKind::Semi, SourceLoc(m_current_line, get_column(m_index), m_index, 1), ";"); break;
-                case '(': add_token(TokenKind::LeftParen, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "("); break;
-                case ')': add_token(TokenKind::RightParen, SourceLoc(m_current_line, get_column(m_index), m_index, 1), ")"); break;
-                case '[': add_token(TokenKind::LeftBracket, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "["); break;
-                case ']': add_token(TokenKind::RightBracket, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "]"); break;
-                case '{': add_token(TokenKind::LeftCurly, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "{"); break;
-                case '}': add_token(TokenKind::RightCurly, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "}"); break;
-                case '~': add_token(TokenKind::Squigly, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "~"); break;
-                case ',': add_token(TokenKind::Comma, SourceLoc(m_current_line, get_column(m_index), m_index, 1), ","); break;
+                case ';': add_token(TokenKind::Semi, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), ";"); break;
+                case '(': add_token(TokenKind::LeftParen, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), "("); break;
+                case ')': add_token(TokenKind::RightParen, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), ")"); break;
+                case '[': add_token(TokenKind::LeftBracket, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), "["); break;
+                case ']': add_token(TokenKind::RightBracket, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), "]"); break;
+                case '{': add_token(TokenKind::LeftCurly, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), "{"); break;
+                case '}': add_token(TokenKind::RightCurly, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), "}"); break;
+                case '~': add_token(TokenKind::Squigly, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), "~"); break;
+                case ',': add_token(TokenKind::Comma, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), ","); break;
                 case ':': {
-                    if (try_consume(':')) { add_token(TokenKind::ColonColon, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "::"); break; }
-                    else { add_token(TokenKind::Colon, SourceLoc(m_current_line, get_column(m_index), m_index, 1), ":"); break; }
+                    if (try_consume(':')) { add_token(TokenKind::ColonColon, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "::"); break; }
+                    else { add_token(TokenKind::Colon, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), ":"); break; }
                 }
 
                 case '.': {
-                    if (peek() == '.' && peek(1) == '.') { consume(2); add_token(TokenKind::TripleDot, SourceLoc(m_current_line, get_column(m_index), m_index, 3), "..."); break; }
-                    else { add_token(TokenKind::Dot, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "."); break; }
+                    if (peek() == '.' && peek(1) == '.') { consume(2); add_token(TokenKind::TripleDot, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 3), "..."); break; }
+                    else { add_token(TokenKind::Dot, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), "."); break; }
                 }
 
                 // Operators
                 case '+': {
-                    if (try_consume('=')) { add_token(TokenKind::PlusEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "+="); break; }
-                    else if (try_consume('+')) { add_token(TokenKind::PlusPlus, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "++"); break; }
-                    else { add_token(TokenKind::Plus, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "+"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::PlusEq, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "+="); break; }
+                    else if (try_consume('+')) { add_token(TokenKind::PlusPlus, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "++"); break; }
+                    else { add_token(TokenKind::Plus, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), "+"); break; }
                 }
 
                 case '-': {
-                    if (try_consume('=')) { add_token(TokenKind::MinusEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "-="); break; }
-                    else if (try_consume('-')) { add_token(TokenKind::MinusMinus, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "--"); break; }
-                    else if (try_consume('>')) { add_token(TokenKind::Arrow, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "->"); break; }
-                    else { add_token(TokenKind::Minus, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "-"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::MinusEq, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "-="); break; }
+                    else if (try_consume('-')) { add_token(TokenKind::MinusMinus, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "--"); break; }
+                    else if (try_consume('>')) { add_token(TokenKind::Arrow, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "->"); break; }
+                    else { add_token(TokenKind::Minus, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), "-"); break; }
                 }
 
                 case '*': {
-                    if (try_consume('=')) { add_token(TokenKind::StarEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "*="); break; }
-                    else { add_token(TokenKind::Star, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "*"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::StarEq, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "*="); break; }
+                    else { add_token(TokenKind::Star, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), "*"); break; }
                 }
 
                 case '/': {
                     if (try_consume('=')) { add_token(TokenKind::SlashEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "/="); break; }
-                    else { add_token(TokenKind::Slash, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "/"); break; }
+                    else { add_token(TokenKind::Slash, SourceLoc(m_current_line, get_column(m_index), m_index - 1, 1), "/"); break; }
                 }
 
                 case '%': {
-                    if (try_consume('=')) { add_token(TokenKind::PercentEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "%="); break; }
-                    else { add_token(TokenKind::Percent, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "%"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::PercentEq, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "%="); break; }
+                    else { add_token(TokenKind::Percent, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), "%"); break; }
                 }
 
                 case '&': {
-                    if (try_consume('=')) { add_token(TokenKind::AmpersandEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "&="); break; }
-                    else if (try_consume('&')) { add_token(TokenKind::DoubleAmpersand, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "&&"); break; }
-                    else { add_token(TokenKind::Ampersand, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "&"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::AmpersandEq, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "&="); break; }
+                    else if (try_consume('&')) { add_token(TokenKind::DoubleAmpersand, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "&&"); break; }
+                    else { add_token(TokenKind::Ampersand, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "&"); break; }
                 }
 
                 case '|': {
-                    if (try_consume('=')) { add_token(TokenKind::PipeEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "|="); break; }
-                    else if (try_consume('|')) { add_token(TokenKind::DoublePipe, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "||"); break; }
-                    else { add_token(TokenKind::Pipe, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "|"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::PipeEq, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "|="); break; }
+                    else if (try_consume('|')) { add_token(TokenKind::DoublePipe, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "||"); break; }
+                    else { add_token(TokenKind::Pipe, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), "|"); break; }
                 }
 
                 case '^': {
-                    if (try_consume('=')) { add_token(TokenKind::UpArrowEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "^="); break; }
-                    else { add_token(TokenKind::UpArrow, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "^"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::UpArrowEq, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "^="); break; }
+                    else { add_token(TokenKind::UpArrow, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), "^"); break; }
                 }
 
                 case '=': {
-                    if (try_consume('=')) { add_token(TokenKind::EqEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "=="); break; }
-                    else { add_token(TokenKind::Eq, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "="); break; }
+                    if (try_consume('=')) { add_token(TokenKind::EqEq, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "=="); break; }
+                    else { add_token(TokenKind::Eq, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), "="); break; }
                 }
 
                 case '!': {
-                    if (try_consume('=')) { add_token(TokenKind::BangEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "!="); break; }
-                    else { add_token(TokenKind::Bang, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "!"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::BangEq, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "!="); break; }
+                    else { add_token(TokenKind::Bang, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), "!"); break; }
                 }
 
                 case '<': {
                     if (try_consume('<')) {
-                        if (try_consume('=')) { add_token(TokenKind::LessLessEq, SourceLoc(m_current_line, get_column(m_index), m_index, 3), "<<="); break; }
-                        else { add_token(TokenKind::LessLess, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "<<"); break; }
+                        if (try_consume('=')) { add_token(TokenKind::LessLessEq, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 3), "<<="); break; }
+                        else { add_token(TokenKind::LessLess, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "<<"); break; }
                     }
 
-                    if (try_consume('=')) { add_token(TokenKind::LessEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), "<="); break; }
-                    else { add_token(TokenKind::Less, SourceLoc(m_current_line, get_column(m_index), m_index, 1), "<"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::LessEq, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "<="); break; }
+                    else { add_token(TokenKind::Less, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), "<"); break; }
                 }
 
                 case '>': {
                     if (try_consume('>')) {
-                        if (try_consume('=')) { add_token(TokenKind::GreaterGreaterEq, SourceLoc(m_current_line, get_column(m_index), m_index, 3), ">>="); break; }
-                        else { add_token(TokenKind::GreaterGreater, SourceLoc(m_current_line, get_column(m_index), m_index, 2), ">>"); break; }
+                        if (try_consume('=')) { add_token(TokenKind::GreaterGreaterEq, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 3), ">>="); break; }
+                        else { add_token(TokenKind::GreaterGreater, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), ">>"); break; }
                     }
 
-                    if (try_consume('=')) { add_token(TokenKind::GreaterEq, SourceLoc(m_current_line, get_column(m_index), m_index, 2), ">="); break; }
-                    else { add_token(TokenKind::Greater, SourceLoc(m_current_line, get_column(m_index), m_index, 1), ">"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::GreaterEq, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), ">="); break; }
+                    else { add_token(TokenKind::Greater, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), ">"); break; }
                 }
 
                 case '#': {
@@ -513,6 +513,7 @@ namespace ariac {
         if (scratch_buffer_cmp("static"))   { add_token(TokenKind::Static,   loc, "static");   return; }
         if (scratch_buffer_cmp("sizeof"))   { add_token(TokenKind::Sizeof,   loc, "sizeof");   return; }
         if (scratch_buffer_cmp("typedef"))  { add_token(TokenKind::Typedef,  loc, "typedef");  return; }
+        if (scratch_buffer_cmp("enum"))     { add_token(TokenKind::Enum,     loc, "enum");     return; }
         if (scratch_buffer_cmp("as"))       { add_token(TokenKind::As,       loc, "as");       return; }
         if (scratch_buffer_cmp("const"))    { add_token(TokenKind::Const,    loc, "const");    return; }
 

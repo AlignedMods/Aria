@@ -42,6 +42,21 @@ namespace ariac {
 
                 type->kind = TypeKind::Typedef;
                 type->typedef_ = TypedefType(t.ident->decl_ref.identifier, t.ident->decl_ref.referenced_decl->typedef_.type, t.ident->decl_ref.referenced_decl);
+            } else if (t.ident->decl_ref.referenced_decl->kind == DeclKind::Enum) {
+                if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
+                    CompilationUnit* old_unit = m_context->active_comp_unit;
+                    m_context->active_comp_unit = t.ident->decl_ref.referenced_decl->parent_unit;
+                    resolve_enum_decl(t.ident->decl_ref.referenced_decl);
+                    m_context->active_comp_unit = old_unit;
+                }
+                else if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::InProgress) {
+                    m_context->report_compiler_diagnostic(loc, "Recursive definition of enum");
+                    type->kind = TypeKind::Error;
+                    return;
+                }
+
+                type->kind = TypeKind::Enum;
+                type->enum_ = EnumType(t.ident->decl_ref.identifier, t.ident->decl_ref.referenced_decl);
             } else {
                 m_context->report_compiler_diagnostic(loc, fmt::format("'{}' is not a type", t.ident->decl_ref.identifier));
                 return;
@@ -162,6 +177,8 @@ namespace ariac {
 
         while (lhs->is_typdef()) { lhs = lhs->typedef_.base; }
         while (rhs->is_typdef()) { rhs = rhs->typedef_.base; }
+
+        if (lhs->is_enum() && rhs->is_enum()) { return true; }
 
         if (lhs->is_array() && rhs->is_array()) {
             return type_is_equal(lhs->array.base, rhs->array.base) && lhs->array.size == rhs->array.size;

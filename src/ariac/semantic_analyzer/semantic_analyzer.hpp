@@ -90,6 +90,7 @@ namespace ariac {
         void resolve_struct_decl(Decl* decl);
         void resolve_impl_decl(Decl* decl);
         void resolve_typedef_decl(Decl* decl);
+        void resolve_enum_decl(Decl* decl);
 
         void resolve_decl_attributes(Decl* decl, TinyVector<DeclAttribute> attrs, bool* erase_decl);
 

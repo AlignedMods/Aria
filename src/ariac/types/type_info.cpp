@@ -54,6 +54,12 @@ namespace ariac {
         return t;
     }
 
+    TypeInfo* TypeInfo::create_enum(CompilationContext* ctx, Decl* d, SourceLoc loc) {
+        TypeInfo* t = create_basic(ctx, TypeKind::Enum, loc);
+        t->enum_ = EnumType(d->enum_.identifier, d);
+        return t;
+    }
+
     TypeInfo* TypeInfo::dup(CompilationContext* ctx, TypeInfo* type) {
         TypeInfo* t = ctx->allocate<TypeInfo>();
         memcpy(reinterpret_cast<void*>(t), type, sizeof(TypeInfo));
@@ -231,6 +237,13 @@ namespace ariac {
                 } else {
                     str += (ty.source_decl && ty.source_decl->parent_module) ? fmt::format("{}::{}':'{}", ty.source_decl->parent_module->name, ty.identifier, type_info_to_string(ty.base, pretty)) : fmt::format("{}':'{}", ty.identifier, type_info_to_string(ty.base, pretty));
                 }
+                break;
+            }
+
+            case TypeKind::Enum: {
+                EnumType ty = type->enum_;
+
+                str += (ty.source_decl && ty.source_decl->parent_module) ? fmt::format("enum {}::{}", ty.source_decl->parent_module->name, ty.identifier) : fmt::format("enum {}", ty.identifier);
                 break;
             }
 

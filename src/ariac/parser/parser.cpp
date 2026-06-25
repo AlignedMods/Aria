@@ -245,7 +245,7 @@ namespace ariac {
         if (!rp) { return &error_expr; }
     
         if (left->kind == ExprKind::DeclRef) {
-            return Expr::Create(m_context, lp->loc + rp->loc, ExprKind::Call,
+            return Expr::Create(m_context, left->loc + rp->loc, ExprKind::Call,
                 ExprValueKind::RValue, nullptr, 
                 CallExpr(left, args));
         } else if (left->kind == ExprKind::Member) {
@@ -506,7 +506,7 @@ namespace ariac {
             Specifier* specifier = Specifier::Create(m_context, t.loc, SpecifierKind::Name, 
                 NameSpecifier(scratch_buffer_to_str(m_context)));
 
-            Expr* declRef = Expr::Create(m_context, var->loc, ExprKind::DeclRef,
+            Expr* declRef = Expr::Create(m_context, t.loc + var->loc, ExprKind::DeclRef,
                                 ExprValueKind::LValue, nullptr,
                                 DeclRefExpr(var->string, specifier));
 
@@ -1467,6 +1467,40 @@ namespace ariac {
         return &error_decl;
     }
 
+    Decl* Parser::parse_enum_decl() {
+        Token& enu = consume(); // consume "enum"
+
+        Token* ident = try_consume(TokenKind::Identifier, "identifier");
+        if (!ident) { return &error_decl; }
+
+        TinyVector<Decl*> fields;
+        try_consume(TokenKind::LeftCurly, "{");
+        while (peek() && !match(TokenKind::RightCurly)) {
+            Token* fd_ident = try_consume(TokenKind::Identifier, "identifier");
+            Expr* value = nullptr;
+
+            if (match(TokenKind::Eq)) {
+                consume();
+                value = parse_expression();
+            }
+
+            SourceLoc loc = value ? fd_ident->loc + value->loc : fd_ident->loc;
+            fields.append(m_context, Decl::Create(m_context, loc, DeclKind::EnumField, DeclVisibility::Public, EnumFieldDecl(fd_ident->string, value)));
+
+            if (match(TokenKind::Comma)) { consume(); continue; }
+            else if (match(TokenKind::RightCurly)) { break; }
+
+            m_context->report_compiler_diagnostic(peek()->loc, "Expected either ',' or '}'");
+            sync_local();
+        }
+
+        try_consume(TokenKind::RightCurly, "}");
+
+        Decl* d = Decl::Create(m_context, enu.loc + ident->loc, DeclKind::Enum, m_current_visibility, EnumDecl(fields, ident->string));
+        m_context->active_comp_unit->enums.push_back(d);
+        return d;
+    }
+
     TinyVector<DeclAttribute> Parser::parse_decl_attributes() {
         TinyVector<DeclAttribute> attrs;
 
@@ -1556,6 +1590,13 @@ namespace ariac {
 
             case TokenKind::Typedef: {
                 Decl* decl = parse_typedef_decl();
+                if (!decl_ok(decl)) { return &error_stmt; }
+
+                return Stmt::Create(m_context, decl->loc, StmtKind::Decl, decl);
+            }
+
+            case TokenKind::Enum: {
+                Decl* decl = parse_enum_decl();
                 if (!decl_ok(decl)) { return &error_stmt; }
 
                 return Stmt::Create(m_context, decl->loc, StmtKind::Decl, decl);

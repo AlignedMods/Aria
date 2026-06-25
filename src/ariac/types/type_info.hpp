@@ -35,6 +35,7 @@ namespace ariac {
 
         Structure,
         Typedef,
+        Enum,
 
         Unresolved
     };
@@ -76,6 +77,14 @@ namespace ariac {
         Decl* source_decl = nullptr;
     };
 
+    struct EnumType {
+        EnumType(std::string_view identifier, Decl* source)
+            : identifier(identifier), source_decl(source) {}
+
+        std::string_view identifier;
+        Decl* source_decl = nullptr;
+    };
+
     struct UnresolvedType {
         Expr* ident = nullptr;
     };
@@ -89,6 +98,7 @@ namespace ariac {
             ArrayType array;
             StructType struct_;
             TypedefType typedef_;
+            EnumType enum_;
             UnresolvedType unresolved;
         };
 
@@ -97,6 +107,7 @@ namespace ariac {
         static TypeInfo* create_function(CompilationContext* ctx, TypeKind kind, TypeInfo* ret, TinyVector<TypeInfo*> params, bool var_arg, SourceLoc loc = {});
         static TypeInfo* create_struct(CompilationContext* ctx, Decl* d, SourceLoc loc = {});
         static TypeInfo* create_typedef(CompilationContext* ctx, Decl* d, SourceLoc loc = {});
+        static TypeInfo* create_enum(CompilationContext* ctx, Decl* d, SourceLoc loc = {});
 
         static TypeInfo* get_error(CompilationContext* ctx);
         static TypeInfo* get_void(CompilationContext* ctx);
@@ -164,6 +175,10 @@ namespace ariac {
 
         bool is_typdef() const {
             return kind == TypeKind::Typedef;
+        }
+
+        bool is_enum() const {
+            return kind == TypeKind::Enum;
         }
 
         bool is_string() const;

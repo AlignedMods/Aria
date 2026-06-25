@@ -54,6 +54,7 @@ namespace ariac {
         std::vector<Decl*> structs;
         std::vector<Decl*> impls;
         std::vector<Decl*> typedefs;
+        std::vector<Decl*> enums;
 
         std::vector<Stmt*> imports;
 

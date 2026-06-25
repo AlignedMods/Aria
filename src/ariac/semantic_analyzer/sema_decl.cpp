@@ -192,6 +192,49 @@ namespace ariac {
         TypedefDecl& td = decl->typedef_;
     }
 
+    void SemanticAnalyzer::resolve_enum_decl(Decl* decl) {
+        if (decl->resolve_status == ResolveStatus::Done) { return; }
+        decl->resolve_status = ResolveStatus::InProgress;
+
+        EnumDecl& e = decl->enum_;
+        u64 val = 0;
+
+        for (Decl* field : e.fields) {
+            ARIA_ASSERT(field->kind == DeclKind::EnumField, "Invalid enum field");
+            EnumFieldDecl& f = field->enum_field;
+            
+            if (f.value) {
+                resolve_expr(f.value);
+
+                if (!is_const_expr(f.value)) {
+                    m_context->report_compiler_diagnostic(f.value->loc, "Value of enum field must be a constant expression");
+                } else {
+                    ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(m_context, TypeKind::Int), f.value->type);
+                    if (cost.cast_needed) {
+                        if (cost.implicit_cast_possible) {
+                            insert_implicit_cast(TypeInfo::get_basic(m_context, TypeKind::Int), f.value->type, f.value, cost.kind);
+                        } else {
+                            m_context->report_compiler_diagnostic(f.value->loc, fmt::format("Type of expression must be convertable to 'int' but is '{}'", type_info_to_string(f.value->type)));
+                        }
+                    }
+
+                    Expr* cons = eval_const_expr(f.value);
+                    replace_expr(f.value, cons);
+
+                    val = cons->const_.integer;
+                    f.resolved_value = val;
+                }
+            } else {
+                val++;
+                f.resolved_value = val;
+            }
+
+            e.field_lookup.insert(m_context, f.identifier, field);
+        }
+
+        decl->resolve_status = ResolveStatus::Done;
+    }
+
     void SemanticAnalyzer::resolve_decl_attributes(Decl* decl, TinyVector<DeclAttribute> attrs, bool* erase_decl) {
         for (auto& attr : attrs) {
             switch (attr.kind) {
@@ -230,6 +273,7 @@ namespace ariac {
             case DeclKind::Struct: return resolve_struct_decl(decl);
             case DeclKind::Impl: return;
             case DeclKind::Typedef: return resolve_typedef_decl(decl);
+            case DeclKind::Enum: return resolve_enum_decl(decl);
 
             default: ARIA_UNREACHABLE();
         }
