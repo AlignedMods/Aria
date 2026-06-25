@@ -280,6 +280,22 @@ namespace ariac {
                 type_info_to_string(decl->typedef_.type, false), decl->typedef_.identifier);
                 return;
 
+            case DeclKind::Enum: m_output += fmt::format("EnumDecl '{}'\n",
+                decl->enum_.identifier);
+
+                for (Decl* field : decl->enum_.fields) {
+                    dump_decl(field, indentation + 4);
+                }
+
+                return;
+
+            case DeclKind::EnumField: m_output += fmt::format("EnumFieldDecl '{}' {}\n",
+                decl->enum_field.identifier, decl->enum_field.resolved_value);
+                if (decl->enum_field.value) {
+                    dump_expr(decl->enum_field.value, indentation + 4);
+                }
+                return;
+
             case DeclKind::Field: m_output += fmt::format("FieldDecl '{}' '{}' {}\n",
                 decl->field.identifier, type_info_to_string(decl->field.type, false), decl_visibility_to_string(decl->visibility));
                 return;

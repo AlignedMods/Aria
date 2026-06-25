@@ -278,7 +278,7 @@ namespace ariac {
                 return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type->base), array, index);
 
             case TypeKind::Array:
-                return m_active_module_context.builder->CreateGEP(array->getType(), array, { m_active_module_context.builder->getInt64(0), index });
+                return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type), array, { m_active_module_context.builder->getInt64(0), index });
 
             case TypeKind::Slice: {
                 llvm::Value* mem = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(arr.array->type), array, 0);

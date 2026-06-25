@@ -69,7 +69,17 @@ namespace ariac {
                             m_context->report_compiler_diagnostic(sym->loc, "Defined here", CompilerDiagKind::Note, sym->parent_unit);
                         }
 
+                        Module* m = m_context->active_module;
+                        CompilationUnit* c = m_context->active_comp_unit;
+
+                        m_context->active_module = sym->parent_module;
+                        m_context->active_comp_unit = sym->parent_unit;
+
                         resolve_var_decl(sym);
+
+                        m_context->active_module = m;
+                        m_context->active_comp_unit = c;
+
                         expr->type = sym->var.type;
                         return;
                     }
@@ -143,7 +153,17 @@ namespace ariac {
             if (sym) {
                 switch (sym->kind) {
                     case DeclKind::Var: {
+                        Module* m = m_context->active_module;
+                        CompilationUnit* c = m_context->active_comp_unit;
+
+                        m_context->active_module = sym->parent_module;
+                        m_context->active_comp_unit = sym->parent_unit;
+
                         resolve_var_decl(sym);
+
+                        m_context->active_module = m;
+                        m_context->active_comp_unit = c;
+
                         expr->type = sym->var.type;
                         return;
                     }
@@ -257,6 +277,10 @@ namespace ariac {
 
                                 return;
                             }
+
+                            case DeclKind::Error:
+                            case DeclKind::Var:
+                            case DeclKind::Param: break;
 
                             default: ARIA_UNREACHABLE();
                         }
@@ -1395,6 +1419,12 @@ namespace ariac {
                                 }
 
                                 return nullptr;
+                            }
+
+                            case ConstExprKind::Floating: {
+                                return Expr::Create(m_context, expr->loc, ExprKind::Const, 
+                                    ExprValueKind::RValue, lhs->type, 
+                                    ConstExpr(ConstExprKind::Floating, lhs->const_.number / rhs->const_.number));
                             }
 
                             default: ARIA_UNREACHABLE();
