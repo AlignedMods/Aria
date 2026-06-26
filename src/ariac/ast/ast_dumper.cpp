@@ -310,6 +310,17 @@ namespace ariac {
                 dump_stmt(decl->method.body, indentation + 4);
                 return;
 
+            case DeclKind::Generic: m_output += "GenericDecl\n";
+                for (Decl* param : decl->generic.parameters) {
+                    dump_decl(param, indentation + 4);
+                }
+
+                dump_decl(decl->generic.decl, indentation + 4);
+                return;
+
+            case DeclKind::GenericParameter: m_output += fmt::format("GenericParameterDecl '{}'\n", decl->generic_parameter.identifier);
+                return;
+
             default: ARIA_UNREACHABLE();
         }
     }

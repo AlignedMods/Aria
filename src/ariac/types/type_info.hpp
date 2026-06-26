@@ -37,6 +37,8 @@ namespace ariac {
         Typedef,
         Enum,
 
+        Generic,
+
         Unresolved
     };
 
@@ -85,6 +87,10 @@ namespace ariac {
         Decl* source_decl = nullptr;
     };
 
+    struct GenericType {
+        std::string_view identifier;
+    };
+
     struct UnresolvedType {
         Expr* ident = nullptr;
     };
@@ -99,6 +105,7 @@ namespace ariac {
             StructType struct_;
             TypedefType typedef_;
             EnumType enum_;
+            GenericType generic;
             UnresolvedType unresolved;
         };
 
@@ -108,6 +115,7 @@ namespace ariac {
         static TypeInfo* create_struct(CompilationContext* ctx, Decl* d, SourceLoc loc = {});
         static TypeInfo* create_typedef(CompilationContext* ctx, Decl* d, SourceLoc loc = {});
         static TypeInfo* create_enum(CompilationContext* ctx, Decl* d, SourceLoc loc = {});
+        static TypeInfo* create_generic(CompilationContext* ctx, std::string_view name, SourceLoc loc = {});
 
         static TypeInfo* get_error(CompilationContext* ctx);
         static TypeInfo* get_void(CompilationContext* ctx);

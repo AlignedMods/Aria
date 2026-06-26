@@ -1310,13 +1310,44 @@ namespace ariac {
         return { params, param_types };
     }
 
+    TinyVector<Decl*> Parser::parse_generic_params() {
+        TinyVector<Decl*> params;
+
+        try_consume(TokenKind::Less, "<");
+        if (match(TokenKind::Greater)) {
+            Token& g = consume();
+            m_context->report_compiler_diagnostic(g.loc, "Empty generic parameter list is not allowed");
+            return params;
+        }
+
+        while (peek() && !match(TokenKind::Greater)) {
+            Token* ident = try_consume(TokenKind::Identifier, "identifier");
+            if (!ident) { continue; }
+            params.append(m_context, Decl::Create(m_context, ident->loc, DeclKind::GenericParameter, DeclVisibility::Public, GenericParameterDecl(ident->string)));
+
+            if (match(TokenKind::Comma)) { consume(); continue; }
+            if (match(TokenKind::Greater)) { break; }
+
+            m_context->report_compiler_diagnostic(peek()->loc, "Expected either ',' or '>'");
+            sync_params();
+        }
+
+        try_consume(TokenKind::Greater, ">");
+        return params;
+    }
+
     Decl* Parser::parse_struct_decl() {
         Token s = consume(); // consume "struct"
         Token* ident = try_consume(TokenKind::Identifier, "identifier");
         if (!ident) { return &error_decl; }
         
         Decl* struc = Decl::Create(m_context, s.loc + ident->loc, DeclKind::Struct, m_current_visibility, StructDecl(ident->string, {}));
+        TinyVector<Decl*> generic_params;
         DeclVisibility visibility = DeclVisibility::Public;
+
+        if (match(TokenKind::Less)) {
+            generic_params = parse_generic_params();
+        }
 
         try_consume(TokenKind::LeftCurly, "{");
         while (!match(TokenKind::RightCurly)) {
@@ -1353,8 +1384,13 @@ namespace ariac {
         }
         try_consume(TokenKind::RightCurly, "}");
         
-        m_context->active_comp_unit->structs.push_back(struc);
-        return struc;
+        if (generic_params.size == 0) {
+            m_context->active_comp_unit->structs.push_back(struc);
+            return struc;
+        } else {
+            Decl* g = Decl::Create(m_context, struc->loc, DeclKind::Generic, m_current_visibility, GenericDecl(generic_params, struc));
+            return g;
+        }
     }
 
     Decl* Parser::parse_impl_decl() {

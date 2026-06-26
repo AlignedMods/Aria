@@ -26,6 +26,8 @@ namespace ariac {
         EnumField,
         Field,
         Method,
+        Generic,
+        GenericParameter
     };
 
     inline const char* decl_kind_to_string(DeclKind kind) {
@@ -218,6 +220,22 @@ namespace ariac {
         Stmt* body = nullptr;
     };
 
+    struct GenericDecl {
+        GenericDecl(TinyVector<Decl*> params, Decl* decl)
+            : parameters(params), decl(decl) {}
+
+        TinyVector<Decl*> parameters;
+        Decl* decl = nullptr;
+        TinyVector<Decl*> instantiations;
+    };
+
+    struct GenericParameterDecl {
+        GenericParameterDecl(std::string_view ident)
+            : identifier(ident) {}
+
+        std::string_view identifier;
+    };
+
     struct Decl {
         template <typename T>
         static inline Decl* Create(CompilationContext* ctx, 
@@ -250,6 +268,8 @@ namespace ariac {
             EnumFieldDecl enum_field;
             FieldDecl field;
             MethodDecl method;
+            GenericDecl generic;
+            GenericParameterDecl generic_parameter;
         };
 
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, ErrorDecl error)
@@ -290,6 +310,12 @@ namespace ariac {
 
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, MethodDecl method)
             : loc(loc), kind(kind), visibility(visibility), method(method) {}
+
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, GenericDecl generic)
+            : loc(loc), kind(kind), visibility(visibility), generic(generic) {}
+
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, GenericParameterDecl generic_p)
+            : loc(loc), kind(kind), visibility(visibility), generic_parameter(generic_p) {}
     };
 
     inline Decl error_decl = Decl(SourceLoc(), DeclKind::Error, DeclVisibility::Public, ErrorDecl());

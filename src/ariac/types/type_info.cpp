@@ -60,6 +60,12 @@ namespace ariac {
         return t;
     }
 
+    TypeInfo* TypeInfo::create_generic(CompilationContext* ctx, std::string_view name, SourceLoc loc) {
+        TypeInfo* t = create_basic(ctx, TypeKind::Generic, loc);
+        t->generic = GenericType(name);
+        return t;
+    }
+
     TypeInfo* TypeInfo::dup(CompilationContext* ctx, TypeInfo* type) {
         TypeInfo* t = ctx->allocate<TypeInfo>();
         memcpy(reinterpret_cast<void*>(t), type, sizeof(TypeInfo));
@@ -244,6 +250,11 @@ namespace ariac {
                 EnumType ty = type->enum_;
 
                 str += (ty.source_decl && ty.source_decl->parent_module) ? fmt::format("enum {}::{}", ty.source_decl->parent_module->name, ty.identifier) : fmt::format("enum {}", ty.identifier);
+                break;
+            }
+
+            case TypeKind::Generic: {
+                str += type->generic.identifier;
                 break;
             }
 

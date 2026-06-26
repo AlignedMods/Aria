@@ -57,6 +57,9 @@ namespace ariac {
 
                 type->kind = TypeKind::Enum;
                 type->enum_ = EnumType(t.ident->decl_ref.identifier, t.ident->decl_ref.referenced_decl);
+            } else if (t.ident->decl_ref.referenced_decl->kind == DeclKind::GenericParameter) {
+                type->kind = TypeKind::Generic;
+                type->generic = GenericType(t.ident->decl_ref.referenced_decl->generic_parameter.identifier);
             } else {
                 m_context->report_compiler_diagnostic(loc, fmt::format("'{}' is not a type", t.ident->decl_ref.identifier));
                 return;

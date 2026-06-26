@@ -143,6 +143,16 @@ namespace ariac {
                 }
             }
 
+            for (Decl* type : m_generic_types) {
+                ARIA_ASSERT(type->kind == DeclKind::GenericParameter, "Invalid generic parameter");
+
+                if (type->generic_parameter.identifier == dr.identifier) {
+                    dr.referenced_decl = type;
+                    expr->type = TypeInfo::get_error(m_context);
+                    return;
+                }
+            }
+
             for (auto& scope : m_scopes) {
                 if (scope.declarations.contains(dr.identifier)) {
                     sym = scope.declarations.at(dr.identifier).source_decl;

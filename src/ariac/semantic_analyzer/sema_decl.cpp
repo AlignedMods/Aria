@@ -235,6 +235,18 @@ namespace ariac {
         decl->resolve_status = ResolveStatus::Done;
     }
 
+    void SemanticAnalyzer::resolve_generic_decl(Decl* decl) {
+        GenericDecl& gen = decl->generic;
+        
+        size_t i = m_generic_types.size();
+        for (Decl* t : gen.parameters) {
+            m_generic_types.push_back(t);
+        }
+
+        resolve_decl(gen.decl);
+        m_generic_types.erase(m_generic_types.begin() + i, m_generic_types.end());
+    }
+
     void SemanticAnalyzer::resolve_decl_attributes(Decl* decl, TinyVector<DeclAttribute> attrs, bool* erase_decl) {
         for (auto& attr : attrs) {
             switch (attr.kind) {
@@ -274,6 +286,7 @@ namespace ariac {
             case DeclKind::Impl: return;
             case DeclKind::Typedef: return resolve_typedef_decl(decl);
             case DeclKind::Enum: return resolve_enum_decl(decl);
+            case DeclKind::Generic: return resolve_generic_decl(decl);
 
             default: ARIA_UNREACHABLE();
         }
