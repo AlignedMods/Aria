@@ -111,7 +111,7 @@ namespace ariac {
 
         void resolve_stmt(Stmt* stmt);
 
-        void resolve_type(SourceLoc loc,  TypeInfo* type);
+        void resolve_type(TypeInfo* type);
 
         void resolve_var_initializer(Decl* decl);
         void resolve_param_initializer(TypeInfo* param_type, Expr* arg);
@@ -142,6 +142,8 @@ namespace ariac {
         bool m_temporary_context = false;
 
         std::vector<Decl*> m_generic_types;
+        std::unordered_map<std::string_view, TypeInfo*> m_specialized_generic_types;
+        bool m_search_generics = false;
 
         std::vector<Scope> m_scopes;
         TypeInfo* m_active_return_type = nullptr;

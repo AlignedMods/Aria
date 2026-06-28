@@ -18,7 +18,7 @@ namespace ariac {
         std::string_view ident = varDecl.identifier;
 
         if (varDecl.type) {
-            resolve_type(decl->loc, varDecl.type);
+            resolve_type(varDecl.type);
 
             if (varDecl.type->is_void()) {
                 m_context->report_compiler_diagnostic(decl->loc, "Cannot declare variable of 'void' type");
@@ -40,7 +40,7 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_param_decl(Decl* decl) {
         ParamDecl& paramDecl = decl->param;
-        resolve_type(decl->loc, paramDecl.type);
+        resolve_type(paramDecl.type);
         m_scopes.back().declarations[paramDecl.identifier] = { paramDecl.type, decl, DeclKind::Param };
     }
 
@@ -98,7 +98,7 @@ namespace ariac {
         for (Decl* field : s.fields) {
             field->parent_unit = decl->parent_unit;
             field->parent_module = decl->parent_module;
-            resolve_type(field->field.type->loc, field->field.type);
+            resolve_type(field->field.type);
 
             ARIA_ASSERT(field->kind == DeclKind::Field, "Invalid field");
 
@@ -158,7 +158,7 @@ namespace ariac {
         for (Decl* field : i.fields) {
             switch (field->kind) {
                 case DeclKind::Method: {
-                    resolve_type(field->loc, field->method.type->function.return_type);
+                    resolve_type(field->method.type->function.return_type);
                     m_active_return_type = field->method.type->function.return_type;
                     push_scope();
                     for (Decl* p : field->method.parameters) {

@@ -267,6 +267,15 @@ namespace ariac {
 
                 return;
 
+            case DeclKind::StructSpecilization: m_output += "StructSpecilizationDecl ";
+                for (size_t i = 0; i < decl->struct_specilization.types.size; i++) {
+                    m_output += fmt::format("'{}' ", type_info_to_string(decl->struct_specilization.types.items[i]));
+                }
+                m_output += '\n';
+
+                dump_decl(decl->struct_specilization.source, indentation + 4);
+                return;
+
             case DeclKind::Impl: m_output += fmt::format("ImplDecl '{}'\n",
                 decl->impl.identifier);
 
@@ -316,6 +325,11 @@ namespace ariac {
                 }
 
                 dump_decl(decl->generic.decl, indentation + 4);
+
+                for (Decl* specilization : decl->generic.specilizations) {
+                    dump_decl(specilization, indentation + 4);
+                }
+
                 return;
 
             case DeclKind::GenericParameter: m_output += fmt::format("GenericParameterDecl '{}'\n", decl->generic_parameter.identifier);

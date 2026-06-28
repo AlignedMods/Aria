@@ -103,6 +103,11 @@ namespace ariac {
                         break;
                     }
 
+                    case TypeKind::GenericInstantiation: {
+                        fields = mem.parent->type->generic_instantiation.resolved_decl->struct_specilization.source->struct_.fields;
+                        break;
+                    }
+
                     default: ARIA_UNREACHABLE();
                 }
 

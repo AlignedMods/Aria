@@ -309,6 +309,28 @@ namespace ariac {
             return type_info_to_llvm_type(t->typedef_.base);
         } else if (t->kind == TypeKind::Enum) {
             return llvm::IntegerType::getInt32Ty(*m_active_module_context.context);
+        } else if (t->kind == TypeKind::GenericInstantiation) {
+            Decl* struc = t->generic_instantiation.resolved_decl->struct_specilization.source;
+            std::string name = fmt::format("{}.{}<", valid_module_name(struc->parent_module->name), struc->struct_.identifier);
+
+            for (size_t i = 0; i < t->generic_instantiation.arguments.size; i++) {
+                if (i > 0) {
+                    name += ", ";
+                }
+                name += type_info_to_string(t->generic_instantiation.arguments.items[i]);
+            }
+            name += '>';
+
+            llvm::Type* s = llvm::StructType::getTypeByName(*m_active_module_context.context, name);
+
+            if (!s) {
+                std::vector<llvm::Type*> types;
+                types.reserve(struc->struct_.fields.size);
+                for (Decl* field : struc->struct_.fields) { types.push_back(type_info_to_llvm_type(field->field.type)); }
+                s = llvm::StructType::create(*m_active_module_context.context, types, name);
+            }
+
+            return s;
         } else {
             ARIA_UNREACHABLE();
         }

@@ -20,6 +20,7 @@ namespace ariac {
         Param,
         Function,
         Struct,
+        StructSpecilization,
         Impl,
         Typedef,
         Enum,
@@ -162,6 +163,14 @@ namespace ariac {
         TinyVector<Decl*> impls;
     };
 
+    struct StructSpecilizationDecl {
+        StructSpecilizationDecl(TinyVector<TypeInfo*> types, Decl* source)
+            : types(types), source(source) {}
+
+        TinyVector<TypeInfo*> types;
+        Decl* source = nullptr;
+    };
+
     struct ImplDecl {
         ImplDecl(std::string_view identifier, TinyVector<Decl*> fields)
             : identifier(identifier), fields(fields) {}
@@ -226,7 +235,7 @@ namespace ariac {
 
         TinyVector<Decl*> parameters;
         Decl* decl = nullptr;
-        TinyVector<Decl*> instantiations;
+        TinyVector<Decl*> specilizations;
     };
 
     struct GenericParameterDecl {
@@ -262,6 +271,7 @@ namespace ariac {
             ParamDecl param;
             FunctionDecl function;
             StructDecl struct_;
+            StructSpecilizationDecl struct_specilization;
             ImplDecl impl;
             TypedefDecl typedef_;
             EnumDecl enum_;
@@ -292,6 +302,9 @@ namespace ariac {
 
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, StructDecl struc)
             : loc(loc), kind(kind), visibility(visibility), struct_(struc) {}
+
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, StructSpecilizationDecl struc)
+            : loc(loc), kind(kind), visibility(visibility), struct_specilization(struc) {}
 
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, ImplDecl impl)
             : loc(loc), kind(kind), visibility(visibility), impl(impl) {}

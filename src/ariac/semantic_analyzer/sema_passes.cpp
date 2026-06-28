@@ -134,6 +134,26 @@ namespace ariac {
             module->symbols[ident] = en;
             unit->local_symbols[ident] = en;
         }
+
+        for (Decl* g : unit->generics) {
+            g->parent_module = module;
+            g->parent_unit = unit;
+
+            ARIA_ASSERT(g->kind == DeclKind::Generic, "Invalid generic");
+            GenericDecl& gen = g->generic;
+            
+            switch (gen.decl->kind) {
+                case DeclKind::Struct: {
+                    std::string_view ident = gen.decl->struct_.identifier;
+
+                    module->symbols[ident] = g;
+                    unit->local_symbols[ident] = g;
+                    break;
+                }
+
+                default: ARIA_UNREACHABLE();
+            }
+        }
     }
 
     void SemanticAnalyzer::resolve_unit_decls(Module* module, CompilationUnit* unit) {
@@ -179,7 +199,7 @@ namespace ariac {
 
             ARIA_ASSERT(func->kind == DeclKind::Function, "Invalid func in funcs");
             FunctionDecl& f = func->function;
-            resolve_type(func->loc, f.type);
+            resolve_type(f.type);
 
             bool erase = false;
             resolve_decl_attributes(func, func->attributes, &erase);

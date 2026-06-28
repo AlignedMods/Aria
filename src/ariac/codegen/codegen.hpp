@@ -43,6 +43,7 @@ namespace ariac {
 
             std::unordered_map<Decl*, llvm::Function*> functions;
             std::unordered_map<Decl*, llvm::Value*> named_values;
+            std::unordered_map<Decl*, std::string> generic_structs;
         };
 
         struct ABIParamTypeInfo {

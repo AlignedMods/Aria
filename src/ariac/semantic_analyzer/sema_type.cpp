@@ -2,101 +2,204 @@
 
 namespace ariac {
 
-    void SemanticAnalyzer::resolve_type(SourceLoc loc, TypeInfo* type) {
-        if (type->kind == TypeKind::Unresolved) {
-            UnresolvedType& t = type->unresolved;
-            resolve_expr(t.ident);
+    void SemanticAnalyzer::resolve_type(TypeInfo* type) {
+        switch (type->kind) {
+            case TypeKind::Unresolved: {
+                UnresolvedType& t = type->unresolved;
+                resolve_expr(t.ident);
 
-            if (t.ident->decl_ref.referenced_decl->kind == DeclKind::Error) {
-                type->kind = TypeKind::Error;
-                return;
-            }
-
-            if (t.ident->decl_ref.referenced_decl->kind == DeclKind::Struct) {
-                if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
-                    CompilationUnit* old_unit = m_context->active_comp_unit;
-                    m_context->active_comp_unit = t.ident->decl_ref.referenced_decl->parent_unit;
-                    resolve_struct_decl(t.ident->decl_ref.referenced_decl);
-                    m_context->active_comp_unit = old_unit;
-                }
-                else if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::InProgress) {
-                    m_context->report_compiler_diagnostic(loc, "Recursive definition of struct");
+                if (t.ident->decl_ref.referenced_decl->kind == DeclKind::Error) {
                     type->kind = TypeKind::Error;
-                    return;
+                    break;
                 }
 
-                type->kind = TypeKind::Structure;
-                type->struct_ = StructType(t.ident->decl_ref.identifier, t.ident->decl_ref.referenced_decl);
-            } else if (t.ident->decl_ref.referenced_decl->kind == DeclKind::Typedef) {
-                if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
-                    CompilationUnit* old_unit = m_context->active_comp_unit;
-                    m_context->active_comp_unit = t.ident->decl_ref.referenced_decl->parent_unit;
-                    resolve_typedef_decl(t.ident->decl_ref.referenced_decl);
-                    m_context->active_comp_unit = old_unit;
+                switch (t.ident->decl_ref.referenced_decl->kind) {
+                    case DeclKind::Struct: {
+                        if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
+                            CompilationUnit* old_unit = m_context->active_comp_unit;
+                            m_context->active_comp_unit = t.ident->decl_ref.referenced_decl->parent_unit;
+                            resolve_struct_decl(t.ident->decl_ref.referenced_decl);
+                            m_context->active_comp_unit = old_unit;
+                        } else if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::InProgress) {
+                            m_context->report_compiler_diagnostic(type->loc, "Recursive definition of struct");
+                            type->kind = TypeKind::Error;
+                            break;
+                        }
+
+                        type->kind = TypeKind::Structure;
+                        type->struct_ = StructType(t.ident->decl_ref.identifier, t.ident->decl_ref.referenced_decl);
+                        break;
+                    }
+
+                    case DeclKind::Typedef: {
+                        if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
+                            CompilationUnit* old_unit = m_context->active_comp_unit;
+                            m_context->active_comp_unit = t.ident->decl_ref.referenced_decl->parent_unit;
+                            resolve_typedef_decl(t.ident->decl_ref.referenced_decl);
+                            m_context->active_comp_unit = old_unit;
+                        } else if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::InProgress) {
+                            m_context->report_compiler_diagnostic(type->loc, "Recursive definition of typedef");
+                            type->kind = TypeKind::Error;
+                            break;
+                        }
+
+                        type->kind = TypeKind::Typedef;
+                        type->typedef_ = TypedefType(t.ident->decl_ref.identifier, t.ident->decl_ref.referenced_decl->typedef_.type, t.ident->decl_ref.referenced_decl);
+                        break;
+                    }
+
+                    case DeclKind::Enum: {
+                        if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
+                            CompilationUnit* old_unit = m_context->active_comp_unit;
+                            m_context->active_comp_unit = t.ident->decl_ref.referenced_decl->parent_unit;
+                            resolve_enum_decl(t.ident->decl_ref.referenced_decl);
+                            m_context->active_comp_unit = old_unit;
+                        } else if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::InProgress) {
+                            m_context->report_compiler_diagnostic(type->loc, "Recursive definition of enum");
+                            type->kind = TypeKind::Error;
+                            break;
+                        }
+
+                        type->kind = TypeKind::Enum;
+                        type->enum_ = EnumType(t.ident->decl_ref.identifier, t.ident->decl_ref.referenced_decl);
+                        break;
+                    }
+
+                    case DeclKind::GenericParameter: {
+                        type->kind = TypeKind::Generic;
+                        type->generic = GenericType(t.ident->decl_ref.referenced_decl->generic_parameter.identifier);
+                        break;
+                    }
+
+                    case DeclKind::Generic: {
+                        ARIA_ASSERT(t.ident->decl_ref.referenced_decl->kind == DeclKind::Generic, "Invalid generic");
+
+                        if (t.ident->decl_ref.referenced_decl->generic.decl->kind == DeclKind::Struct) {
+                            if (!m_search_generics) {
+                                m_context->report_compiler_diagnostic(type->loc, "Cannot reference generic type without an instantiation");
+                            }
+
+                            type->kind = TypeKind::GenericDecl;
+                            type->generic_decl = GenericDeclType(t.ident->decl_ref.identifier, t.ident->decl_ref.referenced_decl);
+                        } else {
+                            m_context->report_compiler_diagnostic(type->loc, fmt::format("'{}' is not a type", t.ident->decl_ref.identifier));
+                        }
+
+                        break;
+                    }
+
+                    default: m_context->report_compiler_diagnostic(type->loc, fmt::format("'{}' is not a type", t.ident->decl_ref.identifier)); break;
                 }
-                else if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::InProgress) {
-                    m_context->report_compiler_diagnostic(loc, "Recursive definition of typedef");
+
+                break;
+            }
+
+            case TypeKind::Ptr: resolve_type(type->base); break;
+            
+            case TypeKind::Array: {
+                resolve_type(type->array.base);
+                resolve_expr(type->array.expression);
+
+                if (!is_const_expr(type->array.expression)) {
+                    m_context->report_compiler_diagnostic(type->array.expression->loc, "Size of array must be a compile time constant");
+                    break;
+                }
+
+                ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(m_context, TypeKind::ULong), type->array.expression->type);
+                if (cost.cast_needed && !cost.implicit_cast_possible) {
+                    m_context->report_compiler_diagnostic(type->array.expression->loc, "Size of array must be convertable to 'ulong'");
+                    break;
+                }
+
+                Expr* cexpr = eval_const_expr(type->array.expression);
+                type->array.size = cexpr->const_.integer;
+                break;
+            }
+
+            case TypeKind::Ref: {
+                resolve_type(type->base);
+                if (type->base->is_void()) {
+                    m_context->report_compiler_diagnostic(type->loc, "Cannot declare reference to 'void'");
                     type->kind = TypeKind::Error;
-                    return;
+                }
+                break;
+            }
+
+            case TypeKind::Function: {
+                FunctionType& fn = type->function;
+
+                for (TypeInfo* param : fn.param_types) {
+                    resolve_type(param);
                 }
 
-                type->kind = TypeKind::Typedef;
-                type->typedef_ = TypedefType(t.ident->decl_ref.identifier, t.ident->decl_ref.referenced_decl->typedef_.type, t.ident->decl_ref.referenced_decl);
-            } else if (t.ident->decl_ref.referenced_decl->kind == DeclKind::Enum) {
-                if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
-                    CompilationUnit* old_unit = m_context->active_comp_unit;
-                    m_context->active_comp_unit = t.ident->decl_ref.referenced_decl->parent_unit;
-                    resolve_enum_decl(t.ident->decl_ref.referenced_decl);
-                    m_context->active_comp_unit = old_unit;
+                resolve_type(fn.return_type);
+                break;
+            }
+
+            case TypeKind::Generic: {
+                GenericType& g = type->generic;
+                ARIA_ASSERT(m_specialized_generic_types.contains(g.identifier), "Invalid generic specilization type");
+
+                *type = *m_specialized_generic_types.at(g.identifier);
+                break;
+            }
+
+            case TypeKind::GenericInstantiation: {
+                GenericInstantiationType& gi = type->generic_instantiation;
+
+                m_search_generics = true;
+                resolve_type(gi.base);
+                m_search_generics = false;
+
+                for (TypeInfo* t : gi.arguments) {
+                    resolve_type(t);
                 }
-                else if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::InProgress) {
-                    m_context->report_compiler_diagnostic(loc, "Recursive definition of enum");
-                    type->kind = TypeKind::Error;
-                    return;
+
+                if (gi.base->kind != TypeKind::GenericDecl) {
+                    m_context->report_compiler_diagnostic(gi.base->loc, "Non generic type cannot be used for generic instantiation");
+                    break;
                 }
 
-                type->kind = TypeKind::Enum;
-                type->enum_ = EnumType(t.ident->decl_ref.identifier, t.ident->decl_ref.referenced_decl);
-            } else if (t.ident->decl_ref.referenced_decl->kind == DeclKind::GenericParameter) {
-                type->kind = TypeKind::Generic;
-                type->generic = GenericType(t.ident->decl_ref.referenced_decl->generic_parameter.identifier);
-            } else {
-                m_context->report_compiler_diagnostic(loc, fmt::format("'{}' is not a type", t.ident->decl_ref.identifier));
-                return;
-            }
-        } else if (type->kind == TypeKind::Ptr) {
-            resolve_type(loc, type->base);
-        } else if (type->kind == TypeKind::Array) {
-            resolve_type(loc, type->array.base);
-            resolve_expr(type->array.expression);
+                Decl* g = gi.base->generic_decl.generic;
+                ARIA_ASSERT(g->kind == DeclKind::Generic, "Invalid generic");
+                ARIA_ASSERT(g->generic.decl->kind == DeclKind::Struct, "Invalid generic");
 
-            if (!is_const_expr(type->array.expression)) {
-                m_context->report_compiler_diagnostic(type->array.expression->loc, "Size of array must be a compile time constant");
-                return;
-            }
+                if (gi.arguments.size != g->generic.parameters.size) {
+                    m_context->report_compiler_diagnostic(type->loc, fmt::format("Mismatched generic instantiation, generic expects {} arguments but got {}", g->generic.parameters.size, gi.arguments.size));
+                    break;
+                }
 
-            ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(m_context, TypeKind::ULong), type->array.expression->type);
-            if (cost.cast_needed && !cost.implicit_cast_possible) {
-                m_context->report_compiler_diagnostic(type->array.expression->loc, "Size of array must be convertable to 'ulong'");
-                return;
-            }
+                Decl* specilization = nullptr;
+                for (Decl* i : g->generic.specilizations) {
+                    ARIA_ASSERT(i->kind == DeclKind::StructSpecilization, "Invalid generic specilization");
 
-            Expr* cexpr = eval_const_expr(type->array.expression);
-            type->array.size = cexpr->const_.integer;
-        } else if (type->kind == TypeKind::Ref) {
-            resolve_type(loc, type->base);
-            if (type->base->is_void()) {
-                m_context->report_compiler_diagnostic(loc, "Cannot declare reference to 'void'");
-                type->kind = TypeKind::Error;
-            }
-        } else if (type->kind == TypeKind::Function) {
-            FunctionType& fn = type->function;
+                    bool failed = false;
+                    for (size_t idx = 0; idx < gi.arguments.size; i++) {
+                        if (!type_is_equal(gi.arguments.items[idx], i->struct_specilization.types.items[idx])) { failed = true; break; }
+                    }
 
-            for (TypeInfo* param : fn.param_types) {
-                resolve_type(loc, param);
+                    if (!failed) { specilization = i; }
+                }
+
+                if (!specilization) {
+                    Decl* struc = Decl::Create(m_context, g->loc, DeclKind::Struct, g->visibility, StructDecl(g->generic.decl->struct_.identifier, g->generic.decl->struct_.fields));
+                    struc->parent_module = g->parent_module;
+                    struc->parent_unit = g->parent_unit;
+                    specilization = Decl::Create(m_context, g->loc, DeclKind::StructSpecilization, g->visibility, StructSpecilizationDecl(gi.arguments, struc));
+                    specilization->parent_module = g->parent_module;
+                    specilization->parent_unit = g->parent_unit;
+
+                    for (size_t i = 0; i < gi.arguments.size; i++) { m_specialized_generic_types[g->generic.parameters.items[i]->generic_parameter.identifier] = gi.arguments.items[i]; }
+                    resolve_struct_decl(struc);
+
+                    g->generic.specilizations.append(m_context, specilization);
+                }
+
+                gi.resolved_decl = specilization;
+                break;
             }
 
-            resolve_type(loc, fn.return_type);
+            default: break;
         }
     }
 

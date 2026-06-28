@@ -38,6 +38,8 @@ namespace ariac {
         Enum,
 
         Generic,
+        GenericDecl,
+        GenericInstantiation,
 
         Unresolved
     };
@@ -91,6 +93,23 @@ namespace ariac {
         std::string_view identifier;
     };
 
+    struct GenericDeclType {
+        GenericDeclType(std::string_view identifier, Decl* source)
+            : identifier(identifier), generic(source) {}
+
+        std::string_view identifier;
+        Decl* generic = nullptr;
+    };
+
+    struct GenericInstantiationType {
+        GenericInstantiationType(TypeInfo* base, TinyVector<TypeInfo*> args)
+            : base(base), arguments(args) {}
+
+        TypeInfo* base = nullptr;
+        TinyVector<TypeInfo*> arguments;
+        Decl* resolved_decl = nullptr;
+    };
+
     struct UnresolvedType {
         Expr* ident = nullptr;
     };
@@ -106,6 +125,8 @@ namespace ariac {
             TypedefType typedef_;
             EnumType enum_;
             GenericType generic;
+            GenericDeclType generic_decl;
+            GenericInstantiationType generic_instantiation;
             UnresolvedType unresolved;
         };
 

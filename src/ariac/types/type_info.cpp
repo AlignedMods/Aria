@@ -258,6 +258,25 @@ namespace ariac {
                 break;
             }
 
+            case TypeKind::GenericDecl: {
+                GenericDeclType ty = type->generic_decl;
+
+                str += (ty.generic && ty.generic->parent_module) ? fmt::format("{}::{}", ty.generic->parent_module->name, ty.identifier) : fmt::format("{}", ty.identifier);
+                break;
+            }
+
+            case TypeKind::GenericInstantiation: {
+                str += fmt::format("{}!(", type_info_to_string(type->generic_instantiation.base, pretty));
+
+                for (size_t i = 0; i < type->generic_instantiation.arguments.size; i++) {
+                    if (i > 0) { str += ", "; }
+                    str += type_info_to_string(type->generic_instantiation.arguments.items[i], pretty);
+                }
+
+                str += ")";
+                break;
+            }
+
             case TypeKind::Unresolved: {
                 str = "unresolved";
                 break;

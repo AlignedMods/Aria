@@ -191,7 +191,8 @@ namespace ariac {
 
                     case DeclKind::Struct:
                     case DeclKind::Typedef:
-                    case DeclKind::Enum: expr->type = TypeInfo::get_error(m_context); return;
+                    case DeclKind::Enum:
+                    case DeclKind::Generic: expr->type = TypeInfo::get_error(m_context); return;
 
                     default: ARIA_UNREACHABLE();
                 }
@@ -305,6 +306,34 @@ namespace ariac {
                     StructType& sd = parent_type->struct_;
 
                     StructDecl s = sd.source_decl->struct_;
+                    if (!s.field_lookup.contains(mem.member)) {
+                        searching = false;
+                        break;
+                    }
+
+                    Decl* fd = s.field_lookup.at(mem.member);
+                    switch (fd->kind) {
+                        case DeclKind::Field: member_type = fd->field.type; break;
+                        case DeclKind::Method: member_type = fd->method.type; break;
+                        default: ARIA_UNREACHABLE();
+                    }
+                    mem.referenced_member = fd;
+
+                    if (fd->visibility == DeclVisibility::Private && mem.parent->kind != ExprKind::Self) {
+                        m_context->report_compiler_diagnostic(expr->loc, fmt::format("'{}' is private and cannot be accessed", mem.member));
+                        m_context->report_compiler_diagnostic(fd->loc, "Declared here", CompilerDiagKind::Note, fd->parent_unit);
+                    }
+
+                    searching = false;
+                    break;
+                }
+
+                case TypeKind::GenericInstantiation: {
+                    GenericInstantiationType& gi = parent_type->generic_instantiation;
+                    ARIA_ASSERT(gi.resolved_decl->kind == DeclKind::StructSpecilization, "Invalid generic instantiation");
+                    ARIA_ASSERT(gi.resolved_decl->struct_specilization.source->kind == DeclKind::Struct, "Invalid generic struct specilization");
+
+                    StructDecl s = gi.resolved_decl->struct_specilization.source->struct_;
                     if (!s.field_lookup.contains(mem.member)) {
                         searching = false;
                         break;
@@ -461,7 +490,7 @@ namespace ariac {
             return;
         }
 
-        resolve_type(expr->loc, expr->type);
+        resolve_type(expr->type);
         Decl* s = expr->type->struct_.source_decl;
 
         if (construct.arguments.size > s->struct_.fields.size) {
@@ -510,7 +539,7 @@ namespace ariac {
         if (mc.callee->member.referenced_member->kind != DeclKind::Error) {
             ARIA_ASSERT(mc.callee->member.referenced_member->kind == DeclKind::Method, "Invalid referenced member");
 
-            resolve_type(mc.callee->member.referenced_member->loc, mc.callee->member.referenced_member->method.type);
+            resolve_type(mc.callee->member.referenced_member->method.type);
             FunctionType& fn_type = callee_type->function;
 
             if (fn_type.param_types.size != mc.arguments.size) {

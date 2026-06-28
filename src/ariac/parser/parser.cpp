@@ -795,6 +795,34 @@ namespace ariac {
                     break;
                 }
 
+                case TokenKind::Bang: {
+                    consume();
+                    try_consume(TokenKind::LeftParen, ")");
+                    TinyVector<TypeInfo*> args;
+
+                    while (peek() && !match(TokenKind::RightParen)) {
+                        if (!is_primitive_type() && !match(TokenKind::Identifier)) {
+                            m_context->report_compiler_diagnostic(peek()->loc, "Expected a type");
+                            break;
+                        }
+
+                        args.append(m_context, parse_type());
+
+                        if (match(TokenKind::Comma)) { consume(); continue; }
+                        else if (match(TokenKind::RightParen)) { break; }
+
+                        m_context->report_compiler_diagnostic(peek()->loc, "Expected ',' or ')'");
+                    }
+
+                    try_consume(TokenKind::RightParen, ")");
+
+                    type->generic_instantiation = GenericInstantiationType(TypeInfo::dup(m_context, type), args);
+                    type->kind = TypeKind::GenericInstantiation;
+
+                    type->loc += peek(-1)->loc;
+                    break;
+                }
+
                 default: search = false; break;
             }
         }
@@ -1389,6 +1417,7 @@ namespace ariac {
             return struc;
         } else {
             Decl* g = Decl::Create(m_context, struc->loc, DeclKind::Generic, m_current_visibility, GenericDecl(generic_params, struc));
+            m_context->active_comp_unit->generics.push_back(g);
             return g;
         }
     }
