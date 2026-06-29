@@ -117,7 +117,7 @@ namespace ariac {
             }
 
             if (m_active_struct) {
-                Decl* struc = m_active_struct->struct_.source_decl;
+                Decl* struc = m_active_struct->kind == TypeKind::Structure ? m_active_struct->struct_.source_decl : m_active_struct->generic_instantiation.resolved_decl->generic.decl;
                 if (struc->struct_.field_lookup.contains(dr.identifier)) {
                     Decl* field = struc->struct_.field_lookup.at(dr.identifier);
                     TypeInfo* mem_type = nullptr;
@@ -305,7 +305,7 @@ namespace ariac {
                 case TypeKind::Structure: {
                     StructType& sd = parent_type->struct_;
 
-                    StructDecl s = sd.source_decl->struct_;
+                    StructDecl s = sd.source_decl->kind == DeclKind::Struct ? sd.source_decl->struct_ : sd.source_decl->generic.decl->struct_;
                     if (!s.field_lookup.contains(mem.member)) {
                         searching = false;
                         break;
@@ -330,6 +330,32 @@ namespace ariac {
 
                 case TypeKind::GenericInstantiation: {
                     GenericInstantiationType& gi = parent_type->generic_instantiation;
+
+                    if (gi.resolved_decl->kind == DeclKind::Generic) {
+                        StructDecl s = gi.resolved_decl->generic.decl->struct_;
+                        if (!s.field_lookup.contains(mem.member)) {
+                            searching = false;
+                            break;
+                        }
+
+                        Decl* fd = s.field_lookup.at(mem.member);
+                        switch (fd->kind) {
+                            case DeclKind::Error: member_type = TypeInfo::get_error(m_context); break;
+                            case DeclKind::Field: member_type = fd->field.type; break;
+                            case DeclKind::Method: member_type = fd->method.type; break;
+                            default: ARIA_UNREACHABLE();
+                        }
+                        mem.referenced_member = fd;
+
+                        if (fd->visibility == DeclVisibility::Private && mem.parent->kind != ExprKind::Self) {
+                            m_context->report_compiler_diagnostic(expr->loc, fmt::format("'{}' is private and cannot be accessed", mem.member));
+                            m_context->report_compiler_diagnostic(fd->loc, "Declared here", CompilerDiagKind::Note, fd->parent_unit);
+                        }
+
+                        searching = false;
+                        break;
+                    }
+
                     ARIA_ASSERT(gi.resolved_decl->kind == DeclKind::StructSpecilization, "Invalid generic instantiation");
                     ARIA_ASSERT(gi.resolved_decl->struct_specilization.source->kind == DeclKind::Struct, "Invalid generic struct specilization");
 
@@ -341,6 +367,7 @@ namespace ariac {
 
                     Decl* fd = s.field_lookup.at(mem.member);
                     switch (fd->kind) {
+                        case DeclKind::Error: member_type = TypeInfo::get_error(m_context); break;
                         case DeclKind::Field: member_type = fd->field.type; break;
                         case DeclKind::Method: member_type = fd->method.type; break;
                         default: ARIA_UNREACHABLE();
@@ -393,7 +420,7 @@ namespace ariac {
         
 
         if (!member_type) {
-            m_context->report_compiler_diagnostic(expr->loc, fmt::format("Unknown member \"{}\" in '{}'", mem.member, type_info_to_string(parent_type)));
+            m_context->report_compiler_diagnostic(expr->loc, fmt::format("Unknown member '{}' in '{}'", mem.member, type_info_to_string(parent_type)));
             mem.referenced_member = &error_decl;
             expr->type = TypeInfo::get_error(m_context);
             return;
@@ -406,10 +433,16 @@ namespace ariac {
         }
     }
 
+    void SemanticAnalyzer::resolve_self_expr(Expr* expr) {
+        resolve_type(expr->type);
+    }
+
     void SemanticAnalyzer::resolve_call_expr(Expr* expr) {
         CallExpr& call = expr->call;
 
         resolve_expr(call.callee);
+
+        if (call.callee->kind == ExprKind::Error) { expr->type = TypeInfo::get_error(m_context); return;}
 
         if (call.callee->kind == ExprKind::Member) {
             expr->kind = ExprKind::MethodCall;
@@ -654,6 +687,7 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_new_expr(Expr* expr) {
         NewExpr& n = expr->new_;
+        resolve_type(expr->type);
         
         if (expr->result_discarded) {
             m_context->report_compiler_diagnostic(expr->loc, "Discarding result of 'new' expression is not allowed");
@@ -706,115 +740,34 @@ namespace ariac {
     void SemanticAnalyzer::resolve_sizeof_expr(Expr* expr) {
         SizeofExpr& sz = expr->sizeof_;
 
+        if (sz.type) { resolve_type(sz.type); return; }
+
         if (sz.expression) {
             resolve_expr(sz.expression);
 
-            if (sz.expression->kind == ExprKind::DeclRef && sz.expression->decl_ref.referenced_decl->kind == DeclKind::Struct) {
-                if (sz.expression->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
-                    CompilationUnit* old_unit = m_context->active_comp_unit;
-                    m_context->active_comp_unit = sz.expression->decl_ref.referenced_decl->parent_unit;
-                    resolve_struct_decl(sz.expression->decl_ref.referenced_decl);
-                    m_context->active_comp_unit = old_unit;
-                }
+            if (sz.expression->kind == ExprKind::DeclRef) {
+                switch (sz.expression->decl_ref.referenced_decl->kind) {
+                    case DeclKind::Struct: {
+                        if (sz.expression->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
+                            CompilationUnit* old_unit = m_context->active_comp_unit;
+                            m_context->active_comp_unit = sz.expression->decl_ref.referenced_decl->parent_unit;
+                            resolve_struct_decl(sz.expression->decl_ref.referenced_decl);
+                            m_context->active_comp_unit = old_unit;
+                        }
 
-                sz.type = TypeInfo::create_struct(m_context, sz.expression->decl_ref.referenced_decl);
+                        sz.type = TypeInfo::create_struct(m_context, sz.expression->decl_ref.referenced_decl);
+                        break;
+                    }
+
+                    case DeclKind::GenericParameter: {
+                        sz.type = TypeInfo::create_generic(m_context, sz.expression->decl_ref.identifier);
+                        break;
+                    }
+
+                    default: break;
+                }
             }
         }
-    }
-
-    void SemanticAnalyzer::resolve_format_expr(Expr* expr) {
-        ARIA_TODO("SemanticAnalyzer::resolve_Format_expr()");
-        // FormatExpr& format = expr->Format;
-        // 
-        // if (format.Args.Size == 0) {
-        //     m_context->report_compiler_diagnostic(expr->loc, "Format expression must have a format string");
-        //     return;
-        // }
-        // 
-        // if (format.Args.Items[0]->kind != ExprKind::StringConstant) {
-        //     m_context->report_compiler_diagnostic(format.Args.Items[0]->loc, format.Args.Items[0]->range, "Format string must be a string literal");
-        //     return;
-        // }
-        // 
-        // if (expr->ResultDiscarded) {
-        //     m_context->report_compiler_diagnostic(expr->loc, "Discarding result of format is not allowed");
-        //     return;
-        // }
-        // 
-        // for (Expr* arg : format.Args) {
-        //     m_TemporaryContext = true;
-        //     resolve_expr(arg);
-        // 
-        //     require_rvalue(arg);
-        //     m_TemporaryContext = false;
-        // }
-        // 
-        // scratch_buffer_clear();
-        // TinyVector<FormatExpr::FormatArg> formattedArgs;
-        // std::string_view fmtStr = format.Args.Items[0]->Temporary.Expression->StringConstant.Value;
-        // 
-        // size_t idx = 0;
-        // bool needsClosing = false;
-        // 
-        // for (size_t i = 0; i < fmtStr.length(); i++) {
-        //     if (needsClosing) {
-        //         if (fmtStr.at(i) == '}') {
-        //             needsClosing = false;
-        //             continue;
-        //         } else {
-        //             m_context->report_compiler_diagnostic(expr->loc, "Missing closing curly brace in format string");
-        //             return;
-        //         }
-        //     }
-        // 
-        //     if (fmtStr.at(i) == '{') {
-        //         if (scratch_buffer_size() > 0) {
-        //             StringBuilder tmpB;
-        //             tmpB.Append(m_context, buf);
-        //             buf.Clear();
-        // 
-        //             Expr* str = Expr::Create(m_context, expr->loc, ExprKind::StringConstant,
-        //                 ExprValueKind::RValue, &StringType,
-        //                 StringConstantExpr(tmpB));
-        // 
-        //             formattedArgs.Append(m_context, { Expr::Create(m_context, expr->loc, ExprKind::Temporary,
-        //                 ExprValueKind::RValue, &StringType,
-        //                 TemporaryExpr(str, m_BuiltInStringDestructor)) });
-        //         }
-        //         
-        //         if (idx + 1 >= format.Args.Size) {
-        //             m_context->report_compiler_diagnostic(expr->loc, "Format string specifies more arguments than are provided");
-        //             return;
-        //         }
-        // 
-        //         formattedArgs.Append(m_context, { format.Args.Items[idx + 1] });
-        //         needsClosing = true;
-        //         idx++;
-        //     } else {
-        //         buf.Append(m_context, fmtStr.At(i));
-        //     }
-        // }
-        // 
-        // if (buf.Size() > 0) {
-        //     StringBuilder tmpB;
-        //     tmpB.Append(m_context, buf);
-        //     buf.Clear();
-        // 
-        //     Expr* str = Expr::Create(m_context, expr->loc, ExprKind::StringConstant,
-        //         ExprValueKind::RValue, &StringType,
-        //         StringConstantExpr(tmpB));
-        // 
-        //     formattedArgs.Append(m_context, { Expr::Create(m_context, expr->loc, ExprKind::Temporary,
-        //         ExprValueKind::RValue, &StringType,
-        //         TemporaryExpr(str, m_BuiltInStringDestructor)) });
-        // }
-        // 
-        // format.ResolvedArgs = formattedArgs;
-        // if (m_TemporaryContext) {
-        //     replace_expr(expr, Expr::Create(m_context, expr->loc, ExprKind::Temporary,
-        //         ExprValueKind::RValue, expr->type,
-        //         TemporaryExpr(Expr::Dup(m_context, expr), m_BuiltInStringDestructor)));
-        // }
     }
 
     void SemanticAnalyzer::resolve_paren_expr(Expr* expr) {
@@ -854,6 +807,11 @@ namespace ariac {
         if (expr->result_discarded) {
             m_context->report_compiler_diagnostic(expr->loc, "Discarding result of explicit cast", CompilerDiagKind::Warning);
         }
+    }
+
+    void SemanticAnalyzer::resolve_implicit_cast_expr(Expr* expr) {
+        ImplicitCastExpr& i = expr->implicit_cast;
+        resolve_expr(i.expression);
     }
 
     void SemanticAnalyzer::resolve_unary_operator_expr(Expr* expr) {
@@ -1194,7 +1152,7 @@ namespace ariac {
             case ExprKind::Null: resolve_null_expr(expr); break;
             case ExprKind::DeclRef: resolve_decl_ref_expr(expr); break;
             case ExprKind::Member: resolve_member_expr(expr); break;
-            case ExprKind::Self: break;
+            case ExprKind::Self: resolve_self_expr(expr); break;
             case ExprKind::Call: resolve_call_expr(expr); break;
             case ExprKind::Construct: resolve_construct_expr(expr); break;
             case ExprKind::MethodCall: resolve_method_call_expr(expr); break;
@@ -1203,12 +1161,13 @@ namespace ariac {
             case ExprKind::New: resolve_new_expr(expr); break;
             case ExprKind::Delete: resolve_delete_expr(expr); break;
             case ExprKind::Sizeof: resolve_sizeof_expr(expr); break;
-            case ExprKind::Format: resolve_format_expr(expr); break;
             case ExprKind::Paren: resolve_paren_expr(expr); break;
             case ExprKind::Cast: resolve_cast_expr(expr); break;
+            case ExprKind::ImplicitCast: resolve_implicit_cast_expr(expr); break;
             case ExprKind::UnaryOperator: resolve_unary_operator_expr(expr); break;
             case ExprKind::BinaryOperator: resolve_binary_operator_expr(expr); break;
             case ExprKind::CompoundAssign: resolve_compound_assign_expr(expr); break;
+            case ExprKind::Const: break;
             default: ARIA_UNREACHABLE();
         }
     }
@@ -1487,7 +1446,7 @@ namespace ariac {
             require_rvalue(srcExpr);
         }
 
-        Expr* src = Expr::Dup(m_context, srcExpr); // We must copy the original expression to avoid overwriting the same memory
+        Expr* src = Expr::dup(m_context, srcExpr); // We must copy the original expression to avoid overwriting the same memory
         Expr* implicitCast = Expr::Create(m_context, src->loc, ExprKind::ImplicitCast, ExprValueKind::RValue, dstType, ImplicitCastExpr(src, castKind));
 
         replace_expr(srcExpr, implicitCast);

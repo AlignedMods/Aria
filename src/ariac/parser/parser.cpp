@@ -249,7 +249,7 @@ namespace ariac {
                 ExprValueKind::RValue, nullptr, 
                 CallExpr(left, args));
         } else if (left->kind == ExprKind::Member) {
-            return Expr::Create(m_context, lp->loc + rp->loc, ExprKind::MethodCall,
+            return Expr::Create(m_context, left->loc + rp->loc, ExprKind::MethodCall,
                 ExprValueKind::RValue, nullptr, 
                 MethodCallExpr(left, args));
         } else {
@@ -597,40 +597,6 @@ namespace ariac {
         return Expr::Create(m_context, s.loc + peek(-1)->loc, ExprKind::Sizeof,
             ExprValueKind::RValue, TypeInfo::get_basic(m_context, TypeKind::ULong),
             expr ? SizeofExpr(expr) : SizeofExpr(type));
-    }
-
-    Expr* Parser::parse_format(Expr* left) {
-        ARIA_ASSERT(left == nullptr, "Parser::parse_format() should not have a left side");
-
-        Token& f = consume(); // consume "$format"
-
-        Token* lp = try_consume(TokenKind::LeftParen, "(");
-        TinyVector<Expr*> args;
-
-        while (!match(TokenKind::RightParen)) {
-            Expr* val = parse_expression();
-
-            if (!expr_ok(val)) {
-                sync_local();
-                break;
-            }
-
-            args.append(m_context, val);
-    
-            if (match(TokenKind::Comma)) {
-                consume();
-                continue;
-            }
-
-            break;
-        }
-    
-        Token* rp = try_consume(TokenKind::RightParen, ")");
-        if (!rp) { return &error_expr; }
-    
-        return Expr::Create(m_context, f.loc + rp->loc, ExprKind::Format,
-            ExprValueKind::RValue, TypeInfo::get_string(m_context), 
-            FormatExpr(args));
     }
 
     Expr* Parser::parse_precedence_with_left(Expr* left, size_t precedence) {

@@ -93,8 +93,16 @@ namespace ariac {
 
                 switch (mem.parent->type->kind) {
                     case TypeKind::Ref: {
-                        fields = mem.parent->type->base->struct_.source_decl->struct_.fields;
-                        type = mem.parent->type->base;
+                        if (mem.parent->type->base->kind == TypeKind::Structure) {
+                            fields = mem.parent->type->base->struct_.source_decl->struct_.fields;
+                            type = mem.parent->type->base;
+                        } else if (mem.parent->type->base->kind == TypeKind::GenericInstantiation) {
+                            fields = mem.parent->type->base->generic_instantiation.resolved_decl->struct_specilization.source->struct_.fields;
+                            type = mem.parent->type->base;
+                        } else {
+                            ARIA_UNREACHABLE();
+                        }
+                        
                         break;
                     }
 

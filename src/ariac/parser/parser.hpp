@@ -42,7 +42,6 @@ namespace ariac {
         Expr* parse_new(Expr* left);
         Expr* parse_delete(Expr* left);
         Expr* parse_sizeof(Expr* left);
-        Expr* parse_format(Expr* left);
 
         Expr* parse_precedence_with_left(Expr* left, size_t precedence);
         Expr* parse_precedence(size_t precedence);

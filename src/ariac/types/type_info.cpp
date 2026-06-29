@@ -48,6 +48,12 @@ namespace ariac {
         return t;
     }
 
+    TypeInfo* TypeInfo::create_struct(CompilationContext* ctx, std::string_view name, Decl* d, SourceLoc loc) {
+        TypeInfo* t = create_basic(ctx, TypeKind::Structure, loc);
+        t->struct_ = StructType(name, d);
+        return t;
+    }
+
     TypeInfo* TypeInfo::create_typedef(CompilationContext* ctx, Decl* d, SourceLoc loc) {
         TypeInfo* t = create_basic(ctx, TypeKind::Typedef, loc);
         t->typedef_ = TypedefType(d->typedef_.identifier, d->typedef_.type, d);
@@ -57,6 +63,12 @@ namespace ariac {
     TypeInfo* TypeInfo::create_enum(CompilationContext* ctx, Decl* d, SourceLoc loc) {
         TypeInfo* t = create_basic(ctx, TypeKind::Enum, loc);
         t->enum_ = EnumType(d->enum_.identifier, d);
+        return t;
+    }
+
+    TypeInfo* TypeInfo::create_generic_decl(CompilationContext* ctx, Decl* d, SourceLoc loc) {
+        TypeInfo* t = create_basic(ctx, TypeKind::GenericDecl, loc);
+        t->generic_decl = GenericDeclType(d->generic.decl->struct_.identifier, d);
         return t;
     }
 

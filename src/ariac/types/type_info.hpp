@@ -134,8 +134,10 @@ namespace ariac {
         static TypeInfo* create_with_base(CompilationContext* ctx, TypeKind kind, TypeInfo* base, SourceLoc loc = {});
         static TypeInfo* create_function(CompilationContext* ctx, TypeKind kind, TypeInfo* ret, TinyVector<TypeInfo*> params, bool var_arg, SourceLoc loc = {});
         static TypeInfo* create_struct(CompilationContext* ctx, Decl* d, SourceLoc loc = {});
+        static TypeInfo* create_struct(CompilationContext* ctx, std::string_view name, Decl* d, SourceLoc loc = {});
         static TypeInfo* create_typedef(CompilationContext* ctx, Decl* d, SourceLoc loc = {});
         static TypeInfo* create_enum(CompilationContext* ctx, Decl* d, SourceLoc loc = {});
+        static TypeInfo* create_generic_decl(CompilationContext* ctx, Decl* d, SourceLoc loc = {});
         static TypeInfo* create_generic(CompilationContext* ctx, std::string_view name, SourceLoc loc = {});
 
         static TypeInfo* get_error(CompilationContext* ctx);

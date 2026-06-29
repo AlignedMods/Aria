@@ -146,6 +146,14 @@ namespace ariac {
                 case DeclKind::Struct: {
                     std::string_view ident = gen.decl->struct_.identifier;
 
+                    gen.decl->struct_.type = TypeInfo::create_basic(m_context, TypeKind::GenericInstantiation);
+                    gen.decl->struct_.type->generic_instantiation.base = TypeInfo::create_generic_decl(m_context, g);
+                    gen.decl->struct_.type->generic_instantiation.resolved_decl = g;
+
+                    for (Decl* p : gen.parameters) {
+                        gen.decl->struct_.type->generic_instantiation.arguments.append(m_context, TypeInfo::create_generic(m_context, p->generic_parameter.identifier));
+                    }
+
                     module->symbols[ident] = g;
                     unit->local_symbols[ident] = g;
                     break;
@@ -169,14 +177,27 @@ namespace ariac {
             } else {
                 Decl* sym = module->symbols.at(i.identifier);
 
-                if (sym->kind != DeclKind::Struct) {
-                    m_context->report_compiler_diagnostic(impl->loc, fmt::format("'{}' is not a struct", i.identifier));
-                    m_context->report_compiler_diagnostic(sym->loc, "Declared here", CompilerDiagKind::Note, sym->parent_unit);
-                    continue;
-                }
+                switch (sym->kind) {
+                    case DeclKind::Struct: {
+                        impl->impl.parent = sym;
+                        sym->struct_.impls.append(m_context, impl);
+                        break;
+                    }
 
-                impl->impl.parent = sym;
-                sym->struct_.impls.append(m_context, impl);
+                    case DeclKind::Generic: {
+                        ARIA_ASSERT(sym->generic.decl->kind == DeclKind::Struct, "Invalid generic");
+
+                        impl->impl.parent = sym;
+                        sym->generic.decl->struct_.impls.append(m_context, impl);
+                        break;
+                    }
+
+                    default: {
+                        m_context->report_compiler_diagnostic(impl->loc, fmt::format("'{}' is not a struct", i.identifier));
+                        m_context->report_compiler_diagnostic(sym->loc, "Declared here", CompilerDiagKind::Note, sym->parent_unit);
+                        break;
+                    }
+                }
             }
         }
 

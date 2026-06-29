@@ -42,6 +42,8 @@ namespace ariac {
             case DeclKind::Typedef: return "Typedef";
             case DeclKind::Enum: return "Enum";
 
+            case DeclKind::GenericParameter: return "GenericParameter";
+
             default: ARIA_UNREACHABLE();
         }
     }
@@ -161,14 +163,16 @@ namespace ariac {
         TinyVector<Decl*> fields;
         HTable<Decl*> field_lookup;
         TinyVector<Decl*> impls;
+        TypeInfo* type = nullptr;
     };
 
     struct StructSpecilizationDecl {
-        StructSpecilizationDecl(TinyVector<TypeInfo*> types, Decl* source)
-            : types(types), source(source) {}
+        StructSpecilizationDecl(TinyVector<TypeInfo*> types, Decl* source, TinyVector<Decl*> impls)
+            : types(types), source(source), impls(impls) {}
 
         TinyVector<TypeInfo*> types;
         Decl* source = nullptr;
+        TinyVector<Decl*> impls;
     };
 
     struct ImplDecl {
@@ -251,6 +255,8 @@ namespace ariac {
             SourceLoc loc,
             DeclKind kind, DeclVisibility visibility, 
             T t = ErrorDecl{}) { return ctx->allocate<Decl>(loc, kind, visibility, t); }
+
+        static Decl* dup(CompilationContext* ctx, Decl* d);
 
         DeclKind kind = DeclKind::Invalid;
         DeclVisibility visibility = DeclVisibility::Public;

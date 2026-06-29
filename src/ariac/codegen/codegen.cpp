@@ -89,6 +89,15 @@ namespace ariac {
             for (Decl* struct_ : unit->structs) {
                 gen_struct_decl(struct_);
             }
+
+            for (Decl* gen : unit->generics) {
+                ARIA_ASSERT(gen->kind == DeclKind::Generic, "Invalid generic decl");
+
+                for (Decl* spec : gen->generic.specilizations) {
+                    ARIA_ASSERT(spec->kind == DeclKind::StructSpecilization, "Invalid generic specilization");
+                    gen_struct_decl(spec->struct_specilization.source);
+                }
+            }
         }
 
         for (CompilationUnit* unit : mod->units) {

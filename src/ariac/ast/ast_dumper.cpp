@@ -274,6 +274,11 @@ namespace ariac {
                 m_output += '\n';
 
                 dump_decl(decl->struct_specilization.source, indentation + 4);
+
+                for (Decl* impl : decl->struct_specilization.impls) {
+                    dump_decl(impl, indentation + 4);
+                }
+
                 return;
 
             case DeclKind::Impl: m_output += fmt::format("ImplDecl '{}'\n",

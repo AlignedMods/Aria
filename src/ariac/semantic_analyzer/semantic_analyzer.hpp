@@ -64,6 +64,7 @@ namespace ariac {
         void resolve_null_expr(Expr* expr);
         void resolve_decl_ref_expr(Expr* expr);
         void resolve_member_expr(Expr* expr);
+        void resolve_self_expr(Expr* expr);
         void resolve_call_expr(Expr* expr);
         void resolve_construct_expr(Expr* expr);
         void resolve_method_call_expr(Expr* expr);
@@ -72,9 +73,9 @@ namespace ariac {
         void resolve_new_expr(Expr* expr);
         void resolve_delete_expr(Expr* expr);
         void resolve_sizeof_expr(Expr* expr);
-        void resolve_format_expr(Expr* expr);
         void resolve_paren_expr(Expr* expr);
         void resolve_cast_expr(Expr* expr);
+        void resolve_implicit_cast_expr(Expr* expr);
         void resolve_unary_operator_expr(Expr* expr);
         void resolve_binary_operator_expr(Expr* expr);
         void resolve_compound_assign_expr(Expr* expr);
@@ -143,6 +144,7 @@ namespace ariac {
 
         std::vector<Decl*> m_generic_types;
         std::unordered_map<std::string_view, TypeInfo*> m_specialized_generic_types;
+        bool m_replace_generic_types = false;
         bool m_search_generics = false;
 
         std::vector<Scope> m_scopes;

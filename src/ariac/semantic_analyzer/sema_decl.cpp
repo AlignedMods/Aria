@@ -48,6 +48,7 @@ namespace ariac {
         if (decl->resolve_status == ResolveStatus::Done || decl->resolve_status == ResolveStatus::InProgress) { return; }
         decl->resolve_status = ResolveStatus::InProgress;
         FunctionDecl fnDecl = decl->function;
+        resolve_type(fnDecl.type);
 
         std::string ident = fmt::format("{}", fnDecl.identifier);
         
@@ -60,6 +61,7 @@ namespace ariac {
         }
 
         if (fnDecl.body) {
+            TypeInfo* prev_ret_type = m_active_return_type;
             m_active_return_type = fnDecl.type->function.return_type;
             push_scope();
             
@@ -80,7 +82,7 @@ namespace ariac {
             }
 
             pop_scope();
-            m_active_return_type = nullptr;
+            m_active_return_type = prev_ret_type;
         } else if (fnDecl.linkage_kind != LinkageKind::Extern) {
             m_context->report_compiler_diagnostic_with_notes(decl->loc, "Body for this function must be specified",
                 { "If this function is defined elsewhere, use 'extern'"} );
@@ -128,11 +130,12 @@ namespace ariac {
         decl->resolve_status = ResolveStatus::InProgress;
 
         ImplDecl& i = decl->impl;
+        StructDecl& s = i.parent->kind == DeclKind::Struct ? i.parent->struct_ : i.parent->generic.decl->struct_;
 
         for (Decl* field : i.fields) {
             switch (field->kind) {
                 case DeclKind::Method: {
-                    if (i.parent->struct_.field_lookup.contains(field->method.identifier)) {
+                    if (s.field_lookup.contains(field->method.identifier)) {
                         Decl* prev = i.field_lookup.at(field->method.identifier);
 
                         if (prev->kind == DeclKind::Method) {
@@ -147,20 +150,25 @@ namespace ariac {
                     }
 
                     i.field_lookup.insert(m_context, field->method.identifier, field);
-                    i.parent->struct_.field_lookup.insert(m_context, field->method.identifier, field);
+                    s.field_lookup.insert(m_context, field->method.identifier, field);
                     break;
                 }
             }
         }
 
-        m_active_struct = TypeInfo::create_struct(m_context, i.parent);
+        if (!s.type) { s.type = TypeInfo::create_struct(m_context, i.parent); }
+
+        m_active_struct = s.type;
 
         for (Decl* field : i.fields) {
             switch (field->kind) {
                 case DeclKind::Method: {
-                    resolve_type(field->method.type->function.return_type);
+                    resolve_type(field->method.type);
+                    TypeInfo* prev_ret_type = m_active_return_type;
                     m_active_return_type = field->method.type->function.return_type;
                     push_scope();
+
+                    size_t idx = 0;
                     for (Decl* p : field->method.parameters) {
                         resolve_param_decl(p);
                     }
@@ -176,7 +184,7 @@ namespace ariac {
                     }
 
                     pop_scope();
-                    m_active_return_type = nullptr;
+                    m_active_return_type = prev_ret_type;
                     break;
                 }
 

@@ -125,7 +125,8 @@ namespace ariac {
                 break;
             }
 
-            case TypeKind::Function: {
+            case TypeKind::Function:
+            case TypeKind::Method: {
                 FunctionType& fn = type->function;
 
                 for (TypeInfo* param : fn.param_types) {
@@ -138,9 +139,10 @@ namespace ariac {
 
             case TypeKind::Generic: {
                 GenericType& g = type->generic;
-                ARIA_ASSERT(m_specialized_generic_types.contains(g.identifier), "Invalid generic specilization type");
-
-                *type = *m_specialized_generic_types.at(g.identifier);
+                if (m_replace_generic_types) {
+                    ARIA_ASSERT(m_specialized_generic_types.contains(g.identifier), "Invalid generic specilization type");
+                    *type = *m_specialized_generic_types.at(g.identifier);
+                }
                 break;
             }
 
@@ -174,7 +176,7 @@ namespace ariac {
                     ARIA_ASSERT(i->kind == DeclKind::StructSpecilization, "Invalid generic specilization");
 
                     bool failed = false;
-                    for (size_t idx = 0; idx < gi.arguments.size; i++) {
+                    for (size_t idx = 0; idx < gi.arguments.size; idx++) {
                         if (!type_is_equal(gi.arguments.items[idx], i->struct_specilization.types.items[idx])) { failed = true; break; }
                     }
 
@@ -182,17 +184,20 @@ namespace ariac {
                 }
 
                 if (!specilization) {
-                    Decl* struc = Decl::Create(m_context, g->loc, DeclKind::Struct, g->visibility, StructDecl(g->generic.decl->struct_.identifier, g->generic.decl->struct_.fields));
+                    Decl* struc = Decl::dup(m_context, g->generic.decl);
                     struc->parent_module = g->parent_module;
                     struc->parent_unit = g->parent_unit;
-                    specilization = Decl::Create(m_context, g->loc, DeclKind::StructSpecilization, g->visibility, StructSpecilizationDecl(gi.arguments, struc));
+                    specilization = Decl::Create(m_context, g->loc, DeclKind::StructSpecilization, g->visibility, StructSpecilizationDecl(gi.arguments, struc, struc->struct_.impls));
                     specilization->parent_module = g->parent_module;
                     specilization->parent_unit = g->parent_unit;
+                    g->generic.specilizations.append(m_context, specilization);
 
                     for (size_t i = 0; i < gi.arguments.size; i++) { m_specialized_generic_types[g->generic.parameters.items[i]->generic_parameter.identifier] = gi.arguments.items[i]; }
+                    bool prev_val = m_replace_generic_types;
+                    m_replace_generic_types = true;
                     resolve_struct_decl(struc);
+                    m_replace_generic_types = prev_val;
 
-                    g->generic.specilizations.append(m_context, specilization);
                 }
 
                 gi.resolved_decl = specilization;
@@ -208,6 +213,11 @@ namespace ariac {
         cost.cast_needed = true;
         cost.explicit_cast_possible = true;
         cost.implicit_cast_possible = true;
+
+        if (dst->kind == TypeKind::Generic || src->kind == TypeKind::Generic) {
+            cost.cast_needed = false;
+            return cost;
+        }
 
         if (type_is_equal(src, dst)) {
             cost.cast_needed = false;
@@ -257,6 +267,9 @@ namespace ariac {
             if (dst->is_pointer()) { // Ptr to ptr
                 if (src->base->is_void() || dst->base->is_void()) { // Allow void* conversions
                     cost.kind = CastKind::BitCast;
+                    return cost;
+                } else if (src->base->kind == TypeKind::Generic || dst->base->kind == TypeKind::Generic) {
+                    cost.cast_needed = false;
                     return cost;
                 }
             }

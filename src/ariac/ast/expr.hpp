@@ -34,7 +34,6 @@ namespace ariac {
         New,
         Delete,
         Sizeof,
-        Format,
         Paren,
         Cast,
         ImplicitCast,
@@ -344,20 +343,6 @@ namespace ariac {
         Expr* expression = nullptr;
         TypeInfo* type = nullptr;
     };
-    
-    struct FormatExpr {
-        struct FormatArg {
-            Expr* arg = nullptr;
-        };
-
-        FormatExpr(TinyVector<Expr*> args)
-            : args(args) {}
-
-        TinyVector<Expr*> args;
-        TinyVector<FormatArg> resolved_args; // Properly ordered args, ordered during semantic analysis
-                                             // eg. $format("Hello, {}, Nice to meet you", name); ->
-                                             // "Hello, " name, ", Nice to meet you"
-    };
 
     // ParenExpr
     // At its core it just wraps an expression
@@ -468,11 +453,7 @@ namespace ariac {
             ExprValueKind value_kind, TypeInfo* type, 
             T t = ErrorExpr()) { return ctx->allocate<Expr>(loc, kind, value_kind, type, t); }
 
-        static inline Expr* Dup(CompilationContext* ctx, Expr* other) {
-            Expr* newExpr = ctx->allocate<Expr>();
-            memcpy(reinterpret_cast<void*>(newExpr), other, sizeof(Expr));
-            return newExpr;
-        }
+        static Expr* dup(CompilationContext* ctx, Expr* e);
 
         ExprKind kind = ExprKind::Invalid;
         ExprValueKind value_kind = ExprValueKind::RValue;
@@ -501,7 +482,6 @@ namespace ariac {
             NewExpr new_;
             DeleteExpr delete_;
             SizeofExpr sizeof_;
-            FormatExpr format;
             ParenExpr paren;
             CastExpr cast;
             ImplicitCastExpr implicit_cast;
@@ -567,9 +547,6 @@ namespace ariac {
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, SizeofExpr sizeof_)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), sizeof_(sizeof_) {}
-
-        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, FormatExpr format)
-            : loc(loc), kind(kind), value_kind(value_kind), type(type), format(format) {}
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ParenExpr paren)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), paren(paren) {}
