@@ -94,7 +94,7 @@ namespace ariac {
                 break;
             }
 
-            case TypeKind::Ptr: resolve_type(type->base); break;
+            case TypeKind::Pointer: resolve_type(type->base); break;
             
             case TypeKind::Array: {
                 resolve_type(type->array.base);
@@ -113,15 +113,6 @@ namespace ariac {
 
                 Expr* cexpr = eval_const_expr(type->array.expression);
                 type->array.size = cexpr->const_.integer;
-                break;
-            }
-
-            case TypeKind::Ref: {
-                resolve_type(type->base);
-                if (type->base->is_void()) {
-                    m_context->report_compiler_diagnostic(type->loc, "Cannot declare reference to 'void'");
-                    type->kind = TypeKind::Error;
-                }
                 break;
             }
 
@@ -291,9 +282,6 @@ namespace ariac {
     }
 
     bool SemanticAnalyzer::type_is_equal(TypeInfo* lhs, TypeInfo* rhs) {
-        if (lhs->is_reference()) { lhs = lhs->base; }
-        if (rhs->is_reference()) { rhs = rhs->base; }
-
         while (lhs->is_typdef()) { lhs = lhs->typedef_.base; }
         while (rhs->is_typdef()) { rhs = rhs->typedef_.base; }
 

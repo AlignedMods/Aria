@@ -2,14 +2,6 @@
 
 namespace ariac {
 
-    void SemanticAnalyzer::resolve_translation_unit_decl(Decl* decl) {
-        TranslationUnitDecl tu = decl->translation_unit;
-
-        for (Stmt* stmt : tu.stmts) {
-            resolve_stmt(stmt);
-        }
-    }
-
     void SemanticAnalyzer::resolve_var_decl(Decl* decl) {
         if (decl->resolve_status == ResolveStatus::Done || decl->resolve_status == ResolveStatus::InProgress) { return; }
         decl->resolve_status = ResolveStatus::InProgress;
@@ -96,6 +88,10 @@ namespace ariac {
         decl->resolve_status = ResolveStatus::InProgress;
 
         StructDecl& s = decl->struct_;
+
+        if (s.fields.size == 0) {
+            m_context->report_compiler_diagnostic(decl->loc, "Empty structs are not allowed");
+        }
 
         for (Decl* field : s.fields) {
             field->parent_unit = decl->parent_unit;
@@ -286,7 +282,6 @@ namespace ariac {
             case DeclKind::Field:
             case DeclKind::Method: return;
 
-            case DeclKind::TranslationUnit: return resolve_translation_unit_decl(decl);
             case DeclKind::Var: return resolve_var_decl(decl);
             case DeclKind::Param: return resolve_param_decl(decl);
             case DeclKind::Function: return resolve_function_decl(decl);

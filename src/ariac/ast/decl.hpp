@@ -14,8 +14,8 @@ namespace ariac {
         Invalid = 0,
 
         Error,
-        TranslationUnit,
         Module,
+        Import,
         Var,
         Param,
         Function,
@@ -107,21 +107,24 @@ namespace ariac {
         ErrorDecl() = default;
     };
 
-    // Represents an entire translation unit
-    // This should always be the root node of the AST
-    struct TranslationUnitDecl {
-        TranslationUnitDecl(std::string_view name, TinyVector<Stmt*> stmts)
-            : name(name), stmts(stmts) {}
-
-        std::string_view name;
-        TinyVector<Stmt*> stmts;
-    };
-
     struct ModuleDecl {
         ModuleDecl(std::string_view name)
             : name(name) {}
 
         std::string_view name;
+    };
+
+    struct ImportDecl {
+        ImportDecl(std::string_view name, std::string_view alias)
+            : name(name), alias(alias) {}
+
+        ImportDecl(std::string_view name, Module* mod, bool implicit)
+            : name(name), resolved_module(mod), implicit(implicit) {}
+
+        std::string_view name;
+        std::string_view alias;
+        Module* resolved_module = nullptr;
+        bool implicit = false;
     };
 
     struct VarDecl {
@@ -271,8 +274,8 @@ namespace ariac {
 
         union {
             ErrorDecl error;
-            TranslationUnitDecl translation_unit;
             ModuleDecl module;
+            ImportDecl import;
             VarDecl var;
             ParamDecl param;
             FunctionDecl function;
@@ -291,11 +294,11 @@ namespace ariac {
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, ErrorDecl error)
             : loc(loc), kind(kind), visibility(visibility), error(error) {}
 
-        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, TranslationUnitDecl translation_unit)
-            : loc(loc), kind(kind), visibility(visibility), translation_unit(translation_unit) {}
-
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, ModuleDecl module)
             : loc(loc), kind(kind), visibility(visibility), module(module) {}
+
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, ImportDecl import)
+            : loc(loc), kind(kind), visibility(visibility), import(import) {}
 
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, VarDecl var)
             : loc(loc), kind(kind), visibility(visibility), var(var) {}

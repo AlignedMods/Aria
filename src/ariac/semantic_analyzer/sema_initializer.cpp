@@ -28,9 +28,7 @@ namespace ariac {
                 }
             }
 
-            if (!var.type->is_reference()) {
-                require_rvalue(var.initializer);
-            }
+            require_rvalue(var.initializer);
 
             if (var.const_var) {
                 if (!is_const_expr(var.initializer)) {
@@ -57,7 +55,7 @@ namespace ariac {
             }
         }
 
-        if (!param_type->is_reference()) { require_rvalue(arg); }
+        require_rvalue(arg);
         m_temporary_context = false;
     }
 

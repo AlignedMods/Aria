@@ -25,10 +25,9 @@ namespace ariac {
         Float,
         Double,
 
-        Ptr,
+        Pointer,
         Array,
         Slice,
-        Ref,
 
         Function,
         Method,
@@ -152,7 +151,7 @@ namespace ariac {
         bool is_error() const { return kind == TypeKind::Error; }
 
         bool is_primitive() const {
-            return is_void() || is_boolean() || is_numeric() || is_pointer() || is_slice() || is_reference();
+            return is_void() || is_boolean() || is_numeric() || is_pointer() || is_slice();
         }
 
         bool is_void() const {
@@ -181,7 +180,7 @@ namespace ariac {
         bool is_num_or_ptr() const { return is_numeric() || is_pointer(); }
 
         bool is_pointer() const {
-            return kind == TypeKind::Ptr;
+            return kind == TypeKind::Pointer;
         }
 
         bool is_array() const {
@@ -222,10 +221,6 @@ namespace ariac {
         bool is_unsigned() const {
             ARIA_ASSERT(is_integral(), "is_unsigned() cannot operate on a non-integral type");
             return kind == TypeKind::Char || kind == TypeKind::UShort || kind == TypeKind::UInt || kind == TypeKind::ULong;
-        }
-
-        bool is_reference() const {
-            return kind == TypeKind::Ref;
         }
 
         size_t get_bit_size() const {

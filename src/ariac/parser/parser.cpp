@@ -109,21 +109,13 @@ namespace ariac {
     void Parser::parse_impl() {
         TinyVector<Stmt*> stmts;
         while (peek()) {
-            Stmt* stmt = parse_global();
+            Decl* d = parse_global();
 
             if (!m_declared_module) {
                 m_context->report_compiler_diagnostic(peek()->loc, "All translation units must contain a module declaration");
                 break;
             }
-
-            if (stmt_ok(stmt)) {
-                stmts.append(m_context, stmt);
-            }
         }
-
-        TranslationUnitDecl root(m_context->active_comp_unit->filename, stmts);
-        Decl* decl = Decl::Create(m_context, SourceLoc(), DeclKind::TranslationUnit, DeclVisibility::Public, root);
-        m_context->active_comp_unit->root_ast_node = Stmt::Create(m_context, SourceLoc(), StmtKind::Decl, decl);
     }
 
     Token* Parser::peek(size_t count) {
@@ -535,7 +527,7 @@ namespace ariac {
         }
 
         type->base = TypeInfo::dup(m_context, type);
-        type->kind = TypeKind::Ptr;
+        type->kind = TypeKind::Pointer;
 
         // parse_type() will handle array types
         // However we do not want this, so we remove the array from the type and add it to the new expression itself
@@ -743,19 +735,10 @@ namespace ariac {
                     break;
                 }
 
-                case TokenKind::Ampersand: {
-                    consume();
-                    type->base = TypeInfo::dup(m_context, type);
-                    type->kind = TypeKind::Ref;
-
-                    type->loc += peek(-1)->loc;
-                    break;
-                }
-
                 case TokenKind::Star: {
                     consume();
                     type->base = TypeInfo::dup(m_context, type);
-                    type->kind = TypeKind::Ptr;
+                    type->kind = TypeKind::Pointer;
 
                     type->loc += peek(-1)->loc;
                     break;
@@ -1124,7 +1107,7 @@ namespace ariac {
         return Decl::Create(m_context, mod.loc + peek(-1)->loc, DeclKind::Module, DeclVisibility::Public, ModuleDecl(path));
     }
 
-    Stmt* Parser::parse_import_decl() {
+    Decl* Parser::parse_import_decl() {
         Token& imp = consume(); // consume "import"
 
         std::string_view path = parse_module_path();
@@ -1137,7 +1120,7 @@ namespace ariac {
 
         try_consume(TokenKind::Semi, ";");
 
-        Stmt* import = Stmt::Create(m_context, imp.loc + peek(-1)->loc, StmtKind::Import, ImportStmt(path, alias));
+        Decl* import = Decl::Create(m_context, imp.loc + peek(-1)->loc, DeclKind::Import, DeclVisibility::Public, ImportDecl(path, alias));
         m_context->active_comp_unit->imports.push_back(import);
         return import;
     }
@@ -1574,89 +1557,54 @@ namespace ariac {
         return scratch_buffer_to_str(m_context);
     }
 
-    Stmt* Parser::parse_global() {
+    Decl* Parser::parse_global() {
         switch (peek()->kind) {
-            case TokenKind::Module: {
-                Decl* d = parse_module_decl();
-                if (!decl_ok(d)) { sync_global(); return &error_stmt; }
-
-                return Stmt::Create(m_context, d->loc, StmtKind::Decl, d);
-            }
+            case TokenKind::Module:
+                return parse_module_decl();
 
             case TokenKind::Import:
                 return parse_import_decl();
 
-            case TokenKind::Const: {
-                Decl* d = parse_const_decl(true);
-                if (!decl_ok(d)) { return &error_stmt; }
-                return Stmt::Create(m_context, d->loc, StmtKind::Decl, d);
-            }
+            case TokenKind::Const:
+                return parse_const_decl(true);
 
             case TokenKind::Let: {
-                m_context->report_compiler_diagnostic(peek()->loc, "'let' cannot be used for global variables, try using 'const' instead"); 
+                m_context->report_compiler_diagnostic(peek()->loc, "'let' cannot be used for global variables, try using 'const' or 'static' instead"); 
                 consume(); 
-                return &error_stmt;
+                return &error_decl;
             }
 
-            case TokenKind::Fn: {
-                Decl* decl = parse_function_decl(LinkageKind::None);
-                if (!decl_ok(decl)) { return &error_stmt; }
+            case TokenKind::Fn:
+                return parse_function_decl(LinkageKind::None);
 
-                return Stmt::Create(m_context, decl->loc, StmtKind::Decl, decl);
-            }
+            case TokenKind::Struct:
+                return parse_struct_decl();
 
-            case TokenKind::Struct: {
-                Decl* decl = parse_struct_decl();
-                if (!decl_ok(decl)) { return &error_stmt; }
+            case TokenKind::Impl:
+                return parse_impl_decl();
 
-                return Stmt::Create(m_context, decl->loc, StmtKind::Decl, decl);
-            }
+            case TokenKind::Typedef:
+                return parse_typedef_decl();
 
-            case TokenKind::Impl: {
-                Decl* decl = parse_impl_decl();
-                if (!decl_ok(decl)) { return &error_stmt; }
+            case TokenKind::Enum:
+                return parse_enum_decl();
 
-                return Stmt::Create(m_context, decl->loc, StmtKind::Decl, decl);
-            }
+            case TokenKind::Extern:
+                return parse_extern_decl();
 
-            case TokenKind::Typedef: {
-                Decl* decl = parse_typedef_decl();
-                if (!decl_ok(decl)) { return &error_stmt; }
-
-                return Stmt::Create(m_context, decl->loc, StmtKind::Decl, decl);
-            }
-
-            case TokenKind::Enum: {
-                Decl* decl = parse_enum_decl();
-                if (!decl_ok(decl)) { return &error_stmt; }
-
-                return Stmt::Create(m_context, decl->loc, StmtKind::Decl, decl);
-            }
-
-            case TokenKind::Extern: {
-                Decl* decl = parse_extern_decl();
-                if (!decl_ok(decl)) { return &error_stmt; }
-
-                return Stmt::Create(m_context, decl->loc, StmtKind::Decl, decl);
-            }
-
-            case TokenKind::Static: {
-                Decl* decl = parse_static_decl();
-                if (!decl_ok(decl)) { return &error_stmt; }
-
-                return Stmt::Create(m_context, decl->loc, StmtKind::Decl, decl);
-            }
+            case TokenKind::Static:
+                return parse_static_decl();
 
             case TokenKind::Semi: {
                 m_context->report_compiler_diagnostic(peek()->loc, fmt::format("Token ';' was unexpected, try removing it")); 
                 consume(); 
-                return &error_stmt;
+                return &error_decl;
             }
 
             case TokenKind::HashPrivate: {
                 consume();
                 m_current_visibility = DeclVisibility::Private;
-                return &error_stmt;
+                return &error_decl;
             }
 
             case TokenKind::Void:
@@ -1673,13 +1621,13 @@ namespace ariac {
             case TokenKind::Double: {
                 Token& t = consume();
                 m_context->report_compiler_diagnostic(t.loc, fmt::format("Unexpected type '{}', did you mean to declare a global variable? (let <name>: <type>)", TokenKindToString(t.kind)));
-                return &error_stmt;
+                return &error_decl;
             }
 
             default: {
                 m_context->report_compiler_diagnostic(peek()->loc, fmt::format("Expected the start of a global declaration", TokenKindToString(peek()->kind)));
                 sync_global();
-                return &error_stmt;
+                return &error_decl;
             }
         }
     }

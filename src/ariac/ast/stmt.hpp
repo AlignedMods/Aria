@@ -13,7 +13,6 @@ namespace ariac {
 
         Error,
         Nop,
-        Import,
         Block,
         While,
         DoWhile,
@@ -35,18 +34,6 @@ namespace ariac {
 
     struct ErrorStmt {
         ErrorStmt() = default;
-    };
-
-    struct ImportStmt {
-        ImportStmt(std::string_view name, std::string_view alias)
-            : name(name), alias(alias) {}
-
-        ImportStmt(std::string_view name, Module* mod)
-            : name(name), resolved_module(mod) {}
-
-        std::string_view name;
-        std::string_view alias;
-        Module* resolved_module = nullptr;
     };
 
     struct BlockStmt {
@@ -120,7 +107,6 @@ namespace ariac {
 
         union {
             ErrorStmt error;
-            ImportStmt import;
             BlockStmt block;
             WhileStmt while_;
             DoWhileStmt do_while;
@@ -134,9 +120,6 @@ namespace ariac {
 
         Stmt(StmtKind kind, SourceLoc loc, ErrorStmt error)
             : kind(kind), loc(loc), error(error) {}
-
-        Stmt(StmtKind kind, SourceLoc loc, ImportStmt import)
-            : kind(kind), loc(loc), import(import) {}
 
         Stmt(StmtKind kind, SourceLoc loc, BlockStmt block)
             : kind(kind), loc(loc), block(block) {}

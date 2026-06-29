@@ -130,12 +130,13 @@ namespace ariac {
                     }
 
                     Expr* self = Expr::Create(m_context, expr->loc, ExprKind::Self, 
-                        ExprValueKind::LValue, TypeInfo::create_with_base(m_context, TypeKind::Ref, m_active_struct), 
+                        ExprValueKind::RValue, TypeInfo::create_with_base(m_context, TypeKind::Pointer, m_active_struct), 
                         ErrorExpr());
 
                     Expr* member = Expr::Create(m_context, expr->loc, ExprKind::Member,
                         ExprValueKind::LValue, mem_type,
                         MemberExpr(dr.identifier, self));
+                    // member->member.implicit_deref = true;
 
                     member->member.referenced_member = field;
                     replace_expr(expr, member);
@@ -197,9 +198,9 @@ namespace ariac {
                     default: ARIA_UNREACHABLE();
                 }
             } else {
-                for (Stmt* im : m_context->active_comp_unit->imports) {
-                    ARIA_ASSERT(im->kind == StmtKind::Import, "Invalid import");
-                    ImportStmt& import = im->import;
+                for (Decl* im : m_context->active_comp_unit->imports) {
+                    ARIA_ASSERT(im->kind == DeclKind::Import, "Invalid import");
+                    ImportDecl& import = im->import;
 
                     if (!import.resolved_module) { continue; }
 
@@ -385,7 +386,7 @@ namespace ariac {
 
                 case TypeKind::Slice: {
                     if (mem.member == "mem") {
-                        member_type = TypeInfo::create_with_base(m_context, TypeKind::Ptr, parent_type->base);
+                        member_type = TypeInfo::create_with_base(m_context, TypeKind::Pointer, parent_type->base);
                         expr->kind = ExprKind::BuiltinMember;
                     } else if (mem.member == "len") {
                         member_type = TypeInfo::get_basic(m_context, TypeKind::ULong);
@@ -396,8 +397,7 @@ namespace ariac {
                     break;
                 }
 
-                case TypeKind::Ref: { parent_type = parent_type->base; break; }
-                case TypeKind::Ptr: {
+                case TypeKind::Pointer: {
                     if (mem.implicit_deref) {
                         m_context->report_compiler_diagnostic(expr->loc, "'.' operator allows only one level of implicit dereferncing");
                     }
@@ -500,7 +500,7 @@ namespace ariac {
                 }
 
                 expr->type = fn_type.return_type;
-                expr->value_kind = (fn_type.return_type->is_reference()) ? ExprValueKind::LValue : ExprValueKind::RValue;
+                expr->value_kind = ExprValueKind::RValue;
 
                 return;
             }
@@ -587,7 +587,7 @@ namespace ariac {
             }
 
             expr->type = fn_type.return_type;
-            expr->value_kind = (fn_type.return_type->is_reference()) ? ExprValueKind::LValue : ExprValueKind::RValue;
+            expr->value_kind = ExprValueKind::RValue;
         } else {
             for (Expr* arg : mc.arguments) {
                 resolve_expr(arg);
@@ -607,7 +607,7 @@ namespace ariac {
         if (subs.array->type->is_error()) { expr->type = TypeInfo::get_error(m_context); return; }
 
         switch (subs.array->type->kind) {
-            case TypeKind::Ptr: {
+            case TypeKind::Pointer: {
                 require_rvalue(subs.array);
 
                 if (subs.array->type->base->is_void()) {
@@ -653,7 +653,7 @@ namespace ariac {
         if (tos.source->type->is_error()) { expr->type = TypeInfo::get_error(m_context); return; }
 
         switch (tos.source->type->kind) {
-            case TypeKind::Ptr: {
+            case TypeKind::Pointer: {
                 require_rvalue(tos.source);
                 expr->type = TypeInfo::create_with_base(m_context, TypeKind::Slice, tos.source->type->base);
                 break;
@@ -853,7 +853,7 @@ namespace ariac {
                     m_context->report_compiler_diagnostic(expr->loc, "Address of operation ('&') requries an lvalue");
                 }
 
-                TypeInfo* new_type = TypeInfo::create_with_base(m_context, TypeKind::Ptr, type);
+                TypeInfo* new_type = TypeInfo::create_with_base(m_context, TypeKind::Pointer, type);
                 expr->type = new_type;
                 break;
             }
@@ -865,7 +865,7 @@ namespace ariac {
                     m_context->report_compiler_diagnostic(expr->loc, "RValue address of operation ('&&') requries an rvalue");
                 }
 
-                TypeInfo* new_type = TypeInfo::create_with_base(m_context, TypeKind::Ptr, type);
+                TypeInfo* new_type = TypeInfo::create_with_base(m_context, TypeKind::Pointer, type);
                 expr->type = new_type;
                 break;
             }
@@ -1181,8 +1181,8 @@ namespace ariac {
             mod = m_context->active_comp_unit->parent;
         }
 
-        for (Stmt* import : m_context->active_comp_unit->imports) {
-            ARIA_ASSERT(import->kind == StmtKind::Import, "Invalid import stmt");
+        for (Decl* import : m_context->active_comp_unit->imports) {
+            ARIA_ASSERT(import->kind == DeclKind::Import, "Invalid import stmt");
 
             if (compare_module_names(name.identifier, import->import.alias.empty() ? import->import.name : import->import.alias)) {
                 if (mod) {

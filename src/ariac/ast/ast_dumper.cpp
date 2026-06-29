@@ -4,9 +4,8 @@
 
 namespace ariac {
 
-    ASTDumper::ASTDumper(Stmt* rootASTNode) {
-        m_root_ast_node = rootASTNode;
-
+    ASTDumper::ASTDumper(CompilationUnit* unit) {
+        m_unit = unit;
         dump_ast_impl();
     }
 
@@ -15,7 +14,34 @@ namespace ariac {
     }
 
     void ASTDumper::dump_ast_impl() {
-        dump_stmt(m_root_ast_node, 0);
+        m_output += fmt::format("File: {}\n", m_unit->filename);
+        for (Decl* im : m_unit->imports) {
+            dump_decl(im, 0);
+        }
+
+        for (Decl* td : m_unit->typedefs) {
+            dump_decl(td, 0);
+        }
+
+        for (Decl* enu : m_unit->enums) {
+            dump_decl(enu, 0);
+        }
+
+        for (Decl* stru : m_unit->structs) {
+            dump_decl(stru, 0);
+        }
+
+        for (Decl* var : m_unit->globals) {
+            dump_decl(var, 0);
+        }
+
+        for (Decl* impl : m_unit->impls) {
+            dump_decl(impl, 0);
+        }
+
+        for (Decl* func : m_unit->funcs) {
+            dump_decl(func, 0);
+        }
     }
 
     void ASTDumper::dump_expr(Expr* expr, size_t indentation) {
@@ -26,47 +52,47 @@ namespace ariac {
         if (expr == nullptr) { m_output += "<<NULL>>\n"; return; };
 
         switch (expr->kind) {
-            case ExprKind::Error: m_output += fmt::format("ErrorExpr '{}' {}\n", 
+            case ExprKind::Error: m_output += fmt::format("ErrorExpr {} '{}' {}\n", 
+                source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind)); 
+                return;
+
+            case ExprKind::BooleanLiteral: m_output += fmt::format("BooleanLiteralExpr {} {} '{}' {}\n", 
+                source_loc_to_string(expr->loc), expr->boolean_literal.value, 
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind)); 
                 return;
 
-            case ExprKind::BooleanLiteral: m_output += fmt::format("BooleanLiteralExpr {} '{}' {}\n", 
-                expr->boolean_literal.value, 
+            case ExprKind::CharacterLiteral: m_output += fmt::format("CharacterLiteralExpr {} 0x{:x} '{}' {}\n", 
+                source_loc_to_string(expr->loc), expr->character_literal.value, 
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind)); 
                 return;
 
-            case ExprKind::CharacterLiteral: m_output += fmt::format("CharacterLiteralExpr 0x{:x} '{}' {}\n", 
-                expr->character_literal.value, 
+            case ExprKind::IntegerLiteral: m_output += fmt::format("IntegerLiteralExpr {} {} '{}' {}\n", 
+                source_loc_to_string(expr->loc), expr->integer_literal.value, 
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind)); 
                 return;
 
-            case ExprKind::IntegerLiteral: m_output += fmt::format("IntegerLiteralExpr {} '{}' {}\n", 
-                expr->integer_literal.value, 
+            case ExprKind::FloatingLiteral: m_output += fmt::format("FloatingLiteralExpr {} {} '{}' {}\n", 
+                source_loc_to_string(expr->loc), expr->floating_literal.value, 
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind)); 
                 return;
 
-            case ExprKind::FloatingLiteral: m_output += fmt::format("FloatingLiteralExpr {} '{}' {}\n", 
-                expr->floating_literal.value, 
+            case ExprKind::StringLiteral: m_output += fmt::format("StringLiteralExpr {} {:?} '{}' {}\n", 
+                source_loc_to_string(expr->loc), expr->string_literal.value, 
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind)); 
                 return;
 
-            case ExprKind::StringLiteral: m_output += fmt::format("StringLiteralExpr {:?} '{}' {}\n", 
-                expr->string_literal.value, 
-                type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind)); 
-                return;
-
-            case ExprKind::ArrayFiller: m_output += fmt::format("ArrayFillerExpr '{}' {}\n",
-                type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
+            case ExprKind::ArrayFiller: m_output += fmt::format("ArrayFillerExpr {} '{}' {}\n",
+                source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->array_filler.initializer, indentation + 4);
                 return;
 
-            case ExprKind::Null: m_output += fmt::format("NullExpr '{}' {}\n", 
-                type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind)); 
+            case ExprKind::Null: m_output += fmt::format("NullExpr {} '{}' {}\n", 
+                source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind)); 
                 return;
 
-            case ExprKind::DeclRef: m_output += fmt::format("DeclRefExpr '{}' {} '{}' {}\n", 
-                expr->decl_ref.identifier, decl_kind_to_string(expr->decl_ref.referenced_decl->kind),
+            case ExprKind::DeclRef: m_output += fmt::format("DeclRefExpr {} '{}' {} '{}' {}\n", 
+                source_loc_to_string(expr->loc), expr->decl_ref.identifier, decl_kind_to_string(expr->decl_ref.referenced_decl->kind),
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 if (expr->decl_ref.name_specifier) {
@@ -75,32 +101,32 @@ namespace ariac {
 
                 return;
 
-            case ExprKind::Member: m_output += fmt::format("MemberExpr '{}'{} '{}' {}\n",
-                expr->member.member, expr->member.implicit_deref ? " implicit_deref" : "",
+            case ExprKind::Member: m_output += fmt::format("MemberExpr {} '{}'{} '{}' {}\n",
+                source_loc_to_string(expr->loc), expr->member.member, expr->member.implicit_deref ? " implicit_deref" : "",
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->member.parent, indentation + 4);
                 return;
 
-            case ExprKind::BuiltinMember: m_output += fmt::format("BuiltinMemberExpr '{}' '{}' {}\n",
-                expr->member.member,
+            case ExprKind::BuiltinMember: m_output += fmt::format("BuiltinMemberExpr {} '{}' '{}' {}\n",
+                source_loc_to_string(expr->loc), expr->member.member,
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->member.parent, indentation + 4);
                 return;
 
-            case ExprKind::Self: m_output += fmt::format("SelfExpr '{}' {}\n", 
-                type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind)); 
+            case ExprKind::Self: m_output += fmt::format("SelfExpr {} '{}' {}\n", 
+                source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind)); 
                 return;
 
-            case ExprKind::Temporary: m_output += fmt::format("TemporaryExpr '{}' {}\n", 
-                type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind)); 
+            case ExprKind::Temporary: m_output += fmt::format("TemporaryExpr {} '{}' {}\n", 
+                source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind)); 
                 
                 dump_expr(expr->temporary.expression, indentation + 4);
                 return;
 
-            case ExprKind::Call: m_output += fmt::format("CallExpr '{}' {}\n",
-                type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
+            case ExprKind::Call: m_output += fmt::format("CallExpr {} '{}' {}\n",
+                source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->call.callee, indentation + 4);
                 for (Expr* arg : expr->call.arguments) {
@@ -108,16 +134,16 @@ namespace ariac {
                 }
                 return;
 
-            case ExprKind::Construct: m_output += fmt::format("ConstructExpr '{}' {}\n",
-                type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
+            case ExprKind::Construct: m_output += fmt::format("ConstructExpr {} '{}' {}\n",
+                source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 for (Expr* arg : expr->construct.arguments) {
                     dump_expr(arg, indentation + 4);
                 }
                 return;
 
-            case ExprKind::MethodCall: m_output += fmt::format("MethodCallExpr '{}' {}\n",
-                type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
+            case ExprKind::MethodCall: m_output += fmt::format("MethodCallExpr {} '{}' {}\n",
+                source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->method_call.callee, indentation + 4);
                 for (Expr* arg : expr->method_call.arguments) {
@@ -125,83 +151,83 @@ namespace ariac {
                 }
                 return;
 
-            case ExprKind::ArraySubscript: m_output += fmt::format("ArraySubscriptExpr '{}' {}\n",
-                type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
+            case ExprKind::ArraySubscript: m_output += fmt::format("ArraySubscriptExpr {} '{}' {}\n",
+                source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->array_subscript.array, indentation + 4);
                 dump_expr(expr->array_subscript.index, indentation + 4);
                 return;
 
-            case ExprKind::ToSlice: m_output += fmt::format("ToSliceExpr '{}' {}\n",
-                type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
+            case ExprKind::ToSlice: m_output += fmt::format("ToSliceExpr {} '{}' {}\n",
+                source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->to_slice.len, indentation + 4);
                 dump_expr(expr->to_slice.source, indentation + 4);
                 return;
 
-            case ExprKind::New: m_output += fmt::format("NewExpr {}'{}' {}\n",
-                expr->new_.array ? "array " : "",
+            case ExprKind::New: m_output += fmt::format("NewExpr {} {}'{}' {}\n",
+                source_loc_to_string(expr->loc), expr->new_.array ? "array " : "",
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->new_.initializer, indentation + 4);
                 return;
 
-            case ExprKind::Delete: m_output += fmt::format("DeleteExpr '{}' {}\n",
-                type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
+            case ExprKind::Delete: m_output += fmt::format("DeleteExpr {} '{}' {}\n",
+                source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->delete_.expression, indentation + 4);
                 return;
 
-            case ExprKind::Sizeof: m_output += fmt::format("SizeofExpr '{}' '{}' {}\n",
-                type_info_to_string(expr->sizeof_.expression ? expr->sizeof_.expression->type : expr->sizeof_.type, false), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
+            case ExprKind::Sizeof: m_output += fmt::format("SizeofExpr {} '{}' '{}' {}\n",
+                source_loc_to_string(expr->loc), type_info_to_string(expr->sizeof_.expression ? expr->sizeof_.expression->type : expr->sizeof_.type, false), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 if (expr->sizeof_.expression) { dump_expr(expr->sizeof_.expression, indentation + 4); }
                 return;
 
-            case ExprKind::Paren: m_output += fmt::format("ParenExpr '{}' {}\n",
-                type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
+            case ExprKind::Paren: m_output += fmt::format("ParenExpr {} '{}' {}\n",
+                source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->paren.expression, indentation + 4);
                 return;
 
-            case ExprKind::Cast: m_output += fmt::format("CastExpr '{}' {}\n",
-                type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
+            case ExprKind::Cast: m_output += fmt::format("CastExpr {} '{}' {}\n",
+                source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->cast.expression, indentation + 4);
                 return;
 
-            case ExprKind::ImplicitCast: m_output += fmt::format("ImplicitCastExpr <{}> '{}' {}\n",
-                cast_kind_to_string(expr->implicit_cast.kind),
+            case ExprKind::ImplicitCast: m_output += fmt::format("ImplicitCastExpr {} <{}> '{}' {}\n",
+                source_loc_to_string(expr->loc), cast_kind_to_string(expr->implicit_cast.kind),
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->implicit_cast.expression, indentation + 4);
                 return;
 
-            case ExprKind::UnaryOperator: m_output += fmt::format("UnaryOperatorExpr '{}' {} '{}' {}\n",
-                unary_op_kind_to_string(expr->unary_operator.op), expr->unary_operator.infix ? "infix" : "prefix",
+            case ExprKind::UnaryOperator: m_output += fmt::format("UnaryOperatorExpr {} '{}' {} '{}' {}\n",
+                source_loc_to_string(expr->loc), unary_op_kind_to_string(expr->unary_operator.op), expr->unary_operator.infix ? "infix" : "prefix",
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->unary_operator.expression, indentation + 4);
                 return;
 
-            case ExprKind::BinaryOperator: m_output += fmt::format("BinaryOperatorExpr '{}' '{}' {}\n",
-                binary_op_kind_to_string(expr->binary_operator.op),
+            case ExprKind::BinaryOperator: m_output += fmt::format("BinaryOperatorExpr {} '{}' '{}' {}\n",
+                source_loc_to_string(expr->loc), binary_op_kind_to_string(expr->binary_operator.op),
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->binary_operator.lhs, indentation + 4);
                 dump_expr(expr->binary_operator.rhs, indentation + 4);
                 return;
 
-            case ExprKind::CompoundAssign: m_output += fmt::format("CompoundAssignExpr '{}' '{}' {}\n",
-                binary_op_kind_to_string(expr->compound_assign.op),
+            case ExprKind::CompoundAssign: m_output += fmt::format("CompoundAssignExpr {} '{}' '{}' {}\n",
+                source_loc_to_string(expr->loc), binary_op_kind_to_string(expr->compound_assign.op),
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->compound_assign.lhs, indentation + 4);
                 dump_expr(expr->compound_assign.rhs, indentation + 4);
                 return;
 
-            case ExprKind::Const: { m_output += fmt::format("ConstExpr '{}'\n",
-                type_info_to_string(expr->type));
+            case ExprKind::Const: { m_output += fmt::format("ConstExpr {} '{}'\n",
+                source_loc_to_string(expr->loc), type_info_to_string(expr->type));
 
                 dump_const_expr_val(&expr->const_, indentation + 4);
 
@@ -223,29 +249,27 @@ namespace ariac {
             case DeclKind::Error: m_output += "ErrorDecl\n";
                 return;
 
-            case DeclKind::TranslationUnit: m_output += fmt::format("TranslationUnitDecl '{}'\n", decl->translation_unit.name);
-                for (Stmt* stmt : decl->translation_unit.stmts) {
-                    dump_stmt(stmt, indentation + 4);
-                }
-                return;
-
             case DeclKind::Module: m_output += fmt::format("ModuleDecl '{}'\n",
                 decl->module.name);
                 return;
 
-            case DeclKind::Var: m_output += fmt::format("VarDecl {}{}'{}' '{}'\n",
-                decl->var.global_var ? "global " : "", decl->var.const_var ? "const " : "", decl->var.identifier, type_info_to_string(decl->var.type, false));
+            case DeclKind::Import: m_output += fmt::format("ImportDecl {} '{}'{}{}\n",
+                source_loc_to_string(decl->loc), decl->import.name, decl->import.alias.empty() ? "" : fmt::format(" as '{}'", decl->import.alias), decl->import.implicit ? " implicit" : "");
+                return;
+
+            case DeclKind::Var: m_output += fmt::format("VarDecl {} {}{}'{}' '{}'\n",
+                source_loc_to_string(decl->loc), decl->var.global_var ? "global " : "", decl->var.const_var ? "const " : "", decl->var.identifier, type_info_to_string(decl->var.type, false));
                 if (decl->var.initializer) {
                     dump_expr(decl->var.initializer, indentation + 4);
                 }
                 return;
 
-            case DeclKind::Param: m_output += fmt::format("ParamDecl '{}' '{}'\n",
-                decl->param.identifier, type_info_to_string(decl->param.type, false));
+            case DeclKind::Param: m_output += fmt::format("ParamDecl {} '{}' '{}'\n",
+                source_loc_to_string(decl->loc), decl->param.identifier, type_info_to_string(decl->param.type, false));
                 return;
 
-            case DeclKind::Function: m_output += fmt::format("FunctionDecl '{}' {} '{}' {}\n",
-                decl->function.identifier, decl_visibility_to_string(decl->visibility), type_info_to_string(decl->function.type, false), linkage_kind_to_string(decl->function.linkage_kind));
+            case DeclKind::Function: m_output += fmt::format("FunctionDecl {} '{}' {} '{}' {}\n",
+                source_loc_to_string(decl->loc), decl->function.identifier, decl_visibility_to_string(decl->visibility), type_info_to_string(decl->function.type, false), linkage_kind_to_string(decl->function.linkage_kind));
 
                 dump_attributes(decl->attributes, indentation + 4);
                 
@@ -258,8 +282,8 @@ namespace ariac {
                 }
                 return;
 
-            case DeclKind::Struct: m_output += fmt::format("StructDecl '{}'\n",
-                decl->struct_.identifier);
+            case DeclKind::Struct: m_output += fmt::format("StructDecl {} '{}'\n",
+                source_loc_to_string(decl->loc), decl->struct_.identifier);
 
                 for (Decl* field : decl->struct_.fields) {
                     dump_decl(field, indentation + 4);
@@ -267,7 +291,7 @@ namespace ariac {
 
                 return;
 
-            case DeclKind::StructSpecilization: m_output += "StructSpecilizationDecl ";
+            case DeclKind::StructSpecilization: m_output += fmt::format("StructSpecilizationDecl {}", source_loc_to_string(decl->loc));
                 for (size_t i = 0; i < decl->struct_specilization.types.size; i++) {
                     m_output += fmt::format("'{}' ", type_info_to_string(decl->struct_specilization.types.items[i]));
                 }
@@ -281,8 +305,8 @@ namespace ariac {
 
                 return;
 
-            case DeclKind::Impl: m_output += fmt::format("ImplDecl '{}'\n",
-                decl->impl.identifier);
+            case DeclKind::Impl: m_output += fmt::format("ImplDecl {} '{}'\n",
+                source_loc_to_string(decl->loc), decl->impl.identifier);
 
                 for (Decl* field : decl->impl.fields) {
                     dump_decl(field, indentation + 4);
@@ -290,12 +314,12 @@ namespace ariac {
 
                 return;
 
-            case DeclKind::Typedef: m_output += fmt::format("TypedefDecl '{}' '{}'\n",
-                type_info_to_string(decl->typedef_.type, false), decl->typedef_.identifier);
+            case DeclKind::Typedef: m_output += fmt::format("TypedefDecl {} '{}' '{}'\n",
+                source_loc_to_string(decl->loc), type_info_to_string(decl->typedef_.type, false), decl->typedef_.identifier);
                 return;
 
-            case DeclKind::Enum: m_output += fmt::format("EnumDecl '{}'\n",
-                decl->enum_.identifier);
+            case DeclKind::Enum: m_output += fmt::format("EnumDecl {} '{}'\n",
+                source_loc_to_string(decl->loc), decl->enum_.identifier);
 
                 for (Decl* field : decl->enum_.fields) {
                     dump_decl(field, indentation + 4);
@@ -303,19 +327,19 @@ namespace ariac {
 
                 return;
 
-            case DeclKind::EnumField: m_output += fmt::format("EnumFieldDecl '{}' {}\n",
-                decl->enum_field.identifier, decl->enum_field.resolved_value);
+            case DeclKind::EnumField: m_output += fmt::format("EnumFieldDecl {} '{}' {}\n",
+                source_loc_to_string(decl->loc), decl->enum_field.identifier, decl->enum_field.resolved_value);
                 if (decl->enum_field.value) {
                     dump_expr(decl->enum_field.value, indentation + 4);
                 }
                 return;
 
-            case DeclKind::Field: m_output += fmt::format("FieldDecl '{}' '{}' {}\n",
-                decl->field.identifier, type_info_to_string(decl->field.type, false), decl_visibility_to_string(decl->visibility));
+            case DeclKind::Field: m_output += fmt::format("FieldDecl {} '{}' '{}' {}\n",
+                source_loc_to_string(decl->loc), decl->field.identifier, type_info_to_string(decl->field.type, false), decl_visibility_to_string(decl->visibility));
                 return;
 
-            case DeclKind::Method: m_output += fmt::format("MethodDecl '{}' '{}'\n",
-                decl->method.identifier, type_info_to_string(decl->method.type, false));
+            case DeclKind::Method: m_output += fmt::format("MethodDecl {} '{}' '{}'\n",
+                source_loc_to_string(decl->loc), decl->method.identifier, type_info_to_string(decl->method.type, false));
 
                 for (Decl* param : decl->method.parameters) {
                     dump_decl(param, indentation + 4);
@@ -324,7 +348,7 @@ namespace ariac {
                 dump_stmt(decl->method.body, indentation + 4);
                 return;
 
-            case DeclKind::Generic: m_output += "GenericDecl\n";
+            case DeclKind::Generic: m_output += fmt::format("GenericDecl {}\n", source_loc_to_string(decl->loc));
                 for (Decl* param : decl->generic.parameters) {
                     dump_decl(param, indentation + 4);
                 }
@@ -337,7 +361,7 @@ namespace ariac {
 
                 return;
 
-            case DeclKind::GenericParameter: m_output += fmt::format("GenericParameterDecl '{}'\n", decl->generic_parameter.identifier);
+            case DeclKind::GenericParameter: m_output += fmt::format("GenericParameterDecl {} '{}'\n", source_loc_to_string(decl->loc), decl->generic_parameter.identifier);
                 return;
 
             default: ARIA_UNREACHABLE();
@@ -360,57 +384,53 @@ namespace ariac {
         m_output += ident;
 
         switch (stmt->kind) {
-            case StmtKind::Error: m_output += "ErrorStmt\n";
+            case StmtKind::Error: m_output += fmt::format("ErrorStmt {}\n", source_loc_to_string(stmt->loc));
                 return;
 
-            case StmtKind::Nop: m_output += "NopStmt\n";
+            case StmtKind::Nop: m_output += fmt::format("NopStmt {}\n", source_loc_to_string(stmt->loc));
                 return;
 
-            case StmtKind::Import: m_output += fmt::format("ImportStmt '{}'\n",
-                stmt->import.name);
-                return;
-
-            case StmtKind::Block: m_output += fmt::format("BlockStmt {}\n",
-                stmt->block.unsafe ? "unsafe" : "");
+            case StmtKind::Block: m_output += fmt::format("BlockStmt {} {}\n",
+                source_loc_to_string(stmt->loc), stmt->block.unsafe ? "unsafe" : "");
                 for (Stmt* stmt : stmt->block.stmts) {
                     dump_stmt(stmt, indentation + 4);
                 }
                 return;
 
-            case StmtKind::While: m_output += "WhileStmt\n";
+            case StmtKind::While: m_output += fmt::format("WhileStmt {}\n", source_loc_to_string(stmt->loc));
                 dump_expr(stmt->while_.condition, indentation + 4);
                 dump_stmt(stmt->while_.body, indentation + 4);
                 return;
 
-            case StmtKind::DoWhile: m_output += "DoWhileStmt\n";
+            case StmtKind::DoWhile: m_output += fmt::format("DoWhileStmt {}\n", source_loc_to_string(stmt->loc));
                 dump_expr(stmt->do_while.condition, indentation + 4);
                 dump_stmt(stmt->do_while.body, indentation + 4);
                 return;
 
-            case StmtKind::For: m_output += "ForStmt\n";
+            case StmtKind::For: m_output += fmt::format("ForStmt {}\n", source_loc_to_string(stmt->loc));
                 dump_decl(stmt->for_.prologue, indentation + 4);
                 dump_expr(stmt->for_.condition, indentation + 4);
                 dump_expr(stmt->for_.step, indentation + 4);
                 dump_stmt(stmt->for_.body, indentation + 4);
                 return;
 
-            case StmtKind::If: m_output += "IfStmt\n";
+            case StmtKind::If: m_output += fmt::format("IfStmt {}\n", source_loc_to_string(stmt->loc));
                 dump_expr(stmt->if_.condition, indentation + 4);
                 dump_stmt(stmt->if_.body, indentation + 4);
                 if (stmt->if_.else_body) { dump_stmt(stmt->if_.else_body, indentation + 4); }
                 return;
 
-            case StmtKind::Break: m_output += "BreakStmt\n";
+            case StmtKind::Break: m_output += fmt::format("BreakStmt {}\n", source_loc_to_string(stmt->loc));
                 return;
 
-            case StmtKind::Continue: m_output += "ContinueStmt\n";
+            case StmtKind::Continue: m_output += fmt::format("ContinueStmt {}\n", source_loc_to_string(stmt->loc));
                 return;
 
-            case StmtKind::Return: m_output += "ReturnStmt\n";
-                dump_expr(stmt->return_.value, indentation + 4);
+            case StmtKind::Return: m_output += fmt::format("ReturnStmt {}\n", source_loc_to_string(stmt->loc));
+                if (stmt->return_.value) { dump_expr(stmt->return_.value, indentation + 4); }
                 return;
 
-            case StmtKind::Defer: m_output += "DeferStmt\n";
+            case StmtKind::Defer: m_output += fmt::format("DeferStmt {}\n", source_loc_to_string(stmt->loc));
                 dump_stmt(stmt->defer.statement, indentation + 4);
                 return;
 
@@ -426,7 +446,7 @@ namespace ariac {
         m_output += ident;
 
         if (spec->kind == SpecifierKind::Name) {
-            m_output += fmt::format("NameSpecifier '{}'\n", spec->name.identifier);
+            m_output += fmt::format("NameSpecifier {} '{}'\n", source_loc_to_string(spec->loc), spec->name.identifier);
             return;
         }
 
@@ -479,6 +499,11 @@ namespace ariac {
 
             default: ARIA_UNREACHABLE();
         }
+    }
+
+    std::string ASTDumper::source_loc_to_string(SourceLoc loc) {
+        if (!loc.is_valid()) { return "<invalid_loc>"; }
+        return fmt::format("<line: {}, col: {}>", loc.line, loc.col);
     }
 
 } // namespace ariac

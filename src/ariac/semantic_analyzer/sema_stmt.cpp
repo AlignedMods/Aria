@@ -153,7 +153,6 @@ namespace ariac {
 
         switch (stmt->kind) {
             case StmtKind::Error:
-            case StmtKind::Import:
             case StmtKind::Nop: return;
 
             case StmtKind::Block: {

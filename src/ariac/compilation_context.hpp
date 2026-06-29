@@ -47,7 +47,6 @@ namespace ariac {
 
         std::string source;
         std::vector<Token> tokens;
-        Stmt* root_ast_node = nullptr;
 
         std::vector<Decl*> globals;
         std::vector<Decl*> funcs;
@@ -56,8 +55,7 @@ namespace ariac {
         std::vector<Decl*> typedefs;
         std::vector<Decl*> enums;
         std::vector<Decl*> generics;
-
-        std::vector<Stmt*> imports;
+        std::vector<Decl*> imports;
 
         std::unordered_map<std::string_view, Decl*> local_symbols;
 

@@ -89,7 +89,7 @@ namespace ariac {
             if (flags.ast_dump_output.empty()) {
                 for (CompilationUnit* unit : compilation_units) {
                     if (!unit->is_stdlib) {
-                        ASTDumper d(unit->root_ast_node);
+                        ASTDumper d(unit);
                         fmt::println("{}", d.get_output());
                     }
                 }
@@ -103,8 +103,9 @@ namespace ariac {
 
                 for (CompilationUnit* unit : compilation_units) {
                     if (!unit->is_stdlib) {
-                        ASTDumper d(unit->root_ast_node);
-                        out << fmt::format("'{}'\n\n{}", unit->filename, d.get_output());
+                        // ASTDumper d(unit->root_ast_node);
+                        // out << fmt::format("'{}'\n\n{}", unit->filename, d.get_output());
+                        out << "AST\n";
                     }
                 }
             }

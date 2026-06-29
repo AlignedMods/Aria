@@ -83,7 +83,7 @@ namespace ariac {
     void Codegen::gen_function_prototype(Decl* decl) {
         FunctionDecl& fn = decl->function;
         std::string sig;
-        
+\
         if (fn.linkage_kind == LinkageKind::Extern) {
             sig = fn.identifier;
         } else {

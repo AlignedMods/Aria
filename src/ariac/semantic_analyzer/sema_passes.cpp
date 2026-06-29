@@ -46,14 +46,14 @@ namespace ariac {
         bool imports_std_core = false;
 
         for (size_t i = 0; i < unit->imports.size(); i++) {
-            Stmt* stmt = unit->imports[i];
+            Decl* decl = unit->imports[i];
 
-            if (stmt->kind == StmtKind::Error) { return; }
-            ARIA_ASSERT(stmt->kind == StmtKind::Import, "Invalid stmt in Imports");
+            if (decl->kind == DeclKind::Error) { return; }
+            ARIA_ASSERT(decl->kind == DeclKind::Import, "Invalid stmt in Imports");
 
-            if (stmt->import.name == module->name) {
-                m_context->report_compiler_diagnostic(stmt->loc, "Including self is not allowed");
-                stmt->kind = StmtKind::Error;
+            if (decl->import.name == module->name) {
+                m_context->report_compiler_diagnostic(decl->loc, "Including self is not allowed");
+                decl->kind = DeclKind::Error;
                 return;
             }
 
@@ -62,23 +62,23 @@ namespace ariac {
             for (size_t i = 0; i < m_context->modules.size(); i++) {
                 Module* mod = m_context->modules[i];
 
-                if (mod->name == stmt->import.name) {
+                if (mod->name == decl->import.name) {
                     resolvedModule = mod;
                     break;
                 }
             }
 
             if (!resolvedModule) {
-                m_context->report_compiler_diagnostic(stmt->loc, fmt::format("Could not find module '{}'", stmt->import.name));
+                m_context->report_compiler_diagnostic(decl->loc, fmt::format("Could not find module '{}'", decl->import.name));
                 continue;
             }
 
             if (resolvedModule == m_context->std_core_module) { imports_std_core = true; }
-            stmt->import.resolved_module = resolvedModule;
+            decl->import.resolved_module = resolvedModule;
         }
 
         if (!imports_std_core && m_context->std_core_module) { // Implicitly import std::core if it is avaliable
-            Stmt* imp = Stmt::Create(m_context, {}, StmtKind::Import, ImportStmt("std::core", m_context->std_core_module));
+            Decl* imp = Decl::Create(m_context, {}, DeclKind::Import, DeclVisibility::Public, ImportDecl("std::core", m_context->std_core_module, true));
             unit->imports.push_back(imp);
         }
 
@@ -296,7 +296,22 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_unit_code(Module* module, CompilationUnit* unit) {
         m_context->active_comp_unit = unit;
-        resolve_stmt(unit->root_ast_node);
+        
+        for (Decl* struc : unit->structs) {
+            resolve_struct_decl(struc);
+        }
+
+        for (Decl* gen : unit->generics) {
+            resolve_generic_decl(gen);
+        }
+
+        for (Decl* var : unit->globals) {
+            resolve_var_decl(var);
+        }
+
+        for (Decl* func : unit->funcs) {
+            resolve_function_decl(func);
+        }
     }
 
 } // namespace ariac

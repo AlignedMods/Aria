@@ -259,9 +259,7 @@ namespace ariac {
             return llvm::ArrayType::get(type_info_to_llvm_type(t->array.base), static_cast<size_t>(t->array.size));
         } else if (t->kind == TypeKind::Slice) {
             return llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice");
-        } else if (t->kind == TypeKind::Ptr) {
-            return llvm::PointerType::get(*m_active_module_context.context, 0);
-        } else if (t->kind == TypeKind::Ref) {
+        } else if (t->kind == TypeKind::Pointer) {
             return llvm::PointerType::get(*m_active_module_context.context, 0);
         } else if (t->kind == TypeKind::Function || t->kind == TypeKind::Method) {
             std::vector<llvm::Type*> params;
@@ -370,7 +368,7 @@ namespace ariac {
             case TypeKind::Float: return 4;
             case TypeKind::Double: return 8;
 
-            case TypeKind::Ptr: {
+            case TypeKind::Pointer: {
                 if (m_triple.isX86_64()) { return 8; }
                 else if (m_triple.isX86_32()) { return 4; }
                 else { ARIA_UNREACHABLE(); }
@@ -416,7 +414,7 @@ namespace ariac {
             case TypeKind::Float: return 4;
             case TypeKind::Double: return 8;
 
-            case TypeKind::Ptr: {
+            case TypeKind::Pointer: {
                 if (m_triple.isX86_64()) { return 8; }
                 else if (m_triple.isX86_32()) { return 4; }
                 else { ARIA_UNREACHABLE(); }

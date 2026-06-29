@@ -70,7 +70,7 @@ namespace ariac {
 
         // Declarations
         Decl* parse_module_decl();
-        Stmt* parse_import_decl();
+        Decl* parse_import_decl();
         Decl* parse_let_decl();
         Decl* parse_const_decl(bool global);
         Decl* parse_variable_decl(bool global, bool const_, LinkageKind linkage = LinkageKind::None);
@@ -88,7 +88,7 @@ namespace ariac {
 
         std::string_view parse_module_path();
 
-        Stmt* parse_global();
+        Decl* parse_global();
 
         void sync_global(); // Syncs the parser to a common sync point in a global context
         void sync_local(); // Syncs the parser to a common sync point in a local (block) context

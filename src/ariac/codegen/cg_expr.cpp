@@ -68,7 +68,7 @@ namespace ariac {
         llvm::Value* val = m_active_module_context.named_values.at(dr.referenced_decl);
         ARIA_ASSERT(val, "Invalid DeclRef expression");
 
-        if (dr.referenced_decl->kind == DeclKind::Param && get_param_abi_type_info(expr->type).pass_by_ptr || expr->type->is_reference()) {
+        if (dr.referenced_decl->kind == DeclKind::Param && get_param_abi_type_info(expr->type).pass_by_ptr) {
             return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr(m_context)), val);
         }
 
@@ -85,34 +85,21 @@ namespace ariac {
                 size_t idx = 0;
                 TinyVector<Decl*> fields;
 
-                if (mem.implicit_deref) {
-                    fields = mem.parent->type->base->struct_.source_decl->struct_.fields;
+                if (mem.parent->type->is_pointer()) {
                     type = mem.parent->type->base;
-                    val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr(m_context)), val);
+                    if (mem.parent->value_kind == ExprValueKind::LValue) {
+                        val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr(m_context)), val);
+                    }
                 }
 
-                switch (mem.parent->type->kind) {
-                    case TypeKind::Ref: {
-                        if (mem.parent->type->base->kind == TypeKind::Structure) {
-                            fields = mem.parent->type->base->struct_.source_decl->struct_.fields;
-                            type = mem.parent->type->base;
-                        } else if (mem.parent->type->base->kind == TypeKind::GenericInstantiation) {
-                            fields = mem.parent->type->base->generic_instantiation.resolved_decl->struct_specilization.source->struct_.fields;
-                            type = mem.parent->type->base;
-                        } else {
-                            ARIA_UNREACHABLE();
-                        }
-                        
-                        break;
-                    }
-
+                switch (type->kind) {
                     case TypeKind::Structure: {
-                        fields = mem.parent->type->struct_.source_decl->struct_.fields;
+                        fields = type->struct_.source_decl->struct_.fields;
                         break;
                     }
 
                     case TypeKind::GenericInstantiation: {
-                        fields = mem.parent->type->generic_instantiation.resolved_decl->struct_specilization.source->struct_.fields;
+                        fields = type->generic_instantiation.resolved_decl->struct_specilization.source->struct_.fields;
                         break;
                     }
 
@@ -127,11 +114,7 @@ namespace ariac {
                 ARIA_ASSERT(val, "Invalid value for MemberExpr");
                 llvm::Value* gep = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, static_cast<unsigned>(idx));
 
-                if (expr->type->is_reference()) {
-                    return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr(m_context)), gep);
-                } else {
-                    return gep;
-                }
+                return gep;
             }
 
             case DeclKind::Method: {
@@ -180,7 +163,7 @@ namespace ariac {
     }
 
     llvm::Value* Codegen::gen_self_expr(Expr* expr) {
-        return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr(m_context)), m_self_value);
+        return m_active_module_context.builder->CreateLoad(llvm::PointerType::get(*m_active_module_context.context, 0), m_self_value, "self");
     }
 
     llvm::Value* Codegen::gen_call_expr(Expr* expr) {
@@ -287,7 +270,7 @@ namespace ariac {
         llvm::Value* array = gen_expr(arr.array);
 
         switch (arr.array->type->kind) {
-            case TypeKind::Ptr:
+            case TypeKind::Pointer:
                 return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type->base), array, index);
 
             case TypeKind::Array:

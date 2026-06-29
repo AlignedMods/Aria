@@ -84,7 +84,6 @@ namespace ariac {
 
         void resolve_name_specifier(Specifier* specifier);
 
-        void resolve_translation_unit_decl(Decl* decl);
         void resolve_var_decl(Decl* decl);
         void resolve_param_decl(Decl* decl);
         void resolve_function_decl(Decl* decl);

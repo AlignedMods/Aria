@@ -121,13 +121,13 @@ namespace ariac {
 
     TypeInfo* TypeInfo::get_void_ptr(CompilationContext* ctx) {
         if (void_ptr_type) { return char_ptr_type; }
-        void_ptr_type = create_with_base(ctx, TypeKind::Ptr, get_basic(ctx, TypeKind::Void));
+        void_ptr_type = create_with_base(ctx, TypeKind::Pointer, get_basic(ctx, TypeKind::Void));
         return void_ptr_type;
     }
 
     TypeInfo* TypeInfo::get_char_ptr(CompilationContext* ctx) {
         if (char_ptr_type) { return char_ptr_type; }
-        char_ptr_type = create_with_base(ctx, TypeKind::Ptr, get_basic(ctx, TypeKind::Char));
+        char_ptr_type = create_with_base(ctx, TypeKind::Pointer, get_basic(ctx, TypeKind::Char));
         return char_ptr_type;
     }
 
@@ -178,7 +178,7 @@ namespace ariac {
             case TypeKind::Float:   str += "float"; break;
             case TypeKind::Double:  str += "double"; break;
 
-            case TypeKind::Ptr: {
+            case TypeKind::Pointer: {
                 TypeInfo* t = type->base;
                 str = fmt::format("{}*", type_info_to_string(t), pretty);
                 break;
@@ -196,16 +196,9 @@ namespace ariac {
                 break;
             }
 
-            case TypeKind::Ref: {
-                TypeInfo* t = type->base;
-                str = fmt::format("{}&", type_info_to_string(t), pretty);
-                break;
-            }
-
             case TypeKind::Function: {
                 FunctionType ty = type->function;
 
-                str += type_info_to_string(ty.return_type, pretty);
                 str += "(";
 
                 for (size_t i = 0; i < ty.param_types.size; i++) {
@@ -218,25 +211,24 @@ namespace ariac {
                 if (ty.var_arg) { str += ", ..."; }
 
                 str += ")";
+                str += fmt::format(" -> {}", type_info_to_string(ty.return_type, pretty));
                 break;
             }
 
             case TypeKind::Method: {
                 FunctionType ty = type->function;
 
-                str += type_info_to_string(ty.return_type, pretty);
-                str += "(";
+                str += "(self";
 
                 for (size_t i = 0; i < ty.param_types.size; i++) {
+                    str += ", ";
                     str += type_info_to_string(ty.param_types.items[i], pretty);
-                    if (i != ty.param_types.size - 1) {
-                        str += ", ";
-                    }
                 }
 
                 if (ty.var_arg) { str += ", ..."; }
 
                 str += ")";
+                str += fmt::format(" -> {}", type_info_to_string(ty.return_type, pretty));
                 break;
             }
 

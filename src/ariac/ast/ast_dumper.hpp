@@ -9,7 +9,7 @@ namespace ariac {
 
     class ASTDumper {
     public:
-        ASTDumper(Stmt* rootASTNode);
+        ASTDumper(CompilationUnit* unit);
 
         std::string& get_output();
 
@@ -26,8 +26,10 @@ namespace ariac {
         void dump_attributes(TinyVector<DeclAttribute> attrs, size_t indentation);
         void dump_attribute(DeclAttribute attr, size_t indentation);
 
+        std::string source_loc_to_string(SourceLoc loc);
+
     private:
-        Stmt* m_root_ast_node = nullptr;
+        CompilationUnit* m_unit = nullptr;
         std::string m_output;
     };
 
