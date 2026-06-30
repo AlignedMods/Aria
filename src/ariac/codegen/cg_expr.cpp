@@ -85,7 +85,7 @@ namespace ariac {
                 size_t idx = 0;
                 TinyVector<Decl*> fields;
 
-                if (mem.parent->type->is_pointer()) {
+                if (mem.implicit_deref) {
                     type = mem.parent->type->base;
                     if (mem.parent->value_kind == ExprValueKind::LValue) {
                         val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr(m_context)), val);
@@ -125,8 +125,8 @@ namespace ariac {
                 return m_active_module_context.functions.at(mem.referenced_member);
             }
 
-            case DeclKind::EnumField: {
-                return m_active_module_context.builder->getInt32(static_cast<u32>(mem.referenced_member->enum_field.resolved_value));
+            case DeclKind::EnumConstant: {
+                return m_active_module_context.builder->getInt32(static_cast<u32>(mem.referenced_member->enum_constant.resolved_value));
             }
 
             default: ARIA_UNREACHABLE();

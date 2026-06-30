@@ -203,7 +203,7 @@ namespace ariac {
             return kind == TypeKind::Structure;
         }
 
-        bool is_typdef() const {
+        bool is_typedef() const {
             return kind == TypeKind::Typedef;
         }
 

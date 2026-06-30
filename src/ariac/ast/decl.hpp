@@ -24,7 +24,7 @@ namespace ariac {
         Impl,
         Typedef,
         Enum,
-        EnumField,
+        EnumConstant,
         Field,
         Method,
         Generic,
@@ -41,6 +41,9 @@ namespace ariac {
             case DeclKind::Struct: return "Struct";
             case DeclKind::Typedef: return "Typedef";
             case DeclKind::Enum: return "Enum";
+            case DeclKind::EnumConstant: return "EnumConstant";
+            case DeclKind::Field: return "Field";
+            case DeclKind::Method: return "Method";
 
             case DeclKind::GenericParameter: return "GenericParameter";
 
@@ -205,11 +208,11 @@ namespace ariac {
         std::string_view identifier;
     };
 
-    struct EnumFieldDecl {
-        EnumFieldDecl(std::string_view identifier)
+    struct EnumConstantDecl {
+        EnumConstantDecl(std::string_view identifier)
             : identifier(identifier), value(nullptr) {}
 
-        EnumFieldDecl(std::string_view identifier, Expr* value)
+        EnumConstantDecl(std::string_view identifier, Expr* value)
             : identifier(identifier), value(value) {}
 
         std::string_view identifier;
@@ -284,7 +287,7 @@ namespace ariac {
             ImplDecl impl;
             TypedefDecl typedef_;
             EnumDecl enum_;
-            EnumFieldDecl enum_field;
+            EnumConstantDecl enum_constant;
             FieldDecl field;
             MethodDecl method;
             GenericDecl generic;
@@ -324,8 +327,8 @@ namespace ariac {
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, EnumDecl enum_)
             : loc(loc), kind(kind), visibility(visibility), enum_(enum_) {}
 
-        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, EnumFieldDecl field)
-            : loc(loc), kind(kind), visibility(visibility), enum_field(field) {}
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, EnumConstantDecl con)
+            : loc(loc), kind(kind), visibility(visibility), enum_constant(con) {}
 
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, FieldDecl field)
             : loc(loc), kind(kind), visibility(visibility), field(field) {}

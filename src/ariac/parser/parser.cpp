@@ -605,7 +605,7 @@ namespace ariac {
 
             if (!infixRule) {
                 sync_local();
-                m_context->report_compiler_diagnostic(tok->loc, fmt::format("'{}' cannot appear here, did you forget something before the operator?", TokenKindToString(tok->kind)));
+                m_context->report_compiler_diagnostic(tok->loc, fmt::format("'{}' cannot appear here, did you forget something before the operator?", token_kind_to_string(tok->kind)));
                 return &error_expr;
             }
 
@@ -1041,7 +1041,7 @@ namespace ariac {
             case TokenKind::Greater:
             case TokenKind::GreaterEq: {
                 Token& tok = consume();
-                m_context->report_compiler_diagnostic(tok.loc, fmt::format("Unexpected binary operator '{}' while looking for statement", TokenKindToString(tok.kind)));
+                m_context->report_compiler_diagnostic(tok.loc, fmt::format("Unexpected binary operator '{}' while looking for statement", token_kind_to_string(tok.kind)));
                 return &error_stmt;
             }
 
@@ -1058,7 +1058,7 @@ namespace ariac {
             case TokenKind::Float:
             case TokenKind::Double: {
                 Token& tok = consume();
-                m_context->report_compiler_diagnostic(tok.loc, fmt::format("Unexpected type '{}', did you mean to declare a variable? (let <name>: <type>)", TokenKindToString(tok.kind)));
+                m_context->report_compiler_diagnostic(tok.loc, fmt::format("Unexpected type '{}', did you mean to declare a variable? (let <name>: <type>)", token_kind_to_string(tok.kind)));
                 return &error_stmt;
             }
 
@@ -1077,7 +1077,7 @@ namespace ariac {
             case TokenKind::Dot:
             case TokenKind::TripleDot: {
                 Token& tok = consume();
-                m_context->report_compiler_diagnostic(tok.loc, fmt::format("Unexpected token '{}' while looking for statement", TokenKindToString(tok.kind)));
+                m_context->report_compiler_diagnostic(tok.loc, fmt::format("Unexpected token '{}' while looking for statement", token_kind_to_string(tok.kind)));
                 return &error_stmt;
             }
 
@@ -1499,7 +1499,7 @@ namespace ariac {
             }
 
             SourceLoc loc = value ? fd_ident->loc + value->loc : fd_ident->loc;
-            fields.append(m_context, Decl::Create(m_context, loc, DeclKind::EnumField, DeclVisibility::Public, EnumFieldDecl(fd_ident->string, value)));
+            fields.append(m_context, Decl::Create(m_context, loc, DeclKind::EnumConstant, DeclVisibility::Public, EnumConstantDecl(fd_ident->string, value)));
 
             if (match(TokenKind::Comma)) { consume(); continue; }
             else if (match(TokenKind::RightCurly)) { break; }
@@ -1620,12 +1620,12 @@ namespace ariac {
             case TokenKind::Float:
             case TokenKind::Double: {
                 Token& t = consume();
-                m_context->report_compiler_diagnostic(t.loc, fmt::format("Unexpected type '{}', did you mean to declare a global variable? (let <name>: <type>)", TokenKindToString(t.kind)));
+                m_context->report_compiler_diagnostic(t.loc, fmt::format("Unexpected type '{}', did you mean to declare a global variable? (let <name>: <type>)", token_kind_to_string(t.kind)));
                 return &error_decl;
             }
 
             default: {
-                m_context->report_compiler_diagnostic(peek()->loc, fmt::format("Expected the start of a global declaration", TokenKindToString(peek()->kind)));
+                m_context->report_compiler_diagnostic(peek()->loc, fmt::format("Expected the start of a global declaration", token_kind_to_string(peek()->kind)));
                 sync_global();
                 return &error_decl;
             }
@@ -1677,7 +1677,7 @@ namespace ariac {
 
     void Parser::error_expected(const std::string& expect, SourceLoc loc) {
         if (peek()) {
-            m_context->report_compiler_diagnostic(loc, fmt::format("Expected '{}' but got '{}'", expect, TokenKindToString(peek()->kind)));
+            m_context->report_compiler_diagnostic(loc, fmt::format("Expected '{}' but got '{}'", expect, token_kind_to_string(peek()->kind)));
         } else {
             m_context->report_compiler_diagnostic(loc, fmt::format("Expected '{}' but got EOF", expect));
         }

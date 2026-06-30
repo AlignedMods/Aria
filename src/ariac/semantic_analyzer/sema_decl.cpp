@@ -204,36 +204,36 @@ namespace ariac {
         u64 val = 0;
 
         for (Decl* field : e.fields) {
-            ARIA_ASSERT(field->kind == DeclKind::EnumField, "Invalid enum field");
-            EnumFieldDecl& f = field->enum_field;
+            ARIA_ASSERT(field->kind == DeclKind::EnumConstant, "Invalid enum constant");
+            EnumConstantDecl& c = field->enum_constant;
             
-            if (f.value) {
-                resolve_expr(f.value);
+            if (c.value) {
+                resolve_expr(c.value);
 
-                if (!is_const_expr(f.value)) {
-                    m_context->report_compiler_diagnostic(f.value->loc, "Value of enum field must be a constant expression");
+                if (!is_const_expr(c.value)) {
+                    m_context->report_compiler_diagnostic(c.value->loc, "Value of enum constant must be a constant expression");
                 } else {
-                    ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(m_context, TypeKind::Int), f.value->type);
+                    ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(m_context, TypeKind::Int), c.value->type);
                     if (cost.cast_needed) {
                         if (cost.implicit_cast_possible) {
-                            insert_implicit_cast(TypeInfo::get_basic(m_context, TypeKind::Int), f.value->type, f.value, cost.kind);
+                            insert_implicit_cast(TypeInfo::get_basic(m_context, TypeKind::Int), c.value->type, c.value, cost.kind);
                         } else {
-                            m_context->report_compiler_diagnostic(f.value->loc, fmt::format("Type of expression must be convertable to 'int' but is '{}'", type_info_to_string(f.value->type)));
+                            m_context->report_compiler_diagnostic(c.value->loc, fmt::format("Type of expression must be convertable to 'int' but is '{}'", type_info_to_string(c.value->type)));
                         }
                     }
 
-                    Expr* cons = eval_const_expr(f.value);
-                    replace_expr(f.value, cons);
+                    Expr* cons = eval_const_expr(c.value);
+                    replace_expr(c.value, cons);
 
                     val = cons->const_.integer;
-                    f.resolved_value = val;
+                    c.resolved_value = val;
                 }
             } else {
                 val++;
-                f.resolved_value = val;
+                c.resolved_value = val;
             }
 
-            e.field_lookup.insert(m_context, f.identifier, field);
+            e.field_lookup.insert(m_context, c.identifier, field);
         }
 
         decl->resolve_status = ResolveStatus::Done;

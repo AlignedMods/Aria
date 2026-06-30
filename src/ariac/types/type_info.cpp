@@ -151,7 +151,7 @@ namespace ariac {
 
     bool TypeInfo::is_string() const {
         if (std_core_string_type) {
-            return is_typdef() && typedef_.source_decl == std_core_string_type->typedef_.source_decl;
+            return is_typedef() && typedef_.source_decl == std_core_string_type->typedef_.source_decl;
         } else {
             return is_slice() && base->kind == TypeKind::Char;
         }

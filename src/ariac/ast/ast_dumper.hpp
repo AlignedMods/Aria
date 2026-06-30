@@ -31,6 +31,7 @@ namespace ariac {
     private:
         CompilationUnit* m_unit = nullptr;
         std::string m_output;
+        SourceLoc m_prev_loc;
     };
 
 } // namespace ariac

@@ -107,7 +107,7 @@ namespace ariac {
         Last
     };
 
-    inline const char* TokenKindToString(TokenKind kind) {
+    inline const char* token_kind_to_string(TokenKind kind) {
         switch (kind) {
             // VVV Punctuation VVV //
             case TokenKind::Semi: return ";";

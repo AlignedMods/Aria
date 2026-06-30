@@ -101,8 +101,8 @@ namespace ariac {
 
                 return;
 
-            case ExprKind::Member: m_output += fmt::format("MemberExpr {} '{}'{} '{}' {}\n",
-                source_loc_to_string(expr->loc), expr->member.member, expr->member.implicit_deref ? " implicit_deref" : "",
+            case ExprKind::Member: m_output += fmt::format("MemberExpr {} '{}'{} {} '{}' {}\n",
+                source_loc_to_string(expr->loc), expr->member.member, expr->member.implicit_deref ? " implicit_deref" : "", decl_kind_to_string(expr->member.referenced_member->kind),
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->member.parent, indentation + 4);
@@ -327,10 +327,10 @@ namespace ariac {
 
                 return;
 
-            case DeclKind::EnumField: m_output += fmt::format("EnumFieldDecl {} '{}' {}\n",
-                source_loc_to_string(decl->loc), decl->enum_field.identifier, decl->enum_field.resolved_value);
-                if (decl->enum_field.value) {
-                    dump_expr(decl->enum_field.value, indentation + 4);
+            case DeclKind::EnumConstant: m_output += fmt::format("EnumConstantDecl {} '{}' {}\n",
+                source_loc_to_string(decl->loc), decl->enum_constant.identifier, decl->enum_constant.resolved_value);
+                if (decl->enum_constant.value) {
+                    dump_expr(decl->enum_constant.value, indentation + 4);
                 }
                 return;
 
@@ -502,8 +502,18 @@ namespace ariac {
     }
 
     std::string ASTDumper::source_loc_to_string(SourceLoc loc) {
-        if (!loc.is_valid()) { return "<invalid_loc>"; }
-        return fmt::format("<line: {}, col: {}>", loc.line, loc.col);
+        if (!loc.is_valid()) {
+            m_prev_loc = loc;
+            return "<invalid_loc>";
+        }
+
+        if (loc.line == m_prev_loc.line) {
+            m_prev_loc = loc;
+            return fmt::format("<col:{}>", loc.col);
+        }
+
+        m_prev_loc = loc;
+        return fmt::format("<line:{}, col:{}>", loc.line, loc.col);
     }
 
 } // namespace ariac

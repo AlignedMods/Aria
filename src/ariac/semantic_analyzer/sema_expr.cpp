@@ -136,7 +136,7 @@ namespace ariac {
                     Expr* member = Expr::Create(m_context, expr->loc, ExprKind::Member,
                         ExprValueKind::LValue, mem_type,
                         MemberExpr(dr.identifier, self));
-                    // member->member.implicit_deref = true;
+                    member->member.implicit_deref = true;
 
                     member->member.referenced_member = field;
                     replace_expr(expr, member);
@@ -267,6 +267,7 @@ namespace ariac {
         TypeInfo* parent_type = mem.parent->type;
         TypeInfo* member_type = nullptr;
 
+        bool implicit_deref = false;
         bool searching = true;
         while (searching) {
             switch (parent_type->kind) {
@@ -398,8 +399,8 @@ namespace ariac {
                 }
 
                 case TypeKind::Pointer: {
-                    if (mem.implicit_deref) {
-                        m_context->report_compiler_diagnostic(expr->loc, "'.' operator allows only one level of implicit dereferncing");
+                    if (implicit_deref) {
+                        m_context->report_compiler_diagnostic(expr->loc, "'.' operator allows only one level of implicit dereferencing");
                     }
 
                     parent_type = parent_type->base;

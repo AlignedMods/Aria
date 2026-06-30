@@ -10,7 +10,7 @@ namespace ariac {
             case llvm::Triple::OSType::Win32: {
                 switch (m_triple.getArch()) {
                     case llvm::Triple::ArchType::x86_64: {
-                        while (t->is_typdef()) {
+                        while (t->is_typedef()) {
                             t = t->typedef_.base;
                         }
                         
