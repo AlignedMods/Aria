@@ -385,6 +385,20 @@ namespace ariac {
                     break;
                 }
 
+                case TypeKind::Array: {
+                    if (mem.member == "mem") {
+                        member_type = TypeInfo::create_with_base(m_context, TypeKind::Pointer, parent_type->array.base);
+                        expr->kind = ExprKind::BuiltinMember;
+                    } else if (mem.member == "len") {
+                        member_type = TypeInfo::get_basic(m_context, TypeKind::ULong);
+                        expr->value_kind = ExprValueKind::RValue;
+                        expr->kind = ExprKind::BuiltinMember;
+                    }
+
+                    searching = false;
+                    break;
+                }
+
                 case TypeKind::Slice: {
                     if (mem.member == "mem") {
                         member_type = TypeInfo::create_with_base(m_context, TypeKind::Pointer, parent_type->base);
@@ -411,7 +425,7 @@ namespace ariac {
                 case TypeKind::Typedef: { parent_type = parent_type->typedef_.base; break; }
 
                 default: {
-                    m_context->report_compiler_diagnostic(mem.parent->loc, fmt::format("Expression must be of slice or struct type but is '{}'", type_info_to_string(parent_type)));
+                    m_context->report_compiler_diagnostic(mem.parent->loc, fmt::format("Expression must be of slice, array or struct type but is '{}'", type_info_to_string(parent_type)));
                     expr->type = TypeInfo::get_error(m_context);
                     mem.referenced_member = &error_decl;
                     return;
@@ -668,9 +682,8 @@ namespace ariac {
             }
 
             case TypeKind::Array: {
-                ARIA_TODO("array to slice");
-                // expr->type = subs.Array->type->Array.Type;
-                // break;
+                expr->type = TypeInfo::create_with_base(m_context, TypeKind::Slice, tos.source->type->array.base);
+                break;
             }
 
             default: m_context->report_compiler_diagnostic(tos.source->loc, "Only a pointer/slice/array can be converted to a slice"); expr->type = TypeInfo::get_error(m_context); break;
@@ -760,6 +773,18 @@ namespace ariac {
                         break;
                     }
 
+                    case DeclKind::Typedef: {
+                        if (sz.expression->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
+                            CompilationUnit* old_unit = m_context->active_comp_unit;
+                            m_context->active_comp_unit = sz.expression->decl_ref.referenced_decl->parent_unit;
+                            resolve_typedef_decl(sz.expression->decl_ref.referenced_decl);
+                            m_context->active_comp_unit = old_unit;
+                        }
+
+                        sz.type = TypeInfo::create_typedef(m_context, sz.expression->decl_ref.referenced_decl);
+                        break;
+                    }
+
                     case DeclKind::GenericParameter: {
                         sz.type = TypeInfo::create_generic(m_context, sz.expression->decl_ref.identifier);
                         break;
@@ -786,6 +811,7 @@ namespace ariac {
     void SemanticAnalyzer::resolve_cast_expr(Expr* expr) {
         CastExpr& cast = expr->cast;
         
+        resolve_type(cast.type);
         resolve_expr(cast.expression);
         require_rvalue(cast.expression);
         expr->type = cast.type;

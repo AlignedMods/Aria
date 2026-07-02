@@ -1,5 +1,1 @@
 module std::core;
-
-$if env::WIN32 {
-    
-}

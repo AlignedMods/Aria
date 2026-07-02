@@ -1,18 +1,14 @@
 module std::core;
 
-extern fn printf(fmt: char*, ...) -> int;
-
 struct StringStream {
-    mem: char*;
+    mem: *char;
     len: ulong;
     capacity: ulong;
 }
 
 impl StringStream {
-    fn append_string(s: char[]) -> void {
+    fn append_string(s: []char) -> void {
         for (i: ulong = 0; i < s.len; i++) {
-            // printf(c"%lu\n", s.len);
-            // printf(c"%p\n", &s[i]);
             append_char(s[i]);
         }
     }
@@ -49,11 +45,11 @@ impl StringStream {
         } while rest != 0u;
     }
 
-    fn to_slice() -> char[] {
+    fn to_slice() -> []char {
         return mem[:len];
     }
 
-    fn to_ptr() -> char* {
+    fn to_ptr() -> *char {
         append_char('\0');
         return mem;
     }
@@ -65,7 +61,7 @@ impl StringStream {
     }
 
     fn increase_capacity(cap: ulong) -> void {
-        let newData = new char[cap];
+        let newData = new [cap]char;
         
         if (mem != null) {
             for (i: ulong = 0; i < len; i++) {

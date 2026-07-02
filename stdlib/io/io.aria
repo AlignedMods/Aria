@@ -1,6 +1,6 @@
 module std::io;
 
-fn println(str: char[]) -> void {
+fn println(str: []char) -> void {
     let s: StringStream;
     defer s.free();
     s.append_string(str);
@@ -9,7 +9,7 @@ fn println(str: char[]) -> void {
     printf(c"%s", s.to_ptr());
 }
 
-fn print(str: char[]) -> void {
+fn print(str: []char) -> void {
     let s: StringStream;
     defer s.free();
     s.append_string(str);
@@ -19,4 +19,4 @@ fn print(str: char[]) -> void {
 
 #private
 
-extern fn printf(s: char*, ...) -> int;
+extern fn printf(s: *char, ...) -> int;

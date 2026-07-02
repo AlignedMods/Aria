@@ -64,7 +64,7 @@ namespace ariac {
         m_active_module_context.builder->SetInsertPoint(for_cond);
         if (f.condition) {
             llvm::Value* cond = gen_expr(f.condition);
-            m_active_module_context.builder->CreateCondBr(cond, for_body ? for_body : for_cond, for_end);
+            m_active_module_context.builder->CreateCondBr(cond, for_body ? for_body : (for_step) ? for_step : for_cond, for_end);
         }
 
         if (for_body) {

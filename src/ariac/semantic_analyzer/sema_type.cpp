@@ -95,6 +95,7 @@ namespace ariac {
             }
 
             case TypeKind::Pointer: resolve_type(type->base); break;
+            case TypeKind::Slice: resolve_type(type->base); break;
             
             case TypeKind::Array: {
                 resolve_type(type->array.base);
@@ -291,8 +292,15 @@ namespace ariac {
             return type_is_equal(lhs->array.base, rhs->array.base) && lhs->array.size == rhs->array.size;
         }
 
+        if (lhs->is_slice() && rhs->is_slice()) {
+            return type_is_equal(lhs->base, rhs->base);
+        }
+
+        if (lhs->is_pointer() && rhs->is_pointer()) {
+            return type_is_equal(lhs->base, rhs->base);
+        }
+
         if (lhs->is_primitive() && rhs->is_primitive()) {
-            if (lhs->is_pointer() && rhs->is_pointer()) { return type_is_equal(lhs->base, rhs->base); }
             return lhs->kind == rhs->kind;
         }
 

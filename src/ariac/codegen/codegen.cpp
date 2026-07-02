@@ -113,24 +113,114 @@ namespace ariac {
         }
 
         if (m_context->main_func && m_context->main_func->parent_module == mod) {
-            llvm::Type* int32 = llvm::Type::getInt32Ty(*m_active_module_context.context);
-            llvm::Type* ptr = llvm::PointerType::get(*m_active_module_context.context, 0);
-            llvm::Function* main = llvm::Function::Create(llvm::FunctionType::get(int32, { int32, ptr}, false), llvm::GlobalValue::LinkageTypes::ExternalLinkage, "main", *m_active_module_context.module);
+            llvm::Type* void_type = llvm::Type::getVoidTy(*m_active_module_context.context);
+            llvm::Type* int32_type = llvm::Type::getInt32Ty(*m_active_module_context.context);
+            llvm::Type* int64_type = llvm::Type::getInt64Ty(*m_active_module_context.context);
+            llvm::Type* ptr_type = llvm::PointerType::get(*m_active_module_context.context, 0);
+            llvm::Type* slice_type = type_info_to_llvm_type(m_context->main_func->function.parameters.items[0]->param.type);
+
+            llvm::Function* main = llvm::Function::Create(llvm::FunctionType::get(int32_type, { int32_type, ptr_type}, false), llvm::GlobalValue::LinkageTypes::ExternalLinkage, "main", *m_active_module_context.module);
             m_active_module_context.function = main;
 
             llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", main);
             m_active_module_context.builder->SetInsertPoint(bb);
             m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
 
-            llvm::Value* argc = alloca_at_entry(main, "argc", int32);
-            llvm::Value* argv = alloca_at_entry(main, "argv", ptr);
-
-            m_active_module_context.builder->CreateStore(main->getArg(0), argc);
-            m_active_module_context.builder->CreateStore(main->getArg(1), argv);
-
             llvm::FunctionCallee callee = llvm::FunctionCallee(m_active_module_context.functions.at(m_context->main_func));
 
-            llvm::Value* ret = m_active_module_context.builder->CreateCall(callee, {});
+            llvm::Value* ret = nullptr;
+            
+            if (m_context->main_func->function.parameters.size == 1) {
+                llvm::Value* list = alloca_at_entry(main, "list", ptr_type);
+                llvm::Value* i = alloca_at_entry(main, "i", int32_type);
+
+                llvm::Function* calloc_fn = m_active_module_context.module->getFunction("calloc");
+        
+                if (!calloc_fn) {
+                    llvm::FunctionType* fn_type = llvm::FunctionType::get(ptr_type, { int64_type, int64_type }, false);
+                    calloc_fn = llvm::Function::Create(fn_type, llvm::GlobalValue::ExternalLinkage, "calloc", *m_active_module_context.module);
+                }
+
+                llvm::Function* free_fn = m_active_module_context.module->getFunction("free");
+        
+                if (!free_fn) {
+                    llvm::FunctionType* fn_type = llvm::FunctionType::get(void_type, ptr_type, false);
+                    free_fn = llvm::Function::Create(fn_type, llvm::GlobalValue::ExternalLinkage, "free", *m_active_module_context.module);
+                }
+
+                llvm::Function* strlen_fn = m_active_module_context.module->getFunction("strlen");
+        
+                if (!strlen_fn) {
+                    llvm::FunctionType* fn_type = llvm::FunctionType::get(int64_type, ptr_type, false);
+                    strlen_fn = llvm::Function::Create(fn_type, llvm::GlobalValue::ExternalLinkage, "strlen", *m_active_module_context.module);
+                }
+
+                llvm::Value* elem_size = m_active_module_context.builder->getInt64(get_type_size(m_context->main_func->function.parameters.items[0]->param.type));
+                llvm::Value* elem_count = m_active_module_context.builder->CreateSExt(main->getArg(0), int64_type, "sext");
+                llvm::Value* calloc_result = m_active_module_context.builder->CreateCall(calloc_fn, { elem_size, elem_count });
+
+                m_active_module_context.builder->CreateStore(calloc_result, list);
+                m_active_module_context.builder->CreateStore(m_active_module_context.builder->getInt32(0), i);
+
+                llvm::BasicBlock* for_cond = llvm::BasicBlock::Create(*m_active_module_context.context, "for_cond", main);
+                llvm::BasicBlock* for_body = llvm::BasicBlock::Create(*m_active_module_context.context, "for_body", main);
+                llvm::BasicBlock* for_end = llvm::BasicBlock::Create(*m_active_module_context.context, "for_end", main);
+
+                m_active_module_context.builder->CreateBr(for_cond);
+                m_active_module_context.builder->SetInsertPoint(for_cond);
+
+                {
+                    llvm::Value* i_val = m_active_module_context.builder->CreateLoad(int32_type, i);
+                    llvm::Value* cmp = m_active_module_context.builder->CreateICmpSLT(i_val, main->getArg(0), "lt");
+                    m_active_module_context.builder->CreateCondBr(cmp, for_body, for_end);
+                }
+
+                m_active_module_context.builder->SetInsertPoint(for_body);
+
+                {
+                    llvm::Value* to_slice = alloca_at_entry(main, "to_slice", slice_type);
+
+                    llvm::Value* i_val = m_active_module_context.builder->CreateLoad(int32_type, i);
+                    llvm::Value* sext = m_active_module_context.builder->CreateSExt(i_val, int64_type, "sext");
+                    llvm::Value* gep = m_active_module_context.builder->CreateGEP(ptr_type, main->getArg(1), sext);
+                    llvm::Value* gep_val = m_active_module_context.builder->CreateLoad(ptr_type, gep);
+
+                    llvm::Value* list_val = m_active_module_context.builder->CreateLoad(ptr_type, list);
+                    llvm::Value* list_gep = m_active_module_context.builder->CreateGEP(slice_type, list_val, sext);
+
+                    llvm::Value* to_slice_mem = m_active_module_context.builder->CreateStructGEP(slice_type, to_slice, 0);
+                    m_active_module_context.builder->CreateStore(gep_val, to_slice_mem);
+
+                    llvm::Value* to_slice_len = m_active_module_context.builder->CreateStructGEP(slice_type, to_slice, 1);
+                    llvm::Value* strlen = m_active_module_context.builder->CreateCall(strlen_fn, gep_val);
+                    m_active_module_context.builder->CreateStore(strlen, to_slice_len);
+
+                    llvm::Value* to_slice_val = m_active_module_context.builder->CreateLoad(slice_type, to_slice);
+                    m_active_module_context.builder->CreateStore(to_slice_val, list_gep);
+
+                    llvm::Value* inc = m_active_module_context.builder->CreateAdd(i_val, m_active_module_context.builder->getInt32(1), "inc");
+                    m_active_module_context.builder->CreateStore(inc, i);
+                    m_active_module_context.builder->CreateBr(for_cond);
+                }
+
+                m_active_module_context.builder->SetInsertPoint(for_end);
+
+                {
+                    llvm::Value* list_val = m_active_module_context.builder->CreateLoad(ptr_type, list);
+
+                    llvm::Value* args = alloca_at_entry(main, "args", slice_type);
+                    llvm::Value* args_mem = m_active_module_context.builder->CreateStructGEP(slice_type, args, 0);
+                    m_active_module_context.builder->CreateStore(list_val, args_mem);
+                    llvm::Value* args_len = m_active_module_context.builder->CreateStructGEP(slice_type, args, 1);
+                    m_active_module_context.builder->CreateStore(m_active_module_context.builder->CreateSExt(main->getArg(0), int64_type, "sext"), args_len);
+
+                    ret = m_active_module_context.builder->CreateCall(callee, args);
+                    m_active_module_context.builder->CreateCall(free_fn, list_val);
+                }
+            } else {
+                ARIA_ASSERT(m_context->main_func->function.parameters.size == 0, "Invalid parameter count for main function");
+                ret = m_active_module_context.builder->CreateCall(callee, {});
+            }
 
             if (m_context->main_func->function.type->function.return_type->is_void()) {
                 m_active_module_context.builder->CreateRet(m_active_module_context.builder->getInt32(0));
@@ -394,6 +484,8 @@ namespace ariac {
 
                 return size;
             }
+
+            case TypeKind::Typedef: return get_type_alignment(t->typedef_.base);
 
             default: ARIA_UNREACHABLE();
         }

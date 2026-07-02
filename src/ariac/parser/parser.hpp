@@ -50,6 +50,7 @@ namespace ariac {
         bool is_expression();
 
         bool is_primitive_type();
+        bool is_type();
         TypeInfo* parse_type();
 
         Stmt* parse_block(bool unsafe = false);
@@ -89,6 +90,8 @@ namespace ariac {
         std::string_view parse_module_path();
 
         Decl* parse_global();
+
+        void split_token();
 
         void sync_global(); // Syncs the parser to a common sync point in a global context
         void sync_local(); // Syncs the parser to a common sync point in a local (block) context

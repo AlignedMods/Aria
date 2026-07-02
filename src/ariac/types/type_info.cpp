@@ -180,19 +180,19 @@ namespace ariac {
 
             case TypeKind::Pointer: {
                 TypeInfo* t = type->base;
-                str = fmt::format("{}*", type_info_to_string(t), pretty);
+                str = fmt::format("*{}", type_info_to_string(t), pretty);
                 break;
             }
 
             case TypeKind::Array: {
                 ArrayType& arr = type->array;
-                str = fmt::format("{}[{}]", type_info_to_string(arr.base, pretty), arr.size);
+                str = fmt::format("[{}]{}", arr.size, type_info_to_string(arr.base, pretty));
                 break;
             }
 
             case TypeKind::Slice: {
                 TypeInfo* t = type->base;
-                str = fmt::format("{}[]", type_info_to_string(t), pretty);
+                str = fmt::format("[]{}", type_info_to_string(t, pretty));
                 break;
             }
 
@@ -270,14 +270,14 @@ namespace ariac {
             }
 
             case TypeKind::GenericInstantiation: {
-                str += fmt::format("{}!(", type_info_to_string(type->generic_instantiation.base, pretty));
+                str += fmt::format("{}<", type_info_to_string(type->generic_instantiation.base, pretty));
 
                 for (size_t i = 0; i < type->generic_instantiation.arguments.size; i++) {
                     if (i > 0) { str += ", "; }
                     str += type_info_to_string(type->generic_instantiation.arguments.items[i], pretty);
                 }
 
-                str += ")";
+                str += ">";
                 break;
             }
 

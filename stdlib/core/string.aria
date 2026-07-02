@@ -2,4 +2,4 @@ module std::core;
 
 import std::io;
 
-typedef char[] as String;
+typedef []char as String;

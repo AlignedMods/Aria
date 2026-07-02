@@ -178,9 +178,9 @@ namespace ariac {
 
             if (is_tty) {
                 fmt::print(fg(fmt::color::light_blue), "note: ");
-                fmt::print("{}\n", note);
+                fmt::print("{}\n\n", note);
             } else {
-                fmt::print(stderr, "note: {}\n", note);
+                fmt::print(stderr, "note: {}\n\n", note);
             }
         }
     }

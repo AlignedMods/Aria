@@ -222,6 +222,10 @@ namespace ariac {
             FunctionDecl& f = func->function;
             resolve_type(f.type);
 
+            for (size_t i = 0; i < f.parameters.size; i++) {
+                f.parameters.items[i]->param.type = f.type->function.param_types.items[i];
+            }
+
             bool erase = false;
             resolve_decl_attributes(func, func->attributes, &erase);
             
@@ -245,7 +249,7 @@ namespace ariac {
                 }
 
                 if (f.parameters.size >= 1) {
-                    TypeInfo* type = TypeInfo::get_string(m_context);
+                    TypeInfo* type = TypeInfo::create_with_base(m_context, TypeKind::Slice, TypeInfo::get_string(m_context));
                     if (!type_is_equal(f.parameters.items[0]->param.type, type)) {
                         m_context->report_compiler_diagnostic(f.parameters.items[0]->loc, fmt::format("First parameter of 'main' function must be of type '{}'", type_info_to_string(type)));
                     }

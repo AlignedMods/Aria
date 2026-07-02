@@ -190,7 +190,7 @@ namespace ariac {
         Token* lp = try_consume(TokenKind::Less, "<");
         TypeInfo* type = nullptr;
 
-        if (is_primitive_type() || match(TokenKind::Identifier)) {
+        if (is_type()) {
             type = parse_type();
         } else {
             m_context->report_compiler_diagnostic(peek()->loc, "Expected a type");
@@ -348,14 +348,14 @@ namespace ariac {
             Expr* len = parse_expression();
             try_consume(TokenKind::RightBracket, "]");
 
-            return Expr::Create(m_context, lb.loc + peek(-1)->loc, ExprKind::ToSlice,
+            return Expr::Create(m_context, left->loc + peek(-1)->loc, ExprKind::ToSlice,
                 ExprValueKind::RValue, nullptr,
                 ArraySubscriptExpr(left, len));
         } else {
             Expr* index = parse_expression();
             try_consume(TokenKind::RightBracket, "]");
 
-            return Expr::Create(m_context, lb.loc + peek(-1)->loc, ExprKind::ArraySubscript,
+            return Expr::Create(m_context, left->loc + peek(-1)->loc, ExprKind::ArraySubscript,
                 ExprValueKind::LValue, nullptr,
                 ArraySubscriptExpr(left, index));
         }
@@ -444,13 +444,13 @@ namespace ariac {
     
             case TokenKind::StrLit: {
                 return Expr::Create(m_context, t.loc, ExprKind::StringLiteral,
-                    ExprValueKind::LValue, nullptr, 
+                    ExprValueKind::RValue, nullptr, 
                     StringLiteralExpr(t.string));
             }
 
             case TokenKind::CStrLit: {
                 return Expr::Create(m_context, t.loc, ExprKind::StringLiteral,
-                    ExprValueKind::LValue, TypeInfo::get_char_ptr(m_context), 
+                    ExprValueKind::RValue, TypeInfo::get_char_ptr(m_context), 
                     StringLiteralExpr(t.string));
             }
 
@@ -519,7 +519,7 @@ namespace ariac {
         TypeInfo* type = nullptr;
         Expr* initializer = nullptr;
 
-        if (is_primitive_type() || match(TokenKind::Identifier)) {
+        if (is_type()) {
             type = parse_type();
         } else {
             m_context->report_compiler_diagnostic(peek()->loc, "Expected a type");
@@ -678,102 +678,137 @@ namespace ariac {
         return false;
     }
 
+    bool Parser::is_type() {
+        if (!peek()) { return false; }
+        if (is_primitive_type() || match(TokenKind::Identifier)) { return true; }
+
+        if (match(TokenKind::Star) || match(TokenKind::LeftBracket)) { return true; }
+        return false;
+    }
+
     TypeInfo* Parser::parse_type() {
-        ARIA_ASSERT(is_primitive_type() || match(TokenKind::Identifier), "Cannot parse a type out of a non type");
+        ARIA_ASSERT(is_type(), "Cannot parse a type out of a non type");
 
         TypeInfo* type = TypeInfo::create_basic(m_context, TypeKind::Error);
-        bool search = true;
-        bool accept_type_names = true;
+        type->loc = peek()->loc;
 
-        while (search) {
-            if (accept_type_names) {
-                type->loc = peek()->loc;
-
-                switch (peek()->kind) {
-                    case TokenKind::Void:       consume(); type->kind = TypeKind::Void; accept_type_names = false; break;
-
-                    case TokenKind::Bool:       consume(); type->kind = TypeKind::Bool; accept_type_names = false; break;
-
-                    case TokenKind::Char:       consume(); type->kind = TypeKind::Char; accept_type_names = false; break;
-                    case TokenKind::IChar:      consume(); type->kind = TypeKind::IChar; accept_type_names = false; break;
-                    case TokenKind::Short:      consume(); type->kind = TypeKind::Short; accept_type_names = false;  break;
-                    case TokenKind::UShort:     consume(); type->kind = TypeKind::UShort; accept_type_names = false; break;
-                    case TokenKind::Int:        consume(); type->kind = TypeKind::Int; accept_type_names = false; break;
-                    case TokenKind::UInt:       consume(); type->kind = TypeKind::UInt; accept_type_names = false; break;
-                    case TokenKind::Long:       consume(); type->kind = TypeKind::Long; accept_type_names = false; break;
-                    case TokenKind::ULong:      consume(); type->kind = TypeKind::ULong; accept_type_names = false; break;
-
-                    case TokenKind::Float:      consume(); type->kind = TypeKind::Float; accept_type_names = false; break;
-                    case TokenKind::Double:     consume(); type->kind = TypeKind::Double; accept_type_names = false; break;
-
-                    case TokenKind::Identifier: {
-                        consume();
-                        Expr* ident = parse_identifier(*peek(-1));
-                        type->kind = TypeKind::Unresolved;
-                        type->unresolved = UnresolvedType(ident);
-                        accept_type_names = false;
-                        break;
-                    }
-
-                    default: break;
-                }
-            }
-
-            switch (peek()->kind) {
-                case TokenKind::LeftBracket: {
-                    consume();
-                    if (is_expression()) {
-                        type->array = ArrayType(TypeInfo::dup(m_context, type), parse_expression());
-                        type->kind = TypeKind::Array;
-                    } else {
-                        type->base = TypeInfo::dup(m_context, type);
-                        type->kind = TypeKind::Slice;
-                    }
-
+        switch (peek()->kind) {
+            case TokenKind::LeftBracket: {
+                consume();
+                if (is_expression()) {
+                    Expr* e = parse_expression();
                     try_consume(TokenKind::RightBracket, "]");
-                    type->loc += peek(-1)->loc;
-                    break;
-                }
+                    type->array = ArrayType(parse_type(), e);
+                    type->kind = TypeKind::Array;
+                } else {
+                    try_consume(TokenKind::RightBracket, "]");
 
-                case TokenKind::Star: {
-                    consume();
-                    type->base = TypeInfo::dup(m_context, type);
+                    if (is_type()) {
+                        type->base = parse_type();
+                        type->kind = TypeKind::Slice;
+                    } else {
+                        error_expected("type", peek()->loc);
+                    }
+                }
+        
+                break;
+            }
+        
+            case TokenKind::Star: {
+                consume();
+        
+                if (is_type()) {
+                    type->base = parse_type();
                     type->kind = TypeKind::Pointer;
-
-                    type->loc += peek(-1)->loc;
-                    break;
+                } else {
+                    error_expected("type", peek()->loc);
                 }
-
-                case TokenKind::Bang: {
+        
+                break;
+            }
+        
+            case TokenKind::Void:       consume(); type->kind = TypeKind::Void; break;
+        
+            case TokenKind::Bool:       consume(); type->kind = TypeKind::Bool; break;
+        
+            case TokenKind::Char:       consume(); type->kind = TypeKind::Char; break;
+            case TokenKind::IChar:      consume(); type->kind = TypeKind::IChar; break;
+            case TokenKind::Short:      consume(); type->kind = TypeKind::Short; break;
+            case TokenKind::UShort:     consume(); type->kind = TypeKind::UShort; break;
+            case TokenKind::Int:        consume(); type->kind = TypeKind::Int; break;
+            case TokenKind::UInt:       consume(); type->kind = TypeKind::UInt; break;
+            case TokenKind::Long:       consume(); type->kind = TypeKind::Long; break;
+            case TokenKind::ULong:      consume(); type->kind = TypeKind::ULong; break;
+        
+            case TokenKind::Float:      consume(); type->kind = TypeKind::Float; break;
+            case TokenKind::Double:     consume(); type->kind = TypeKind::Double; break;
+        
+            case TokenKind::Identifier: {
+                consume();
+                Expr* ident = parse_identifier(*peek(-1));
+                type->kind = TypeKind::Unresolved;
+                type->unresolved = UnresolvedType(ident);
+        
+                if (match(TokenKind::Less)) {
                     consume();
-                    try_consume(TokenKind::LeftParen, ")");
+                    // try_consume(TokenKind::LeftParen, "(");
                     TinyVector<TypeInfo*> args;
-
-                    while (peek() && !match(TokenKind::RightParen)) {
-                        if (!is_primitive_type() && !match(TokenKind::Identifier)) {
+        
+                    while (peek()) {
+                        if (!is_type()) {
                             m_context->report_compiler_diagnostic(peek()->loc, "Expected a type");
                             break;
                         }
-
+        
                         args.append(m_context, parse_type());
-
+        
                         if (match(TokenKind::Comma)) { consume(); continue; }
-                        else if (match(TokenKind::RightParen)) { break; }
-
-                        m_context->report_compiler_diagnostic(peek()->loc, "Expected ',' or ')'");
+                        else if (match(TokenKind::Greater)) { break; }
+                        else if (match(TokenKind::GreaterGreater)) {
+                            split_token();
+                            break;
+                        }
+        
+                        m_context->report_compiler_diagnostic(peek()->loc, "Expected ',' or '>'");
                     }
-
-                    try_consume(TokenKind::RightParen, ")");
-
+        
+                    try_consume(TokenKind::Greater, ">");
+        
                     type->generic_instantiation = GenericInstantiationType(TypeInfo::dup(m_context, type), args);
                     type->kind = TypeKind::GenericInstantiation;
-
+        
                     type->loc += peek(-1)->loc;
-                    break;
                 }
-
-                default: search = false; break;
+        
+                break;
             }
+        
+            default: break;
+        }
+
+        if (match(TokenKind::Star)) {
+            m_context->report_compiler_diagnostic_with_notes(peek()->loc, "Unexpected token '*' after type",
+                { "Did you mean to put '*' before the type?" });
+
+            consume();
+            type->base = TypeInfo::dup(m_context, type);
+            type->kind = TypeKind::Pointer;
+        }
+
+        if (match(TokenKind::LeftBracket)) {
+            m_context->report_compiler_diagnostic_with_notes(peek()->loc, "Unexpected token '[' after type",
+                { "Did you mean to put '[' before the type?" });
+
+            consume();
+            if (is_expression()) {
+                type->array = ArrayType(TypeInfo::dup(m_context, type), parse_expression());
+                type->kind = TypeKind::Array;
+            } else {
+                type->base = TypeInfo::dup(m_context, type);
+                type->kind = TypeKind::Slice;
+            }
+
+            try_consume(TokenKind::RightBracket, "]");
         }
 
         return type;
@@ -1146,7 +1181,7 @@ namespace ariac {
         if (match(TokenKind::Colon)) {
             try_consume(TokenKind::Colon, ":");
 
-            if (is_primitive_type() || match(TokenKind::Identifier)) {
+            if (is_type()) {
                 type = parse_type();
             } else {
                 m_context->report_compiler_diagnostic(peek()->loc, "Expected a type after ':'");
@@ -1201,7 +1236,7 @@ namespace ariac {
         if (match(TokenKind::Arrow)) {
             consume();
 
-            if (!(is_primitive_type() || match(TokenKind::Identifier))) {
+            if (!is_type()) {
                 m_context->report_compiler_diagnostic(peek()->loc, "Expected a type after '->'");
                 sync_local();
             } else {
@@ -1263,7 +1298,7 @@ namespace ariac {
 
                 try_consume(TokenKind::Colon, ":");
 
-                if (!(is_primitive_type() || match(TokenKind::Identifier))) {
+                if (!is_type()) {
                     m_context->report_compiler_diagnostic(peek()->loc, "Expected a type");
                     sync_params();
                     continue;
@@ -1336,7 +1371,7 @@ namespace ariac {
 
                 try_consume(TokenKind::Colon, ":");
 
-                if (!is_primitive_type() && !match(TokenKind::Identifier)) {
+                if (!is_type()) {
                     m_context->report_compiler_diagnostic(peek()->loc, "Expected type after ':'");
                     sync_local();
                     continue;
@@ -1398,7 +1433,7 @@ namespace ariac {
                 TypeInfo* ret_type = TypeInfo::get_error(m_context);
 
                 if (try_consume(TokenKind::Arrow, "->")) {
-                    if (!(is_primitive_type() || match(TokenKind::Identifier))) {
+                    if (!is_type()) {
                         m_context->report_compiler_diagnostic(peek()->loc, "Expected a type after '->'");
                         sync_local();
                         ret_type = TypeInfo::get_error(m_context);
@@ -1460,7 +1495,7 @@ namespace ariac {
     Decl* Parser::parse_typedef_decl() {
         Token& td = consume(); // consume "typedef"
 
-        if (is_primitive_type() || match(TokenKind::Identifier)) {
+        if (is_type()) {
             TypeInfo* type = parse_type();
             try_consume(TokenKind::As, "as");
 
@@ -1632,13 +1667,25 @@ namespace ariac {
         }
     }
 
+    void Parser::split_token() {
+        ARIA_ASSERT(peek()->kind == TokenKind::GreaterGreater, "Invalid token split");
+
+        SourceLoc loc = peek()->loc;
+        loc.len = 1;
+        loc.col++;
+        loc.offset++;
+        m_tokens.at(m_index).kind = TokenKind::Greater;
+        m_tokens.at(m_index).loc.len--;
+        m_tokens.insert(m_tokens.begin() + m_index + 1, { TokenKind::Greater, loc, ">" });
+    }
+
     void Parser::sync_global() {
         consume();
 
         while (peek()) {
             TokenKind kind = peek()->kind;
 
-            if (kind == TokenKind::Fn || kind == TokenKind::Struct || is_primitive_type() || kind == TokenKind::Identifier) {
+            if (kind == TokenKind::Fn || kind == TokenKind::Struct || is_type()) {
                 return;
             }
 

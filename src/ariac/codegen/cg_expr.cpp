@@ -147,6 +147,17 @@ namespace ariac {
         while (type->kind == TypeKind::Typedef) { type = type->typedef_.base; }
 
         switch (type->kind) {
+            case TypeKind::Array: {
+                if (mem.member == "mem") {
+                    return val;
+                } else if (mem.member == "len") {
+                    return m_active_module_context.builder->getInt64(mem.parent->type->array.size);
+                } 
+
+                ARIA_UNREACHABLE();
+                break;
+            }
+
             case TypeKind::Slice: {
                 if (mem.member == "mem") {
                     return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 0);
@@ -173,6 +184,7 @@ namespace ariac {
         args.reserve(call.arguments.size);
 
         size_t idx = -1;
+
         for (Expr* arg : call.arguments) {
             idx++;
             llvm::Value* val = gen_expr(arg);
@@ -196,6 +208,17 @@ namespace ariac {
 
         llvm::Value* callee = gen_expr(call.callee);
         ARIA_ASSERT(callee, "Invalid function callee");
+
+        ABIRetTypeInfo ret_info = get_ret_abi_type_info(call.callee->type->function.return_type);
+        if (ret_info.ret_by_ptr) {
+            llvm::Type* ret_type = type_info_to_llvm_type(ret_info.type);
+            llvm::Value* ret_val = alloca_at_entry(m_active_module_context.function, "ptrret", ret_type);
+            args.insert(args.begin(), ret_val);
+
+            m_active_module_context.builder->CreateCall(llvm::FunctionCallee(llvm::dyn_cast<llvm::Function>(callee)), args);
+            return m_active_module_context.builder->CreateLoad(ret_type, ret_val);
+        }
+
         return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(llvm::dyn_cast<llvm::Function>(callee)), args, expr->type->is_void() ? "" : "call");
     }
 
@@ -297,7 +320,7 @@ namespace ariac {
         m_active_module_context.builder->CreateStore(mem_val, mem);
 
         llvm::Value* len = m_active_module_context.builder->CreateStructGEP(type, slice, 1);
-        llvm::Value* len_val = gen_expr(t.source);
+        llvm::Value* len_val = gen_expr(t.len);
         m_active_module_context.builder->CreateStore(len_val, len);
 
         return m_active_module_context.builder->CreateLoad(type, slice);
@@ -436,9 +459,7 @@ namespace ariac {
             }
 
             case CastKind::LValueToRValue: {
-                if (ic.expression->kind == ExprKind::StringLiteral) {
-                    return gen_expr(ic.expression);
-                } else if (ic.expression->kind == ExprKind::DeclRef) {
+                if (ic.expression->kind == ExprKind::DeclRef) {
                     if (ic.expression->decl_ref.referenced_decl->kind == DeclKind::Var && ic.expression->decl_ref.referenced_decl->var.const_var) {
                         return gen_expr(ic.expression);
                     }

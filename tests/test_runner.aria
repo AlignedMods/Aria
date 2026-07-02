@@ -1,0 +1,9 @@
+module test_runner;
+
+import std::io;
+
+fn main(args: []String) {
+    for (i: ulong = 0; i < args.len; i++) {
+        io::println(args[i]);
+    }
+}

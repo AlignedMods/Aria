@@ -6,5 +6,3 @@ const RAND_MAX = 0x7fffffff;
 
 extern fn exit(code: int) -> void;
 extern fn abort() -> void;
-
-extern fn malloc() -> void*;

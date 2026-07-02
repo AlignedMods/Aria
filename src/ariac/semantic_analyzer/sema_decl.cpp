@@ -32,7 +32,6 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_param_decl(Decl* decl) {
         ParamDecl& paramDecl = decl->param;
-        resolve_type(paramDecl.type);
         m_scopes.back().declarations[paramDecl.identifier] = { paramDecl.type, decl, DeclKind::Param };
     }
 
