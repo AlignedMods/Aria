@@ -96,8 +96,8 @@ namespace ariac {
 
     struct Stmt {
         template <typename T>
-        static inline Stmt* Create(CompilationContext* ctx, SourceLoc loc, StmtKind kind, T t) { return ctx->allocate<Stmt>(kind, loc, t); }
-        static Stmt* dup(CompilationContext* ctx, Stmt* s);
+        static inline Stmt* Create(SourceLoc loc, StmtKind kind, T t) { return context.allocate<Stmt>(kind, loc, t); }
+        static Stmt* dup(Stmt* s);
 
         StmtKind kind = StmtKind::Invalid;
 

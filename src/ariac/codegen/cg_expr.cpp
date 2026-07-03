@@ -69,7 +69,7 @@ namespace ariac {
         ARIA_ASSERT(val, "Invalid DeclRef expression");
 
         if (dr.referenced_decl->kind == DeclKind::Param && get_param_abi_type_info(expr->type).pass_by_ptr) {
-            return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr(m_context)), val);
+            return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr()), val);
         }
 
         return val;
@@ -88,7 +88,7 @@ namespace ariac {
                 if (mem.implicit_deref) {
                     type = mem.parent->type->base;
                     if (mem.parent->value_kind == ExprValueKind::LValue) {
-                        val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr(m_context)), val);
+                        val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr()), val);
                     }
                 }
 
@@ -141,7 +141,7 @@ namespace ariac {
 
         if (mem.implicit_deref) {
             type = mem.parent->type->base;
-            val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr(m_context)), val);
+            val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr()), val);
         }
 
         while (type->kind == TypeKind::Typedef) { type = type->typedef_.base; }
@@ -348,7 +348,7 @@ namespace ariac {
         llvm::Function* func = m_active_module_context.module->getFunction("free");
         
         if (!func) {
-            llvm::FunctionType* type = llvm::FunctionType::get(type_info_to_llvm_type(TypeInfo::get_void(m_context)), { type_info_to_llvm_type(TypeInfo::get_void_ptr(m_context)) }, false);
+            llvm::FunctionType* type = llvm::FunctionType::get(type_info_to_llvm_type(TypeInfo::get_void()), { type_info_to_llvm_type(TypeInfo::get_void_ptr()) }, false);
             func = llvm::Function::Create(type, llvm::GlobalValue::ExternalLinkage, "free", *m_active_module_context.module);
         }
         

@@ -16,12 +16,12 @@ namespace ariac {
                 switch (t.ident->decl_ref.referenced_decl->kind) {
                     case DeclKind::Struct: {
                         if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
-                            CompilationUnit* old_unit = m_context->active_comp_unit;
-                            m_context->active_comp_unit = t.ident->decl_ref.referenced_decl->parent_unit;
+                            CompilationUnit* old_unit = context.active_comp_unit;
+                            context.active_comp_unit = t.ident->decl_ref.referenced_decl->parent_unit;
                             resolve_struct_decl(t.ident->decl_ref.referenced_decl);
-                            m_context->active_comp_unit = old_unit;
+                            context.active_comp_unit = old_unit;
                         } else if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::InProgress) {
-                            m_context->report_compiler_diagnostic(type->loc, "Recursive definition of struct");
+                            context.report_compiler_diagnostic(type->loc, "Recursive definition of struct");
                             type->kind = TypeKind::Error;
                             break;
                         }
@@ -33,12 +33,12 @@ namespace ariac {
 
                     case DeclKind::Typedef: {
                         if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
-                            CompilationUnit* old_unit = m_context->active_comp_unit;
-                            m_context->active_comp_unit = t.ident->decl_ref.referenced_decl->parent_unit;
+                            CompilationUnit* old_unit = context.active_comp_unit;
+                            context.active_comp_unit = t.ident->decl_ref.referenced_decl->parent_unit;
                             resolve_typedef_decl(t.ident->decl_ref.referenced_decl);
-                            m_context->active_comp_unit = old_unit;
+                            context.active_comp_unit = old_unit;
                         } else if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::InProgress) {
-                            m_context->report_compiler_diagnostic(type->loc, "Recursive definition of typedef");
+                            context.report_compiler_diagnostic(type->loc, "Recursive definition of typedef");
                             type->kind = TypeKind::Error;
                             break;
                         }
@@ -50,12 +50,12 @@ namespace ariac {
 
                     case DeclKind::Enum: {
                         if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
-                            CompilationUnit* old_unit = m_context->active_comp_unit;
-                            m_context->active_comp_unit = t.ident->decl_ref.referenced_decl->parent_unit;
+                            CompilationUnit* old_unit = context.active_comp_unit;
+                            context.active_comp_unit = t.ident->decl_ref.referenced_decl->parent_unit;
                             resolve_enum_decl(t.ident->decl_ref.referenced_decl);
-                            m_context->active_comp_unit = old_unit;
+                            context.active_comp_unit = old_unit;
                         } else if (t.ident->decl_ref.referenced_decl->resolve_status == ResolveStatus::InProgress) {
-                            m_context->report_compiler_diagnostic(type->loc, "Recursive definition of enum");
+                            context.report_compiler_diagnostic(type->loc, "Recursive definition of enum");
                             type->kind = TypeKind::Error;
                             break;
                         }
@@ -76,19 +76,19 @@ namespace ariac {
 
                         if (t.ident->decl_ref.referenced_decl->generic.decl->kind == DeclKind::Struct) {
                             if (!m_search_generics) {
-                                m_context->report_compiler_diagnostic(type->loc, "Cannot reference generic type without an instantiation");
+                                context.report_compiler_diagnostic(type->loc, "Cannot reference generic type without an instantiation");
                             }
 
                             type->kind = TypeKind::GenericDecl;
                             type->generic_decl = GenericDeclType(t.ident->decl_ref.identifier, t.ident->decl_ref.referenced_decl);
                         } else {
-                            m_context->report_compiler_diagnostic(type->loc, fmt::format("'{}' is not a type", t.ident->decl_ref.identifier));
+                            context.report_compiler_diagnostic(type->loc, fmt::format("'{}' is not a type", t.ident->decl_ref.identifier));
                         }
 
                         break;
                     }
 
-                    default: m_context->report_compiler_diagnostic(type->loc, fmt::format("'{}' is not a type", t.ident->decl_ref.identifier)); break;
+                    default: context.report_compiler_diagnostic(type->loc, fmt::format("'{}' is not a type", t.ident->decl_ref.identifier)); break;
                 }
 
                 break;
@@ -102,13 +102,13 @@ namespace ariac {
                 resolve_expr(type->array.expression);
 
                 if (!is_const_expr(type->array.expression)) {
-                    m_context->report_compiler_diagnostic(type->array.expression->loc, "Size of array must be a compile time constant");
+                    context.report_compiler_diagnostic(type->array.expression->loc, "Size of array must be a compile time constant");
                     break;
                 }
 
-                ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(m_context, TypeKind::ULong), type->array.expression->type);
+                ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(TypeKind::ULong), type->array.expression->type);
                 if (cost.cast_needed && !cost.implicit_cast_possible) {
-                    m_context->report_compiler_diagnostic(type->array.expression->loc, "Size of array must be convertable to 'ulong'");
+                    context.report_compiler_diagnostic(type->array.expression->loc, "Size of array must be convertable to 'ulong'");
                     break;
                 }
 
@@ -150,7 +150,7 @@ namespace ariac {
                 }
 
                 if (gi.base->kind != TypeKind::GenericDecl) {
-                    m_context->report_compiler_diagnostic(gi.base->loc, "Non generic type cannot be used for generic instantiation");
+                    context.report_compiler_diagnostic(gi.base->loc, "Non generic type cannot be used for generic instantiation");
                     break;
                 }
 
@@ -159,7 +159,7 @@ namespace ariac {
                 ARIA_ASSERT(g->generic.decl->kind == DeclKind::Struct, "Invalid generic");
 
                 if (gi.arguments.size != g->generic.parameters.size) {
-                    m_context->report_compiler_diagnostic(type->loc, fmt::format("Mismatched generic instantiation, generic expects {} arguments but got {}", g->generic.parameters.size, gi.arguments.size));
+                    context.report_compiler_diagnostic(type->loc, fmt::format("Mismatched generic instantiation, generic expects {} arguments but got {}", g->generic.parameters.size, gi.arguments.size));
                     break;
                 }
 
@@ -176,13 +176,13 @@ namespace ariac {
                 }
 
                 if (!specilization) {
-                    Decl* struc = Decl::dup(m_context, g->generic.decl);
+                    Decl* struc = Decl::dup(g->generic.decl);
                     struc->parent_module = g->parent_module;
                     struc->parent_unit = g->parent_unit;
-                    specilization = Decl::Create(m_context, g->loc, DeclKind::StructSpecilization, g->visibility, StructSpecilizationDecl(gi.arguments, struc, struc->struct_.impls));
+                    specilization = Decl::Create(g->loc, DeclKind::StructSpecilization, g->visibility, StructSpecilizationDecl(gi.arguments, struc, struc->struct_.impls));
                     specilization->parent_module = g->parent_module;
                     specilization->parent_unit = g->parent_unit;
-                    g->generic.specilizations.append(m_context, specilization);
+                    g->generic.specilizations.append(specilization);
 
                     for (size_t i = 0; i < gi.arguments.size; i++) { m_specialized_generic_types[g->generic.parameters.items[i]->generic_parameter.identifier] = gi.arguments.items[i]; }
                     bool prev_val = m_replace_generic_types;

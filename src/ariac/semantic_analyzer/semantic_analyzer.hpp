@@ -35,7 +35,7 @@ namespace ariac {
         };
 
     public:
-        SemanticAnalyzer(CompilationContext* ctx);
+        SemanticAnalyzer();
 
     private:
         void sema_impl();
@@ -149,8 +149,6 @@ namespace ariac {
         std::vector<Scope> m_scopes;
         TypeInfo* m_active_return_type = nullptr;
         TypeInfo* m_active_struct = nullptr;
-
-        CompilationContext* m_context = nullptr;
     };
 
 } // namespace ariac

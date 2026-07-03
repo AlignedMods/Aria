@@ -4,8 +4,8 @@
 
 namespace ariac {
 
-    Stmt* Stmt::dup(CompilationContext* ctx, Stmt* s) {
-        Stmt* copy = Stmt::Create(ctx, s->loc, s->kind, ErrorStmt());
+    Stmt* Stmt::dup(Stmt* s) {
+        Stmt* copy = Stmt::Create(s->loc, s->kind, ErrorStmt());
 
         switch (s->kind) {
             case StmtKind::Error: break;
@@ -14,7 +14,7 @@ namespace ariac {
                 BlockStmt& b = s->block;
 
                 for (Stmt* st : b.stmts) {
-                    copy->block.stmts.append(ctx, Stmt::dup(ctx, st));
+                    copy->block.stmts.append(Stmt::dup(st));
                 }
 
                 copy->block.unsafe = b.unsafe;
@@ -24,26 +24,26 @@ namespace ariac {
             case StmtKind::If: {
                 IfStmt& i = s->if_;
 
-                copy->if_.condition = Expr::dup(ctx, i.condition);
-                copy->if_.body = Stmt::dup(ctx, i.body);
-                if (i.else_body) { copy->if_.else_body = Stmt::dup(ctx, i.else_body); }
+                copy->if_.condition = Expr::dup(i.condition);
+                copy->if_.body = Stmt::dup(i.body);
+                if (i.else_body) { copy->if_.else_body = Stmt::dup(i.else_body); }
 
                 break;
             }
 
             case StmtKind::Return: {
                 ReturnStmt& r = s->return_;
-                if (r.value) { copy->return_.value = Expr::dup(ctx, r.value); }
+                if (r.value) { copy->return_.value = Expr::dup(r.value); }
                 break;
             }
 
             case StmtKind::Expr: {
-                copy->expr = Expr::dup(ctx, s->expr);
+                copy->expr = Expr::dup(s->expr);
                 break;
             }
 
             case StmtKind::Decl: {
-                copy->decl = Decl::dup(ctx, s->decl);
+                copy->decl = Decl::dup(s->decl);
                 break;
             }
 

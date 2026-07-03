@@ -4,9 +4,7 @@
 
 namespace ariac {
 
-    SemanticAnalyzer::SemanticAnalyzer(CompilationContext* ctx) {
-        m_context = ctx;
-
+    SemanticAnalyzer::SemanticAnalyzer() {
         sema_impl();
     }
 

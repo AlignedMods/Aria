@@ -152,4 +152,6 @@ namespace ariac {
         std::vector<CompilerDiagnostic> diagnostics;
     };
 
+    extern CompilationContext context;
+
 } // namespace ariac

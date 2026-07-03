@@ -9,7 +9,7 @@ namespace ariac {
 
     class Lexer {
     public:
-        Lexer(CompilationContext* ctx);
+        Lexer();
 
     private:
         void lex_impl();
@@ -48,8 +48,6 @@ namespace ariac {
 
         size_t m_current_line = 1;
         size_t m_current_line_start = 0; // The number of characters it takes to get to this line (from the start of the file)
-    
-        CompilationContext* m_context = nullptr;
     };
 
 } // namespace ariac

@@ -24,7 +24,7 @@ namespace ariac {
 
     struct Specifier {
         template <typename T>
-        static inline Specifier* Create(CompilationContext* ctx, SourceLoc loc, SpecifierKind kind, T t) { return ctx->allocate<Specifier>(loc, kind, t); }
+        static inline Specifier* Create(SourceLoc loc, SpecifierKind kind, T t) { return context.allocate<Specifier>(loc, kind, t); }
 
         SpecifierKind kind = SpecifierKind::Invalid;
 

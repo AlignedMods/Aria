@@ -17,7 +17,7 @@ namespace ariac {
         require_rvalue(wh.condition);
 
         if (!wh.condition->type->is_boolean()) {
-            m_context->report_compiler_diagnostic(wh.condition->loc, fmt::format("Expression must be of type 'bool' but is '{}'", type_info_to_string(wh.condition->type)));
+            context.report_compiler_diagnostic(wh.condition->loc, fmt::format("Expression must be of type 'bool' but is '{}'", type_info_to_string(wh.condition->type)));
         } else if (is_const_expr(wh.condition) && eval_const_expr(wh.condition)->const_.boolean) {
             m_scopes.back().reaches_end = false;
         }
@@ -55,7 +55,7 @@ namespace ariac {
             require_rvalue(fs.condition);
 
             if (!fs.condition->type->is_boolean() && !fs.condition->type->is_error()) {
-                m_context->report_compiler_diagnostic(fs.condition->loc, fmt::format("For loop condition must be of a boolean type but is '{}'", type_info_to_string(fs.condition->type)));
+                context.report_compiler_diagnostic(fs.condition->loc, fmt::format("For loop condition must be of a boolean type but is '{}'", type_info_to_string(fs.condition->type)));
             } else if (is_const_expr(fs.condition) && eval_const_expr(fs.condition)->const_.boolean) {
                 m_scopes.back().reaches_end = false;
             }
@@ -75,7 +75,7 @@ namespace ariac {
         require_rvalue(ifs.condition);
 
         if (!ifs.condition->type->is_boolean()) {
-            m_context->report_compiler_diagnostic(ifs.condition->loc, fmt::format("Expression must be of type 'bool' but is '{}'", type_info_to_string(ifs.condition->type)));
+            context.report_compiler_diagnostic(ifs.condition->loc, fmt::format("Expression must be of type 'bool' but is '{}'", type_info_to_string(ifs.condition->type)));
         }
 
         push_scope();
@@ -91,7 +91,7 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_break_stmt(Stmt* stmt) {
         if (!m_scopes.back().allow_break_stmt) {
-            m_context->report_compiler_diagnostic(stmt->loc, "Cannot use 'break' here");
+            context.report_compiler_diagnostic(stmt->loc, "Cannot use 'break' here");
         } else {
             m_scopes.back().reaches_end = false;
         }
@@ -99,7 +99,7 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_continue_stmt(Stmt* stmt) {
         if (!m_scopes.back().allow_break_stmt) {
-            m_context->report_compiler_diagnostic(stmt->loc, "Cannot use 'continue' here");
+            context.report_compiler_diagnostic(stmt->loc, "Cannot use 'continue' here");
         } else {
             m_scopes.back().reaches_end = false;
         }
@@ -109,8 +109,8 @@ namespace ariac {
         ReturnStmt& ret = stmt->return_;
         
         if (m_active_return_type == nullptr) {
-            m_context->report_compiler_diagnostic(stmt->loc, "'return' statement out of function body is not allowed");
-            ret.value->type = TypeInfo::get_error(m_context);
+            context.report_compiler_diagnostic(stmt->loc, "'return' statement out of function body is not allowed");
+            ret.value->type = TypeInfo::get_error();
             return;
         }
         
@@ -129,7 +129,7 @@ namespace ariac {
                 if (cost.implicit_cast_possible) {
                     insert_implicit_cast(m_active_return_type, ret.value->type, ret.value, cost.kind);
                 } else {
-                    m_context->report_compiler_diagnostic(ret.value->loc, fmt::format("Cannot implicitly convert '{}' to return type '{}'", type_info_to_string(ret.value->type), type_info_to_string(m_active_return_type)));
+                    context.report_compiler_diagnostic(ret.value->loc, fmt::format("Cannot implicitly convert '{}' to return type '{}'", type_info_to_string(ret.value->type), type_info_to_string(m_active_return_type)));
                 }
             }
         }

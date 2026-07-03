@@ -38,8 +38,8 @@ namespace ariac {
         size = new_size;
     }
 
-    std::string_view scratch_buffer_to_str(CompilationContext* ctx) {
-        char* buf = reinterpret_cast<char*>(ctx->allocate_sized(size));
+    std::string_view scratch_buffer_to_str() {
+        char* buf = reinterpret_cast<char*>(context.allocate_sized(size));
         memcpy(buf, buffer, size);
         return std::string_view(buf, size);
     }

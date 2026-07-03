@@ -5,39 +5,39 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_boolean_literal_expr(Expr* expr) {
         if (expr->result_discarded) {
-            m_context->report_compiler_diagnostic(expr->loc, "Discarding result of boolean literal", CompilerDiagKind::Warning);
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of boolean literal", CompilerDiagKind::Warning);
         }
     }
 
     void SemanticAnalyzer::resolve_character_literal_expr(Expr* expr) {
         if (expr->result_discarded) {
-            m_context->report_compiler_diagnostic(expr->loc, "Discarding result of character literal", CompilerDiagKind::Warning);
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of character literal", CompilerDiagKind::Warning);
         }
     }
 
     void SemanticAnalyzer::resolve_integer_literal_expr(Expr* expr) {
         if (expr->result_discarded) {
-            m_context->report_compiler_diagnostic(expr->loc, "Discarding result of integer literal", CompilerDiagKind::Warning);
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of integer literal", CompilerDiagKind::Warning);
         }
     }
 
     void SemanticAnalyzer::resolve_floating_literal_expr(Expr* expr) {
         if (expr->result_discarded) {
-            m_context->report_compiler_diagnostic(expr->loc, "Discarding result of floating point literal", CompilerDiagKind::Warning);
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of floating point literal", CompilerDiagKind::Warning);
         }
     }
 
     void SemanticAnalyzer::resolve_string_literal_expr(Expr* expr) {
-        if (!expr->type) { expr->type = TypeInfo::get_string(m_context); }
+        if (!expr->type) { expr->type = TypeInfo::get_string(); }
 
         if (expr->result_discarded) {
-            m_context->report_compiler_diagnostic(expr->loc, "Discarding result of string literal is not allowed");
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of string literal is not allowed");
         }
     }
 
     void SemanticAnalyzer::resolve_null_expr(Expr* expr) {
         if (expr->result_discarded) {
-            m_context->report_compiler_diagnostic(expr->loc, "Discarding result of null", CompilerDiagKind::Warning);
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of null", CompilerDiagKind::Warning);
         }
     }
 
@@ -47,7 +47,7 @@ namespace ariac {
         std::string pretty_ident = dr.name_specifier ? fmt::format("{}::{}", dr.name_specifier->name.identifier, dr.identifier) : fmt::format("{}", dr.identifier);
         
         if (expr->result_discarded) {
-            m_context->report_compiler_diagnostic(expr->loc, "Discarding result of identifier", CompilerDiagKind::Warning);
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of identifier", CompilerDiagKind::Warning);
         }
 
         auto resolve_with_specifier = [&]() {
@@ -58,27 +58,27 @@ namespace ariac {
                 dr.referenced_decl = sym;
                 
                 if (sym->visibility == DeclVisibility::Private) {
-                    m_context->report_compiler_diagnostic(expr->loc, fmt::format("{} is private and cannot be accessed", pretty_ident));
-                    m_context->report_compiler_diagnostic(sym->loc, "Defined here", CompilerDiagKind::Note, sym->parent_unit);
+                    context.report_compiler_diagnostic(expr->loc, fmt::format("{} is private and cannot be accessed", pretty_ident));
+                    context.report_compiler_diagnostic(sym->loc, "Defined here", CompilerDiagKind::Note, sym->parent_unit);
                 }
 
                 switch (sym->kind) {
                     case DeclKind::Var: {
                         if (sym->var.linkage_kind == LinkageKind::Static) {
-                            m_context->report_compiler_diagnostic(expr->loc, fmt::format("{} has static linkage and cannot be accessed", pretty_ident));
-                            m_context->report_compiler_diagnostic(sym->loc, "Defined here", CompilerDiagKind::Note, sym->parent_unit);
+                            context.report_compiler_diagnostic(expr->loc, fmt::format("{} has static linkage and cannot be accessed", pretty_ident));
+                            context.report_compiler_diagnostic(sym->loc, "Defined here", CompilerDiagKind::Note, sym->parent_unit);
                         }
 
-                        Module* m = m_context->active_module;
-                        CompilationUnit* c = m_context->active_comp_unit;
+                        Module* m = context.active_module;
+                        CompilationUnit* c = context.active_comp_unit;
 
-                        m_context->active_module = sym->parent_module;
-                        m_context->active_comp_unit = sym->parent_unit;
+                        context.active_module = sym->parent_module;
+                        context.active_comp_unit = sym->parent_unit;
 
                         resolve_var_decl(sym);
 
-                        m_context->active_module = m;
-                        m_context->active_comp_unit = c;
+                        context.active_module = m;
+                        context.active_comp_unit = c;
 
                         expr->type = sym->var.type;
                         return;
@@ -86,8 +86,8 @@ namespace ariac {
 
                     case DeclKind::Function: {
                         if (sym->function.linkage_kind == LinkageKind::Static) {
-                            m_context->report_compiler_diagnostic(expr->loc, fmt::format("{} has static linkage and cannot be accessed", pretty_ident));
-                            m_context->report_compiler_diagnostic(sym->loc, "Defined here", CompilerDiagKind::Note, sym->parent_unit);
+                            context.report_compiler_diagnostic(expr->loc, fmt::format("{} has static linkage and cannot be accessed", pretty_ident));
+                            context.report_compiler_diagnostic(sym->loc, "Defined here", CompilerDiagKind::Note, sym->parent_unit);
                         }
 
                         resolve_function_decl(sym);
@@ -96,19 +96,19 @@ namespace ariac {
                     }
 
                     case DeclKind::Struct:
-                    case DeclKind::Typedef: expr->type = TypeInfo::get_error(m_context); return;
+                    case DeclKind::Typedef: expr->type = TypeInfo::get_error(); return;
 
                     default: ARIA_UNREACHABLE();
                 }
             } else {
                 dr.referenced_decl = &error_decl;
-                m_context->report_compiler_diagnostic(expr->loc, fmt::format("Undeclared identifier '{}'", pretty_ident));
-                expr->type = TypeInfo::get_error(m_context);
+                context.report_compiler_diagnostic(expr->loc, fmt::format("Undeclared identifier '{}'", pretty_ident));
+                expr->type = TypeInfo::get_error();
             }
         };
 
         auto resolve_without_specifier = [&]() {
-            Module* mod = m_context->active_module;
+            Module* mod = context.active_module;
             Decl* sym = nullptr;
 
             if (mod->symbols.contains(dr.identifier)) {
@@ -129,11 +129,11 @@ namespace ariac {
                         default: ARIA_UNREACHABLE();
                     }
 
-                    Expr* self = Expr::Create(m_context, expr->loc, ExprKind::Self, 
-                        ExprValueKind::RValue, TypeInfo::create_with_base(m_context, TypeKind::Pointer, m_active_struct), 
+                    Expr* self = Expr::Create(expr->loc, ExprKind::Self, 
+                        ExprValueKind::RValue, TypeInfo::create_with_base(TypeKind::Pointer, m_active_struct), 
                         ErrorExpr());
 
-                    Expr* member = Expr::Create(m_context, expr->loc, ExprKind::Member,
+                    Expr* member = Expr::Create(expr->loc, ExprKind::Member,
                         ExprValueKind::LValue, mem_type,
                         MemberExpr(dr.identifier, self));
                     member->member.implicit_deref = true;
@@ -149,7 +149,7 @@ namespace ariac {
 
                 if (type->generic_parameter.identifier == dr.identifier) {
                     dr.referenced_decl = type;
-                    expr->type = TypeInfo::get_error(m_context);
+                    expr->type = TypeInfo::get_error();
                     return;
                 }
             }
@@ -164,16 +164,16 @@ namespace ariac {
             if (sym) {
                 switch (sym->kind) {
                     case DeclKind::Var: {
-                        Module* m = m_context->active_module;
-                        CompilationUnit* c = m_context->active_comp_unit;
+                        Module* m = context.active_module;
+                        CompilationUnit* c = context.active_comp_unit;
 
-                        m_context->active_module = sym->parent_module;
-                        m_context->active_comp_unit = sym->parent_unit;
+                        context.active_module = sym->parent_module;
+                        context.active_comp_unit = sym->parent_unit;
 
                         resolve_var_decl(sym);
 
-                        m_context->active_module = m;
-                        m_context->active_comp_unit = c;
+                        context.active_module = m;
+                        context.active_comp_unit = c;
 
                         expr->type = sym->var.type;
                         return;
@@ -193,12 +193,12 @@ namespace ariac {
                     case DeclKind::Struct:
                     case DeclKind::Typedef:
                     case DeclKind::Enum:
-                    case DeclKind::Generic: expr->type = TypeInfo::get_error(m_context); return;
+                    case DeclKind::Generic: expr->type = TypeInfo::get_error(); return;
 
                     default: ARIA_UNREACHABLE();
                 }
             } else {
-                for (Decl* im : m_context->active_comp_unit->imports) {
+                for (Decl* im : context.active_comp_unit->imports) {
                     ARIA_ASSERT(im->kind == DeclKind::Import, "Invalid import");
                     ImportDecl& import = im->import;
 
@@ -210,7 +210,7 @@ namespace ariac {
 
                         switch (sym->kind) {
                             case DeclKind::Var: {
-                                m_context->report_compiler_diagnostic_with_notes(expr->loc, "Variables from other modules must be prefixed with the module name",
+                                context.report_compiler_diagnostic_with_notes(expr->loc, "Variables from other modules must be prefixed with the module name",
                                     { fmt::format("Did you mean to write '{}::{}'", import.resolved_module->name, dr.identifier)});
 
                                 resolve_var_decl(sym);
@@ -219,7 +219,7 @@ namespace ariac {
                             }
 
                             case DeclKind::Function: {
-                                m_context->report_compiler_diagnostic_with_notes(expr->loc, "Functions from other modules must be prefixed with the module name",
+                                context.report_compiler_diagnostic_with_notes(expr->loc, "Functions from other modules must be prefixed with the module name",
                                     { fmt::format("Did you mean to write '{}::{}'", import.resolved_module->name, dr.identifier)});
 
                                 resolve_function_decl(sym);
@@ -229,7 +229,7 @@ namespace ariac {
 
                             case DeclKind::Struct: 
                             case DeclKind::Typedef:
-                            case DeclKind::Enum: expr->type = TypeInfo::get_error(m_context); return;
+                            case DeclKind::Enum: expr->type = TypeInfo::get_error(); return;
 
                             default: ARIA_UNREACHABLE();
                         }
@@ -238,8 +238,8 @@ namespace ariac {
             }
 
             dr.referenced_decl = &error_decl;
-            m_context->report_compiler_diagnostic(expr->loc, fmt::format("Undeclared identifier '{}'", pretty_ident));
-            expr->type = TypeInfo::get_error(m_context);
+            context.report_compiler_diagnostic(expr->loc, fmt::format("Undeclared identifier '{}'", pretty_ident));
+            expr->type = TypeInfo::get_error();
         };
 
         if (dr.name_specifier) {
@@ -249,11 +249,11 @@ namespace ariac {
             Module* mod = dr.name_specifier->name.referenced_module;
             if (!mod) {
                 dr.referenced_decl = &error_decl;
-                expr->type = TypeInfo::get_error(m_context);
+                expr->type = TypeInfo::get_error();
                 return;
             }
 
-            if (mod == m_context->active_module) { return resolve_without_specifier(); }
+            if (mod == context.active_module) { return resolve_without_specifier(); }
             else { return resolve_with_specifier(); }
         }
 
@@ -279,12 +279,12 @@ namespace ariac {
                                 
                                 if (e.field_lookup.contains(mem.member)) {
                                     Decl* d = e.field_lookup.at(mem.member);
-                                    expr->type = TypeInfo::create_enum(m_context, mem.parent->decl_ref.referenced_decl);
+                                    expr->type = TypeInfo::create_enum(mem.parent->decl_ref.referenced_decl);
                                     expr->value_kind = ExprValueKind::RValue;
                                     mem.referenced_member = d;
                                 } else {
-                                    m_context->report_compiler_diagnostic(expr->loc, fmt::format("Enum '{}' has no field named '{}'", e.identifier, mem.member));
-                                    expr->type = TypeInfo::get_error(m_context);
+                                    context.report_compiler_diagnostic(expr->loc, fmt::format("Enum '{}' has no field named '{}'", e.identifier, mem.member));
+                                    expr->type = TypeInfo::get_error();
                                     mem.referenced_member = &error_decl;
                                 }
 
@@ -299,7 +299,7 @@ namespace ariac {
                         }
                     }
 
-                    expr->type = TypeInfo::get_error(m_context);
+                    expr->type = TypeInfo::get_error();
                     mem.referenced_member = &error_decl;
                     return;
                 }
@@ -322,8 +322,8 @@ namespace ariac {
                     mem.referenced_member = fd;
 
                     if (fd->visibility == DeclVisibility::Private && mem.parent->kind != ExprKind::Self) {
-                        m_context->report_compiler_diagnostic(expr->loc, fmt::format("'{}' is private and cannot be accessed", mem.member));
-                        m_context->report_compiler_diagnostic(fd->loc, "Declared here", CompilerDiagKind::Note, fd->parent_unit);
+                        context.report_compiler_diagnostic(expr->loc, fmt::format("'{}' is private and cannot be accessed", mem.member));
+                        context.report_compiler_diagnostic(fd->loc, "Declared here", CompilerDiagKind::Note, fd->parent_unit);
                     }
 
                     searching = false;
@@ -342,7 +342,7 @@ namespace ariac {
 
                         Decl* fd = s.field_lookup.at(mem.member);
                         switch (fd->kind) {
-                            case DeclKind::Error: member_type = TypeInfo::get_error(m_context); break;
+                            case DeclKind::Error: member_type = TypeInfo::get_error(); break;
                             case DeclKind::Field: member_type = fd->field.type; break;
                             case DeclKind::Method: member_type = fd->method.type; break;
                             default: ARIA_UNREACHABLE();
@@ -350,8 +350,8 @@ namespace ariac {
                         mem.referenced_member = fd;
 
                         if (fd->visibility == DeclVisibility::Private && mem.parent->kind != ExprKind::Self) {
-                            m_context->report_compiler_diagnostic(expr->loc, fmt::format("'{}' is private and cannot be accessed", mem.member));
-                            m_context->report_compiler_diagnostic(fd->loc, "Declared here", CompilerDiagKind::Note, fd->parent_unit);
+                            context.report_compiler_diagnostic(expr->loc, fmt::format("'{}' is private and cannot be accessed", mem.member));
+                            context.report_compiler_diagnostic(fd->loc, "Declared here", CompilerDiagKind::Note, fd->parent_unit);
                         }
 
                         searching = false;
@@ -369,7 +369,7 @@ namespace ariac {
 
                     Decl* fd = s.field_lookup.at(mem.member);
                     switch (fd->kind) {
-                        case DeclKind::Error: member_type = TypeInfo::get_error(m_context); break;
+                        case DeclKind::Error: member_type = TypeInfo::get_error(); break;
                         case DeclKind::Field: member_type = fd->field.type; break;
                         case DeclKind::Method: member_type = fd->method.type; break;
                         default: ARIA_UNREACHABLE();
@@ -377,8 +377,8 @@ namespace ariac {
                     mem.referenced_member = fd;
 
                     if (fd->visibility == DeclVisibility::Private && mem.parent->kind != ExprKind::Self) {
-                        m_context->report_compiler_diagnostic(expr->loc, fmt::format("'{}' is private and cannot be accessed", mem.member));
-                        m_context->report_compiler_diagnostic(fd->loc, "Declared here", CompilerDiagKind::Note, fd->parent_unit);
+                        context.report_compiler_diagnostic(expr->loc, fmt::format("'{}' is private and cannot be accessed", mem.member));
+                        context.report_compiler_diagnostic(fd->loc, "Declared here", CompilerDiagKind::Note, fd->parent_unit);
                     }
 
                     searching = false;
@@ -387,10 +387,10 @@ namespace ariac {
 
                 case TypeKind::Array: {
                     if (mem.member == "mem") {
-                        member_type = TypeInfo::create_with_base(m_context, TypeKind::Pointer, parent_type->array.base);
+                        member_type = TypeInfo::create_with_base(TypeKind::Pointer, parent_type->array.base);
                         expr->kind = ExprKind::BuiltinMember;
                     } else if (mem.member == "len") {
-                        member_type = TypeInfo::get_basic(m_context, TypeKind::ULong);
+                        member_type = TypeInfo::get_basic(TypeKind::ULong);
                         expr->value_kind = ExprValueKind::RValue;
                         expr->kind = ExprKind::BuiltinMember;
                     }
@@ -401,10 +401,10 @@ namespace ariac {
 
                 case TypeKind::Slice: {
                     if (mem.member == "mem") {
-                        member_type = TypeInfo::create_with_base(m_context, TypeKind::Pointer, parent_type->base);
+                        member_type = TypeInfo::create_with_base(TypeKind::Pointer, parent_type->base);
                         expr->kind = ExprKind::BuiltinMember;
                     } else if (mem.member == "len") {
-                        member_type = TypeInfo::get_basic(m_context, TypeKind::ULong);
+                        member_type = TypeInfo::get_basic(TypeKind::ULong);
                         expr->kind = ExprKind::BuiltinMember;
                     }
 
@@ -414,7 +414,7 @@ namespace ariac {
 
                 case TypeKind::Pointer: {
                     if (implicit_deref) {
-                        m_context->report_compiler_diagnostic(expr->loc, "'.' operator allows only one level of implicit dereferencing");
+                        context.report_compiler_diagnostic(expr->loc, "'.' operator allows only one level of implicit dereferencing");
                     }
 
                     parent_type = parent_type->base;
@@ -425,8 +425,8 @@ namespace ariac {
                 case TypeKind::Typedef: { parent_type = parent_type->typedef_.base; break; }
 
                 default: {
-                    m_context->report_compiler_diagnostic(mem.parent->loc, fmt::format("Expression must be of slice, array or struct type but is '{}'", type_info_to_string(parent_type)));
-                    expr->type = TypeInfo::get_error(m_context);
+                    context.report_compiler_diagnostic(mem.parent->loc, fmt::format("Expression must be of slice, array or struct type but is '{}'", type_info_to_string(parent_type)));
+                    expr->type = TypeInfo::get_error();
                     mem.referenced_member = &error_decl;
                     return;
                 }
@@ -435,16 +435,16 @@ namespace ariac {
         
 
         if (!member_type) {
-            m_context->report_compiler_diagnostic(expr->loc, fmt::format("Unknown member '{}' in '{}'", mem.member, type_info_to_string(parent_type)));
+            context.report_compiler_diagnostic(expr->loc, fmt::format("Unknown member '{}' in '{}'", mem.member, type_info_to_string(parent_type)));
             mem.referenced_member = &error_decl;
-            expr->type = TypeInfo::get_error(m_context);
+            expr->type = TypeInfo::get_error();
             return;
         }
 
         expr->type = member_type;
 
         if (expr->result_discarded) {
-            m_context->report_compiler_diagnostic(expr->loc, "Discarding result of member access", CompilerDiagKind::Warning);
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of member access", CompilerDiagKind::Warning);
         }
     }
 
@@ -457,7 +457,7 @@ namespace ariac {
 
         resolve_expr(call.callee);
 
-        if (call.callee->kind == ExprKind::Error) { expr->type = TypeInfo::get_error(m_context); return;}
+        if (call.callee->kind == ExprKind::Error) { expr->type = TypeInfo::get_error(); return;}
 
         if (call.callee->kind == ExprKind::Member) {
             expr->kind = ExprKind::MethodCall;
@@ -465,7 +465,7 @@ namespace ariac {
             return;
         } else if (call.callee->decl_ref.referenced_decl->kind == DeclKind::Struct) {
             expr->kind = ExprKind::Construct;
-            expr->type = TypeInfo::create_struct(m_context, call.callee->decl_ref.referenced_decl);
+            expr->type = TypeInfo::create_struct(call.callee->decl_ref.referenced_decl);
             expr->construct.arguments = call.arguments;
             resolve_construct_expr(expr);
             return;
@@ -474,8 +474,8 @@ namespace ariac {
         TypeInfo* calleeType = call.callee->type;
 
         if (calleeType->kind != TypeKind::Function && !calleeType->is_error()) {
-            m_context->report_compiler_diagnostic(expr->loc, "Cannot call an object of non-function type");
-            expr->type = TypeInfo::get_error(m_context);
+            context.report_compiler_diagnostic(expr->loc, "Cannot call an object of non-function type");
+            expr->type = TypeInfo::get_error();
             return;
         }
 
@@ -484,7 +484,7 @@ namespace ariac {
                 FunctionType& fn_type = calleeType->function;
 
                 if (fn_type.param_types.size != call.arguments.size && !fn_type.var_arg) {
-                    m_context->report_compiler_diagnostic(expr->loc, fmt::format("Mismatched argument count, function expects {} but got {}", fn_type.param_types.size, call.arguments.size));
+                    context.report_compiler_diagnostic(expr->loc, fmt::format("Mismatched argument count, function expects {} but got {}", fn_type.param_types.size, call.arguments.size));
                     for (size_t i = 0; i < call.arguments.size; i++) {
                         resolve_expr(call.arguments.items[i]);
                     }
@@ -501,14 +501,14 @@ namespace ariac {
 
                             if (arg->type->is_integral()) {
                                 if (arg->type->get_bit_size() < 32) { // Promote to int
-                                    insert_implicit_cast(TypeInfo::get_basic(m_context, TypeKind::Int), arg->type, arg, CastKind::Integral);
+                                    insert_implicit_cast(TypeInfo::get_basic(TypeKind::Int), arg->type, arg, CastKind::Integral);
                                 }
                             } else if (arg->type->is_floating_point()) {
                                 if (arg->type->kind == TypeKind::Float) { // Promote to double
-                                    insert_implicit_cast(TypeInfo::get_basic(m_context, TypeKind::Double), arg->type, arg, CastKind::Floating);
+                                    insert_implicit_cast(TypeInfo::get_basic(TypeKind::Double), arg->type, arg, CastKind::Floating);
                                 }
                             } else if (!arg->type->is_pointer()) {
-                                m_context->report_compiler_diagnostic(arg->loc, fmt::format("Passing argument of non-trivial type ('{}') is not allowed", type_info_to_string(arg->type)));
+                                context.report_compiler_diagnostic(arg->loc, fmt::format("Passing argument of non-trivial type ('{}') is not allowed", type_info_to_string(arg->type)));
                             }
                         }
                     }
@@ -525,7 +525,7 @@ namespace ariac {
             }
         }
 
-        expr->type = TypeInfo::get_error(m_context);
+        expr->type = TypeInfo::get_error();
         call.callee->kind = ExprKind::Error;
     }
 
@@ -533,7 +533,7 @@ namespace ariac {
         ConstructExpr& construct = expr->construct;
 
         if (!expr->type) {
-            m_context->report_compiler_diagnostic(expr->loc, "Construct expression requries an explicit type");
+            context.report_compiler_diagnostic(expr->loc, "Construct expression requries an explicit type");
             replace_expr(expr, &error_expr);
             return;
         }
@@ -542,8 +542,8 @@ namespace ariac {
         Decl* s = expr->type->struct_.source_decl;
 
         if (construct.arguments.size > s->struct_.fields.size) {
-            m_context->report_compiler_diagnostic(expr->loc, fmt::format("Too many initializers for '{}', expected {} but provided {}", type_info_to_string(expr->type), s->struct_.fields.size, construct.arguments.size));
-            expr->type = TypeInfo::get_error(m_context);
+            context.report_compiler_diagnostic(expr->loc, fmt::format("Too many initializers for '{}', expected {} but provided {}", type_info_to_string(expr->type), s->struct_.fields.size, construct.arguments.size));
+            expr->type = TypeInfo::get_error();
             return;
         }
 
@@ -561,13 +561,13 @@ namespace ariac {
                 if (cost.implicit_cast_possible) {
                     insert_implicit_cast(fd->field.type, arg->type, arg, cost.kind);
                 } else {
-                    m_context->report_compiler_diagnostic(arg->loc, fmt::format("Could not convert from '{}' to field type '{}'", type_info_to_string(arg->type), type_info_to_string(fd->field.type)));
+                    context.report_compiler_diagnostic(arg->loc, fmt::format("Could not convert from '{}' to field type '{}'", type_info_to_string(arg->type), type_info_to_string(fd->field.type)));
                 }
             }
 
             if (fd->visibility == DeclVisibility::Private) {
-                m_context->report_compiler_diagnostic(arg->loc, fmt::format("Cannot initialize private field '{}'", fd->field.identifier));
-                m_context->report_compiler_diagnostic(fd->loc, "Declared here", CompilerDiagKind::Note, fd->parent_unit);
+                context.report_compiler_diagnostic(arg->loc, fmt::format("Cannot initialize private field '{}'", fd->field.identifier));
+                context.report_compiler_diagnostic(fd->loc, "Declared here", CompilerDiagKind::Note, fd->parent_unit);
             }
         }
     }
@@ -579,8 +579,8 @@ namespace ariac {
         TypeInfo* callee_type = mc.callee->type;
 
         if (!callee_type->is_method() && !callee_type->is_error()) {
-            m_context->report_compiler_diagnostic(expr->loc, "Cannot call an object of non-method type");
-            expr->type = TypeInfo::get_error(m_context);
+            context.report_compiler_diagnostic(expr->loc, "Cannot call an object of non-method type");
+            expr->type = TypeInfo::get_error();
             return;
         }
 
@@ -591,7 +591,7 @@ namespace ariac {
             FunctionType& fn_type = callee_type->function;
 
             if (fn_type.param_types.size != mc.arguments.size) {
-                m_context->report_compiler_diagnostic(expr->loc, fmt::format("Mismatched argument count, method expects {} but got {}", fn_type.param_types.size, mc.arguments.size));
+                context.report_compiler_diagnostic(expr->loc, fmt::format("Mismatched argument count, method expects {} but got {}", fn_type.param_types.size, mc.arguments.size));
                 for (size_t i = 0; i < mc.arguments.size; i++) {
                     resolve_expr(mc.arguments.items[i]);
                 }
@@ -608,7 +608,7 @@ namespace ariac {
                 resolve_expr(arg);
             }
 
-            expr->type = TypeInfo::get_error(m_context);
+            expr->type = TypeInfo::get_error();
         }
     }
 
@@ -619,15 +619,15 @@ namespace ariac {
         resolve_expr(subs.index);
         require_rvalue(subs.index);
 
-        if (subs.array->type->is_error()) { expr->type = TypeInfo::get_error(m_context); return; }
+        if (subs.array->type->is_error()) { expr->type = TypeInfo::get_error(); return; }
 
         switch (subs.array->type->kind) {
             case TypeKind::Pointer: {
                 require_rvalue(subs.array);
 
                 if (subs.array->type->base->is_void()) {
-                    m_context->report_compiler_diagnostic(expr->loc, "Cannot index into 'void*' because it would dereference to 'void'");
-                    expr->type = TypeInfo::get_error(m_context);
+                    context.report_compiler_diagnostic(expr->loc, "Cannot index into 'void*' because it would dereference to 'void'");
+                    expr->type = TypeInfo::get_error();
                     break;
                 }
 
@@ -645,15 +645,15 @@ namespace ariac {
                 break;
             }
 
-            default: m_context->report_compiler_diagnostic(subs.array->loc, "'[' operator can only be used with a pointer/slice/array"); expr->type = TypeInfo::get_error(m_context); break;
+            default: context.report_compiler_diagnostic(subs.array->loc, "'[' operator can only be used with a pointer/slice/array"); expr->type = TypeInfo::get_error(); break;
         }
 
-        ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(m_context, TypeKind::ULong), subs.index->type);
+        ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(TypeKind::ULong), subs.index->type);
         if (cost.cast_needed) {
             if (cost.implicit_cast_possible) {
-                insert_implicit_cast(TypeInfo::get_basic(m_context, TypeKind::ULong), subs.index->type, subs.index, cost.kind);
+                insert_implicit_cast(TypeInfo::get_basic(TypeKind::ULong), subs.index->type, subs.index, cost.kind);
             } else {
-                m_context->report_compiler_diagnostic(subs.index->loc, fmt::format("Array index cannot be implicitly converted from '{}' to 'ulong'", type_info_to_string(subs.index->type)));
+                context.report_compiler_diagnostic(subs.index->loc, fmt::format("Array index cannot be implicitly converted from '{}' to 'ulong'", type_info_to_string(subs.index->type)));
             }
         }
     }
@@ -665,12 +665,12 @@ namespace ariac {
         resolve_expr(tos.len);
         require_rvalue(tos.len);
 
-        if (tos.source->type->is_error()) { expr->type = TypeInfo::get_error(m_context); return; }
+        if (tos.source->type->is_error()) { expr->type = TypeInfo::get_error(); return; }
 
         switch (tos.source->type->kind) {
             case TypeKind::Pointer: {
                 require_rvalue(tos.source);
-                expr->type = TypeInfo::create_with_base(m_context, TypeKind::Slice, tos.source->type->base);
+                expr->type = TypeInfo::create_with_base(TypeKind::Slice, tos.source->type->base);
                 break;
             }
 
@@ -682,19 +682,19 @@ namespace ariac {
             }
 
             case TypeKind::Array: {
-                expr->type = TypeInfo::create_with_base(m_context, TypeKind::Slice, tos.source->type->array.base);
+                expr->type = TypeInfo::create_with_base(TypeKind::Slice, tos.source->type->array.base);
                 break;
             }
 
-            default: m_context->report_compiler_diagnostic(tos.source->loc, "Only a pointer/slice/array can be converted to a slice"); expr->type = TypeInfo::get_error(m_context); break;
+            default: context.report_compiler_diagnostic(tos.source->loc, "Only a pointer/slice/array can be converted to a slice"); expr->type = TypeInfo::get_error(); break;
         }
 
-        ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(m_context, TypeKind::ULong), tos.len->type);
+        ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(TypeKind::ULong), tos.len->type);
         if (cost.cast_needed) {
             if (cost.implicit_cast_possible) {
-                insert_implicit_cast(TypeInfo::get_basic(m_context, TypeKind::ULong), tos.len->type, tos.len, cost.kind);
+                insert_implicit_cast(TypeInfo::get_basic(TypeKind::ULong), tos.len->type, tos.len, cost.kind);
             } else {
-                m_context->report_compiler_diagnostic(tos.len->loc, fmt::format("Slice length cannot be implicitly converted from '{}' to 'ulong'", type_info_to_string(tos.len->type)));
+                context.report_compiler_diagnostic(tos.len->loc, fmt::format("Slice length cannot be implicitly converted from '{}' to 'ulong'", type_info_to_string(tos.len->type)));
             }
         }
     }
@@ -704,7 +704,7 @@ namespace ariac {
         resolve_type(expr->type);
         
         if (expr->result_discarded) {
-            m_context->report_compiler_diagnostic(expr->loc, "Discarding result of 'new' expression is not allowed");
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of 'new' expression is not allowed");
         }
 
         if (n.initializer) {
@@ -714,12 +714,12 @@ namespace ariac {
                 require_rvalue(n.initializer);
                 m_temporary_context = false;
 
-                ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(m_context, TypeKind::ULong), n.initializer->type);
+                ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(TypeKind::ULong), n.initializer->type);
                 if (cost.cast_needed) {
                     if (cost.implicit_cast_possible) {
-                        insert_implicit_cast(TypeInfo::get_basic(m_context, TypeKind::ULong), n.initializer->type, n.initializer, cost.kind);
+                        insert_implicit_cast(TypeInfo::get_basic(TypeKind::ULong), n.initializer->type, n.initializer, cost.kind);
                     } else {
-                        m_context->report_compiler_diagnostic(n.initializer->loc, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(n.initializer->type), type_info_to_string(TypeInfo::get_basic(m_context, TypeKind::ULong))));
+                        context.report_compiler_diagnostic(n.initializer->loc, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(n.initializer->type), type_info_to_string(TypeInfo::get_basic(TypeKind::ULong))));
                     }
                 }
             } else {
@@ -733,7 +733,7 @@ namespace ariac {
                     if (cost.implicit_cast_possible) {
                         insert_implicit_cast(expr->type->base, n.initializer->type, n.initializer, cost.kind);
                     } else {
-                        m_context->report_compiler_diagnostic(n.initializer->loc, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(n.initializer->type), type_info_to_string(expr->type->base)));
+                        context.report_compiler_diagnostic(n.initializer->loc, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(n.initializer->type), type_info_to_string(expr->type->base)));
                     }
                 }
             }
@@ -747,7 +747,7 @@ namespace ariac {
         require_rvalue(d.expression);
 
         if (!d.expression->type->is_pointer()) {
-            m_context->report_compiler_diagnostic(expr->loc, "'delete' can only be used with pointer types");
+            context.report_compiler_diagnostic(expr->loc, "'delete' can only be used with pointer types");
         }
     }
 
@@ -763,30 +763,30 @@ namespace ariac {
                 switch (sz.expression->decl_ref.referenced_decl->kind) {
                     case DeclKind::Struct: {
                         if (sz.expression->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
-                            CompilationUnit* old_unit = m_context->active_comp_unit;
-                            m_context->active_comp_unit = sz.expression->decl_ref.referenced_decl->parent_unit;
+                            CompilationUnit* old_unit = context.active_comp_unit;
+                            context.active_comp_unit = sz.expression->decl_ref.referenced_decl->parent_unit;
                             resolve_struct_decl(sz.expression->decl_ref.referenced_decl);
-                            m_context->active_comp_unit = old_unit;
+                            context.active_comp_unit = old_unit;
                         }
 
-                        sz.type = TypeInfo::create_struct(m_context, sz.expression->decl_ref.referenced_decl);
+                        sz.type = TypeInfo::create_struct(sz.expression->decl_ref.referenced_decl);
                         break;
                     }
 
                     case DeclKind::Typedef: {
                         if (sz.expression->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
-                            CompilationUnit* old_unit = m_context->active_comp_unit;
-                            m_context->active_comp_unit = sz.expression->decl_ref.referenced_decl->parent_unit;
+                            CompilationUnit* old_unit = context.active_comp_unit;
+                            context.active_comp_unit = sz.expression->decl_ref.referenced_decl->parent_unit;
                             resolve_typedef_decl(sz.expression->decl_ref.referenced_decl);
-                            m_context->active_comp_unit = old_unit;
+                            context.active_comp_unit = old_unit;
                         }
 
-                        sz.type = TypeInfo::create_typedef(m_context, sz.expression->decl_ref.referenced_decl);
+                        sz.type = TypeInfo::create_typedef(sz.expression->decl_ref.referenced_decl);
                         break;
                     }
 
                     case DeclKind::GenericParameter: {
-                        sz.type = TypeInfo::create_generic(m_context, sz.expression->decl_ref.identifier);
+                        sz.type = TypeInfo::create_generic(sz.expression->decl_ref.identifier);
                         break;
                     }
 
@@ -804,7 +804,7 @@ namespace ariac {
         expr->value_kind = paren.expression->value_kind;
 
         if (expr->result_discarded) {
-            m_context->report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
         }
     }
 
@@ -827,12 +827,12 @@ namespace ariac {
             if (cost.explicit_cast_possible) {
                 insert_implicit_cast(dstType, srcType, cast.expression, cost.kind);
             } else {
-                m_context->report_compiler_diagnostic(expr->loc, fmt::format("Cannot cast '{}' to '{}'", type_info_to_string(srcType), type_info_to_string(dstType)));
+                context.report_compiler_diagnostic(expr->loc, fmt::format("Cannot cast '{}' to '{}'", type_info_to_string(srcType), type_info_to_string(dstType)));
             }
         }
 
         if (expr->result_discarded) {
-            m_context->report_compiler_diagnostic(expr->loc, "Discarding result of explicit cast", CompilerDiagKind::Warning);
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of explicit cast", CompilerDiagKind::Warning);
         }
     }
 
@@ -852,10 +852,10 @@ namespace ariac {
                 require_rvalue(unop.expression);
 
                 if (!type->is_boolean()) {
-                    m_context->report_compiler_diagnostic(unop.expression->loc, fmt::format("Expression must be of type 'bool' but is '{}'", type_info_to_string(type)));
+                    context.report_compiler_diagnostic(unop.expression->loc, fmt::format("Expression must be of type 'bool' but is '{}'", type_info_to_string(type)));
                 }
 
-                expr->type = TypeInfo::get_basic(m_context, TypeKind::Bool);
+                expr->type = TypeInfo::get_basic(TypeKind::Bool);
                 break;
             }
 
@@ -865,7 +865,7 @@ namespace ariac {
 
                 if (type->is_integral()) {
                     if (type->is_unsigned()) {
-                        m_context->report_compiler_diagnostic(expr->loc, fmt::format("Cannot negate expression of unsigned type '{}'", type_info_to_string(type)));
+                        context.report_compiler_diagnostic(expr->loc, fmt::format("Cannot negate expression of unsigned type '{}'", type_info_to_string(type)));
                     }
                 }
 
@@ -877,10 +877,10 @@ namespace ariac {
                 if (type->is_error()) { expr->type = type; break; }
 
                 if (unop.expression->value_kind != ExprValueKind::LValue) {
-                    m_context->report_compiler_diagnostic(expr->loc, "Address of operation ('&') requries an lvalue");
+                    context.report_compiler_diagnostic(expr->loc, "Address of operation ('&') requries an lvalue");
                 }
 
-                TypeInfo* new_type = TypeInfo::create_with_base(m_context, TypeKind::Pointer, type);
+                TypeInfo* new_type = TypeInfo::create_with_base(TypeKind::Pointer, type);
                 expr->type = new_type;
                 break;
             }
@@ -889,10 +889,10 @@ namespace ariac {
                 if (type->is_error()) { expr->type = type; break; }
 
                 if (unop.expression->value_kind != ExprValueKind::RValue) {
-                    m_context->report_compiler_diagnostic(expr->loc, "RValue address of operation ('&&') requries an rvalue");
+                    context.report_compiler_diagnostic(expr->loc, "RValue address of operation ('&&') requries an rvalue");
                 }
 
-                TypeInfo* new_type = TypeInfo::create_with_base(m_context, TypeKind::Pointer, type);
+                TypeInfo* new_type = TypeInfo::create_with_base(TypeKind::Pointer, type);
                 expr->type = new_type;
                 break;
             }
@@ -901,17 +901,17 @@ namespace ariac {
                 if (type->is_error()) { expr->type = type; break; }
 
                 if (unop.expression->value_kind != ExprValueKind::LValue) {
-                    m_context->report_compiler_diagnostic(expr->loc, "Dereferencing requires an lvalue");
+                    context.report_compiler_diagnostic(expr->loc, "Dereferencing requires an lvalue");
                 }
 
                 require_rvalue(unop.expression);
 
                 if (type->is_pointer()) {
                     if (type->base->is_void()) {
-                        m_context->report_compiler_diagnostic(expr->loc, "Cannot dereference a void*");
+                        context.report_compiler_diagnostic(expr->loc, "Cannot dereference a void*");
                     }
                 } else {
-                    m_context->report_compiler_diagnostic(expr->loc, "Dereferencing requires a pointer type");
+                    context.report_compiler_diagnostic(expr->loc, "Dereferencing requires a pointer type");
                     break;
                 }
 
@@ -923,15 +923,15 @@ namespace ariac {
             case UnaryOperatorKind::Increment: {
                 if (!unop.expression->type->is_error()) {
                     if (!unop.expression->type->is_numeric()) {
-                        m_context->report_compiler_diagnostic(unop.expression->loc, fmt::format("Expression must be of a numeric type but is of type '{}'", type_info_to_string(unop.expression->type)));
-                        expr->type = TypeInfo::get_error(m_context);
+                        context.report_compiler_diagnostic(unop.expression->loc, fmt::format("Expression must be of a numeric type but is of type '{}'", type_info_to_string(unop.expression->type)));
+                        expr->type = TypeInfo::get_error();
                         break;
                     }
                 }
 
                 if (unop.expression->value_kind != ExprValueKind::LValue) {
-                    m_context->report_compiler_diagnostic(unop.expression->loc, "Expression must be a modifiable lvalue");
-                    expr->type = TypeInfo::get_error(m_context);
+                    context.report_compiler_diagnostic(unop.expression->loc, "Expression must be a modifiable lvalue");
+                    expr->type = TypeInfo::get_error();
                     break;
                 }
 
@@ -943,15 +943,15 @@ namespace ariac {
             case UnaryOperatorKind::Decrement: {
                 if (!unop.expression->type->is_error()) {
                     if (!unop.expression->type->is_numeric()) {
-                        m_context->report_compiler_diagnostic(unop.expression->loc, fmt::format("Expression must be of a numeric type but is of type '{}'", type_info_to_string(unop.expression->type)));
-                        expr->type = TypeInfo::get_error(m_context);
+                        context.report_compiler_diagnostic(unop.expression->loc, fmt::format("Expression must be of a numeric type but is of type '{}'", type_info_to_string(unop.expression->type)));
+                        expr->type = TypeInfo::get_error();
                         break;
                     }
                 }
 
                 if (unop.expression->value_kind != ExprValueKind::LValue) {
-                    m_context->report_compiler_diagnostic(unop.expression->loc, "Expression must be a modifiable lvalue");
-                    expr->type = TypeInfo::get_error(m_context);
+                    context.report_compiler_diagnostic(unop.expression->loc, "Expression must be a modifiable lvalue");
+                    expr->type = TypeInfo::get_error();
                     break;
                 }
 
@@ -985,14 +985,14 @@ namespace ariac {
             case BinaryOperatorKind::Mod: {
                 if (!LHS->type->is_error()) {
                     if (!LHS->type->is_numeric()) {
-                        m_context->report_compiler_diagnostic(LHS->loc, fmt::format("Expression must be of a numeric type but is of type '{}'", type_info_to_string(LHS->type)));
-                        expr->type = TypeInfo::get_error(m_context);
+                        context.report_compiler_diagnostic(LHS->loc, fmt::format("Expression must be of a numeric type but is of type '{}'", type_info_to_string(LHS->type)));
+                        expr->type = TypeInfo::get_error();
                         break;
                     }
 
                     if (!RHS->type->is_numeric()) {
-                        m_context->report_compiler_diagnostic(RHS->loc, fmt::format("Expression must be of a numeric type but is of type '{}'", type_info_to_string(RHS->type)));
-                        expr->type = TypeInfo::get_error(m_context);
+                        context.report_compiler_diagnostic(RHS->loc, fmt::format("Expression must be of a numeric type but is of type '{}'", type_info_to_string(RHS->type)));
+                        expr->type = TypeInfo::get_error();
                         break;
                     }
                 }
@@ -1003,7 +1003,7 @@ namespace ariac {
                 expr->value_kind = ExprValueKind::RValue;
 
                 if (expr->result_discarded) {
-                    m_context->report_compiler_diagnostic(expr->loc, "Discarding result of binary operator", CompilerDiagKind::Warning);
+                    context.report_compiler_diagnostic(expr->loc, "Discarding result of binary operator", CompilerDiagKind::Warning);
                 }
 
                 return;
@@ -1017,25 +1017,25 @@ namespace ariac {
             case BinaryOperatorKind::IsNotEq: {
                 if (!LHS->type->is_error()) {
                     if (!LHS->type->is_num_or_ptr()) {
-                        m_context->report_compiler_diagnostic(LHS->loc, fmt::format("Expression must be of a numeric or pointer type but is of type '{}'", type_info_to_string(LHS->type)));
-                        expr->type = TypeInfo::get_error(m_context);
+                        context.report_compiler_diagnostic(LHS->loc, fmt::format("Expression must be of a numeric or pointer type but is of type '{}'", type_info_to_string(LHS->type)));
+                        expr->type = TypeInfo::get_error();
                         break;
                     }
 
                     if (!RHS->type->is_num_or_ptr()) {
-                        m_context->report_compiler_diagnostic(RHS->loc, fmt::format("Expression must be of a numeric or pointer type but is of type '{}'", type_info_to_string(RHS->type)));
-                        expr->type = TypeInfo::get_error(m_context);
+                        context.report_compiler_diagnostic(RHS->loc, fmt::format("Expression must be of a numeric or pointer type but is of type '{}'", type_info_to_string(RHS->type)));
+                        expr->type = TypeInfo::get_error();
                         break;
                     }
                 }
 
                 insert_arithmetic_promotion(LHS, RHS);
 
-                expr->type = TypeInfo::get_basic(m_context, TypeKind::Bool);
+                expr->type = TypeInfo::get_basic(TypeKind::Bool);
                 expr->value_kind = ExprValueKind::RValue;
 
                 if (expr->result_discarded) {
-                    m_context->report_compiler_diagnostic(expr->loc, "Discarding result of binary operator", CompilerDiagKind::Warning);
+                    context.report_compiler_diagnostic(expr->loc, "Discarding result of binary operator", CompilerDiagKind::Warning);
                 }
                 return;
             }
@@ -1047,11 +1047,11 @@ namespace ariac {
             case BinaryOperatorKind::Shr: {
                 if (!LHS->type->is_error()) {
                     if (!LHS->type->is_integral()) {
-                        m_context->report_compiler_diagnostic(LHS->loc, fmt::format("Expression must be of a integral type but is of type '{}'", type_info_to_string(LHS->type)));
+                        context.report_compiler_diagnostic(LHS->loc, fmt::format("Expression must be of a integral type but is of type '{}'", type_info_to_string(LHS->type)));
                     }
 
                     if (!LHS->type->is_integral()) {
-                        m_context->report_compiler_diagnostic(RHS->loc, fmt::format("Expression must be of a integral type but is of type '{}'", type_info_to_string(RHS->type)));
+                        context.report_compiler_diagnostic(RHS->loc, fmt::format("Expression must be of a integral type but is of type '{}'", type_info_to_string(RHS->type)));
                     }
                 }
 
@@ -1061,7 +1061,7 @@ namespace ariac {
                 expr->value_kind = ExprValueKind::RValue;
 
                 if (expr->result_discarded) {
-                    m_context->report_compiler_diagnostic(expr->loc, "Discarding result of bitwise operator", CompilerDiagKind::Warning);
+                    context.report_compiler_diagnostic(expr->loc, "Discarding result of bitwise operator", CompilerDiagKind::Warning);
                 }
                 return;
             }
@@ -1071,12 +1071,12 @@ namespace ariac {
                 expr->value_kind = ExprValueKind::LValue;
 
                 if (LHS->value_kind != ExprValueKind::LValue) {
-                    m_context->report_compiler_diagnostic(LHS->loc, "Expression must be a modifiable lvalue");
+                    context.report_compiler_diagnostic(LHS->loc, "Expression must be a modifiable lvalue");
                     return;
                 }
 
                 if (is_const_expr(LHS)) {
-                    m_context->report_compiler_diagnostic(LHS->loc, "Cannot assign to constant expression");
+                    context.report_compiler_diagnostic(LHS->loc, "Cannot assign to constant expression");
                     return;
                 }
 
@@ -1088,7 +1088,7 @@ namespace ariac {
                     if (cost.implicit_cast_possible) {
                         insert_implicit_cast(LHS->type, RHS->type, RHS, cost.kind);
                     } else {
-                        m_context->report_compiler_diagnostic(expr->loc, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(RHS->type), type_info_to_string(LHS->type)));
+                        context.report_compiler_diagnostic(expr->loc, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(RHS->type), type_info_to_string(LHS->type)));
                     }
                 }
 
@@ -1100,30 +1100,30 @@ namespace ariac {
                 require_rvalue(LHS);
                 require_rvalue(RHS);
 
-                ConversionCost costLHS = get_conversion_cost(TypeInfo::get_basic(m_context, TypeKind::Bool), LHS->type);
-                ConversionCost costRHS = get_conversion_cost(TypeInfo::get_basic(m_context, TypeKind::Bool), RHS->type);
+                ConversionCost costLHS = get_conversion_cost(TypeInfo::get_basic(TypeKind::Bool), LHS->type);
+                ConversionCost costRHS = get_conversion_cost(TypeInfo::get_basic(TypeKind::Bool), RHS->type);
 
                 if (costLHS.cast_needed) {
                     if (costLHS.implicit_cast_possible) {
-                        insert_implicit_cast(TypeInfo::get_basic(m_context, TypeKind::Bool), LHS->type, LHS, costLHS.kind);
+                        insert_implicit_cast(TypeInfo::get_basic(TypeKind::Bool), LHS->type, LHS, costLHS.kind);
                     } else {
-                        m_context->report_compiler_diagnostic(LHS->loc, fmt::format("Cannot implicitly convert from '{}' to 'bool'", type_info_to_string(LHS->type)));
+                        context.report_compiler_diagnostic(LHS->loc, fmt::format("Cannot implicitly convert from '{}' to 'bool'", type_info_to_string(LHS->type)));
                     }
                 }
 
                 if (costRHS.cast_needed) {
                     if (costRHS.implicit_cast_possible) {
-                        insert_implicit_cast(TypeInfo::get_basic(m_context, TypeKind::Bool), RHS->type, RHS, costRHS.kind);
+                        insert_implicit_cast(TypeInfo::get_basic(TypeKind::Bool), RHS->type, RHS, costRHS.kind);
                     } else {
-                        m_context->report_compiler_diagnostic(LHS->loc, fmt::format("Cannot implicitly convert from '{}' to 'bool'", type_info_to_string(RHS->type)));
+                        context.report_compiler_diagnostic(LHS->loc, fmt::format("Cannot implicitly convert from '{}' to 'bool'", type_info_to_string(RHS->type)));
                     }
                 }
 
-                expr->type = TypeInfo::get_basic(m_context, TypeKind::Bool);
+                expr->type = TypeInfo::get_basic(TypeKind::Bool);
                 expr->value_kind = ExprValueKind::RValue;
 
                 if (expr->result_discarded) {
-                    m_context->report_compiler_diagnostic(expr->loc, "Discarding result of logical operator", CompilerDiagKind::Warning);
+                    context.report_compiler_diagnostic(expr->loc, "Discarding result of logical operator", CompilerDiagKind::Warning);
                 }
                 return;
             }
@@ -1147,12 +1147,12 @@ namespace ariac {
         Expr* RHS = comp.rhs;
        
         if (LHS->value_kind != ExprValueKind::LValue) {
-            m_context->report_compiler_diagnostic(LHS->loc, "Expression must be a modifiable lvalue");
+            context.report_compiler_diagnostic(LHS->loc, "Expression must be a modifiable lvalue");
             return;
         }
 
         if (is_const_expr(LHS)) {
-            m_context->report_compiler_diagnostic(LHS->loc, "Cannot assign to constant expression");
+            context.report_compiler_diagnostic(LHS->loc, "Cannot assign to constant expression");
             return;
         }
 
@@ -1163,7 +1163,7 @@ namespace ariac {
                 insert_implicit_cast(LHS->type, RHS->type, RHS, cost.kind);
                 *RHS->type = *LHS->type;
             } else {
-                m_context->report_compiler_diagnostic(comp.rhs->loc, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(RHS->type), type_info_to_string(LHS->type)));
+                context.report_compiler_diagnostic(comp.rhs->loc, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(RHS->type), type_info_to_string(LHS->type)));
             }
         }
     }
@@ -1204,16 +1204,16 @@ namespace ariac {
         Module* mod = nullptr;
         
         // We may be referencing ourselves
-        if (compare_module_names(name.identifier, m_context->active_comp_unit->parent->name)) {
-            mod = m_context->active_comp_unit->parent;
+        if (compare_module_names(name.identifier, context.active_comp_unit->parent->name)) {
+            mod = context.active_comp_unit->parent;
         }
 
-        for (Decl* import : m_context->active_comp_unit->imports) {
+        for (Decl* import : context.active_comp_unit->imports) {
             ARIA_ASSERT(import->kind == DeclKind::Import, "Invalid import stmt");
 
             if (compare_module_names(name.identifier, import->import.alias.empty() ? import->import.name : import->import.alias)) {
                 if (mod) {
-                    m_context->report_compiler_diagnostic(specifier->loc, fmt::format("Ambigous name specifier '{}'", name.identifier));
+                    context.report_compiler_diagnostic(specifier->loc, fmt::format("Ambigous name specifier '{}'", name.identifier));
                     return;
                 }
 
@@ -1223,7 +1223,7 @@ namespace ariac {
         }
 
         if (!mod) {
-            m_context->report_compiler_diagnostic(specifier->loc, fmt::format("Could not find module '{}'", name.identifier));
+            context.report_compiler_diagnostic(specifier->loc, fmt::format("Could not find module '{}'", name.identifier));
             return;
         } else {
             name.referenced_module = mod;
@@ -1269,19 +1269,19 @@ namespace ariac {
 
         switch (expr->kind) {
             case ExprKind::Error: 
-                return Expr::Create(m_context, expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Error));
+                return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Error));
 
             case ExprKind::BooleanLiteral: 
-                return Expr::Create(m_context, expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Boolean, expr->boolean_literal.value));
+                return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Boolean, expr->boolean_literal.value));
 
             case ExprKind::IntegerLiteral: 
-                return Expr::Create(m_context, expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Integer, expr->integer_literal.value));
+                return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Integer, expr->integer_literal.value));
 
             case ExprKind::FloatingLiteral: 
-                return Expr::Create(m_context, expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Floating, expr->floating_literal.value));
+                return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Floating, expr->floating_literal.value));
 
             case ExprKind::StringLiteral: 
-                return Expr::Create(m_context, expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::String, expr->string_literal.value));
+                return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::String, expr->string_literal.value));
 
             case ExprKind::DeclRef:
                 resolve_decl(expr->decl_ref.referenced_decl);
@@ -1295,7 +1295,7 @@ namespace ariac {
                     arg = eval_const_expr(arg);
                 }
 
-                return Expr::Create(m_context, expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Struct, expr->construct.arguments));
+                return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Struct, expr->construct.arguments));
 
             case ExprKind::Paren:
                 return eval_const_expr(expr->paren.expression);
@@ -1330,7 +1330,7 @@ namespace ariac {
 
             case ExprKind::ImplicitCast: {
                 #define CAST(t, e) static_cast<t>(e)
-                #define INT(x) Expr::Create(m_context, expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Integer, x))
+                #define INT(x) Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Integer, x))
 
                 switch (expr->implicit_cast.kind) {
                     case CastKind::Integral: {
@@ -1391,13 +1391,13 @@ namespace ariac {
                     case BinaryOperatorKind::Add: {
                         switch (lhs->const_.kind) {
                             case ConstExprKind::Integer: {
-                                return Expr::Create(m_context, expr->loc, ExprKind::Const, 
+                                return Expr::Create(expr->loc, ExprKind::Const, 
                                     ExprValueKind::RValue, lhs->type, 
                                     ConstExpr(ConstExprKind::Integer, lhs->const_.integer + rhs->const_.integer));
                             }
 
                             case ConstExprKind::Floating: {
-                                return Expr::Create(m_context, expr->loc, ExprKind::Const, 
+                                return Expr::Create(expr->loc, ExprKind::Const, 
                                     ExprValueKind::RValue, lhs->type, 
                                     ConstExpr(ConstExprKind::Floating, lhs->const_.number + rhs->const_.number));
                             }
@@ -1411,13 +1411,13 @@ namespace ariac {
                     case BinaryOperatorKind::Mul: {
                         switch (lhs->const_.kind) {
                             case ConstExprKind::Integer: {
-                                return Expr::Create(m_context, expr->loc, ExprKind::Const, 
+                                return Expr::Create(expr->loc, ExprKind::Const, 
                                     ExprValueKind::RValue, lhs->type, 
                                     ConstExpr(ConstExprKind::Integer, lhs->const_.integer * rhs->const_.integer));
                             }
 
                             case ConstExprKind::Floating: {
-                                return Expr::Create(m_context, expr->loc, ExprKind::Const, 
+                                return Expr::Create(expr->loc, ExprKind::Const, 
                                     ExprValueKind::RValue, lhs->type, 
                                     ConstExpr(ConstExprKind::Floating, lhs->const_.number * rhs->const_.number));
                             }
@@ -1432,11 +1432,11 @@ namespace ariac {
                         switch (lhs->const_.kind) {
                             case ConstExprKind::Integer: {
                                 if (lhs->type->is_signed() && rhs->type->is_signed()) {
-                                    return Expr::Create(m_context, expr->loc, ExprKind::Const, 
+                                    return Expr::Create(expr->loc, ExprKind::Const, 
                                         ExprValueKind::RValue, lhs->type, 
                                         ConstExpr(ConstExprKind::Integer, static_cast<i64>(lhs->const_.integer) / static_cast<i64>(rhs->const_.integer)));
                                 } else if (lhs->type->is_unsigned() && rhs->type->is_unsigned()) {
-                                    return Expr::Create(m_context, expr->loc, ExprKind::Const, 
+                                    return Expr::Create(expr->loc, ExprKind::Const, 
                                         ExprValueKind::RValue, lhs->type, 
                                         ConstExpr(ConstExprKind::Integer, lhs->const_.integer / rhs->const_.integer));
                                 } else {
@@ -1447,7 +1447,7 @@ namespace ariac {
                             }
 
                             case ConstExprKind::Floating: {
-                                return Expr::Create(m_context, expr->loc, ExprKind::Const, 
+                                return Expr::Create(expr->loc, ExprKind::Const, 
                                     ExprValueKind::RValue, lhs->type, 
                                     ConstExpr(ConstExprKind::Floating, lhs->const_.number / rhs->const_.number));
                             }
@@ -1473,8 +1473,8 @@ namespace ariac {
             require_rvalue(srcExpr);
         }
 
-        Expr* src = Expr::dup(m_context, srcExpr); // We must copy the original expression to avoid overwriting the same memory
-        Expr* implicitCast = Expr::Create(m_context, src->loc, ExprKind::ImplicitCast, ExprValueKind::RValue, dstType, ImplicitCastExpr(src, castKind));
+        Expr* src = Expr::dup(srcExpr); // We must copy the original expression to avoid overwriting the same memory
+        Expr* implicitCast = Expr::Create(src->loc, ExprKind::ImplicitCast, ExprValueKind::RValue, dstType, ImplicitCastExpr(src, castKind));
 
         replace_expr(srcExpr, implicitCast);
     }
@@ -1489,12 +1489,12 @@ namespace ariac {
         switch (expr->type->kind) {
             case TypeKind::IChar:
             case TypeKind::Short:
-                insert_implicit_cast(TypeInfo::get_basic(m_context, TypeKind::Int), expr->type, expr, CastKind::Integral);
+                insert_implicit_cast(TypeInfo::get_basic(TypeKind::Int), expr->type, expr, CastKind::Integral);
                 break;
 
             case TypeKind::Char:
             case TypeKind::UShort:
-                insert_implicit_cast(TypeInfo::get_basic(m_context, TypeKind::UInt), expr->type, expr, CastKind::Integral);
+                insert_implicit_cast(TypeInfo::get_basic(TypeKind::UInt), expr->type, expr, CastKind::Integral);
                 break;
 
             default: break;
@@ -1526,7 +1526,7 @@ namespace ariac {
                 insert_implicit_cast(rhs->type, lhs->type, lhs, CastKind::Integral);
             } else if (l_size == r_size) {
                 if (lhs->type->is_signed() != rhs->type->is_signed()) {
-                    m_context->report_compiler_diagnostic_with_notes(lhs->loc, 
+                    context.report_compiler_diagnostic_with_notes(lhs->loc, 
                         fmt::format("Mismatched types '{}' and '{}'", type_info_to_string(&lhs_type), type_info_to_string(&rhs_type)),
                         { "implicit signedness conversions are not allowed here"} );
                 }
@@ -1559,13 +1559,13 @@ namespace ariac {
         }
 
         if (lhs->type->is_pointer() && rhs->type->is_pointer()) {
-            insert_implicit_cast(TypeInfo::get_void_ptr(m_context), lhs->type, lhs, CastKind::BitCast);
-            insert_implicit_cast(TypeInfo::get_void_ptr(m_context), rhs->type, rhs, CastKind::BitCast);
+            insert_implicit_cast(TypeInfo::get_void_ptr(), lhs->type, lhs, CastKind::BitCast);
+            insert_implicit_cast(TypeInfo::get_void_ptr(), rhs->type, rhs, CastKind::BitCast);
             return;
         }
 
         if (!type_is_equal(lhs->type, rhs->type)) {
-            m_context->report_compiler_diagnostic(lhs->loc,
+            context.report_compiler_diagnostic(lhs->loc,
                 fmt::format("Mismatched types '{}' and '{}'", type_info_to_string(lhs->type), type_info_to_string(rhs->type)));
         }
 

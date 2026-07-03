@@ -257,12 +257,11 @@ namespace ariac {
 
     struct Decl {
         template <typename T>
-        static inline Decl* Create(CompilationContext* ctx, 
-            SourceLoc loc,
+        static inline Decl* Create(SourceLoc loc,
             DeclKind kind, DeclVisibility visibility, 
-            T t = ErrorDecl{}) { return ctx->allocate<Decl>(loc, kind, visibility, t); }
+            T t = ErrorDecl{}) { return context.allocate<Decl>(loc, kind, visibility, t); }
 
-        static Decl* dup(CompilationContext* ctx, Decl* d);
+        static Decl* dup(Decl* d);
 
         DeclKind kind = DeclKind::Invalid;
         DeclVisibility visibility = DeclVisibility::Public;

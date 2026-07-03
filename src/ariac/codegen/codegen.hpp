@@ -71,8 +71,7 @@ namespace ariac {
         };
 
     public:
-        Codegen(CompilationContext* ctx);
-        ~Codegen();
+        Codegen();
 
     private:
         void gen_impl();
@@ -168,8 +167,6 @@ namespace ariac {
 
         llvm::AllocaInst* m_self_value = nullptr;
         ABIRetTypeInfo m_ret_type_abi;
-    
-        CompilationContext* m_context = nullptr;
     };
 
 } // namespace ariac

@@ -6,9 +6,8 @@
 
 namespace ariac {
 
-    Lexer::Lexer(CompilationContext* ctx) {
-        m_context = ctx;
-        m_source = ctx->active_comp_unit->source;
+    Lexer::Lexer() {
+        m_source = context.active_comp_unit->source;
 
         lex_impl();
     }
@@ -20,7 +19,7 @@ namespace ariac {
             char c = peek();
 
             if (c == '\0') {
-                m_context->active_comp_unit->tokens = m_tokens;
+                context.active_comp_unit->tokens = m_tokens;
                 return;
             }
 
@@ -175,7 +174,7 @@ namespace ariac {
                         break;
                     }
 
-                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("Unknown character '{}' ({:x})", c, c));
+                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("Unknown character '{}' ({:x})", c, c));
                     consume();
                     break;
                 }
@@ -216,7 +215,7 @@ namespace ariac {
 
         if (try_consume('\'')) {
             loc.len = m_index - start_index;
-            m_context->report_compiler_diagnostic(loc, "Empty character literals are not allowed");
+            context.report_compiler_diagnostic(loc, "Empty character literals are not allowed");
             return;
         }
 
@@ -224,7 +223,7 @@ namespace ariac {
         loc.len = m_index - start_index;
 
         if (!try_consume('\'')) {
-            m_context->report_compiler_diagnostic(loc, "Unterminated character literal");
+            context.report_compiler_diagnostic(loc, "Unterminated character literal");
             return;
         }
 
@@ -274,7 +273,7 @@ namespace ariac {
                 } else if (std::tolower(peek()) == 'a' || std::tolower(peek()) == 'b'
                         || std::tolower(peek()) == 'c' || std::tolower(peek()) == 'd'
                         || std::tolower(peek()) == 'e' || std::tolower(peek()) == 'f') {
-                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("invalid hexadecimal digit '{}' in decimal literal", peek()));
+                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("invalid hexadecimal digit '{}' in decimal literal", peek()));
                     consume();
                     errored = true;
                 } else {
@@ -292,13 +291,13 @@ namespace ariac {
                 if (peek() >= '0' && peek() <= '7') {
                     consume();
                 } else if (peek() == '8' || peek() == '9') {
-                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("invalid digit '{}' in octal literal", peek()));
+                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("invalid digit '{}' in octal literal", peek()));
                     consume();
                     errored = true;
                 } else if (std::tolower(peek()) == 'a' || std::tolower(peek()) == 'b'
                         || std::tolower(peek()) == 'c' || std::tolower(peek()) == 'd'
                         || std::tolower(peek()) == 'e' || std::tolower(peek()) == 'f') {
-                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("invalid hexadecimal digit '{}' in octal literal", peek()));
+                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("invalid hexadecimal digit '{}' in octal literal", peek()));
                     consume();
                     errored = true;
                 } else {
@@ -308,13 +307,13 @@ namespace ariac {
                 if (peek() == '0' || peek() == '1') {
                     consume();
                 } else if (std::isdigit(peek())) {
-                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("invalid digit '{}' in binary literal", peek()));
+                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("invalid digit '{}' in binary literal", peek()));
                     consume();
                     errored = true;
                 } else if (std::tolower(peek()) == 'a' || std::tolower(peek()) == 'b'
                         || std::tolower(peek()) == 'c' || std::tolower(peek()) == 'd'
                         || std::tolower(peek()) == 'e' || std::tolower(peek()) == 'f') {
-                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("invalid hexadecimal digit '{}' in binary literal", peek()));
+                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("invalid hexadecimal digit '{}' in binary literal", peek()));
                     consume();
                     errored = true;
                 } else {
@@ -330,7 +329,7 @@ namespace ariac {
             char suffix = std::tolower(peek());
             if (suffix == 'u' || suffix == 'i') {
                 if (encounteredPeriod) {
-                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), 1), fmt::format("cannot use '{}' suffix in a floating-point literal", suffix));
+                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), 1), fmt::format("cannot use '{}' suffix in a floating-point literal", suffix));
                     consume();
                     errored = true;
                 } else {
@@ -347,7 +346,7 @@ namespace ariac {
                 auto [ptr, ec] = std::from_chars(buf.data(), buf.data() + buf.length(), number); 
 
                 if (ec == std::errc::result_out_of_range) {
-                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()), "magnitude of floating-point literal is too large, maximum is 1.7976931348623157E+308");
+                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()), "magnitude of floating-point literal is too large, maximum is 1.7976931348623157E+308");
                     number = 0.0;
                 }
             }
@@ -368,7 +367,7 @@ namespace ariac {
 
                 if (ec == std::errc::result_out_of_range) {
                     SourceLoc loc;
-                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()), "integer literal is too large to fit into any integer type");
+                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()), "integer literal is too large to fit into any integer type");
                     integer = 0;
                 }
             }
@@ -416,7 +415,7 @@ namespace ariac {
                 case '\n':
                 case '\0': {
                     loop = false;
-                    m_context->report_compiler_diagnostic(loc, "Unterminated string literal");
+                    context.report_compiler_diagnostic(loc, "Unterminated string literal");
                     return;
                 }
 
@@ -427,7 +426,7 @@ namespace ariac {
             }
         }
 
-        add_token(c_style ? TokenKind::CStrLit : TokenKind::StrLit, loc, scratch_buffer_to_str(m_context));
+        add_token(c_style ? TokenKind::CStrLit : TokenKind::StrLit, loc, scratch_buffer_to_str());
     }
 
     void Lexer::parse_hash_symbol() {
@@ -449,7 +448,7 @@ namespace ariac {
 
         if (scratch_buffer_cmp("#private")) { add_token(TokenKind::HashPrivate, loc, "#private"); return; }
 
-        m_context->report_compiler_diagnostic(loc, "Unknown identifier following '#'");
+        context.report_compiler_diagnostic(loc, "Unknown identifier following '#'");
     }
 
     void Lexer::parse_at_symbol() {
@@ -471,7 +470,7 @@ namespace ariac {
 
         if (scratch_buffer_cmp("@if")) { add_token(TokenKind::AtIf, loc, "@if"); return; }
 
-        m_context->report_compiler_diagnostic(loc, "Unknown identifier following '@'");
+        context.report_compiler_diagnostic(loc, "Unknown identifier following '@'");
     }
 
     void Lexer::parse_identifier() {
@@ -530,7 +529,7 @@ namespace ariac {
         if (scratch_buffer_cmp("float"))    { add_token(TokenKind::Float,    loc, "float");    return; }
         if (scratch_buffer_cmp("double"))   { add_token(TokenKind::Double,   loc, "double");   return; }
 
-        add_token(TokenKind::Identifier, loc, scratch_buffer_to_str(m_context));
+        add_token(TokenKind::Identifier, loc, scratch_buffer_to_str());
     }
 
     void Lexer::parse_single_line_comment() {
@@ -598,7 +597,7 @@ namespace ariac {
                 case '\'': consume(); return '\'';
 
                 default: {
-                    m_context->report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 2), "Unknown escape sequence");
+                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 2), "Unknown escape sequence");
                     return '\\';
                 }
             }

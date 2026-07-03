@@ -4,9 +4,7 @@
 
 namespace ariac {
 
-    struct CompilationContext;
-
-    void* alloc_arena(CompilationContext* ctx, size_t size);
+    void* alloc_arena(size_t size);
 
     template <typename T>
     struct TinyVector {
@@ -17,16 +15,16 @@ namespace ariac {
         size_t capacity = 0;
         size_t size = 0;
     
-        inline void append(CompilationContext* ctx, T t) {
+        inline void append(T t) {
             if (capacity == 0) {
-                items = reinterpret_cast<T*>(alloc_arena(ctx, sizeof(T) * 32));
+                items = reinterpret_cast<T*>(alloc_arena(sizeof(T) * 32));
                 capacity = 32;
             }
     
             if (size >= capacity) {
                 capacity *= 2;
     
-                T* newitems = reinterpret_cast<T*>(alloc_arena(ctx, sizeof(T) * capacity));
+                T* newitems = reinterpret_cast<T*>(alloc_arena(sizeof(T) * capacity));
                 memcpy(newitems, items, sizeof(T) * size);
                 items = newitems;
             }

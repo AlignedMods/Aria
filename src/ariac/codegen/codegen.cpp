@@ -8,23 +8,19 @@
 
 namespace ariac {
 
-    Codegen::Codegen(CompilationContext* ctx) {
-        m_context = ctx;
+    Codegen::Codegen() {
         gen_impl();
-    }
-
-    Codegen::~Codegen() {
     }
 
     void Codegen::gen_impl() {
         setup_env();
 
         try {
-            for (Module* mod : m_context->modules) {
+            for (Module* mod : context.modules) {
                 gen_mod_to_ir(mod);
                 gen_mod_to_obj(mod);
 
-                if (m_context->flags.dump_ir) {
+                if (context.flags.dump_ir) {
                     gen_mod_ir_dump(mod);
                 }
             }
@@ -112,12 +108,12 @@ namespace ariac {
             }
         }
 
-        if (m_context->main_func && m_context->main_func->parent_module == mod) {
+        if (context.main_func && context.main_func->parent_module == mod) {
             llvm::Type* void_type = llvm::Type::getVoidTy(*m_active_module_context.context);
             llvm::Type* int32_type = llvm::Type::getInt32Ty(*m_active_module_context.context);
             llvm::Type* int64_type = llvm::Type::getInt64Ty(*m_active_module_context.context);
             llvm::Type* ptr_type = llvm::PointerType::get(*m_active_module_context.context, 0);
-            llvm::Type* slice_type = type_info_to_llvm_type(m_context->main_func->function.parameters.items[0]->param.type);
+            llvm::Type* slice_type = type_info_to_llvm_type(context.main_func->function.parameters.items[0]->param.type);
 
             llvm::Function* main = llvm::Function::Create(llvm::FunctionType::get(int32_type, { int32_type, ptr_type}, false), llvm::GlobalValue::LinkageTypes::ExternalLinkage, "main", *m_active_module_context.module);
             m_active_module_context.function = main;
@@ -126,11 +122,11 @@ namespace ariac {
             m_active_module_context.builder->SetInsertPoint(bb);
             m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
 
-            llvm::FunctionCallee callee = llvm::FunctionCallee(m_active_module_context.functions.at(m_context->main_func));
+            llvm::FunctionCallee callee = llvm::FunctionCallee(m_active_module_context.functions.at(context.main_func));
 
             llvm::Value* ret = nullptr;
             
-            if (m_context->main_func->function.parameters.size == 1) {
+            if (context.main_func->function.parameters.size == 1) {
                 llvm::Value* list = alloca_at_entry(main, "list", ptr_type);
                 llvm::Value* i = alloca_at_entry(main, "i", int32_type);
 
@@ -155,7 +151,7 @@ namespace ariac {
                     strlen_fn = llvm::Function::Create(fn_type, llvm::GlobalValue::ExternalLinkage, "strlen", *m_active_module_context.module);
                 }
 
-                llvm::Value* elem_size = m_active_module_context.builder->getInt64(get_type_size(m_context->main_func->function.parameters.items[0]->param.type));
+                llvm::Value* elem_size = m_active_module_context.builder->getInt64(get_type_size(context.main_func->function.parameters.items[0]->param.type));
                 llvm::Value* elem_count = m_active_module_context.builder->CreateSExt(main->getArg(0), int64_type, "sext");
                 llvm::Value* calloc_result = m_active_module_context.builder->CreateCall(calloc_fn, { elem_size, elem_count });
 
@@ -218,14 +214,14 @@ namespace ariac {
                     m_active_module_context.builder->CreateCall(free_fn, list_val);
                 }
             } else {
-                ARIA_ASSERT(m_context->main_func->function.parameters.size == 0, "Invalid parameter count for main function");
+                ARIA_ASSERT(context.main_func->function.parameters.size == 0, "Invalid parameter count for main function");
                 ret = m_active_module_context.builder->CreateCall(callee, {});
             }
 
-            if (m_context->main_func->function.type->function.return_type->is_void()) {
+            if (context.main_func->function.type->function.return_type->is_void()) {
                 m_active_module_context.builder->CreateRet(m_active_module_context.builder->getInt32(0));
             } else {
-                ARIA_ASSERT(m_context->main_func->function.type->function.return_type->kind == TypeKind::Int, "Invalid return type");
+                ARIA_ASSERT(context.main_func->function.type->function.return_type->kind == TypeKind::Int, "Invalid return type");
                 m_active_module_context.builder->CreateRet(ret);
             }
 
@@ -290,11 +286,11 @@ namespace ariac {
         std::vector<std::string> libs;
         std::vector<std::string> libdirs;
 
-        for (auto& lib : m_context->flags.libs) {
+        for (auto& lib : context.flags.libs) {
             libs.push_back(fmt::format("-l{}", lib));
         }
 
-        for (auto& libdir : m_context->flags.libdirs) {
+        for (auto& libdir : context.flags.libdirs) {
             libdirs.push_back(fmt::format("-L{}", libdir));
         }
 

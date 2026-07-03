@@ -447,13 +447,12 @@ namespace ariac {
 
     struct Expr {
         template <typename T>
-        static inline Expr* Create(CompilationContext* ctx, 
-            SourceLoc loc, 
+        static inline Expr* Create(SourceLoc loc, 
             ExprKind kind, 
             ExprValueKind value_kind, TypeInfo* type, 
-            T t = ErrorExpr()) { return ctx->allocate<Expr>(loc, kind, value_kind, type, t); }
+            T t = ErrorExpr()) { return context.allocate<Expr>(loc, kind, value_kind, type, t); }
 
-        static Expr* dup(CompilationContext* ctx, Expr* e);
+        static Expr* dup(Expr* e);
 
         ExprKind kind = ExprKind::Invalid;
         ExprValueKind value_kind = ExprValueKind::RValue;

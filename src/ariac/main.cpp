@@ -97,8 +97,7 @@ namespace ariac {
             flags.stdlib_path = "stdlib";
         }
 
-        CompilationContext ctx;
-        ctx.compile_files(files, flags);
+        context.compile_files(files, flags);
         return 0;
     }
 

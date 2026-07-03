@@ -14,7 +14,7 @@ namespace ariac {
 
     class Parser {
     public:
-        Parser(CompilationContext* ctx);
+        Parser();
 
     private:
         void add_expr_rules();
@@ -118,8 +118,6 @@ namespace ariac {
             size_t precedence = 0;
         };
         std::unordered_map<TokenKind, ParseExprRule> m_expr_rules;
-
-        CompilationContext* m_context = nullptr;
     };
 
 } // namespace ariac

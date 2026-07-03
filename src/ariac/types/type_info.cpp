@@ -21,82 +21,82 @@ namespace ariac {
     static TypeInfo* char_slice_type;
     static TypeInfo* std_core_string_type;
 
-    TypeInfo* TypeInfo::create_basic(CompilationContext* ctx, TypeKind kind, SourceLoc loc) {
-        TypeInfo* t = ctx->allocate<TypeInfo>();
+    TypeInfo* TypeInfo::create_basic(TypeKind kind, SourceLoc loc) {
+        TypeInfo* t = context.allocate<TypeInfo>();
         t->kind = kind;
         t->loc = loc;
         return t;
     }
 
-    TypeInfo* TypeInfo::create_with_base(CompilationContext* ctx, TypeKind kind, TypeInfo* base, SourceLoc loc) {
-        TypeInfo* t = create_basic(ctx, kind, loc);
+    TypeInfo* TypeInfo::create_with_base(TypeKind kind, TypeInfo* base, SourceLoc loc) {
+        TypeInfo* t = create_basic(kind, loc);
         t->base = base;
         return t;
     }
 
-    TypeInfo* TypeInfo::create_function(CompilationContext* ctx, TypeKind kind, TypeInfo* ret, TinyVector<TypeInfo*> params, bool var_arg, SourceLoc loc) {
-        TypeInfo* t = ctx->allocate<TypeInfo>();
+    TypeInfo* TypeInfo::create_function(TypeKind kind, TypeInfo* ret, TinyVector<TypeInfo*> params, bool var_arg, SourceLoc loc) {
+        TypeInfo* t = context.allocate<TypeInfo>();
         t->kind = kind;
         t->loc = loc;
         t->function = FunctionType(ret, params, var_arg);
         return t;
     }
 
-    TypeInfo* TypeInfo::create_struct(CompilationContext* ctx, Decl* d, SourceLoc loc) {
-        TypeInfo* t = create_basic(ctx, TypeKind::Structure, loc);
+    TypeInfo* TypeInfo::create_struct(Decl* d, SourceLoc loc) {
+        TypeInfo* t = create_basic(TypeKind::Structure, loc);
         t->struct_ = StructType(d->struct_.identifier, d);
         return t;
     }
 
-    TypeInfo* TypeInfo::create_struct(CompilationContext* ctx, std::string_view name, Decl* d, SourceLoc loc) {
-        TypeInfo* t = create_basic(ctx, TypeKind::Structure, loc);
+    TypeInfo* TypeInfo::create_struct(std::string_view name, Decl* d, SourceLoc loc) {
+        TypeInfo* t = create_basic(TypeKind::Structure, loc);
         t->struct_ = StructType(name, d);
         return t;
     }
 
-    TypeInfo* TypeInfo::create_typedef(CompilationContext* ctx, Decl* d, SourceLoc loc) {
-        TypeInfo* t = create_basic(ctx, TypeKind::Typedef, loc);
+    TypeInfo* TypeInfo::create_typedef(Decl* d, SourceLoc loc) {
+        TypeInfo* t = create_basic(TypeKind::Typedef, loc);
         t->typedef_ = TypedefType(d->typedef_.identifier, d->typedef_.type, d);
         return t;
     }
 
-    TypeInfo* TypeInfo::create_enum(CompilationContext* ctx, Decl* d, SourceLoc loc) {
-        TypeInfo* t = create_basic(ctx, TypeKind::Enum, loc);
+    TypeInfo* TypeInfo::create_enum(Decl* d, SourceLoc loc) {
+        TypeInfo* t = create_basic(TypeKind::Enum, loc);
         t->enum_ = EnumType(d->enum_.identifier, d);
         return t;
     }
 
-    TypeInfo* TypeInfo::create_generic_decl(CompilationContext* ctx, Decl* d, SourceLoc loc) {
-        TypeInfo* t = create_basic(ctx, TypeKind::GenericDecl, loc);
+    TypeInfo* TypeInfo::create_generic_decl(Decl* d, SourceLoc loc) {
+        TypeInfo* t = create_basic(TypeKind::GenericDecl, loc);
         t->generic_decl = GenericDeclType(d->generic.decl->struct_.identifier, d);
         return t;
     }
 
-    TypeInfo* TypeInfo::create_generic(CompilationContext* ctx, std::string_view name, SourceLoc loc) {
-        TypeInfo* t = create_basic(ctx, TypeKind::Generic, loc);
+    TypeInfo* TypeInfo::create_generic(std::string_view name, SourceLoc loc) {
+        TypeInfo* t = create_basic(TypeKind::Generic, loc);
         t->generic = GenericType(name);
         return t;
     }
 
-    TypeInfo* TypeInfo::dup(CompilationContext* ctx, TypeInfo* type) {
-        TypeInfo* t = ctx->allocate<TypeInfo>();
+    TypeInfo* TypeInfo::dup(TypeInfo* type) {
+        TypeInfo* t = context.allocate<TypeInfo>();
         memcpy(reinterpret_cast<void*>(t), type, sizeof(TypeInfo));
         return t;
     }
 
-    TypeInfo* TypeInfo::get_error(CompilationContext* ctx) {
-        return get_basic(ctx, TypeKind::Error);
+    TypeInfo* TypeInfo::get_error() {
+        return get_basic(TypeKind::Error);
     }
 
-    TypeInfo* TypeInfo::get_void(CompilationContext* ctx) {
-        return get_basic(ctx, TypeKind::Void);
+    TypeInfo* TypeInfo::get_void() {
+        return get_basic(TypeKind::Void);
     }
 
-    TypeInfo* TypeInfo::get_basic(CompilationContext* ctx, TypeKind kind) {
+    TypeInfo* TypeInfo::get_basic(TypeKind kind) {
         #define TYPE(ki, var) \
             case TypeKind::ki: { \
                 if (var) { return var; } \
-                var = create_basic(ctx, TypeKind::ki); \
+                var = create_basic(TypeKind::ki); \
                 return var; \
             }
 
@@ -119,32 +119,32 @@ namespace ariac {
         }
     }
 
-    TypeInfo* TypeInfo::get_void_ptr(CompilationContext* ctx) {
+    TypeInfo* TypeInfo::get_void_ptr() {
         if (void_ptr_type) { return char_ptr_type; }
-        void_ptr_type = create_with_base(ctx, TypeKind::Pointer, get_basic(ctx, TypeKind::Void));
+        void_ptr_type = create_with_base(TypeKind::Pointer, get_basic(TypeKind::Void));
         return void_ptr_type;
     }
 
-    TypeInfo* TypeInfo::get_char_ptr(CompilationContext* ctx) {
+    TypeInfo* TypeInfo::get_char_ptr() {
         if (char_ptr_type) { return char_ptr_type; }
-        char_ptr_type = create_with_base(ctx, TypeKind::Pointer, get_basic(ctx, TypeKind::Char));
+        char_ptr_type = create_with_base(TypeKind::Pointer, get_basic(TypeKind::Char));
         return char_ptr_type;
     }
 
-    TypeInfo* TypeInfo::get_string(CompilationContext* ctx) {
-        if (ctx->flags.no_stdlib) {
+    TypeInfo* TypeInfo::get_string() {
+        if (context.flags.no_stdlib) {
             if (char_slice_type) { return char_slice_type; }
-            char_slice_type = create_with_base(ctx, TypeKind::Slice, get_basic(ctx, TypeKind::Char));
+            char_slice_type = create_with_base(TypeKind::Slice, get_basic(TypeKind::Char));
             return char_slice_type;
         } else {
-            ARIA_ASSERT(ctx->std_core_module->symbols.contains("String"), "std::core module must contain a definition for 'String'");
-            Decl* sym = ctx->std_core_module->symbols.at("String");
+            ARIA_ASSERT(context.std_core_module->symbols.contains("String"), "std::core module must contain a definition for 'String'");
+            Decl* sym = context.std_core_module->symbols.at("String");
             
             ARIA_ASSERT(sym->kind == DeclKind::Typedef, "std::core::String must be a typedef");
             ARIA_ASSERT(sym->typedef_.type->kind == TypeKind::Slice && sym->typedef_.type->base->kind == TypeKind::Char, "std::core::String must be a typedef to char[]");
 
             if (std_core_string_type) { return std_core_string_type; }
-            std_core_string_type = create_typedef(ctx, sym);
+            std_core_string_type = create_typedef(sym);
             return std_core_string_type;
         }
     }

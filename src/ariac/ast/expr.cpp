@@ -2,8 +2,8 @@
 
 namespace ariac {
 
-    Expr* Expr::dup(CompilationContext* ctx, Expr* e) {
-        Expr* copy = Expr::Create(ctx, e->loc, e->kind, e->value_kind, TypeInfo::dup(ctx, e->type), ErrorExpr());
+    Expr* Expr::dup(Expr* e) {
+        Expr* copy = Expr::Create(e->loc, e->kind, e->value_kind, TypeInfo::dup(e->type), ErrorExpr());
 
         switch (e->kind) {
             case ExprKind::Error:
@@ -52,7 +52,7 @@ namespace ariac {
             case ExprKind::BuiltinMember: {
                 MemberExpr& m = e->member;
                 copy->member.member = m.member;
-                copy->member.parent = Expr::dup(ctx, m.parent);
+                copy->member.parent = Expr::dup(m.parent);
                 copy->member.implicit_deref = m.implicit_deref;
                 copy->member.referenced_member = m.referenced_member;
                 break;
@@ -64,10 +64,10 @@ namespace ariac {
                 CallExpr& c = e->call;
                 
                 for (Expr* arg : c.arguments) {
-                    copy->call.arguments.append(ctx, Expr::dup(ctx, arg));
+                    copy->call.arguments.append(Expr::dup(arg));
                 }
 
-                copy->call.callee = Expr::dup(ctx, c.callee);
+                copy->call.callee = Expr::dup(c.callee);
 
                 break;
             }
@@ -76,64 +76,64 @@ namespace ariac {
                 MethodCallExpr& m = e->method_call;
                 
                 for (Expr* arg : m.arguments) {
-                    copy->method_call.arguments.append(ctx, Expr::dup(ctx, arg));
+                    copy->method_call.arguments.append(Expr::dup(arg));
                 }
 
-                copy->method_call.callee = Expr::dup(ctx, m.callee);
+                copy->method_call.callee = Expr::dup(m.callee);
 
                 break;
             }
 
             case ExprKind::ArraySubscript: {
                 ArraySubscriptExpr& a = e->array_subscript;
-                copy->array_subscript.array = Expr::dup(ctx, a.array);
-                copy->array_subscript.index = Expr::dup(ctx, a.index);
+                copy->array_subscript.array = Expr::dup(a.array);
+                copy->array_subscript.index = Expr::dup(a.index);
                 break;
             }
 
             case ExprKind::New: {
                 NewExpr& n = e->new_;
-                copy->new_.initializer = Expr::dup(ctx, n.initializer);
+                copy->new_.initializer = Expr::dup(n.initializer);
                 copy->new_.array = n.array;
                 break;
             }
 
             case ExprKind::Delete: {
                 DeleteExpr& d = e->delete_;
-                copy->delete_.expression = Expr::dup(ctx, d.expression);
+                copy->delete_.expression = Expr::dup(d.expression);
                 break;
             }
 
             case ExprKind::Sizeof: {
                 SizeofExpr& s = e->sizeof_;
-                if (s.expression) { copy->sizeof_.expression = Expr::dup(ctx, s.expression); }
-                if (s.type) { copy->sizeof_.type = TypeInfo::dup(ctx, s.type); }
+                if (s.expression) { copy->sizeof_.expression = Expr::dup(s.expression); }
+                if (s.type) { copy->sizeof_.type = TypeInfo::dup(s.type); }
                 break;
             }
 
             case ExprKind::Paren: {
                 ParenExpr& p = e->paren;
-                copy->paren.expression = Expr::dup(ctx, p.expression);
+                copy->paren.expression = Expr::dup(p.expression);
                 break;
             }
 
             case ExprKind::Cast: {
                 CastExpr& c = e->cast;
-                copy->cast.expression = Expr::dup(ctx, c.expression);
-                copy->type = TypeInfo::dup(ctx, c.type);
+                copy->cast.expression = Expr::dup(c.expression);
+                copy->type = TypeInfo::dup(c.type);
                 break;
             }
 
             case ExprKind::ImplicitCast: {
                 ImplicitCastExpr& i = e->implicit_cast;
-                copy->implicit_cast.expression = Expr::dup(ctx, i.expression);
+                copy->implicit_cast.expression = Expr::dup(i.expression);
                 copy->implicit_cast.kind = i.kind;
                 break;
             }
 
             case ExprKind::UnaryOperator: {
                 UnaryOperatorExpr& u = e->unary_operator;
-                copy->unary_operator.expression = Expr::dup(ctx, u.expression);
+                copy->unary_operator.expression = Expr::dup(u.expression);
                 copy->unary_operator.infix = u.infix;
                 copy->unary_operator.op = u.op;
                 break;
@@ -141,16 +141,16 @@ namespace ariac {
 
             case ExprKind::BinaryOperator: {
                 BinaryOperatorExpr& b = e->binary_operator;
-                copy->binary_operator.lhs = Expr::dup(ctx, b.lhs);
-                copy->binary_operator.rhs = Expr::dup(ctx, b.rhs);
+                copy->binary_operator.lhs = Expr::dup(b.lhs);
+                copy->binary_operator.rhs = Expr::dup(b.rhs);
                 copy->binary_operator.op = b.op;
                 break;
             }
 
             case ExprKind::CompoundAssign: {
                 CompoundAssignExpr& c = e->compound_assign;
-                copy->compound_assign.lhs = Expr::dup(ctx, c.lhs);
-                copy->compound_assign.rhs = Expr::dup(ctx, c.rhs);
+                copy->compound_assign.lhs = Expr::dup(c.lhs);
+                copy->compound_assign.rhs = Expr::dup(c.rhs);
                 copy->compound_assign.op = c.op;
                 break;
             }
@@ -184,7 +184,7 @@ namespace ariac {
 
                     case ConstExprKind::Struct: {
                         for (Expr* e : c.values) {
-                            copy->const_.values.append(ctx, Expr::dup(ctx, e));
+                            copy->const_.values.append(Expr::dup(e));
                         }
                         break;
                     }

@@ -15,6 +15,8 @@
 
 namespace ariac {
 
+    CompilationContext context;
+
     static const char* stdlib_files[] = {
         "libc.aria",
         "io/io.aria",
@@ -185,10 +187,10 @@ namespace ariac {
         }
     }
 
-    void CompilationContext::lex() { Lexer l(this); }
-    void CompilationContext::parse() { Parser p(this); }
-    void CompilationContext::analyze() { SemanticAnalyzer s(this); }
-    void CompilationContext::codegen() { Codegen c(this); }
+    void CompilationContext::lex() { Lexer l; }
+    void CompilationContext::parse() { Parser p; }
+    void CompilationContext::analyze() { SemanticAnalyzer s; }
+    void CompilationContext::codegen() { Codegen c; }
 
     Module* CompilationContext::find_or_create_module(std::string_view name) {
         for (Module* mod : modules) {

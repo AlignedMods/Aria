@@ -22,11 +22,10 @@ static constexpr size_t PREC_CALL = 90;
 
 namespace ariac {
 
-    Parser::Parser(CompilationContext* ctx) {
-        m_context = ctx;
-        m_tokens = ctx->active_comp_unit->tokens;
+    Parser::Parser() {
+        m_tokens = context.active_comp_unit->tokens;
 
-        if (error_expr.type == nullptr) { error_expr.type = TypeInfo::get_error(m_context); }
+        if (error_expr.type == nullptr) { error_expr.type = TypeInfo::get_error(); }
 
         add_expr_rules();
         parse_impl();
@@ -112,7 +111,7 @@ namespace ariac {
             Decl* d = parse_global();
 
             if (!m_declared_module) {
-                m_context->report_compiler_diagnostic(peek()->loc, "All translation units must contain a module declaration");
+                context.report_compiler_diagnostic(peek()->loc, "All translation units must contain a module declaration");
                 break;
             }
         }
@@ -165,7 +164,7 @@ namespace ariac {
         if (is_primitive_type()) {
             SourceLoc type_start = peek()->loc;
             parse_type();
-            m_context->report_compiler_diagnostic(lp->loc + peek(-1)->loc, "Unexpected type found, did you mean to perform a cast? (<<type>> <expr>)");
+            context.report_compiler_diagnostic(lp->loc + peek(-1)->loc, "Unexpected type found, did you mean to perform a cast? (<<type>> <expr>)");
             sync_local();
 
             return &error_expr;
@@ -179,7 +178,7 @@ namespace ariac {
             return &error_expr;
         }
 
-        return Expr::Create(m_context, lp->loc + rp->loc, ExprKind::Paren, 
+        return Expr::Create(lp->loc + rp->loc, ExprKind::Paren, 
             child->value_kind, child->type,
             ParenExpr(child));
     }
@@ -193,8 +192,8 @@ namespace ariac {
         if (is_type()) {
             type = parse_type();
         } else {
-            m_context->report_compiler_diagnostic(peek()->loc, "Expected a type");
-            type = TypeInfo::get_error(m_context);
+            context.report_compiler_diagnostic(peek()->loc, "Expected a type");
+            type = TypeInfo::get_error();
         }
 
         if (!try_consume(TokenKind::Greater, ">")) {
@@ -204,7 +203,7 @@ namespace ariac {
 
         Expr* child = parse_term();
 
-        return Expr::Create(m_context, lp->loc + child->loc, ExprKind::Cast, 
+        return Expr::Create(lp->loc + child->loc, ExprKind::Cast, 
             ExprValueKind::RValue, type,
             CastExpr(child, type));
     }
@@ -223,7 +222,7 @@ namespace ariac {
                 break;
             }
 
-            args.append(m_context, val);
+            args.append(val);
     
             if (match(TokenKind::Comma)) {
                 consume();
@@ -237,15 +236,15 @@ namespace ariac {
         if (!rp) { return &error_expr; }
     
         if (left->kind == ExprKind::DeclRef) {
-            return Expr::Create(m_context, left->loc + rp->loc, ExprKind::Call,
+            return Expr::Create(left->loc + rp->loc, ExprKind::Call,
                 ExprValueKind::RValue, nullptr, 
                 CallExpr(left, args));
         } else if (left->kind == ExprKind::Member) {
-            return Expr::Create(m_context, left->loc + rp->loc, ExprKind::MethodCall,
+            return Expr::Create(left->loc + rp->loc, ExprKind::MethodCall,
                 ExprValueKind::RValue, nullptr, 
                 MethodCallExpr(left, args));
         } else {
-            m_context->report_compiler_diagnostic(lp->loc + rp->loc, "Callee of call expression must be a reference to a declaration or method");
+            context.report_compiler_diagnostic(lp->loc + rp->loc, "Callee of call expression must be a reference to a declaration or method");
             return &error_expr;
         }
     }
@@ -305,7 +304,7 @@ namespace ariac {
         Expr* expr = parse_term();
         if (!expr_ok(expr)) { return &error_expr; }
 
-        return Expr::Create(m_context, op.loc + expr->loc, ExprKind::UnaryOperator,
+        return Expr::Create(op.loc + expr->loc, ExprKind::UnaryOperator,
             ExprValueKind::RValue, expr->type,
             UnaryOperatorExpr(expr, get_unary_operator_from_token(&op), false));
     }
@@ -315,7 +314,7 @@ namespace ariac {
 
         Token op = consume();
 
-        return Expr::Create(m_context, left->loc + op.loc, ExprKind::UnaryOperator,
+        return Expr::Create(left->loc + op.loc, ExprKind::UnaryOperator,
             ExprValueKind::RValue, left->type,
             UnaryOperatorExpr(left, get_unary_operator_from_token(&op), true));
     }
@@ -330,7 +329,7 @@ namespace ariac {
         else { right = parse_precedence(m_expr_rules[op.kind].precedence + 1); }
 
         if (expr_ok(right)) {
-            return Expr::Create(m_context, left->loc + right->loc, ExprKind::BinaryOperator,
+            return Expr::Create(left->loc + right->loc, ExprKind::BinaryOperator,
                 ExprValueKind::RValue, nullptr,
                 BinaryOperatorExpr(left, right, get_binary_operator_from_token(&op)));
         }
@@ -348,14 +347,14 @@ namespace ariac {
             Expr* len = parse_expression();
             try_consume(TokenKind::RightBracket, "]");
 
-            return Expr::Create(m_context, left->loc + peek(-1)->loc, ExprKind::ToSlice,
+            return Expr::Create(left->loc + peek(-1)->loc, ExprKind::ToSlice,
                 ExprValueKind::RValue, nullptr,
                 ArraySubscriptExpr(left, len));
         } else {
             Expr* index = parse_expression();
             try_consume(TokenKind::RightBracket, "]");
 
-            return Expr::Create(m_context, left->loc + peek(-1)->loc, ExprKind::ArraySubscript,
+            return Expr::Create(left->loc + peek(-1)->loc, ExprKind::ArraySubscript,
                 ExprValueKind::LValue, nullptr,
                 ArraySubscriptExpr(left, index));
         }
@@ -368,7 +367,7 @@ namespace ariac {
         Expr* right = parse_precedence(PREC_ASSIGNMENT);
 
         if (expr_ok(right)) {
-            return Expr::Create(m_context, left->loc + right->loc, ExprKind::CompoundAssign,
+            return Expr::Create(left->loc + right->loc, ExprKind::CompoundAssign,
                 ExprValueKind::RValue, nullptr,
                 BinaryOperatorExpr(left, right, get_binary_operator_from_token(&op)));
         }
@@ -383,7 +382,7 @@ namespace ariac {
         Token* ident = try_consume(TokenKind::Identifier, "identifier");
         if (!ident) { return &error_expr; }
 
-        return Expr::Create(m_context, left->loc + ident->loc, ExprKind::Member,
+        return Expr::Create(left->loc + ident->loc, ExprKind::Member,
             ExprValueKind::LValue, nullptr,
             MemberExpr(ident->string, left));
     }
@@ -394,69 +393,69 @@ namespace ariac {
         Token& t = consume();
         switch (t.kind) {
             case TokenKind::False: {
-                return Expr::Create(m_context, t.loc, ExprKind::BooleanLiteral, 
-                    ExprValueKind::RValue, TypeInfo::get_basic(m_context, TypeKind::Bool), 
+                return Expr::Create(t.loc, ExprKind::BooleanLiteral, 
+                    ExprValueKind::RValue, TypeInfo::get_basic(TypeKind::Bool), 
                     BooleanLiteralExpr(false));
             }
 
             case TokenKind::True: {
-                return Expr::Create(m_context, t.loc, ExprKind::BooleanLiteral, 
-                    ExprValueKind::RValue, TypeInfo::get_basic(m_context, TypeKind::Bool), 
+                return Expr::Create(t.loc, ExprKind::BooleanLiteral, 
+                    ExprValueKind::RValue, TypeInfo::get_basic(TypeKind::Bool), 
                     BooleanLiteralExpr(true));
             }
 
             case TokenKind::CharLit: {
                 int8_t ch = static_cast<int8_t>(t.integer);
-                return Expr::Create(m_context, t.loc, ExprKind::CharacterLiteral, 
-                    ExprValueKind::RValue, TypeInfo::get_basic(m_context, TypeKind::Char), 
+                return Expr::Create(t.loc, ExprKind::CharacterLiteral, 
+                    ExprValueKind::RValue, TypeInfo::get_basic(TypeKind::Char), 
                     CharacterLiteralExpr(ch));
             }
     
             case TokenKind::IntLit: {
-                return Expr::Create(m_context, t.loc, ExprKind::IntegerLiteral,
-                    ExprValueKind::RValue, TypeInfo::get_basic(m_context, TypeKind::Int), 
+                return Expr::Create(t.loc, ExprKind::IntegerLiteral,
+                    ExprValueKind::RValue, TypeInfo::get_basic(TypeKind::Int), 
                     IntegerLiteralExpr(t.integer));
             }
 
             case TokenKind::UIntLit: {
-                return Expr::Create(m_context, t.loc, ExprKind::IntegerLiteral, 
-                    ExprValueKind::RValue, TypeInfo::get_basic(m_context, TypeKind::UInt), 
+                return Expr::Create(t.loc, ExprKind::IntegerLiteral, 
+                    ExprValueKind::RValue, TypeInfo::get_basic(TypeKind::UInt), 
                     IntegerLiteralExpr(t.integer));
             }
 
             case TokenKind::LongLit: {
-                return Expr::Create(m_context, t.loc, ExprKind::IntegerLiteral,
-                    ExprValueKind::RValue, TypeInfo::get_basic(m_context, TypeKind::Long), 
+                return Expr::Create(t.loc, ExprKind::IntegerLiteral,
+                    ExprValueKind::RValue, TypeInfo::get_basic(TypeKind::Long), 
                     IntegerLiteralExpr(t.integer));
             }
 
             case TokenKind::ULongLit: {
-                return Expr::Create(m_context, t.loc, ExprKind::IntegerLiteral, 
-                    ExprValueKind::RValue, TypeInfo::get_basic(m_context, TypeKind::ULong), 
+                return Expr::Create(t.loc, ExprKind::IntegerLiteral, 
+                    ExprValueKind::RValue, TypeInfo::get_basic(TypeKind::ULong), 
                     IntegerLiteralExpr(t.integer));
             }
     
             case TokenKind::NumLit: {
-                return Expr::Create(m_context, t.loc, ExprKind::FloatingLiteral,
-                    ExprValueKind::RValue, TypeInfo::get_basic(m_context, TypeKind::Double), 
+                return Expr::Create(t.loc, ExprKind::FloatingLiteral,
+                    ExprValueKind::RValue, TypeInfo::get_basic(TypeKind::Double), 
                     FloatingLiteralExpr(t.number));
             }
     
             case TokenKind::StrLit: {
-                return Expr::Create(m_context, t.loc, ExprKind::StringLiteral,
+                return Expr::Create(t.loc, ExprKind::StringLiteral,
                     ExprValueKind::RValue, nullptr, 
                     StringLiteralExpr(t.string));
             }
 
             case TokenKind::CStrLit: {
-                return Expr::Create(m_context, t.loc, ExprKind::StringLiteral,
-                    ExprValueKind::RValue, TypeInfo::get_char_ptr(m_context), 
+                return Expr::Create(t.loc, ExprKind::StringLiteral,
+                    ExprValueKind::RValue, TypeInfo::get_char_ptr(), 
                     StringLiteralExpr(t.string));
             }
 
             case TokenKind::Null: {
-                return Expr::Create(m_context, t.loc, ExprKind::Null,
-                    ExprValueKind::RValue, TypeInfo::get_void_ptr(m_context), ErrorExpr());
+                return Expr::Create(t.loc, ExprKind::Null,
+                    ExprValueKind::RValue, TypeInfo::get_void_ptr(), ErrorExpr());
             }
 
             case TokenKind::Identifier: {
@@ -495,16 +494,16 @@ namespace ariac {
                 break;
             }
 
-            Specifier* specifier = Specifier::Create(m_context, t.loc, SpecifierKind::Name, 
-                NameSpecifier(scratch_buffer_to_str(m_context)));
+            Specifier* specifier = Specifier::Create(t.loc, SpecifierKind::Name, 
+                NameSpecifier(scratch_buffer_to_str()));
 
-            Expr* declRef = Expr::Create(m_context, t.loc + var->loc, ExprKind::DeclRef,
+            Expr* declRef = Expr::Create(t.loc + var->loc, ExprKind::DeclRef,
                                 ExprValueKind::LValue, nullptr,
                                 DeclRefExpr(var->string, specifier));
 
             return declRef;
         } else {
-            return Expr::Create(m_context, t.loc, ExprKind::DeclRef,
+            return Expr::Create(t.loc, ExprKind::DeclRef,
                        ExprValueKind::LValue, nullptr, 
                        DeclRefExpr(t.string, nullptr));
         }
@@ -522,11 +521,11 @@ namespace ariac {
         if (is_type()) {
             type = parse_type();
         } else {
-            m_context->report_compiler_diagnostic(peek()->loc, "Expected a type");
-            type = TypeInfo::get_error(m_context);
+            context.report_compiler_diagnostic(peek()->loc, "Expected a type");
+            type = TypeInfo::get_error();
         }
 
-        type->base = TypeInfo::dup(m_context, type);
+        type->base = TypeInfo::dup(type);
         type->kind = TypeKind::Pointer;
 
         // parse_type() will handle array types
@@ -545,10 +544,10 @@ namespace ariac {
 
             try_consume(TokenKind::RightParen, ")");
         } else {
-            m_context->report_compiler_diagnostic(peek()->loc, "Expected '(' or '['");
+            context.report_compiler_diagnostic(peek()->loc, "Expected '(' or '['");
         }
 
-        return Expr::Create(m_context, n.loc + peek(-1)->loc, ExprKind::New,
+        return Expr::Create(n.loc + peek(-1)->loc, ExprKind::New,
             ExprValueKind::RValue, type,
             NewExpr(initializer, array));
     }
@@ -563,8 +562,8 @@ namespace ariac {
             return &error_expr;
         }
 
-        return Expr::Create(m_context, d.loc + peek(-1)->loc, ExprKind::Delete,
-            ExprValueKind::RValue, TypeInfo::get_void(m_context),
+        return Expr::Create(d.loc + peek(-1)->loc, ExprKind::Delete,
+            ExprValueKind::RValue, TypeInfo::get_void(),
             DeleteExpr(expr));
     }
 
@@ -586,8 +585,8 @@ namespace ariac {
             return &error_expr;
         }
 
-        return Expr::Create(m_context, s.loc + peek(-1)->loc, ExprKind::Sizeof,
-            ExprValueKind::RValue, TypeInfo::get_basic(m_context, TypeKind::ULong),
+        return Expr::Create(s.loc + peek(-1)->loc, ExprKind::Sizeof,
+            ExprValueKind::RValue, TypeInfo::get_basic(TypeKind::ULong),
             expr ? SizeofExpr(expr) : SizeofExpr(type));
     }
 
@@ -605,7 +604,7 @@ namespace ariac {
 
             if (!infixRule) {
                 sync_local();
-                m_context->report_compiler_diagnostic(tok->loc, fmt::format("'{}' cannot appear here, did you forget something before the operator?", token_kind_to_string(tok->kind)));
+                context.report_compiler_diagnostic(tok->loc, fmt::format("'{}' cannot appear here, did you forget something before the operator?", token_kind_to_string(tok->kind)));
                 return &error_expr;
             }
 
@@ -627,7 +626,7 @@ namespace ariac {
 
         if (!prefixRule) {
             sync_local();
-            m_context->report_compiler_diagnostic(tok->loc, "Expected an expression");
+            context.report_compiler_diagnostic(tok->loc, "Expected an expression");
             return &error_expr;
         }
 
@@ -689,7 +688,7 @@ namespace ariac {
     TypeInfo* Parser::parse_type() {
         ARIA_ASSERT(is_type(), "Cannot parse a type out of a non type");
 
-        TypeInfo* type = TypeInfo::create_basic(m_context, TypeKind::Error);
+        TypeInfo* type = TypeInfo::create_basic(TypeKind::Error);
         type->loc = peek()->loc;
 
         switch (peek()->kind) {
@@ -756,11 +755,11 @@ namespace ariac {
         
                     while (peek()) {
                         if (!is_type()) {
-                            m_context->report_compiler_diagnostic(peek()->loc, "Expected a type");
+                            context.report_compiler_diagnostic(peek()->loc, "Expected a type");
                             break;
                         }
         
-                        args.append(m_context, parse_type());
+                        args.append(parse_type());
         
                         if (match(TokenKind::Comma)) { consume(); continue; }
                         else if (match(TokenKind::Greater)) { break; }
@@ -769,12 +768,12 @@ namespace ariac {
                             break;
                         }
         
-                        m_context->report_compiler_diagnostic(peek()->loc, "Expected ',' or '>'");
+                        context.report_compiler_diagnostic(peek()->loc, "Expected ',' or '>'");
                     }
         
                     try_consume(TokenKind::Greater, ">");
         
-                    type->generic_instantiation = GenericInstantiationType(TypeInfo::dup(m_context, type), args);
+                    type->generic_instantiation = GenericInstantiationType(TypeInfo::dup(type), args);
                     type->kind = TypeKind::GenericInstantiation;
         
                     type->loc += peek(-1)->loc;
@@ -787,24 +786,24 @@ namespace ariac {
         }
 
         if (match(TokenKind::Star)) {
-            m_context->report_compiler_diagnostic_with_notes(peek()->loc, "Unexpected token '*' after type",
+            context.report_compiler_diagnostic_with_notes(peek()->loc, "Unexpected token '*' after type",
                 { "Did you mean to put '*' before the type?" });
 
             consume();
-            type->base = TypeInfo::dup(m_context, type);
+            type->base = TypeInfo::dup(type);
             type->kind = TypeKind::Pointer;
         }
 
         if (match(TokenKind::LeftBracket)) {
-            m_context->report_compiler_diagnostic_with_notes(peek()->loc, "Unexpected token '[' after type",
+            context.report_compiler_diagnostic_with_notes(peek()->loc, "Unexpected token '[' after type",
                 { "Did you mean to put '[' before the type?" });
 
             consume();
             if (is_expression()) {
-                type->array = ArrayType(TypeInfo::dup(m_context, type), parse_expression());
+                type->array = ArrayType(TypeInfo::dup(type), parse_expression());
                 type->kind = TypeKind::Array;
             } else {
-                type->base = TypeInfo::dup(m_context, type);
+                type->base = TypeInfo::dup(type);
                 type->kind = TypeKind::Slice;
             }
 
@@ -823,13 +822,13 @@ namespace ariac {
             Stmt* stmt = parse_statement();
 
             if (stmt != nullptr) {
-                stmts.append(m_context, stmt);
+                stmts.append(stmt);
             }
         }
 
         try_consume(TokenKind::RightCurly, "}");
 
-        return Stmt::Create(m_context, l->loc + peek(-1)->loc, StmtKind::Block, BlockStmt(stmts, unsafe));
+        return Stmt::Create(l->loc + peek(-1)->loc, StmtKind::Block, BlockStmt(stmts, unsafe));
     }
 
     Stmt* Parser::parse_block_inline(bool unsafe) {
@@ -840,9 +839,9 @@ namespace ariac {
             if (!stmt) { return &error_stmt; }
 
             TinyVector<Stmt*> stmts;
-            stmts.append(m_context, stmt);
+            stmts.append(stmt);
 
-            return Stmt::Create(m_context, stmt->loc, StmtKind::Block, BlockStmt(stmts, unsafe));
+            return Stmt::Create(stmt->loc, StmtKind::Block, BlockStmt(stmts, unsafe));
         }
     }
 
@@ -852,7 +851,7 @@ namespace ariac {
         Expr* condition = parse_expression();
         Stmt* body = parse_block_inline();
 
-        return Stmt::Create(m_context, w.loc + condition->loc, StmtKind::While, WhileStmt(condition, body));
+        return Stmt::Create(w.loc + condition->loc, StmtKind::While, WhileStmt(condition, body));
     }
 
     Stmt* Parser::parse_do_while() {
@@ -863,7 +862,7 @@ namespace ariac {
         Expr* condition = parse_expression();
         try_consume(TokenKind::Semi, ";");
         
-        return Stmt::Create(m_context, d.loc, StmtKind::DoWhile, DoWhileStmt(condition, body));
+        return Stmt::Create(d.loc, StmtKind::DoWhile, DoWhileStmt(condition, body));
     }
 
     Stmt* Parser::parse_for() {
@@ -909,7 +908,7 @@ namespace ariac {
         
         body = parse_block_inline();
         
-        return Stmt::Create(m_context, f.loc + peek(-1)->loc, StmtKind::For, ForStmt(prologue, condition, step, body));
+        return Stmt::Create(f.loc + peek(-1)->loc, StmtKind::For, ForStmt(prologue, condition, step, body));
     }
 
     Stmt* Parser::parse_if() {
@@ -924,19 +923,19 @@ namespace ariac {
             else_body = parse_block_inline();
         }
         
-        return Stmt::Create(m_context, i.loc + condition->loc, StmtKind::If, IfStmt(condition, body, else_body));
+        return Stmt::Create(i.loc + condition->loc, StmtKind::If, IfStmt(condition, body, else_body));
     }
 
     Stmt* Parser::parse_break() {
         Token& b = consume(); // consume "break"
         try_consume(TokenKind::Semi, ";");
-        return Stmt::Create(m_context, b.loc, StmtKind::Break, ErrorStmt());
+        return Stmt::Create(b.loc, StmtKind::Break, ErrorStmt());
     }
 
     Stmt* Parser::parse_continue() {
         Token& b = consume(); // consume "continue"
         try_consume(TokenKind::Semi, ";");
-        return Stmt::Create(m_context, b.loc, StmtKind::Continue, ErrorStmt());
+        return Stmt::Create(b.loc, StmtKind::Continue, ErrorStmt());
     }
 
     Stmt* Parser::parse_return() {
@@ -949,14 +948,14 @@ namespace ariac {
         }
 
         try_consume(TokenKind::Semi, ";");
-        return Stmt::Create(m_context, r.loc + peek(-1)->loc, StmtKind::Return, ReturnStmt(val));
+        return Stmt::Create(r.loc + peek(-1)->loc, StmtKind::Return, ReturnStmt(val));
     }
 
     Stmt* Parser::parse_defer() {
         Token& d = consume(); // consume "defer"
 
         Stmt* stmt = parse_statement();
-        return Stmt::Create(m_context, d.loc + peek(-1)->loc, StmtKind::Defer, DeferStmt(stmt));
+        return Stmt::Create(d.loc + peek(-1)->loc, StmtKind::Defer, DeferStmt(stmt));
     }
 
     Stmt* Parser::parse_expression_statement() {
@@ -965,7 +964,7 @@ namespace ariac {
         try_consume(TokenKind::Semi, ";");
         expr->result_discarded = true;
         
-        return Stmt::Create(m_context, expr->loc + peek(-1)->loc, StmtKind::Expr, expr);
+        return Stmt::Create(expr->loc + peek(-1)->loc, StmtKind::Expr, expr);
     }
 
     Stmt* Parser::parse_statement() {
@@ -976,7 +975,7 @@ namespace ariac {
         switch (peek()->kind) {
             case TokenKind::Semi: {
                 Token& tok = consume();
-                return Stmt::Create(m_context, tok.loc, StmtKind::Nop, ErrorStmt());
+                return Stmt::Create(tok.loc, StmtKind::Nop, ErrorStmt());
             }
 
             case TokenKind::LeftParen:
@@ -1029,24 +1028,24 @@ namespace ariac {
             case TokenKind::Const: {
                 Decl* d = parse_const_decl(false);
                 if (!decl_ok(d)) { return &error_stmt; }
-                return Stmt::Create(m_context, d->loc, StmtKind::Decl, d);
+                return Stmt::Create(d->loc, StmtKind::Decl, d);
             }
 
             case TokenKind::Let: {
                 Decl* d = parse_let_decl();
                 if (!decl_ok(d)) { return &error_stmt; }
-                return Stmt::Create(m_context, d->loc, StmtKind::Decl, d);
+                return Stmt::Create(d->loc, StmtKind::Decl, d);
             }
 
             case TokenKind::Fn: {
                 Token& tok = consume();
-                m_context->report_compiler_diagnostic(tok.loc, fmt::format("Function declaration is not allowed here"));
+                context.report_compiler_diagnostic(tok.loc, fmt::format("Function declaration is not allowed here"));
                 return &error_stmt;
             }
 
             case TokenKind::Struct: {
                 Token& tok = consume();
-                m_context->report_compiler_diagnostic(tok.loc, fmt::format("Structure declaration is not allowed here"));
+                context.report_compiler_diagnostic(tok.loc, fmt::format("Structure declaration is not allowed here"));
                 return &error_stmt;
             }
 
@@ -1076,7 +1075,7 @@ namespace ariac {
             case TokenKind::Greater:
             case TokenKind::GreaterEq: {
                 Token& tok = consume();
-                m_context->report_compiler_diagnostic(tok.loc, fmt::format("Unexpected binary operator '{}' while looking for statement", token_kind_to_string(tok.kind)));
+                context.report_compiler_diagnostic(tok.loc, fmt::format("Unexpected binary operator '{}' while looking for statement", token_kind_to_string(tok.kind)));
                 return &error_stmt;
             }
 
@@ -1093,7 +1092,7 @@ namespace ariac {
             case TokenKind::Float:
             case TokenKind::Double: {
                 Token& tok = consume();
-                m_context->report_compiler_diagnostic(tok.loc, fmt::format("Unexpected type '{}', did you mean to declare a variable? (let <name>: <type>)", token_kind_to_string(tok.kind)));
+                context.report_compiler_diagnostic(tok.loc, fmt::format("Unexpected type '{}', did you mean to declare a variable? (let <name>: <type>)", token_kind_to_string(tok.kind)));
                 return &error_stmt;
             }
 
@@ -1112,7 +1111,7 @@ namespace ariac {
             case TokenKind::Dot:
             case TokenKind::TripleDot: {
                 Token& tok = consume();
-                m_context->report_compiler_diagnostic(tok.loc, fmt::format("Unexpected token '{}' while looking for statement", token_kind_to_string(tok.kind)));
+                context.report_compiler_diagnostic(tok.loc, fmt::format("Unexpected token '{}' while looking for statement", token_kind_to_string(tok.kind)));
                 return &error_stmt;
             }
 
@@ -1130,16 +1129,16 @@ namespace ariac {
         try_consume(TokenKind::Semi, ";");
 
         if (m_declared_module) {
-            m_context->report_compiler_diagnostic(mod.loc + peek(-1)->loc, "Translation unit already declares a module");
+            context.report_compiler_diagnostic(mod.loc + peek(-1)->loc, "Translation unit already declares a module");
             return &error_decl;
         }
 
         m_declared_module = true;
 
-        Module* module = m_context->find_or_create_module(path);
-        m_context->active_comp_unit->parent = module;
+        Module* module = context.find_or_create_module(path);
+        context.active_comp_unit->parent = module;
 
-        return Decl::Create(m_context, mod.loc + peek(-1)->loc, DeclKind::Module, DeclVisibility::Public, ModuleDecl(path));
+        return Decl::Create(mod.loc + peek(-1)->loc, DeclKind::Module, DeclVisibility::Public, ModuleDecl(path));
     }
 
     Decl* Parser::parse_import_decl() {
@@ -1155,8 +1154,8 @@ namespace ariac {
 
         try_consume(TokenKind::Semi, ";");
 
-        Decl* import = Decl::Create(m_context, imp.loc + peek(-1)->loc, DeclKind::Import, DeclVisibility::Public, ImportDecl(path, alias));
-        m_context->active_comp_unit->imports.push_back(import);
+        Decl* import = Decl::Create(imp.loc + peek(-1)->loc, DeclKind::Import, DeclVisibility::Public, ImportDecl(path, alias));
+        context.active_comp_unit->imports.push_back(import);
         return import;
     }
 
@@ -1184,8 +1183,8 @@ namespace ariac {
             if (is_type()) {
                 type = parse_type();
             } else {
-                m_context->report_compiler_diagnostic(peek()->loc, "Expected a type after ':'");
-                type = TypeInfo::get_error(m_context);
+                context.report_compiler_diagnostic(peek()->loc, "Expected a type after ':'");
+                type = TypeInfo::get_error();
             }
         }
 
@@ -1193,22 +1192,22 @@ namespace ariac {
             consume();
             initializer = parse_expression();
         } else if (const_) {
-            m_context->report_compiler_diagnostic(ident->loc, "No initializer provided for const variable declaration");
-            type = TypeInfo::get_error(m_context);
+            context.report_compiler_diagnostic(ident->loc, "No initializer provided for const variable declaration");
+            type = TypeInfo::get_error();
             return &error_decl;
         } else if (!type) {
-            m_context->report_compiler_diagnostic(ident->loc, "No initializer provided for type-inffered variable declaration");
-            type = TypeInfo::get_error(m_context);
+            context.report_compiler_diagnostic(ident->loc, "No initializer provided for type-inffered variable declaration");
+            type = TypeInfo::get_error();
 
             return &error_decl;
         }
 
         try_consume(TokenKind::Semi, ";");
 
-        Decl* decl = Decl::Create(m_context, ident->loc + peek(-1)->loc, DeclKind::Var, global ? m_current_visibility : DeclVisibility::Public, VarDecl(ident->string, type, initializer, global, const_, linkage));
+        Decl* decl = Decl::Create(ident->loc + peek(-1)->loc, DeclKind::Var, global ? m_current_visibility : DeclVisibility::Public, VarDecl(ident->string, type, initializer, global, const_, linkage));
 
         if (global) {
-            m_context->active_comp_unit->globals.push_back(decl);
+            context.active_comp_unit->globals.push_back(decl);
         }
 
         return decl;
@@ -1217,10 +1216,10 @@ namespace ariac {
     Decl* Parser::parse_function_decl(LinkageKind linkage) {
         SourceLoc loc = peek()->loc;
         Token fn = consume(); // consume "fn"
-        TypeInfo* ret_type = TypeInfo::get_void(m_context);
+        TypeInfo* ret_type = TypeInfo::get_void();
 
         if (is_primitive_type()) {
-            m_context->report_compiler_diagnostic(peek()->loc, "Expected an indentifier but got a type (NOTE: function declarations look like: fn name() -> type {...})");
+            context.report_compiler_diagnostic(peek()->loc, "Expected an indentifier but got a type (NOTE: function declarations look like: fn name() -> type {...})");
             return &error_decl;
         }
 
@@ -1237,7 +1236,7 @@ namespace ariac {
             consume();
 
             if (!is_type()) {
-                m_context->report_compiler_diagnostic(peek()->loc, "Expected a type after '->'");
+                context.report_compiler_diagnostic(peek()->loc, "Expected a type after '->'");
                 sync_local();
             } else {
                 ret_type = parse_type();
@@ -1254,11 +1253,11 @@ namespace ariac {
             try_consume(TokenKind::Semi, ";");
         }
 
-        TypeInfo* final_type = TypeInfo::create_function(m_context, TypeKind::Function, ret_type, param_types, is_var_arg);
-        Decl* decl = Decl::Create(m_context, ident->loc + ret_type->loc, DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, final_type, params, body, linkage));
+        TypeInfo* final_type = TypeInfo::create_function(TypeKind::Function, ret_type, param_types, is_var_arg);
+        Decl* decl = Decl::Create(ident->loc + ret_type->loc, DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, final_type, params, body, linkage));
         decl->attributes = attrs;
 
-        m_context->active_comp_unit->funcs.push_back(decl);
+        context.active_comp_unit->funcs.push_back(decl);
         return decl;
     }
 
@@ -1270,7 +1269,7 @@ namespace ariac {
 
         while (!match(TokenKind::RightParen)) {
             if (is_primitive_type()) {
-                m_context->report_compiler_diagnostic(peek()->loc, "Expected an identifier but got a type (<name>: <type>)");
+                context.report_compiler_diagnostic(peek()->loc, "Expected an identifier but got a type (<name>: <type>)");
                 sync_params();
                 continue;
             }
@@ -1281,11 +1280,11 @@ namespace ariac {
 
                 if (match(TokenKind::Comma)) {
                     Token& c = consume();
-                    m_context->report_compiler_diagnostic(c.loc, "Cannot declare parameters after '...'");
+                    context.report_compiler_diagnostic(c.loc, "Cannot declare parameters after '...'");
                 } else if (match(TokenKind::RightParen)) {
                     break;
                 } else {
-                    m_context->report_compiler_diagnostic(peek()->loc, "Expected ')'");
+                    context.report_compiler_diagnostic(peek()->loc, "Expected ')'");
                     sync_params();
                 }
             } else {
@@ -1299,20 +1298,20 @@ namespace ariac {
                 try_consume(TokenKind::Colon, ":");
 
                 if (!is_type()) {
-                    m_context->report_compiler_diagnostic(peek()->loc, "Expected a type");
+                    context.report_compiler_diagnostic(peek()->loc, "Expected a type");
                     sync_params();
                     continue;
                 }
 
                 TypeInfo* paramType = parse_type();
                 
-                params.append(m_context, Decl::Create(m_context, param_ident->loc, DeclKind::Param, DeclVisibility::Public, ParamDecl(param_ident->string, paramType)));
-                param_types.append(m_context, paramType);
+                params.append(Decl::Create(param_ident->loc, DeclKind::Param, DeclVisibility::Public, ParamDecl(param_ident->string, paramType)));
+                param_types.append(paramType);
 
                 if (match(TokenKind::Comma)) { consume(); continue; }
                 if (match(TokenKind::RightParen)) { break; }
 
-                m_context->report_compiler_diagnostic(peek()->loc, "Expected either ',' or ')'");
+                context.report_compiler_diagnostic(peek()->loc, "Expected either ',' or ')'");
                 sync_params();
             }
         }
@@ -1328,19 +1327,19 @@ namespace ariac {
         try_consume(TokenKind::Less, "<");
         if (match(TokenKind::Greater)) {
             Token& g = consume();
-            m_context->report_compiler_diagnostic(g.loc, "Empty generic parameter list is not allowed");
+            context.report_compiler_diagnostic(g.loc, "Empty generic parameter list is not allowed");
             return params;
         }
 
         while (peek() && !match(TokenKind::Greater)) {
             Token* ident = try_consume(TokenKind::Identifier, "identifier");
             if (!ident) { continue; }
-            params.append(m_context, Decl::Create(m_context, ident->loc, DeclKind::GenericParameter, DeclVisibility::Public, GenericParameterDecl(ident->string)));
+            params.append(Decl::Create(ident->loc, DeclKind::GenericParameter, DeclVisibility::Public, GenericParameterDecl(ident->string)));
 
             if (match(TokenKind::Comma)) { consume(); continue; }
             if (match(TokenKind::Greater)) { break; }
 
-            m_context->report_compiler_diagnostic(peek()->loc, "Expected either ',' or '>'");
+            context.report_compiler_diagnostic(peek()->loc, "Expected either ',' or '>'");
             sync_params();
         }
 
@@ -1353,7 +1352,7 @@ namespace ariac {
         Token* ident = try_consume(TokenKind::Identifier, "identifier");
         if (!ident) { return &error_decl; }
         
-        Decl* struc = Decl::Create(m_context, s.loc + ident->loc, DeclKind::Struct, m_current_visibility, StructDecl(ident->string, {}));
+        Decl* struc = Decl::Create(s.loc + ident->loc, DeclKind::Struct, m_current_visibility, StructDecl(ident->string, {}));
         TinyVector<Decl*> generic_params;
         DeclVisibility visibility = DeclVisibility::Public;
 
@@ -1372,7 +1371,7 @@ namespace ariac {
                 try_consume(TokenKind::Colon, ":");
 
                 if (!is_type()) {
-                    m_context->report_compiler_diagnostic(peek()->loc, "Expected type after ':'");
+                    context.report_compiler_diagnostic(peek()->loc, "Expected type after ':'");
                     sync_local();
                     continue;
                 }
@@ -1384,12 +1383,12 @@ namespace ariac {
                     if (match(TokenKind::Semi)) { consume(); }
                 }
 
-                struc->struct_.fields.append(m_context, Decl::Create(m_context, fieldName->loc + peek(-1)->loc, DeclKind::Field, visibility, FieldDecl(fieldName->string, type)));
+                struc->struct_.fields.append(Decl::Create(fieldName->loc + peek(-1)->loc, DeclKind::Field, visibility, FieldDecl(fieldName->string, type)));
             } else if (match(TokenKind::HashPrivate)) {
-                m_context->report_compiler_diagnostic(loc + peek()->loc, "Structs do not support private fields");
+                context.report_compiler_diagnostic(loc + peek()->loc, "Structs do not support private fields");
                 consume();
             } else {
-                m_context->report_compiler_diagnostic(loc, "Expected identifier");
+                context.report_compiler_diagnostic(loc, "Expected identifier");
                 sync_local();
                 if (match(TokenKind::Semi)) { consume(); }
             }
@@ -1397,11 +1396,11 @@ namespace ariac {
         try_consume(TokenKind::RightCurly, "}");
         
         if (generic_params.size == 0) {
-            m_context->active_comp_unit->structs.push_back(struc);
+            context.active_comp_unit->structs.push_back(struc);
             return struc;
         } else {
-            Decl* g = Decl::Create(m_context, struc->loc, DeclKind::Generic, m_current_visibility, GenericDecl(generic_params, struc));
-            m_context->active_comp_unit->generics.push_back(g);
+            Decl* g = Decl::Create(struc->loc, DeclKind::Generic, m_current_visibility, GenericDecl(generic_params, struc));
+            context.active_comp_unit->generics.push_back(g);
             return g;
         }
     }
@@ -1411,7 +1410,7 @@ namespace ariac {
         Token* ident = try_consume(TokenKind::Identifier, "identifier");
         if (!ident) { return &error_decl; }
         
-        Decl* impl = Decl::Create(m_context, s.loc + ident->loc, DeclKind::Impl, m_current_visibility, ImplDecl(ident->string, {}));
+        Decl* impl = Decl::Create(s.loc + ident->loc, DeclKind::Impl, m_current_visibility, ImplDecl(ident->string, {}));
         DeclVisibility visibility = DeclVisibility::Public;
 
         try_consume(TokenKind::LeftCurly, "{");
@@ -1419,7 +1418,7 @@ namespace ariac {
             SourceLoc loc = peek()->loc;
 
             if (match(TokenKind::Identifier)) {
-                m_context->report_compiler_diagnostic(loc, "Unexpected identifier found, did you mean to put 'fn' before it?");
+                context.report_compiler_diagnostic(loc, "Unexpected identifier found, did you mean to put 'fn' before it?");
                 sync_local();
             } else if (match(TokenKind::Fn)) {
                 consume();
@@ -1430,13 +1429,13 @@ namespace ariac {
                 bool is_var_arg = false;
                 auto[params, param_types] = parse_function_params(&is_var_arg);
 
-                TypeInfo* ret_type = TypeInfo::get_error(m_context);
+                TypeInfo* ret_type = TypeInfo::get_error();
 
                 if (try_consume(TokenKind::Arrow, "->")) {
                     if (!is_type()) {
-                        m_context->report_compiler_diagnostic(peek()->loc, "Expected a type after '->'");
+                        context.report_compiler_diagnostic(peek()->loc, "Expected a type after '->'");
                         sync_local();
-                        ret_type = TypeInfo::get_error(m_context);
+                        ret_type = TypeInfo::get_error();
                     } else {
                         ret_type = parse_type();
                     }
@@ -1444,21 +1443,21 @@ namespace ariac {
 
                 Stmt* body = parse_block();
 
-                TypeInfo* final_type = TypeInfo::create_function(m_context, TypeKind::Method, ret_type, param_types, is_var_arg);
-                impl->impl.fields.append(m_context, Decl::Create(m_context, loc + peek(-1)->loc, DeclKind::Method,
+                TypeInfo* final_type = TypeInfo::create_function(TypeKind::Method, ret_type, param_types, is_var_arg);
+                impl->impl.fields.append(Decl::Create(loc + peek(-1)->loc, DeclKind::Method,
                     visibility, MethodDecl(impl, name->string, final_type, params, body)));
             } else if (match(TokenKind::HashPrivate)) {
-                m_context->report_compiler_diagnostic(loc + peek()->loc, "Impls do not support private fields");
+                context.report_compiler_diagnostic(loc + peek()->loc, "Impls do not support private fields");
                 consume();
             } else {
-                m_context->report_compiler_diagnostic(loc, "Expected 'fn'");
+                context.report_compiler_diagnostic(loc, "Expected 'fn'");
                 sync_local();
                 if (match(TokenKind::Semi)) { consume(); }
             }
         }
         try_consume(TokenKind::RightCurly, "}");
         
-        m_context->active_comp_unit->impls.push_back(impl);
+        context.active_comp_unit->impls.push_back(impl);
         return impl;
     }
 
@@ -1470,7 +1469,7 @@ namespace ariac {
 
             default: {
                 Token& tok = consume();
-                m_context->report_compiler_diagnostic(tok.loc, "Expected 'fn'");
+                context.report_compiler_diagnostic(tok.loc, "Expected 'fn'");
                 sync_global();
                 return &error_decl;
             }
@@ -1485,7 +1484,7 @@ namespace ariac {
 
             default: {
                 Token& tok = consume();
-                m_context->report_compiler_diagnostic(tok.loc, "Expected 'identifier'");
+                context.report_compiler_diagnostic(tok.loc, "Expected 'identifier'");
                 sync_global();
                 return &error_decl;
             }
@@ -1507,8 +1506,8 @@ namespace ariac {
 
             try_consume(TokenKind::Semi, ";");
 
-            Decl* d = Decl::Create(m_context, td.loc + peek(-1)->loc, DeclKind::Typedef, m_current_visibility, TypedefDecl(type, name->string));
-            m_context->active_comp_unit->typedefs.push_back(d);
+            Decl* d = Decl::Create(td.loc + peek(-1)->loc, DeclKind::Typedef, m_current_visibility, TypedefDecl(type, name->string));
+            context.active_comp_unit->typedefs.push_back(d);
             return d;
         }
 
@@ -1534,19 +1533,19 @@ namespace ariac {
             }
 
             SourceLoc loc = value ? fd_ident->loc + value->loc : fd_ident->loc;
-            fields.append(m_context, Decl::Create(m_context, loc, DeclKind::EnumConstant, DeclVisibility::Public, EnumConstantDecl(fd_ident->string, value)));
+            fields.append(Decl::Create(loc, DeclKind::EnumConstant, DeclVisibility::Public, EnumConstantDecl(fd_ident->string, value)));
 
             if (match(TokenKind::Comma)) { consume(); continue; }
             else if (match(TokenKind::RightCurly)) { break; }
 
-            m_context->report_compiler_diagnostic(peek()->loc, "Expected either ',' or '}'");
+            context.report_compiler_diagnostic(peek()->loc, "Expected either ',' or '}'");
             sync_local();
         }
 
         try_consume(TokenKind::RightCurly, "}");
 
-        Decl* d = Decl::Create(m_context, enu.loc + ident->loc, DeclKind::Enum, m_current_visibility, EnumDecl(fields, ident->string));
-        m_context->active_comp_unit->enums.push_back(d);
+        Decl* d = Decl::Create(enu.loc + ident->loc, DeclKind::Enum, m_current_visibility, EnumDecl(fields, ident->string));
+        context.active_comp_unit->enums.push_back(d);
         return d;
     }
 
@@ -1561,7 +1560,7 @@ namespace ariac {
                     Expr* arg = parse_expression();
                     try_consume(TokenKind::RightParen, "(");
 
-                    attrs.append(m_context, DeclAttribute(DeclAttributeKind::If, arg));
+                    attrs.append(DeclAttribute(DeclAttributeKind::If, arg));
                     break;
                 }
 
@@ -1589,7 +1588,7 @@ namespace ariac {
             break;
         }
 
-        return scratch_buffer_to_str(m_context);
+        return scratch_buffer_to_str();
     }
 
     Decl* Parser::parse_global() {
@@ -1604,7 +1603,7 @@ namespace ariac {
                 return parse_const_decl(true);
 
             case TokenKind::Let: {
-                m_context->report_compiler_diagnostic(peek()->loc, "'let' cannot be used for global variables, try using 'const' or 'static' instead"); 
+                context.report_compiler_diagnostic(peek()->loc, "'let' cannot be used for global variables, try using 'const' or 'static' instead"); 
                 consume(); 
                 return &error_decl;
             }
@@ -1631,7 +1630,7 @@ namespace ariac {
                 return parse_static_decl();
 
             case TokenKind::Semi: {
-                m_context->report_compiler_diagnostic(peek()->loc, fmt::format("Token ';' was unexpected, try removing it")); 
+                context.report_compiler_diagnostic(peek()->loc, fmt::format("Token ';' was unexpected, try removing it")); 
                 consume(); 
                 return &error_decl;
             }
@@ -1655,12 +1654,12 @@ namespace ariac {
             case TokenKind::Float:
             case TokenKind::Double: {
                 Token& t = consume();
-                m_context->report_compiler_diagnostic(t.loc, fmt::format("Unexpected type '{}', did you mean to declare a global variable? (let <name>: <type>)", token_kind_to_string(t.kind)));
+                context.report_compiler_diagnostic(t.loc, fmt::format("Unexpected type '{}', did you mean to declare a global variable? (let <name>: <type>)", token_kind_to_string(t.kind)));
                 return &error_decl;
             }
 
             default: {
-                m_context->report_compiler_diagnostic(peek()->loc, fmt::format("Expected the start of a global declaration", token_kind_to_string(peek()->kind)));
+                context.report_compiler_diagnostic(peek()->loc, fmt::format("Expected the start of a global declaration", token_kind_to_string(peek()->kind)));
                 sync_global();
                 return &error_decl;
             }
@@ -1724,9 +1723,9 @@ namespace ariac {
 
     void Parser::error_expected(const std::string& expect, SourceLoc loc) {
         if (peek()) {
-            m_context->report_compiler_diagnostic(loc, fmt::format("Expected '{}' but got '{}'", expect, token_kind_to_string(peek()->kind)));
+            context.report_compiler_diagnostic(loc, fmt::format("Expected '{}' but got '{}'", expect, token_kind_to_string(peek()->kind)));
         } else {
-            m_context->report_compiler_diagnostic(loc, fmt::format("Expected '{}' but got EOF", expect));
+            context.report_compiler_diagnostic(loc, fmt::format("Expected '{}' but got EOF", expect));
         }
     }
 

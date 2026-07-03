@@ -6,9 +6,7 @@
 
 namespace ariac {
 
-    struct CompilationContext;
-
-    void* alloc_arena(CompilationContext* ctx, size_t size); // Defined in vector.cpp
+    void* alloc_arena(size_t size); // Defined in vector.cpp
 
     template <typename T>
     struct HTable {
@@ -20,16 +18,16 @@ namespace ariac {
         };
 
     public:
-        inline void insert(CompilationContext* ctx, std::string_view key, const T& value) {
+        inline void insert(std::string_view key, const T& value) {
             if (capacity == 0) {
                 capacity = 32;
-                items = reinterpret_cast<Node**>(alloc_arena(ctx, capacity * sizeof(Node*)));
+                items = reinterpret_cast<Node**>(alloc_arena(capacity * sizeof(Node*)));
                 memset(items, 0, sizeof(Node*) * capacity);
             }
 
             size_t idx = hash(key);
 
-            Node* new_node = reinterpret_cast<Node*>(alloc_arena(ctx, sizeof(Node)));
+            Node* new_node = reinterpret_cast<Node*>(alloc_arena(sizeof(Node)));
             new_node->key = key;
             new_node->value = value;
             new_node->next = nullptr;

@@ -13,7 +13,7 @@ namespace ariac {
             resolve_type(varDecl.type);
 
             if (varDecl.type->is_void()) {
-                m_context->report_compiler_diagnostic(decl->loc, "Cannot declare variable of 'void' type");
+                context.report_compiler_diagnostic(decl->loc, "Cannot declare variable of 'void' type");
             }
         }
 
@@ -21,7 +21,7 @@ namespace ariac {
 
         if (m_scopes.size() > 0) {
             if (m_scopes.back().declarations.contains(ident)) {
-                m_context->report_compiler_diagnostic(decl->loc, fmt::format("Redeclaring symbol '{}'", ident));
+                context.report_compiler_diagnostic(decl->loc, fmt::format("Redeclaring symbol '{}'", ident));
             }
 
             m_scopes.back().declarations[ident] = { varDecl.type, decl, DeclKind::Var };
@@ -44,11 +44,11 @@ namespace ariac {
         std::string ident = fmt::format("{}", fnDecl.identifier);
         
         if (fnDecl.linkage_kind == LinkageKind::Extern && fnDecl.body) {
-            m_context->report_compiler_diagnostic(decl->loc, "Function marked 'extern' must not have body");
+            context.report_compiler_diagnostic(decl->loc, "Function marked 'extern' must not have body");
         }
 
         if (fnDecl.type->function.var_arg && fnDecl.linkage_kind != LinkageKind::Extern) {
-            m_context->report_compiler_diagnostic(decl->loc, "Function with variable amount of parameters (vararg) must be marked 'extern'");
+            context.report_compiler_diagnostic(decl->loc, "Function with variable amount of parameters (vararg) must be marked 'extern'");
         }
 
         if (fnDecl.body) {
@@ -66,16 +66,16 @@ namespace ariac {
 
             if (m_scopes.back().reaches_end) {
                 if (!fnDecl.type->function.return_type->is_void()) {
-                    m_context->report_compiler_diagnostic(decl->loc, "Control flow reaches end of function with a non void return type");
+                    context.report_compiler_diagnostic(decl->loc, "Control flow reaches end of function with a non void return type");
                 } else {
-                    fnDecl.body->block.stmts.append(m_context, Stmt::Create(m_context, decl->loc, StmtKind::Return, ReturnStmt(nullptr)));
+                    fnDecl.body->block.stmts.append(Stmt::Create(decl->loc, StmtKind::Return, ReturnStmt(nullptr)));
                 }
             }
 
             pop_scope();
             m_active_return_type = prev_ret_type;
         } else if (fnDecl.linkage_kind != LinkageKind::Extern) {
-            m_context->report_compiler_diagnostic_with_notes(decl->loc, "Body for this function must be specified",
+            context.report_compiler_diagnostic_with_notes(decl->loc, "Body for this function must be specified",
                 { "If this function is defined elsewhere, use 'extern'"} );
         }
 
@@ -89,7 +89,7 @@ namespace ariac {
         StructDecl& s = decl->struct_;
 
         if (s.fields.size == 0) {
-            m_context->report_compiler_diagnostic(decl->loc, "Empty structs are not allowed");
+            context.report_compiler_diagnostic(decl->loc, "Empty structs are not allowed");
         }
 
         for (Decl* field : s.fields) {
@@ -101,17 +101,17 @@ namespace ariac {
 
             if (s.field_lookup.contains(field->field.identifier)) {
                 Decl* prev = s.field_lookup.at(field->field.identifier);
-                m_context->report_compiler_diagnostic(field->loc, fmt::format("Redeclaring field '{}'", field->field.identifier));
-                m_context->report_compiler_diagnostic(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
+                context.report_compiler_diagnostic(field->loc, fmt::format("Redeclaring field '{}'", field->field.identifier));
+                context.report_compiler_diagnostic(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
             }
 
             if (field->field.type->is_void()) {
-                m_context->report_compiler_diagnostic(field->loc, "Cannot declare field of 'void' type");
+                context.report_compiler_diagnostic(field->loc, "Cannot declare field of 'void' type");
                 field->kind = DeclKind::Error;
                 continue;
             }
 
-            s.field_lookup.insert(m_context, field->field.identifier, field);
+            s.field_lookup.insert(field->field.identifier, field);
         }
         decl->resolve_status = ResolveStatus::Done;
 
@@ -134,24 +134,24 @@ namespace ariac {
                         Decl* prev = i.field_lookup.at(field->method.identifier);
 
                         if (prev->kind == DeclKind::Method) {
-                            m_context->report_compiler_diagnostic(field->loc, fmt::format("Redeclaring method '{}'", field->method.identifier));
-                            m_context->report_compiler_diagnostic(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
+                            context.report_compiler_diagnostic(field->loc, fmt::format("Redeclaring method '{}'", field->method.identifier));
+                            context.report_compiler_diagnostic(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
                             continue;
                         } else {
-                            m_context->report_compiler_diagnostic(field->loc, fmt::format("Redeclaring field '{}' as method", field->method.identifier));
-                            m_context->report_compiler_diagnostic(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
+                            context.report_compiler_diagnostic(field->loc, fmt::format("Redeclaring field '{}' as method", field->method.identifier));
+                            context.report_compiler_diagnostic(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
                             continue;
                         }
                     }
 
-                    i.field_lookup.insert(m_context, field->method.identifier, field);
-                    s.field_lookup.insert(m_context, field->method.identifier, field);
+                    i.field_lookup.insert(field->method.identifier, field);
+                    s.field_lookup.insert(field->method.identifier, field);
                     break;
                 }
             }
         }
 
-        if (!s.type) { s.type = TypeInfo::create_struct(m_context, i.parent); }
+        if (!s.type) { s.type = TypeInfo::create_struct(i.parent); }
 
         m_active_struct = s.type;
 
@@ -172,9 +172,9 @@ namespace ariac {
 
                     if (m_scopes.back().reaches_end) {
                         if (!field->method.type->function.return_type->is_void()) {
-                            m_context->report_compiler_diagnostic(decl->loc, "Control flow reaches end of function with a non void return type");
+                            context.report_compiler_diagnostic(decl->loc, "Control flow reaches end of function with a non void return type");
                         } else {
-                            field->method.body->block.stmts.append(m_context, Stmt::Create(m_context, decl->loc, StmtKind::Return, ReturnStmt(nullptr)));
+                            field->method.body->block.stmts.append(Stmt::Create(decl->loc, StmtKind::Return, ReturnStmt(nullptr)));
                         }
                     }
 
@@ -210,14 +210,14 @@ namespace ariac {
                 resolve_expr(c.value);
 
                 if (!is_const_expr(c.value)) {
-                    m_context->report_compiler_diagnostic(c.value->loc, "Value of enum constant must be a constant expression");
+                    context.report_compiler_diagnostic(c.value->loc, "Value of enum constant must be a constant expression");
                 } else {
-                    ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(m_context, TypeKind::Int), c.value->type);
+                    ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(TypeKind::Int), c.value->type);
                     if (cost.cast_needed) {
                         if (cost.implicit_cast_possible) {
-                            insert_implicit_cast(TypeInfo::get_basic(m_context, TypeKind::Int), c.value->type, c.value, cost.kind);
+                            insert_implicit_cast(TypeInfo::get_basic(TypeKind::Int), c.value->type, c.value, cost.kind);
                         } else {
-                            m_context->report_compiler_diagnostic(c.value->loc, fmt::format("Type of expression must be convertable to 'int' but is '{}'", type_info_to_string(c.value->type)));
+                            context.report_compiler_diagnostic(c.value->loc, fmt::format("Type of expression must be convertable to 'int' but is '{}'", type_info_to_string(c.value->type)));
                         }
                     }
 
@@ -232,7 +232,7 @@ namespace ariac {
                 c.resolved_value = val;
             }
 
-            e.field_lookup.insert(m_context, c.identifier, field);
+            e.field_lookup.insert(c.identifier, field);
         }
 
         decl->resolve_status = ResolveStatus::Done;
@@ -257,12 +257,12 @@ namespace ariac {
                     resolve_expr(attr.arg);
 
                     if (!is_const_expr(attr.arg)) {
-                        m_context->report_compiler_diagnostic(attr.arg->loc, "Expression must be a compile time constant");
+                        context.report_compiler_diagnostic(attr.arg->loc, "Expression must be a compile time constant");
                         break;
                     }
 
                     if (!attr.arg->type->is_boolean()) {
-                        m_context->report_compiler_diagnostic(attr.arg->loc, "Expression must be of type 'bool'");
+                        context.report_compiler_diagnostic(attr.arg->loc, "Expression must be of type 'bool'");
                         break;
                     }
 

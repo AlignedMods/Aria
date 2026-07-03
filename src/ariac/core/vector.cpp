@@ -3,7 +3,7 @@
 
 namespace ariac {
     
-    void* alloc_arena(CompilationContext* ctx, size_t size) { return ctx->allocate_sized(size); }
+    void* alloc_arena(size_t size) { return context.allocate_sized(size); }
 
 } // namespace ariac
 
