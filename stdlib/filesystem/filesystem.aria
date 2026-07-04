@@ -1,0 +1,5 @@
+module std::fs;
+
+fn is_dir(path: String) -> bool {
+    
+}

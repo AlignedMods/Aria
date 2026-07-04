@@ -1,9 +1,19 @@
 module test_runner;
 
 import std::io;
+import std::filesystem as std::fs;
+
+fn usage() {
+    io::println("test_runner: usage:");
+    io::println("  test_runner <compiler_path> <test_suite_path>");
+    process::exit(0);
+}
 
 fn main(args: []String) {
-    for (i: ulong = 0; i < args.len; i++) {
-        io::println(args[i]);
+    if args.len < 3 {
+        usage();
     }
+
+    let compiler_path = args[1];
+    let test_suite_path = args[2];
 }

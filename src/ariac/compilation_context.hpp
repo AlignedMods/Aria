@@ -1,7 +1,7 @@
 #pragma once
 
 #include "ariac/allocator.hpp"
-#include "ariac/compiler_flags.hpp"
+#include "ariac/build.hpp"
 #include "ariac/core/source_location.hpp"
 #include "ariac/lexer/tokens.hpp"
 #include "ariac/reflection/compiler_reflection.hpp"
@@ -120,10 +120,10 @@ namespace ariac {
             }
         }
     
-        void compile_files(const std::vector<std::string>& files, const CompilerFlags& flags);
-        void compile_file(const std::string& file, const CompilerFlags& flags, bool std);
-        void compile_stdlib(const CompilerFlags& flags);
-        void finish_compilation(const CompilerFlags& flags);
+        void compile_files(BuildOptions* opts);
+        void compile_file(const std::string& file, bool std);
+        void compile_stdlib();
+        void finish_compilation();
 
         void print_diag(CompilerDiagnostic* diag);
 
@@ -140,7 +140,7 @@ namespace ariac {
         std::vector<CompilationUnit*> compilation_units;
         CompilationUnit* active_comp_unit = nullptr;
         Module* active_module = nullptr;
-        CompilerFlags flags;
+        BuildOptions* opts = nullptr;
 
         std::vector<Module*> modules;
         Module* std_core_module = nullptr;

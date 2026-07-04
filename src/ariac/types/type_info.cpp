@@ -132,7 +132,7 @@ namespace ariac {
     }
 
     TypeInfo* TypeInfo::get_string() {
-        if (context.flags.no_stdlib) {
+        if (context.opts->no_stdlib) {
             if (char_slice_type) { return char_slice_type; }
             char_slice_type = create_with_base(TypeKind::Slice, get_basic(TypeKind::Char));
             return char_slice_type;

@@ -1,4 +1,4 @@
-#include "ariac/compiler_flags.hpp"
+#include "ariac/build.hpp"
 #include "ariac/compilation_context.hpp"
 
 #include "fmt/format.h"
@@ -7,100 +7,160 @@
 #include <vector>
 
 namespace ariac {
+
+    static int arg_index = 0;
+    static int arg_size = 0;
+    static const char** args;
+    static const char* current_arg;
+    static const char* program_name;
     
-    static void print_help(const char* prog_name) {
-        fmt::println("{}: help: ", prog_name);
-        fmt::println("  {} [<options>] [<args>]", prog_name);
+    static void usage() {
+        fmt::println("{}: usage: ", program_name);
+        fmt::println("  {} [<options>] <files>", program_name);
         fmt::println("");
         fmt::println("  Options:");
-        fmt::println("    -no-codegen              Do not run any codegen");
-        fmt::println("    -no-stdlib               Does not compile the standard library");
-        fmt::println("    -stdlib-path <path>      Tells the compiler where the standard library is located");
-        fmt::println("    -dump-ast                Prints the human readable AST of all the input files");
-        fmt::println("    -dump-ast-to-file <file> Dumps the human readable AST of all the input files to a file");
-        fmt::println("    -dump-ir                 Prints the human readable LLVM IR output of all the input files");
+        fmt::println("    -h --help                Print the help");
+        fmt::println("    -r --run <args>          Run the compiled program after compilation with the provided <args>");
+        fmt::println("    --no-codegen             Do not run any codegen");
+        fmt::println("    --no-stdlib              Does not compile the standard library");
+        fmt::println("    --stdlib-path <path>     Tells the compiler where the standard library is located");
+        fmt::println("    --emit-ast               Prints the human readable AST of all the input files");
+        fmt::println("    --emit-llvm              Prints the human readable LLVM IR output of all the input files");
         fmt::println("    -l <lib>                 Adds <lib> to the list of libraries to link with");
         fmt::println("    -L <path>                Adds <path> to the list of paths where to search for libraries");
+
+        exit(0);
     }
 
-    static int main_real(int argc, char** argv) {
-        if (argc <= 1) {
-            print_help(argv[0]);
-            return 1;
-        } else if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0) {
-            print_help(argv[0]);
-            return 0;
+    template <typename... T>
+    [[noreturn]] static void error_exit(fmt::format_string<T...> fmt, T&&... args) {
+        fmt::println(fmt, static_cast<T&&>(args)...);
+        exit(1);
+    }
+
+    static bool at_end() { return arg_index == arg_size - 1; }
+
+    static const char* next_arg() {
+        ARIA_ASSERT(!at_end(), "Invalid next_arg() call");
+        current_arg = args[++arg_index];
+        return current_arg;
+    }
+
+    static bool is_next_opt() {
+        return next_arg()[0] == '-';
+    }
+
+    static bool match_arg(const char* str) {
+        return strcmp(current_arg, str) == 0;
+    }
+
+    static void handle_option(BuildOptions* opts) {
+        if (match_arg("-h") || match_arg("--help")) {
+            usage();
         }
 
-        CompilerFlags flags;
-        std::vector<std::string> files;
+        if (match_arg("-r") || match_arg("--run")) {
+            opts->run_after_compile = true;
+            return;
+        }
 
-        bool needs_stdlib_path = false;
-        bool needs_ast_dump_output = false;
-        bool needs_lib = false;
-        bool needs_lib_path = false;
+        if (match_arg("--no-codegen")) {
+            opts->no_codegen = true;
+            return;
+        }
 
-        for (int i = 1; i < argc; i++) {
-            if (strcmp(argv[i], "-no-codegen") == 0) { flags.no_codegen = true; }
-            else if (strcmp(argv[i], "-dump-ast") == 0) { flags.dump_ast = true; }
-            else if (strcmp(argv[i], "-dump-ir") == 0) { flags.dump_ir = true; }
-            else if (strcmp(argv[i], "-dump-ast-to-file") == 0) { flags.dump_ast = true; needs_ast_dump_output = true; }
-            else if (strcmp(argv[i], "-no-stdlib") == 0) { flags.no_stdlib = true; }
-            else if (strcmp(argv[i], "-stdlib-path") == 0) { needs_stdlib_path = true; }
-            else if (strcmp(argv[i], "-l") == 0) { needs_lib = true; }
-            else if (strcmp(argv[i], "-L") == 0) { needs_lib_path = true; }
-            else {
-                if (needs_stdlib_path) {
-                    flags.stdlib_path = argv[i];
-                    needs_stdlib_path = false;
-                } else if (needs_ast_dump_output) {
-                    flags.ast_dump_output = argv[i];
-                    needs_ast_dump_output = false;
-                } else if (needs_lib) {
-                    flags.libs.push_back(argv[i]);
-                    needs_lib = false;
-                } else if (needs_lib_path) {
-                    flags.libdirs.push_back(argv[i]);
-                    needs_lib_path = false;
-                } else {    
-                    files.push_back(argv[i]);
-                }
+        if (match_arg("--no-stdlib")) {
+            opts->no_stdlib = true;
+            return;
+        }
+
+        if (match_arg("--stdlib-path")) {
+            if (at_end() || is_next_opt()) {
+                error_exit("Expected a path for '--stdlib-path'");
             }
+
+            opts->stdlib_path = next_arg();
+            return;
         }
 
-        if (needs_stdlib_path) {
-            fmt::println("No path specified for '-stdlib-path'");
-            return 1;
+        if (match_arg("--emit-ast")) {
+            opts->emit_ast = true;
+            return;
         }
 
-        if (needs_ast_dump_output) {
-            fmt::println("No output file specified for '-dump-ast-to-file'");
-            return 1;
+        if (match_arg("--emit-llvm")) {
+            opts->emit_llvm = true;
+            return;
         }
 
-        if (needs_lib) {
-            fmt::println("No library specified for '-l'");
-            return 1;
+        if (match_arg("-l")) {
+            if (at_end() || is_next_opt()) {
+                error_exit("Expected a path for '-l'");
+            }
+
+            opts->libs.push_back(next_arg());
+            return;
         }
 
-        if (needs_lib_path) {
-            fmt::println("No directory specified for '-L'");
-            return 1;
+        if (match_arg("-L")) {
+            if (at_end() || is_next_opt()) {
+                error_exit("Expected a path for '-L'");
+            }
+
+            opts->libdirs.push_back(next_arg());
+            return;
         }
 
-        if (files.size() == 0) {
-            fmt::println("No files to compile.");
-            return 1;
+        error_exit("Unknown option '{}'", current_arg);
+    }
+
+    static void add_file(BuildOptions* opts) {
+        opts->files.push_back(current_arg);
+    }
+
+    static void add_arg(BuildOptions* opts) {
+        opts->args.push_back(current_arg);
+    }
+
+    static BuildOptions handle_args(int argc, const char** argv) {
+        BuildOptions opts;
+        opts.output_path = std::filesystem::path(".build") / "main.exe";
+        opts.stdlib_path = "stdlib";
+
+        arg_size = argc;
+        args = argv;
+
+        program_name = argv[0];
+
+        while (!at_end()) {
+            next_arg();
+
+            if (current_arg[0] == '-') {
+                handle_option(&opts);
+                continue;
+            }
+
+            if (opts.run_after_compile) {
+                add_arg(&opts);
+                continue;
+            }
+
+            add_file(&opts);
         }
 
-        if (flags.stdlib_path.empty()) {
-            flags.stdlib_path = "stdlib";
+        if (opts.files.empty()) {
+            error_exit("No files to compile");
         }
 
-        context.compile_files(files, flags);
+        return opts;
+    }
+
+    static int main_real(int argc, const char** argv) {
+        BuildOptions opts = handle_args(argc, argv);
+        context.compile_files(&opts);
         return 0;
     }
 
 } // namespace ariac
 
-int main(int argc, char** argv) { return ariac::main_real(argc, argv); }
+int main(int argc, const char** argv) { return ariac::main_real(argc, argv); }

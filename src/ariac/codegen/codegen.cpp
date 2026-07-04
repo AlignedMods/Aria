@@ -20,7 +20,7 @@ namespace ariac {
                 gen_mod_to_ir(mod);
                 gen_mod_to_obj(mod);
 
-                if (context.flags.dump_ir) {
+                if (context.opts->emit_llvm) {
                     gen_mod_ir_dump(mod);
                 }
             }
@@ -286,11 +286,11 @@ namespace ariac {
         std::vector<std::string> libs;
         std::vector<std::string> libdirs;
 
-        for (auto& lib : context.flags.libs) {
+        for (auto& lib : context.opts->libs) {
             libs.push_back(fmt::format("-l{}", lib));
         }
 
-        for (auto& libdir : context.flags.libdirs) {
+        for (auto& libdir : context.opts->libdirs) {
             libdirs.push_back(fmt::format("-L{}", libdir));
         }
 

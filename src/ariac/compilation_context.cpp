@@ -23,7 +23,8 @@ namespace ariac {
         "core/string_stream.aria",
         "core/string.aria",
         "core/mem.aria",
-        "core/list.aria"
+        "core/list.aria",
+        "process/process.aria"
     };
 
     inline static std::string get_line(const std::string& str, size_t line) {
@@ -38,20 +39,20 @@ namespace ariac {
         return lines.at(line - 1);
     }
 
-    void CompilationContext::compile_files(const std::vector<std::string>& files, const CompilerFlags& flags) {
-        this->flags = flags;
+    void CompilationContext::compile_files(BuildOptions* opts) {
+        this->opts = opts;
 
         if (!std::filesystem::exists(".build")) {
             std::filesystem::create_directory(".build");
         }
 
-        if (!flags.no_stdlib) { compile_stdlib(flags); }
+        if (!opts->no_stdlib) { compile_stdlib(); }
 
-        for (auto& file : files) { compile_file(file, flags, false); }
-        finish_compilation(flags);
+        for (auto& file : opts->files) { compile_file(file, false); }
+        finish_compilation();
     }
 
-    void CompilationContext::compile_file(const std::string& file, const CompilerFlags& flags, bool std) {
+    void CompilationContext::compile_file(const std::string& file, bool std) {
         std::ifstream f(file);
         if (!f) {
             fmt::println("Could not open file '{}'", file);
@@ -73,53 +74,54 @@ namespace ariac {
         parse();
     }
 
-    void CompilationContext::compile_stdlib(const CompilerFlags& flags) {
-        if (!std::filesystem::exists(flags.stdlib_path)) {
+    void CompilationContext::compile_stdlib() {
+        if (!std::filesystem::exists(opts->stdlib_path)) {
             fmt::print(stderr, "Could not find standard library");
             return;
         }
 
         for (const char* file : stdlib_files) {
-            compile_file((flags.stdlib_path / file).string(), flags, true);
+            compile_file((opts->stdlib_path / file).string(), true);
         }
     }
 
-    void CompilationContext::finish_compilation(const CompilerFlags& flags) {
+    void CompilationContext::finish_compilation() {
         analyze();
 
-        if (flags.dump_ast) {
-            if (flags.ast_dump_output.empty()) {
-                for (CompilationUnit* unit : compilation_units) {
-                    if (!unit->is_stdlib) {
-                        ASTDumper d(unit);
-                        fmt::println("{}", d.get_output());
-                    }
-                }
-            } else {
-                std::ofstream out(flags.ast_dump_output);
-
-                if (!out) {
-                    fmt::print(stderr, "Failed to open AST output file '{}'\n", flags.ast_dump_output);
-                    return;
-                }
-
-                for (CompilationUnit* unit : compilation_units) {
-                    if (!unit->is_stdlib) {
-                        // ASTDumper d(unit->root_ast_node);
-                        // out << fmt::format("'{}'\n\n{}", unit->filename, d.get_output());
-                        out << "AST\n";
-                    }
+        if (opts->emit_ast) {
+            for (CompilationUnit* unit : compilation_units) {
+                if (!unit->is_stdlib) {
+                    ASTDumper d(unit);
+                    fmt::println("{}", d.get_output());
                 }
             }
-        }
-
-        if (!has_errors && !flags.no_codegen) {
-            codegen();
         }
 
         for (auto& diag : diagnostics) {
             print_diag(&diag);
         }
+
+        if (!has_errors && !opts->no_codegen) {
+            codegen();
+
+            if (opts->run_after_compile) {
+                fmt::println("Running executable '{}'\n", opts->output_path.string());
+
+                std::vector<llvm::StringRef> args;
+                std::string out = opts->output_path.string();
+                args.push_back(out);
+                for (auto& arg : opts->args) { args.push_back(arg); }
+                std::string err;
+                int code = llvm::sys::ExecuteAndWait(opts->output_path.string(), args, {}, {}, 0, 0, &err);
+
+                if (code == -1) {
+                    fmt::println("Could not run executable after compilation: {}", err);
+                } else if (code == -2) {
+                    fmt::println("Failed to run executable after compilation: {}", err);
+                }
+            }
+        }
+
     }
 
     void CompilationContext::print_diag(CompilerDiagnostic* diag) {

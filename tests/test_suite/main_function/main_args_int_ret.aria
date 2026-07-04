@@ -1,0 +1,3 @@
+module main;
+
+fn main(args: []String) -> int { return 0; }

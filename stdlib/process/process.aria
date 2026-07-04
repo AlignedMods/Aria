@@ -1,0 +1,5 @@
+module std::process;
+
+import libc;
+
+fn exit(code: int) { libc::exit(code); }
