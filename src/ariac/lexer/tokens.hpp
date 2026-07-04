@@ -61,6 +61,7 @@ namespace ariac {
         // VVV Keywords VVV //
         Module,
         Import,
+        Env,
         Let,
         If,
         Else,
@@ -98,6 +99,8 @@ namespace ariac {
         UInt,
         Long,
         ULong,
+        Sz,
+        Isz,
         Float,
         Double,
         // ^^^ Types ^^^ //
@@ -178,6 +181,7 @@ namespace ariac {
             // VVV Keywords VVV //
             case TokenKind::Module: return "module";
             case TokenKind::Import: return "import";
+            case TokenKind::Env: return "env";
             case TokenKind::Let: return "let";
             case TokenKind::If: return "if";
             case TokenKind::Else: return "else";
@@ -215,6 +219,8 @@ namespace ariac {
             case TokenKind::UInt: return "uint";
             case TokenKind::Long: return "long";
             case TokenKind::ULong: return "ulong";
+            case TokenKind::Sz: return "sz";
+            case TokenKind::Isz: return "isz";
             case TokenKind::Float: return "float";
             case TokenKind::Double: return "double";
             // ^^^ Types ^^^ //

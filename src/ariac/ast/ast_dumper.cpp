@@ -4,9 +4,13 @@
 
 namespace ariac {
 
-    ASTDumper::ASTDumper(CompilationUnit* unit) {
-        m_unit = unit;
-        dump_ast_impl();
+    ASTDumper::ASTDumper(Module* mod) {
+        for (CompilationUnit* unit : mod->units) {
+            if (unit->is_stdlib) { continue; }
+
+            m_unit = unit;
+            dump_ast_impl();
+        }
     }
 
     std::string& ASTDumper::get_output() {
@@ -14,33 +18,33 @@ namespace ariac {
     }
 
     void ASTDumper::dump_ast_impl() {
-        m_output += fmt::format("File: {}\n", m_unit->filename);
+        m_output += fmt::format("ModuleDecl '{}' {}\n", m_unit->parent->name, m_unit->filename);
         for (Decl* im : m_unit->imports) {
-            dump_decl(im, 0);
+            dump_decl(im, 4);
         }
 
         for (Decl* td : m_unit->typedefs) {
-            dump_decl(td, 0);
+            dump_decl(td, 4);
         }
 
         for (Decl* enu : m_unit->enums) {
-            dump_decl(enu, 0);
+            dump_decl(enu, 4);
         }
 
         for (Decl* stru : m_unit->structs) {
-            dump_decl(stru, 0);
+            dump_decl(stru, 4);
         }
 
         for (Decl* var : m_unit->globals) {
-            dump_decl(var, 0);
+            dump_decl(var, 4);
         }
 
         for (Decl* impl : m_unit->impls) {
-            dump_decl(impl, 0);
+            dump_decl(impl, 4);
         }
 
         for (Decl* func : m_unit->funcs) {
-            dump_decl(func, 0);
+            dump_decl(func, 4);
         }
     }
 

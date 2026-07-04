@@ -4,5 +4,44 @@ const EXIT_FAILURE = 0;
 const EXIT_SUCCESS = 1;
 const RAND_MAX = 0x7fffffff;
 
+typedef void as FILE;
+
 extern fn exit(code: int) -> void;
 extern fn abort() -> void;
+
+// stdio.h
+
+module libc @if(env::LINUX);
+
+extern fn __acrt_iob_func(c: int) -> *FILE @if(env::WIN32);
+
+fn stdin() ->  *FILE { return __acrt_iob_func(0); }
+fn stdout() -> *FILE { return __acrt_iob_func(1); }
+fn stderr() -> *FILE { return __acrt_iob_func(2); }
+
+module libc;
+
+extern fn fopen(filename: *char, mode: *char) -> *FILE;
+extern fn freopen(filename: *char, mode: *char, stream: *FILE) -> *FILE;
+extern fn fclose(stream: *FILE) -> int;
+extern fn fflush(stream: *FILE) -> int;
+extern fn setbuf(stream: *FILE, buffer: *char) -> void;
+extern fn setvbuf(stream: *FILE, buffer: *char, mode: int, size: sz) -> void;
+extern fn fread(buffer: *void, size: sz, count: sz, stream: *FILE) -> sz;
+extern fn fwrite(buffer: *void, size: sz, count: sz, stream: *FILE) -> sz;
+extern fn fgetc(stream: *FILE) -> int;
+extern fn getc() -> int;
+extern fn fgets(str: *char, count: int, stream: *FILE) -> *char;
+extern fn fputc(ch: int, stream: *FILE) -> int;
+extern fn putc(ch: int, stream: *FILE) -> int;
+extern fn fputs(str: *char, stream: *FILE) -> int;
+extern fn getchar() -> int;
+extern fn putchar(ch: int) -> int;
+extern fn puts(str: *char) -> int;
+extern fn ungetc(ch: int, stream: *FILE) -> int;
+
+extern fn scanf(format: *char, ...) -> int;
+extern fn fscanf(stream: *FILE, format: *char, ...) -> int;
+
+extern fn printf(format: *char, ...) -> int;
+extern fn fprintf(stream: *FILE, format: *char, ...) -> int;

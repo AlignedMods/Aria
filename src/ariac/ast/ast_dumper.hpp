@@ -9,7 +9,7 @@ namespace ariac {
 
     class ASTDumper {
     public:
-        ASTDumper(CompilationUnit* unit);
+        ASTDumper(Module* mod);
 
         std::string& get_output();
 

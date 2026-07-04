@@ -100,6 +100,7 @@ namespace ariac {
         m_expr_rules[TokenKind::CStrLit] =           { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Null] =              { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Identifier] =        { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Env] =               { BIND_PARSE_RULE(parse_env),     nullptr, PREC_NONE };
         m_expr_rules[TokenKind::New] =               { BIND_PARSE_RULE(parse_new),     nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Delete] =            { BIND_PARSE_RULE(parse_delete),  nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Sizeof] =            { BIND_PARSE_RULE(parse_sizeof),  nullptr, PREC_NONE };
@@ -511,6 +512,30 @@ namespace ariac {
         ARIA_UNREACHABLE();
     }
 
+    Expr* Parser::parse_env(Expr* left) {
+        ARIA_ASSERT(left == nullptr, "Parser::parse_env() should not have a left side");
+
+        Token& e = consume(); // consume "env"
+
+        if (!try_consume(TokenKind::ColonColon, "::")) { return &error_expr; }
+        Token* ident = try_consume(TokenKind::Identifier, "identifier");
+        if (!ident) { return &error_expr; }
+
+        bool is_true = false;
+
+        if (ident->string == "WIN32") {
+            #ifdef PLATFORM_WINDOWS
+                is_true = true;
+            #endif
+        } else {
+            context.report_compiler_diagnostic(ident->loc, fmt::format("Unknown environment '{}'", ident->string));
+        }
+
+        return Expr::Create(e.loc + ident->loc, ExprKind::BooleanLiteral, 
+                    ExprValueKind::RValue, TypeInfo::get_basic(TypeKind::Bool), 
+                    BooleanLiteralExpr(is_true));
+    }
+
     Expr* Parser::parse_new(Expr* left) {
         ARIA_ASSERT(left == nullptr, "Parser::parse_new() should not have a left side");
 
@@ -668,6 +693,8 @@ namespace ariac {
             case TokenKind::UInt:
             case TokenKind::Long:
             case TokenKind::ULong:
+            case TokenKind::Sz:
+            case TokenKind::Isz:
             case TokenKind::Float:
             case TokenKind::Double:
             case TokenKind::Const: return true;
@@ -738,6 +765,9 @@ namespace ariac {
             case TokenKind::UInt:       consume(); type->kind = TypeKind::UInt; break;
             case TokenKind::Long:       consume(); type->kind = TypeKind::Long; break;
             case TokenKind::ULong:      consume(); type->kind = TypeKind::ULong; break;
+
+            case TokenKind::Sz:         consume(); type->kind = TypeKind::Sz; break;
+            case TokenKind::Isz:        consume(); type->kind = TypeKind::Isz; break;
         
             case TokenKind::Float:      consume(); type->kind = TypeKind::Float; break;
             case TokenKind::Double:     consume(); type->kind = TypeKind::Double; break;
@@ -1126,17 +1156,27 @@ namespace ariac {
         Token& mod = consume(); // consume "module"
         
         std::string_view path = parse_module_path();
+        TinyVector<DeclAttribute> attrs = parse_decl_attributes();
+
         try_consume(TokenKind::Semi, ";");
 
         if (m_declared_module) {
-            context.report_compiler_diagnostic(mod.loc + peek(-1)->loc, "Translation unit already declares a module");
-            return &error_decl;
+            CompilationUnit* unit = new CompilationUnit(context.active_comp_unit->filename, context.active_comp_unit->source, context.active_comp_unit->is_stdlib);
+            context.compilation_units.push_back(unit);
+            context.active_comp_unit = unit;
         }
 
         m_declared_module = true;
 
         Module* module = context.find_or_create_module(path);
         context.active_comp_unit->parent = module;
+        module->units.push_back(context.active_comp_unit);
+
+        for (auto& attr : attrs) {
+            if (attr.kind == DeclAttributeKind::If) {
+                context.active_comp_unit->if_attr = attr.arg;
+            }
+        }
 
         return Decl::Create(mod.loc + peek(-1)->loc, DeclKind::Module, DeclVisibility::Public, ModuleDecl(path));
     }

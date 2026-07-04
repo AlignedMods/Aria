@@ -113,7 +113,7 @@ namespace ariac {
             llvm::Type* int32_type = llvm::Type::getInt32Ty(*m_active_module_context.context);
             llvm::Type* int64_type = llvm::Type::getInt64Ty(*m_active_module_context.context);
             llvm::Type* ptr_type = llvm::PointerType::get(*m_active_module_context.context, 0);
-            llvm::Type* slice_type = type_info_to_llvm_type(context.main_func->function.parameters.items[0]->param.type);
+            llvm::Type* slice_type = llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice");
 
             llvm::Function* main = llvm::Function::Create(llvm::FunctionType::get(int32_type, { int32_type, ptr_type}, false), llvm::GlobalValue::LinkageTypes::ExternalLinkage, "main", *m_active_module_context.module);
             m_active_module_context.function = main;

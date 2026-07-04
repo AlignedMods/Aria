@@ -88,8 +88,29 @@ namespace ariac {
     void SemanticAnalyzer::resolve_module_type_decls(Module* module) {
         context.active_module = module;
 
-        for (CompilationUnit* unit : module->units) {
-            resolve_unit_type_decls(module, unit);
+        for (size_t i = 0; i < module->units.size(); i++) {
+            if (module->units[i]->if_attr) {
+                resolve_expr(module->units[i]->if_attr);
+
+                if (!is_const_expr(module->units[i]->if_attr)) {
+                    context.report_compiler_diagnostic(module->units[i]->if_attr->loc, "Expression must be a compile time constant");
+                    break;
+                }
+
+                if (!module->units[i]->if_attr->type->is_boolean()) {
+                    context.report_compiler_diagnostic(module->units[i]->if_attr->loc, "Expression must be of type 'bool'");
+                    break;
+                }
+
+                bool result = eval_const_expr(module->units[i]->if_attr)->const_.boolean;
+                if (!result) {
+                    module->units.erase(module->units.begin() + i);
+                    i--;
+                    continue;
+                }
+            }
+            
+            resolve_unit_type_decls(module, module->units[i]);
         }
     }
 

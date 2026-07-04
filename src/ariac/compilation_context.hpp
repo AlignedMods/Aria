@@ -8,6 +8,7 @@
 
 namespace ariac {
 
+    struct Expr;
     struct Stmt;
     struct Decl;
     struct CompilationUnit;
@@ -37,11 +38,11 @@ namespace ariac {
         CompilerReflectionData reflection_data;
     };
 
+    // A compilation unit is a module section, so one compilation unit does not necessarily correspond to one file
     struct CompilationUnit {
         inline CompilationUnit(const std::string& filename, const std::string& source, bool is_stdlib)
             : filename(filename), source(source), is_stdlib(is_stdlib) {}
 
-        size_t index = 0;
         std::string filename;
         bool is_stdlib = false;
 
@@ -56,6 +57,8 @@ namespace ariac {
         std::vector<Decl*> enums;
         std::vector<Decl*> generics;
         std::vector<Decl*> imports;
+
+        Expr* if_attr = nullptr;
 
         std::unordered_map<std::string_view, Decl*> local_symbols;
 

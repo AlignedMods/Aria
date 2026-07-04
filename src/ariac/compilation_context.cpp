@@ -65,8 +65,6 @@ namespace ariac {
 
         CompilationUnit* unit = new CompilationUnit(file, source, std);
 
-        if (compilation_units.size() > 0) { unit->index = compilation_units[compilation_units.size() - 1]->index + 1; }
-
         compilation_units.push_back(unit);
         active_comp_unit = unit;
 
@@ -89,11 +87,10 @@ namespace ariac {
         analyze();
 
         if (opts->emit_ast) {
-            for (CompilationUnit* unit : compilation_units) {
-                if (!unit->is_stdlib) {
-                    ASTDumper d(unit);
-                    fmt::println("{}", d.get_output());
-                }
+            for (Module* mod : modules) {
+                ASTDumper d(mod);
+                std::string& output = d.get_output();
+                if (!output.empty()) { fmt::println("{}", d.get_output()); }
             }
         }
 

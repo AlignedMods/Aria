@@ -1,5 +1,6 @@
 #include "ariac/types/type_info.hpp"
 #include "ariac/ast/decl.hpp"
+#include "ariac/compilation_context.hpp"
 
 namespace ariac {
 
@@ -14,6 +15,8 @@ namespace ariac {
     static TypeInfo* uint_type;
     static TypeInfo* long_type;
     static TypeInfo* ulong_type;
+    static TypeInfo* sz_type;
+    static TypeInfo* isz_type;
     static TypeInfo* float_type;
     static TypeInfo* double_type;
     static TypeInfo* void_ptr_type;
@@ -112,6 +115,8 @@ namespace ariac {
             TYPE(UInt, uint_type)
             TYPE(Long, long_type)
             TYPE(ULong, ulong_type)
+            TYPE(Sz, sz_type)
+            TYPE(Isz, isz_type)
             TYPE(Float, float_type)
             TYPE(Double, double_type)
 
@@ -174,6 +179,9 @@ namespace ariac {
             case TypeKind::UInt:    str += "uint"; break;
             case TypeKind::Long:    str += "long"; break;
             case TypeKind::ULong:   str += "ulong"; break;
+
+            case TypeKind::Sz:   str += "sz"; break;
+            case TypeKind::Isz:   str += "isz"; break;
 
             case TypeKind::Float:   str += "float"; break;
             case TypeKind::Double:  str += "double"; break;

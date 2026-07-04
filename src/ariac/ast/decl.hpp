@@ -1,7 +1,8 @@
 #pragma once
 
-#include "ariac/ast/stmt.hpp"
 #include "ariac/core/htable.hpp"
+#include "ariac/core/vector.hpp"
+#include "ariac/compilation_context.hpp"
 
 #include <string_view>
 
@@ -9,6 +10,9 @@ namespace ariac {
 
     struct Module;
     struct CompilationUnit;
+
+    struct Stmt;
+    struct TypeInfo;
 
     enum class DeclKind {
         Invalid = 0,
@@ -104,6 +108,7 @@ namespace ariac {
     }
 
     struct Expr;
+    struct Decl;
     struct Stmt;
 
     struct ErrorDecl {

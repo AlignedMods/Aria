@@ -497,17 +497,22 @@ namespace ariac {
                         for (size_t i = fn_type.param_types.size; i < call.arguments.size; i++) {
                             Expr* arg = call.arguments.items[i];
                             resolve_expr(arg);
-                            require_rvalue(arg);
 
                             if (arg->type->is_integral()) {
                                 if (arg->type->get_bit_size() < 32) { // Promote to int
+                                    require_rvalue(arg);
                                     insert_implicit_cast(TypeInfo::get_basic(TypeKind::Int), arg->type, arg, CastKind::Integral);
                                 }
                             } else if (arg->type->is_floating_point()) {
                                 if (arg->type->kind == TypeKind::Float) { // Promote to double
+                                    require_rvalue(arg);
                                     insert_implicit_cast(TypeInfo::get_basic(TypeKind::Double), arg->type, arg, CastKind::Floating);
                                 }
-                            } else if (!arg->type->is_pointer()) {
+                            } else if (arg->type->is_array()) {
+                                insert_implicit_cast(TypeInfo::create_with_base(TypeKind::Pointer, arg->type->array.base), arg->type, arg, CastKind::ArrayToPointer);
+                            } else if (arg->type->is_pointer()) {
+                                require_rvalue(arg);
+                            } else {
                                 context.report_compiler_diagnostic(arg->loc, fmt::format("Passing argument of non-trivial type ('{}') is not allowed", type_info_to_string(arg->type)));
                             }
                         }

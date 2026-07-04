@@ -493,6 +493,7 @@ namespace ariac {
 
         if (scratch_buffer_cmp("module"))   { add_token(TokenKind::Module,   loc, "module");   return; }
         if (scratch_buffer_cmp("import"))   { add_token(TokenKind::Import,   loc, "import");   return; }
+        if (scratch_buffer_cmp("env"))      { add_token(TokenKind::Env,      loc, "env");      return; }
         if (scratch_buffer_cmp("let"))      { add_token(TokenKind::Let,      loc, "let");      return; }
         if (scratch_buffer_cmp("if"))       { add_token(TokenKind::If,       loc, "if");       return; }
         if (scratch_buffer_cmp("else"))     { add_token(TokenKind::Else,     loc, "else");     return; }
@@ -526,6 +527,8 @@ namespace ariac {
         if (scratch_buffer_cmp("uint"))     { add_token(TokenKind::UInt,     loc, "uint");     return; }
         if (scratch_buffer_cmp("long"))     { add_token(TokenKind::Long,     loc, "long");     return; }
         if (scratch_buffer_cmp("ulong"))    { add_token(TokenKind::ULong,    loc, "ulong");    return; }
+        if (scratch_buffer_cmp("sz"))       { add_token(TokenKind::Sz,       loc, "sz");       return; }
+        if (scratch_buffer_cmp("isz"))      { add_token(TokenKind::Isz,      loc, "isz");      return; }
         if (scratch_buffer_cmp("float"))    { add_token(TokenKind::Float,    loc, "float");    return; }
         if (scratch_buffer_cmp("double"))   { add_token(TokenKind::Double,   loc, "double");   return; }
 

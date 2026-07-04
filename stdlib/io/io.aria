@@ -1,6 +1,10 @@
 module std::io;
 
-fn println(str: []char) -> void {
+struct File {
+    handle: *void;
+}
+
+fn println(str: String) -> void {
     let s: StringStream;
     defer s.free();
     s.append_string(str);
@@ -9,7 +13,7 @@ fn println(str: []char) -> void {
     printf(c"%s", s.to_ptr());
 }
 
-fn print(str: []char) -> void {
+fn print(str: String) -> void {
     let s: StringStream;
     defer s.free();
     s.append_string(str);

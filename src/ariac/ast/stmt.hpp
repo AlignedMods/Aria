@@ -3,6 +3,7 @@
 #include "ariac/core/vector.hpp"
 #include "ariac/types/type_info.hpp"
 #include "ariac/core/source_location.hpp"
+#include "ariac/compilation_context.hpp"
 
 #include <string_view>
 

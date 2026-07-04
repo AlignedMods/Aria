@@ -1,8 +1,9 @@
 #pragma once
 
 #include "ariac/core.hpp"
-#include "ariac/compilation_context.hpp"
 #include "ariac/core/vector.hpp"
+#include "ariac/core/source_location.hpp"
+#include "ariac/types.hpp"
 
 #include <string_view>
 
@@ -21,6 +22,7 @@ namespace ariac {
         Short, UShort,
         Int, UInt,
         Long, ULong,
+        Sz, Isz,
 
         Float,
         Double,
@@ -166,7 +168,8 @@ namespace ariac {
             return kind == TypeKind::Char  || kind == TypeKind::IChar  ||
                    kind == TypeKind::Short || kind == TypeKind::UShort ||
                    kind == TypeKind::Int   || kind == TypeKind::UInt   ||
-                   kind == TypeKind::Long  || kind == TypeKind::ULong;
+                   kind == TypeKind::Long  || kind == TypeKind::ULong  ||
+                   kind == TypeKind::Sz  || kind == TypeKind::Isz;
         }
 
         bool is_floating_point() const {
