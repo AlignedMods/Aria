@@ -111,6 +111,7 @@ namespace ariac {
 
             llvm::Function* main = llvm::Function::Create(llvm::FunctionType::get(int32_type, { int32_type, ptr_type}, false), llvm::GlobalValue::LinkageTypes::ExternalLinkage, "main", *m_active_module_context.module);
             m_active_module_context.function = main;
+            main->setDSOLocal(true);
 
             llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", main);
             m_active_module_context.builder->SetInsertPoint(bb);
@@ -455,6 +456,8 @@ namespace ariac {
     }
 
     llvm::AllocaInst* Codegen::alloca_at_entry(llvm::Function* f, llvm::StringRef name, llvm::Type* type) {
+        if (type->isIntegerTy(1)) { type = llvm::Type::getInt8Ty(*m_active_module_context.context); }
+
         ARIA_ASSERT(m_active_module_context.alloca_marker, "alloca_marker needs to be set");
         llvm::IRBuilder<> TmpB(m_active_module_context.alloca_marker);
         return TmpB.CreateAlloca(type, nullptr, name);

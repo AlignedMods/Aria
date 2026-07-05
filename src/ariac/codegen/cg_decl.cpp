@@ -7,6 +7,7 @@ namespace ariac {
         if (var.const_var) { return;}
 
         llvm::Type* type = type_info_to_llvm_type(var.type);
+        if (type->isIntegerTy(1)) { type = llvm::Type::getInt8Ty(*m_active_module_context.context); }
 
         llvm::Value* a = nullptr;
         if (var.global_var) {
@@ -41,9 +42,14 @@ namespace ariac {
         if (fn.body) {
             llvm::Function* function = m_active_module_context.functions.at(decl);
             m_active_module_context.function = function;
+            function->setDSOLocal(true);
 
             m_ret_type_abi = get_ret_abi_type_info(fn.type->function.return_type);
             unsigned idx = m_ret_type_abi.ret_by_ptr ? 1 : 0;
+
+            if (m_ret_type_abi.type->is_boolean()) {
+                function->addRetAttr(llvm::Attribute::ZExt);
+            }
 
             llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", function);
             m_active_module_context.builder->SetInsertPoint(bb);
@@ -57,7 +63,15 @@ namespace ariac {
                     llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, param->param.type);
                     m_active_module_context.named_values[param] = a;
 
-                    m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
+                    unsigned ui = static_cast<unsigned>(idx++);
+
+                    if (param->param.type->is_boolean()) {
+                        function->addParamAttr(ui, llvm::Attribute::ZExt);
+                        llvm::Value* zext = m_active_module_context.builder->CreateZExt(function->getArg(ui), llvm::Type::getInt8Ty(*m_active_module_context.context), "zext");
+                        m_active_module_context.builder->CreateStore(zext, a);
+                    } else {
+                        m_active_module_context.builder->CreateStore(function->getArg(ui), a);
+                    }
                 } else if (info.pass_by_ptr) {
                     llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, llvm::PointerType::get(*m_active_module_context.context, 0));
                     m_active_module_context.named_values[param] = a;
@@ -91,7 +105,7 @@ namespace ariac {
         }
 
         llvm::Type* fn_ty = type_info_to_llvm_type(fn.type);
-        llvm::Function* function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
+        llvm::Function* function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), llvm::GlobalValue::LinkageTypes::ExternalLinkage, 0, sig, m_active_module_context.module);
         m_active_module_context.functions[decl] = function;
     }
 
