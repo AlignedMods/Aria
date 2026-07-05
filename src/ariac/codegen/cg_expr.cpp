@@ -33,7 +33,7 @@ namespace ariac {
         StringLiteralExpr& sl = expr->string_literal;
        
         if (expr->type->is_string()) {
-            llvm::GlobalVariable* str = m_active_module_context.builder->CreateGlobalString(sl.value, "str", 0, nullptr, false);
+            llvm::GlobalVariable* str = m_active_module_context.builder->CreateGlobalString(sl.value, "str", 0, nullptr);
             llvm::Constant* vals[2] = { str, m_active_module_context.builder->getInt64(sl.value.length()) };
             return llvm::ConstantStruct::get(llvm::dyn_cast<llvm::StructType>(type_info_to_llvm_type(expr->type)), llvm::ArrayRef(vals));
         } else {
@@ -439,8 +439,8 @@ namespace ariac {
                 llvm::Value* slice = alloca_at_entry(m_active_module_context.function, "arrtoslice", expr->type);
                 llvm::Value* arr = gen_expr(ic.expression);
 
-                llvm::Value* mem = m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(expr->type), slice, m_active_module_context.builder->getInt64(0), "ptradd", llvm::GEPNoWrapFlags::inBounds());
-                llvm::Value* len = m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(expr->type), slice, m_active_module_context.builder->getInt64(1), "ptradd", llvm::GEPNoWrapFlags::inBounds());
+                llvm::Value* mem = m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(expr->type), slice, m_active_module_context.builder->getInt64(0), "ptradd", true);
+                llvm::Value* len = m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(expr->type), slice, m_active_module_context.builder->getInt64(1), "ptradd", true);
 
                 m_active_module_context.builder->CreateStore(arr, mem);
                 m_active_module_context.builder->CreateStore(m_active_module_context.builder->getInt64(ic.expression->type->array.size), len);
@@ -452,7 +452,7 @@ namespace ariac {
                 if (ic.expression->value_kind == ExprValueKind::LValue) {
                     llvm::Value* val = gen_expr(ic.expression);
                     llvm::Value* zero = m_active_module_context.builder->getInt64(0);
-                    return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(ic.expression->type), val, { zero, zero }, "arraydecay", llvm::GEPNoWrapFlags::inBounds());
+                    return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(ic.expression->type), val, { zero, zero }, "arraydecay", true);
                 } else {
                     return gen_expr(ic.expression);
                 }

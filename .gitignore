@@ -1,6 +1,7 @@
 # Directories
 build/
 .build/
+LLVM/
 
 # Visual Studio Files
 **.sln

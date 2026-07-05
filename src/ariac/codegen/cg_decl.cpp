@@ -207,6 +207,8 @@ namespace ariac {
                     m_active_module_context.functions[field];
                     break;
                 }
+
+                default: ARIA_UNREACHABLE("Invalid field kind");
             }
         }
     }

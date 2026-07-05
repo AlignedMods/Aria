@@ -521,19 +521,19 @@ namespace ariac {
         Token* ident = try_consume(TokenKind::Identifier, "identifier");
         if (!ident) { return &error_expr; }
 
-        bool is_true = false;
+        std::unordered_map<std::string_view, bool> env;
+        env["WIN32"] = context.opts->triple.isOSWindows();
+        env["LINUX"] = context.opts->triple.isOSLinux();
+        env["X86"] = context.opts->triple.getArch() == llvm::Triple::x86;
+        env["X86_64"] = context.opts->triple.getArch() == llvm::Triple::x86_64;
 
-        if (ident->string == "WIN32") {
-            #ifdef PLATFORM_WINDOWS
-                is_true = true;
-            #endif
-        } else {
-            context.report_compiler_diagnostic(ident->loc, fmt::format("Unknown environment '{}'", ident->string));
+        if (env.contains(ident->string)) {
+            return Expr::Create(e.loc + ident->loc, ExprKind::BooleanLiteral, 
+                    ExprValueKind::RValue, TypeInfo::get_basic(TypeKind::Bool), 
+                    BooleanLiteralExpr(env.at(ident->string)));
         }
 
-        return Expr::Create(e.loc + ident->loc, ExprKind::BooleanLiteral, 
-                    ExprValueKind::RValue, TypeInfo::get_basic(TypeKind::Bool), 
-                    BooleanLiteralExpr(is_true));
+        context.report_compiler_diagnostic(ident->loc, fmt::format("Unknown environment '{}'", ident->string));
     }
 
     Expr* Parser::parse_new(Expr* left) {

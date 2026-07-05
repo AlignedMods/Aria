@@ -10,18 +10,6 @@ llvm_libs = {
     "LLVMLoongArchDesc.lib",
     "LLVMLoongArchDisassembler.lib",
     "LLVMLoongArchInfo.lib",
-    "LLVMAVRAsmParser.lib",
-    "LLVMAVRCodeGen.lib",
-    "LLVMAVRDesc.lib",
-    "LLVMAVRDisassembler.lib",
-    "LLVMAVRInfo.lib",
-    "LLVMABI.lib",
-    "LLVMARMAsmParser.lib",
-    "LLVMARMCodeGen.lib",
-    "LLVMARMDesc.lib",
-    "LLVMARMDisassembler.lib",
-    "LLVMARMInfo.lib",
-    "LLVMARMUtils.lib",
     "LLVMAggressiveInstCombine.lib",
     "LLVMAnalysis.lib",
     "LLVMAsmParser.lib",
@@ -30,17 +18,13 @@ llvm_libs = {
     "LLVMBitReader.lib",
     "LLVMBitWriter.lib",
     "LLVMBitstreamReader.lib",
-    "LLVMCAS.lib",
     "LLVMCFGuard.lib",
     "LLVMCFIVerify.lib",
-    "LLVMCGData.lib",
     "LLVMCodeGen.lib",
     "LLVMCodeGenTypes.lib",
     "LLVMCore.lib",
     "LLVMCoroutines.lib",
     "LLVMCoverage.lib",
-    "LLVMDTLTO.lib",
-    "LLVMDWARFCFIChecker.lib",
     "LLVMDWARFLinker.lib",
     "LLVMDWARFLinkerClassic.lib",
     "LLVMDWARFLinkerParallel.lib",
@@ -48,7 +32,6 @@ llvm_libs = {
     "LLVMDebugInfoBTF.lib",
     "LLVMDebugInfoCodeView.lib",
     "LLVMDebugInfoDWARF.lib",
-    "LLVMDebugInfoDWARFLowLevel.lib",
     "LLVMDebugInfoGSYM.lib",
     "LLVMDebugInfoLogicalView.lib",
     "LLVMDebugInfoMSF.lib",
@@ -60,12 +43,9 @@ llvm_libs = {
     "LLVMExecutionEngine.lib",
     "LLVMExegesis.lib",
     "LLVMExegesisAArch64.lib",
-    "LLVMExegesisRISCV.lib",
     "LLVMExegesisX86.lib",
     "LLVMExtensions.lib",
     "LLVMFileCheck.lib",
-    "LLVMFrontendAtomic.lib",
-    "LLVMFrontendDirective.lib",
     "LLVMFrontendDriver.lib",
     "LLVMFrontendHLSL.lib",
     "LLVMFrontendOffloading.lib",
@@ -96,14 +76,12 @@ llvm_libs = {
     "LLVMObjCopy.lib",
     "LLVMObject.lib",
     "LLVMObjectYAML.lib",
-    "LLVMOptDriver.lib",
     "LLVMOption.lib",
     "LLVMOrcDebugging.lib",
     "LLVMOrcJIT.lib",
     "LLVMOrcShared.lib",
     "LLVMOrcTargetProcess.lib",
     "LLVMPasses.lib",
-    "LLVMPlugins.lib",
     "LLVMProfileData.lib",
     "LLVMRISCVAsmParser.lib",
     "LLVMRISCVCodeGen.lib",
@@ -113,18 +91,14 @@ llvm_libs = {
     "LLVMRISCVTargetMCA.lib",
     "LLVMRemarks.lib",
     "LLVMRuntimeDyld.lib",
-    "LLVMSandboxIR.lib",
     "LLVMScalarOpts.lib",
     "LLVMSelectionDAG.lib",
     "LLVMSupport.lib",
-    "LLVMSupportLSP.lib",
     "LLVMSymbolize.lib",
     "LLVMTableGen.lib",
-    "LLVMTableGenBasic.lib",
     "LLVMTableGenCommon.lib",
     "LLVMTarget.lib",
     "LLVMTargetParser.lib",
-    "LLVMTelemetry.lib",
     "LLVMTextAPI.lib",
     "LLVMTextAPIBinaryReader.lib",
     "LLVMTransformUtils.lib",
@@ -163,7 +137,6 @@ workspace "Aria"
         language "C++"
         cppdialect "C++20"
         kind "ConsoleApp"
-        staticruntime "on"
 
         targetdir("build/bin/")
         objdir("build/obj/")
@@ -188,7 +161,6 @@ workspace "Aria"
         language "C++"
         cppdialect "C++20"
         kind "ConsoleApp"
-        staticruntime "on"
 
         targetdir("build/bin/")
         objdir("build/obj/")
@@ -204,16 +176,15 @@ workspace "Aria"
             optimize "On"
 
         filter { "action:vs*" }
-            buildoptions { "/utf-8", "/Zc:preprocessor", "/MT" }
-            libdirs { "src/vendor/LLVM/lib/windows/" }
+            buildoptions { "/utf-8", "/Zc:preprocessor", "/MP" }
+            libdirs { "src/vendor/LLVM/lib/" }
             defines { "_ITERATOR_DEBUG_LEVEL=0" } -- Fix issue when building in debug
-            links { "fmt", llvm_libs }
+            links { "fmt", "winmm", "Ws2_32", llvm_libs }
                 
     project "fmt"
         language "C++"
         cppdialect "C++20"
         kind "StaticLib"
-        staticruntime "on"
 
         targetdir("build/bin/")
         objdir("build/obj/")

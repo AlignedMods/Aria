@@ -281,16 +281,16 @@ namespace ariac {
             case TypeKind::Double: return 8;
 
             case TypeKind::Pointer: {
-                if (context.opts->triple.isX86_64()) { return 8; }
-                else if (context.opts->triple.isX86_32()) { return 4; }
+                if (context.opts->triple.getArch() == llvm::Triple::x86_64) { return 8; }
+                else if (context.opts->triple.getArch() == llvm::Triple::x86) { return 4; }
                 else { ARIA_UNREACHABLE("Invalid arch"); }
 
                 return 0;
             }
 
             case TypeKind::Slice: {
-                if (context.opts->triple.isX86_64()) { return 8; }
-                else if (context.opts->triple.isX86_32()) { return 4; }
+                if (context.opts->triple.getArch() == llvm::Triple::x86_64) { return 8; }
+                else if (context.opts->triple.getArch() == llvm::Triple::x86) { return 4; }
                 else { ARIA_UNREACHABLE("Invalid arch"); }
 
                 return 0;

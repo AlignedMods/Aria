@@ -4,6 +4,9 @@
 
 #ifdef PLATFORM_WINDOWS
     #include <io.h>
+
+    #define isatty _isatty
+    #define fileno _fileno
 #endif
 
 namespace ariac {
@@ -27,7 +30,7 @@ namespace ariac {
 
             link();
         } catch (std::exception& e) {
-            bool is_tty = _isatty(_fileno(stdout));
+            bool is_tty = isatty(fileno(stdout));
 
             if (is_tty) {
                 fmt::print(fmt::fg(fmt::color::pale_violet_red), "Codegen failed: {}\n", e.what());
@@ -52,7 +55,7 @@ namespace ariac {
         llvm::InitializeAllAsmPrinters();
 
         std::string error;
-        const llvm::Target* target = llvm::TargetRegistry::lookupTarget(context.opts->triple, error);
+        const llvm::Target* target = llvm::TargetRegistry::lookupTarget(context.opts->triple.str(), error);
 
         if (!target) {
             throw std::runtime_error(fmt::format("{}", error));
@@ -61,7 +64,7 @@ namespace ariac {
         m_target = target;
 
         llvm::TargetOptions opts;
-        m_machine = m_target->createTargetMachine(context.opts->triple, "generic", "", opts, llvm::Reloc::PIC_);
+        m_machine = m_target->createTargetMachine(context.opts->triple.str(), "generic", "", opts, llvm::Reloc::PIC_);
     }
 
     void Codegen::gen_mod_to_ir(Module* mod) {
@@ -228,7 +231,7 @@ namespace ariac {
         if (llvm::verifyModule(*m_active_module_context.module)) { throw std::runtime_error(fmt::format("Module '{}' failed verification", mod->name)); }
 
         m_active_module_context.module->setDataLayout(m_machine->createDataLayout());
-        m_active_module_context.module->setTargetTriple(context.opts->triple);
+        m_active_module_context.module->setTargetTriple(context.opts->triple.str());
     }
 
     void Codegen::gen_mod_to_obj(Module* mod) {

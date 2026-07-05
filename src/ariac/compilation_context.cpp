@@ -11,6 +11,9 @@
 
 #ifdef PLATFORM_WINDOWS
     #include <io.h>
+
+    #define isatty _isatty
+    #define fileno _fileno
 #endif
 
 namespace ariac {
@@ -122,7 +125,7 @@ namespace ariac {
     }
 
     void CompilationContext::print_diag(CompilerDiagnostic* diag) {
-        bool is_tty = _isatty(_fileno(stdout));
+        bool is_tty = isatty(fileno(stdout));
         if (diag->loc.line && diag->loc.col) {
             if (is_tty) {
                 fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", diag->unit->filename, diag->loc.line, diag->loc.col);
