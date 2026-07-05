@@ -1522,8 +1522,8 @@ namespace ariac {
             maybe_promote_to_int(lhs);
             maybe_promote_to_int(rhs);
 
-            size_t l_size = type_get_size(lhs->type);
-            size_t r_size = type_get_size(rhs->type);
+            size_t l_size = lhs->type->get_bit_size();
+            size_t r_size = rhs->type->get_bit_size();
 
             if (l_size > r_size) {
                 insert_implicit_cast(lhs->type, rhs->type, rhs, CastKind::Integral);
@@ -1551,8 +1551,8 @@ namespace ariac {
         }
 
         if (lhs->type->is_floating_point() && rhs->type->is_floating_point()) {
-            size_t lSize = type_get_size(lhs->type);
-            size_t rSize = type_get_size(rhs->type);
+            size_t lSize = lhs->type->get_bit_size();
+            size_t rSize = rhs->type->get_bit_size();
 
             if (lSize > rSize) {
                 insert_implicit_cast(lhs->type, rhs->type, rhs, CastKind::Floating);

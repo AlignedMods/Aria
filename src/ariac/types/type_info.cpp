@@ -24,6 +24,10 @@ namespace ariac {
     static TypeInfo* char_slice_type;
     static TypeInfo* std_core_string_type;
 
+    static u64 align_value(u64 val, u64 alignment) {
+        return ((val + alignment - 1) / alignment) * alignment;
+    }
+
     TypeInfo* TypeInfo::create_basic(TypeKind kind, SourceLoc loc) {
         TypeInfo* t = context.allocate<TypeInfo>();
         t->kind = kind;
@@ -159,6 +163,151 @@ namespace ariac {
             return is_typedef() && typedef_.source_decl == std_core_string_type->typedef_.source_decl;
         } else {
             return is_slice() && base->kind == TypeKind::Char;
+        }
+    }
+
+    u64 TypeInfo::get_size() const {
+        switch (kind) {
+            case TypeKind::Bool: return 1;
+
+            case TypeKind::Char:
+            case TypeKind::IChar: return 1;
+
+            case TypeKind::Short:
+            case TypeKind::UShort: return 2;
+
+            case TypeKind::Int:
+            case TypeKind::UInt: return 4;
+
+            case TypeKind::Long:
+            case TypeKind::ULong: return 8;
+
+            case TypeKind::Sz:
+            case TypeKind::Isz: {
+                switch (context.opts->triple.getArch()) {
+                    case llvm::Triple::x86: return 4;
+                    case llvm::Triple::x86_64: return 8;
+
+                    default: ARIA_TODO("Other arch");
+                }
+            }
+
+            case TypeKind::Float: return 4;
+            case TypeKind::Double: return 8;
+
+            case TypeKind::Pointer: {
+                switch (context.opts->triple.getArch()) {
+                    case llvm::Triple::x86: return 4;
+                    case llvm::Triple::x86_64: return 8;
+
+                    default: ARIA_TODO("Other arch");
+                }
+            }
+
+            case TypeKind::Slice: {
+                switch (context.opts->triple.getArch()) {
+                    case llvm::Triple::x86: return 4;
+                    case llvm::Triple::x86_64: return 8;
+
+                    default: ARIA_TODO("Other arch");
+                }
+            }
+
+            case TypeKind::Structure: {
+                u64 size = 0;
+                u64 alignment = get_alignment();
+
+                for (Decl* field : struct_.source_decl->struct_.fields) {
+                    size += align_value(field->field.type->get_size(), alignment);
+                }
+
+                return size;
+            }
+
+            case TypeKind::Typedef: return typedef_.base->get_size();
+
+            default: ARIA_UNREACHABLE();
+        }
+    }
+
+    u64 TypeInfo::get_bit_size() const {
+        switch (kind) {
+            case TypeKind::Bool: return 1;
+
+            case TypeKind::Char:
+            case TypeKind::IChar: return 8;
+
+            case TypeKind::Short:
+            case TypeKind::UShort: return 16;
+
+            case TypeKind::Int:
+            case TypeKind::UInt: return 32;
+
+            case TypeKind::Long:
+            case TypeKind::ULong: return 64;
+
+            case TypeKind::Sz:
+            case TypeKind::Isz: {
+                switch (context.opts->triple.getArch()) {
+                    case llvm::Triple::x86: return 32;
+                    case llvm::Triple::x86_64: return 64;
+
+                    default: ARIA_TODO("Other arch");
+                }
+            }
+
+            case TypeKind::Float: return 32;
+            case TypeKind::Double: return 64;
+
+            case TypeKind::Typedef: return typedef_.base->get_bit_size();
+
+            default: ARIA_UNREACHABLE();
+        }
+    }
+
+    u64 TypeInfo::get_alignment() const {
+        switch (kind) {
+            case TypeKind::Bool:
+            case TypeKind::Char:
+            case TypeKind::IChar: return 1;
+            case TypeKind::Short:
+            case TypeKind::UShort: return 2;
+            case TypeKind::Int:
+            case TypeKind::UInt: return 4;
+            case TypeKind::Long:
+            case TypeKind::ULong: return 8;
+
+            case TypeKind::Float: return 4;
+            case TypeKind::Double: return 8;
+
+            case TypeKind::Pointer: {
+                if (context.opts->triple.isX86_64()) { return 8; }
+                else if (context.opts->triple.isX86_32()) { return 4; }
+                else { ARIA_UNREACHABLE(); }
+
+                return 0;
+            }
+
+            case TypeKind::Slice: {
+                if (context.opts->triple.isX86_64()) { return 8; }
+                else if (context.opts->triple.isX86_32()) { return 4; }
+                else { ARIA_UNREACHABLE(); }
+
+                return 0;
+            }
+
+            case TypeKind::Structure: {
+                u64 alignment = 0;
+
+                for (Decl* field : struct_.source_decl->struct_.fields) {
+                    u64 new_alignment = field->field.type->get_alignment();
+                    alignment = (new_alignment > alignment) ? new_alignment : alignment;
+                }
+
+                return alignment;
+            }
+
+            default: ARIA_UNREACHABLE();
         }
     }
 

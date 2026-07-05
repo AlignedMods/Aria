@@ -218,7 +218,7 @@ namespace ariac {
 
         if (src->is_integral()) {
             if (dst->is_integral()) { // Int to int
-                if (type_get_size(src) != type_get_size(dst)) {
+                if (src->get_bit_size() != dst->get_bit_size()) {
                     cost.kind = CastKind::Integral;
                 } else {
                     if (src->is_signed() == dst->is_signed()) {
@@ -240,7 +240,7 @@ namespace ariac {
 
         if (src->is_floating_point()) {
             if (dst->is_floating_point()) { // Float to float
-                if (type_get_size(src) != type_get_size(dst)) {
+                if (src->get_bit_size() != dst->get_bit_size()) {
                     cost.kind = CastKind::Floating;
                 } else {
                     cost.cast_needed = false;
@@ -326,28 +326,6 @@ namespace ariac {
         }
 
         return false;
-    }
-
-    size_t SemanticAnalyzer::type_get_size(TypeInfo* t) {
-        switch (t->kind) {
-            case TypeKind::Void:   return 0;
-
-            case TypeKind::Bool:   return 1;
-
-            case TypeKind::Char:   return 1;
-            case TypeKind::IChar:  return 1;
-            case TypeKind::Short:  return 2;
-            case TypeKind::UShort: return 2;
-            case TypeKind::Int:    return 4;
-            case TypeKind::UInt:   return 4;
-            case TypeKind::Long:   return 8;
-            case TypeKind::ULong:  return 8;
-
-            case TypeKind::Float:  return 4;
-            case TypeKind::Double: return 8;
-
-            default: ARIA_ASSERT(false, "SemanticAnalyzer::type_get_size() only supports trivial (non structure) types");
-        }
     }
 
     bool SemanticAnalyzer::type_is_trivial(TypeInfo* t) {

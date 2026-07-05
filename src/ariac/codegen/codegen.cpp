@@ -51,14 +51,8 @@ namespace ariac {
         llvm::InitializeAllAsmParsers();
         llvm::InitializeAllAsmPrinters();
 
-        std::string target_triple = llvm::sys::getDefaultTargetTriple();
-        m_triple = llvm::Triple(target_triple);
-
-        ARIA_ASSERT(m_triple.isOSWindows() && m_triple.isX86_64(), "Unsupported platform");
-        m_triple.setEnvironment(llvm::Triple::GNU);
-
         std::string error;
-        const llvm::Target* target = llvm::TargetRegistry::lookupTarget(m_triple, error);
+        const llvm::Target* target = llvm::TargetRegistry::lookupTarget(context.opts->triple, error);
 
         if (!target) {
             throw std::runtime_error(fmt::format("{}", error));
@@ -67,7 +61,7 @@ namespace ariac {
         m_target = target;
 
         llvm::TargetOptions opts;
-        m_machine = m_target->createTargetMachine(m_triple, "generic", "", opts, llvm::Reloc::PIC_);
+        m_machine = m_target->createTargetMachine(context.opts->triple, "generic", "", opts, llvm::Reloc::PIC_);
     }
 
     void Codegen::gen_mod_to_ir(Module* mod) {
@@ -151,7 +145,7 @@ namespace ariac {
                     strlen_fn = llvm::Function::Create(fn_type, llvm::GlobalValue::ExternalLinkage, "strlen", *m_active_module_context.module);
                 }
 
-                llvm::Value* elem_size = m_active_module_context.builder->getInt64(get_type_size(context.main_func->function.parameters.items[0]->param.type));
+                llvm::Value* elem_size = m_active_module_context.builder->getInt64(context.main_func->function.parameters.items[0]->param.type->get_size());
                 llvm::Value* elem_count = m_active_module_context.builder->CreateSExt(main->getArg(0), int64_type, "sext");
                 llvm::Value* calloc_result = m_active_module_context.builder->CreateCall(calloc_fn, { elem_size, elem_count });
 
@@ -233,7 +227,7 @@ namespace ariac {
         if (llvm::verifyModule(*m_active_module_context.module)) { throw std::runtime_error(fmt::format("Module '{}' failed verification", mod->name)); }
 
         m_active_module_context.module->setDataLayout(m_machine->createDataLayout());
-        m_active_module_context.module->setTargetTriple(m_triple);
+        m_active_module_context.module->setTargetTriple(context.opts->triple);
     }
 
     void Codegen::gen_mod_to_obj(Module* mod) {
@@ -273,7 +267,7 @@ namespace ariac {
     }
 
     void Codegen::link() {
-        if (m_triple.isOSWindows()) {
+        if (context.opts->triple.isOSWindows()) {
             link_windows();
         } else {
             ARIA_UNREACHABLE();
@@ -437,104 +431,6 @@ namespace ariac {
 
             default: ARIA_UNREACHABLE();
         }
-    }
-
-    uint64_t Codegen::get_type_size(TypeInfo* t) {
-        switch (t->kind) {
-            case TypeKind::Bool:
-            case TypeKind::Char:
-            case TypeKind::IChar: return 1;
-            case TypeKind::Short:
-            case TypeKind::UShort: return 2;
-            case TypeKind::Int:
-            case TypeKind::UInt: return 4;
-            case TypeKind::Long:
-            case TypeKind::ULong: return 8;
-
-            case TypeKind::Float: return 4;
-            case TypeKind::Double: return 8;
-
-            case TypeKind::Pointer: {
-                if (m_triple.isX86_64()) { return 8; }
-                else if (m_triple.isX86_32()) { return 4; }
-                else { ARIA_UNREACHABLE(); }
-
-                return 0;
-            }
-
-            case TypeKind::Slice: {
-                if (m_triple.isX86_64()) { return 16; }
-                else if (m_triple.isX86_32()) { return 12; }
-                else { ARIA_UNREACHABLE(); }
-
-                return 0;
-            }
-
-            case TypeKind::Structure: {
-                size_t size = 0;
-                size_t alignment = get_type_alignment(t);
-
-                for (Decl* field : t->struct_.source_decl->struct_.fields) {
-                    size += align_value(get_type_size(field->field.type), alignment);
-                }
-
-                return size;
-            }
-
-            case TypeKind::Typedef: return get_type_alignment(t->typedef_.base);
-
-            default: ARIA_UNREACHABLE();
-        }
-    }
-
-    uint64_t Codegen::get_type_alignment(TypeInfo* t) {
-        switch (t->kind) {
-            case TypeKind::Bool:
-            case TypeKind::Char:
-            case TypeKind::IChar: return 1;
-            case TypeKind::Short:
-            case TypeKind::UShort: return 2;
-            case TypeKind::Int:
-            case TypeKind::UInt: return 4;
-            case TypeKind::Long:
-            case TypeKind::ULong: return 8;
-
-            case TypeKind::Float: return 4;
-            case TypeKind::Double: return 8;
-
-            case TypeKind::Pointer: {
-                if (m_triple.isX86_64()) { return 8; }
-                else if (m_triple.isX86_32()) { return 4; }
-                else { ARIA_UNREACHABLE(); }
-
-                return 0;
-            }
-
-            case TypeKind::Slice: {
-                if (m_triple.isX86_64()) { return 8; }
-                else if (m_triple.isX86_32()) { return 4; }
-                else { ARIA_UNREACHABLE(); }
-
-                return 0;
-            }
-
-            case TypeKind::Structure: {
-                size_t alignment = 0;
-
-                for (Decl* field : t->struct_.source_decl->struct_.fields) {
-                    size_t new_alignment = get_type_alignment(field->field.type);
-                    alignment = (new_alignment > alignment) ? new_alignment : alignment;
-                }
-
-                return alignment;
-            }
-
-            default: ARIA_UNREACHABLE();
-        }
-    }
-
-    u64 Codegen::align_value(u64 val, u64 alignment) {
-        return ((val + alignment - 1) / alignment) * alignment;
     }
 
     std::string Codegen::valid_module_name(std::string_view name) {

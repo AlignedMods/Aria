@@ -35,6 +35,10 @@ namespace ariac {
             dump_decl(stru, 4);
         }
 
+        for (Decl* gen : m_unit->generics) {
+            dump_decl(gen, 4);
+        }
+
         for (Decl* var : m_unit->globals) {
             dump_decl(var, 4);
         }

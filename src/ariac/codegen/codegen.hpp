@@ -142,23 +142,18 @@ namespace ariac {
 
         llvm::Type* type_info_to_llvm_type(TypeInfo* t);
         llvm::GlobalValue::LinkageTypes linkage_kind_to_llvm(LinkageKind kind);
-        u64 get_type_size(TypeInfo* t);
-        u64 get_type_alignment(TypeInfo* t);
-        u64 align_value(u64 val, u64 alignment);
 
         std::string valid_module_name(std::string_view name);
 
         llvm::AllocaInst* alloca_at_entry(llvm::Function* f, llvm::StringRef name, TypeInfo* type);
         llvm::AllocaInst* alloca_at_entry(llvm::Function* f, llvm::StringRef name, llvm::Type* type);
 
-        void handle_function_param_type(TypeInfo* type, std::vector<llvm::Type*>& types);
         ABIParamTypeInfo get_param_abi_type_info(TypeInfo* t);
         ABIRetTypeInfo get_ret_abi_type_info(TypeInfo* t);
 
     private:
         ModuleContext m_active_module_context;
         std::unordered_map<Module*, ModuleContext> m_module_contexts;
-        llvm::Triple m_triple;
         const llvm::Target* m_target = nullptr;
         llvm::TargetMachine* m_machine = nullptr;
         std::vector<std::string> m_object_files;

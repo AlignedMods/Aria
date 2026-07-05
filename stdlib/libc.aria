@@ -1,17 +1,28 @@
 module libc;
 
+typedef void as FILE;
+
+// stdlib.h
+
 const EXIT_FAILURE = 0;
 const EXIT_SUCCESS = 1;
 const RAND_MAX = 0x7fffffff;
 
-typedef void as FILE;
-
-extern fn exit(code: int) -> void;
 extern fn abort() -> void;
+extern fn exit(exit_code: int) -> void;
+extern fn _Exit(exit_code: int) -> void;
+
+extern fn rand() -> int;
+extern fn srand(seed: uint) -> void;
+
+extern fn free(ptr: *void) -> void;
+extern fn malloc(size: sz) -> *void;
+extern fn realloc(ptr: *void, size: sz) -> *void;
+extern fn calloc(nmemb: sz, size: sz) -> *void;
 
 // stdio.h
 
-module libc @if(env::LINUX);
+module libc @if(env::WIN32);
 
 extern fn __acrt_iob_func(c: int) -> *FILE @if(env::WIN32);
 

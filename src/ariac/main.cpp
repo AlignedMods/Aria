@@ -1,6 +1,7 @@
 #include "ariac/build.hpp"
 #include "ariac/compilation_context.hpp"
 
+#include "llvm/TargetParser/Host.h"
 #include "fmt/format.h"
 
 #include <cstring>
@@ -124,6 +125,7 @@ namespace ariac {
 
     static BuildOptions handle_args(int argc, const char** argv) {
         BuildOptions opts;
+        opts.triple = llvm::Triple(llvm::sys::getDefaultTargetTriple());
         opts.output_path = std::filesystem::path(".build") / "main.exe";
         opts.stdlib_path = "stdlib";
 

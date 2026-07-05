@@ -135,7 +135,6 @@ namespace ariac {
         bool compare_module_names(std::string_view specifier, std::string_view module_name);
 
         bool type_is_equal(TypeInfo* lhs, TypeInfo* rhs);
-        size_t type_get_size(TypeInfo* t);
         bool type_is_trivial(TypeInfo* t);
 
     private:

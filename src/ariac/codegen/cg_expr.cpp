@@ -337,7 +337,7 @@ namespace ariac {
             func = llvm::Function::Create(type, llvm::GlobalValue::ExternalLinkage, "calloc", *m_active_module_context.module);
         }
 
-        llvm::Value* elem_size = m_active_module_context.builder->getInt64(get_type_size(expr->type->base));
+        llvm::Value* elem_size = m_active_module_context.builder->getInt64(expr->type->base->get_size());
         llvm::Value* arr_size = n.array ? gen_expr(n.initializer) : m_active_module_context.builder->getInt64(1);
         return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(func), {{elem_size, arr_size}}, "new");
     }
@@ -360,9 +360,9 @@ namespace ariac {
         SizeofExpr& sz = expr->sizeof_;
 
         if (sz.type) {
-            return m_active_module_context.builder->getInt64(get_type_size(sz.type));
+            return m_active_module_context.builder->getInt64(sz.type->get_size());
         } else {
-            return m_active_module_context.builder->getInt64(get_type_size(sz.expression->type));
+            return m_active_module_context.builder->getInt64(sz.expression->type->get_size());
         }
     }
 

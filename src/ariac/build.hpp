@@ -1,11 +1,17 @@
 #pragma once
 
+#pragma warning(push, 0) // Disable warnings from LLVM headers
+#include "llvm/Target/TargetMachine.h"
+#pragma warning(pop)
+
 #include <string>
 #include <filesystem>
 
 namespace ariac {
     
     struct BuildOptions {
+        llvm::Triple triple;
+
         std::filesystem::path output_path;
         std::filesystem::path stdlib_path;
         std::vector<std::string> files;

@@ -226,28 +226,9 @@ namespace ariac {
             return kind == TypeKind::Char || kind == TypeKind::UShort || kind == TypeKind::UInt || kind == TypeKind::ULong;
         }
 
-        size_t get_bit_size() const {
-            switch (kind) {
-                case TypeKind::Bool: return 1;
-
-                case TypeKind::Char:
-                case TypeKind::IChar: return 8;
-
-                case TypeKind::Short:
-                case TypeKind::UShort: return 16;
-
-                case TypeKind::Int:
-                case TypeKind::UInt: return 32;
-
-                case TypeKind::Long:
-                case TypeKind::ULong: return 64;
-
-                case TypeKind::Float: return 32;
-                case TypeKind::Double: return 64;
-
-                default: ARIA_UNREACHABLE();
-            }
-        }
+        u64 get_size() const;
+        u64 get_bit_size() const;
+        u64 get_alignment() const;
     };
 
     std::string type_info_to_string(TypeInfo* type, bool pretty = true);

@@ -6,9 +6,9 @@ namespace ariac {
         ABIParamTypeInfo info;
         info.type = t;
         
-        switch (m_triple.getOS()) {
+        switch (context.opts->triple.getOS()) {
             case llvm::Triple::OSType::Win32: {
-                switch (m_triple.getArch()) {
+                switch (context.opts->triple.getArch()) {
                     case llvm::Triple::ArchType::x86_64: {
                         while (t->is_typedef()) {
                             t = t->typedef_.base;
@@ -17,7 +17,7 @@ namespace ariac {
                         if (t->is_slice()) {
                             info.pass_by_ptr = true;
                         } else if (t->is_structure()) {
-                            size_t size = get_type_size(t);
+                            u64 size = t->get_size();
 
                             if (size > 8) {
                                 info.pass_by_ptr = true;
@@ -52,14 +52,14 @@ namespace ariac {
         ABIRetTypeInfo info;
         info.type = t;
 
-        switch (m_triple.getOS()) {
+        switch (context.opts->triple.getOS()) {
             case llvm::Triple::OSType::Win32: {
-                switch (m_triple.getArch()) {
+                switch (context.opts->triple.getArch()) {
                     case llvm::Triple::ArchType::x86_64: {
                         if (t->is_slice()) {
                             info.ret_by_ptr = true;
                         } else if (t->is_structure()) {
-                            size_t size = get_type_size(t);
+                            u64 size = t->get_size();
 
                             if (size > 8) {
                                 info.ret_by_ptr = true;
