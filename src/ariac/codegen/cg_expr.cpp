@@ -227,18 +227,26 @@ namespace ariac {
 
         llvm::Type* type = type_info_to_llvm_type(expr->type);
 
-        llvm::Value* temp = alloca_at_entry(m_active_module_context.function, "construct", expr->type);
-        llvm::Value* zero = llvm::Constant::getNullValue(type);
-        m_active_module_context.builder->CreateStore(zero, temp);
+        if (ct.is_const) {
+            std::vector<llvm::Constant*> fields;
+            for (Expr* arg : ct.arguments) {
+                fields.push_back(llvm::dyn_cast<llvm::Constant>(gen_expr(arg)));
+            }
+            return llvm::ConstantStruct::get(llvm::dyn_cast<llvm::StructType>(type), fields);
+        } else {
+            llvm::Value* temp = alloca_at_entry(m_active_module_context.function, "construct", expr->type);
+            llvm::Value* zero = llvm::Constant::getNullValue(type);
+            m_active_module_context.builder->CreateStore(zero, temp);
 
-        for (size_t i = 0; i < ct.arguments.size; i++) {
-            llvm::Value* arg = gen_expr(ct.arguments.items[i]);
-            llvm::Value* field = m_active_module_context.builder->CreateStructGEP(type, temp, static_cast<unsigned>(i));
+            for (size_t i = 0; i < ct.arguments.size; i++) {
+                llvm::Value* arg = gen_expr(ct.arguments.items[i]);
+                llvm::Value* field = m_active_module_context.builder->CreateStructGEP(type, temp, static_cast<unsigned>(i));
 
-            m_active_module_context.builder->CreateStore(arg, field);
+                m_active_module_context.builder->CreateStore(arg, field);
+            }
+
+            return m_active_module_context.builder->CreateLoad(type, temp);
         }
-
-        return m_active_module_context.builder->CreateLoad(type, temp);
     }
 
     llvm::Value* Codegen::gen_method_call_expr(Expr* expr) {

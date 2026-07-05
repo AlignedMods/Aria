@@ -1228,6 +1228,14 @@ namespace ariac {
         }
 
         if (!mod) {
+            for (Module* mod : context.modules) {
+                if (compare_module_names(name.identifier, mod->name)) {
+                    context.report_compiler_diagnostic_with_notes(specifier->loc, fmt::format("Could not find module '{}'", name.identifier),
+                        { fmt::format("This error can be resolved by adding 'import {0}'", mod->name) });
+                    return;
+                }
+            }
+
             context.report_compiler_diagnostic(specifier->loc, fmt::format("Could not find module '{}'", name.identifier));
             return;
         } else {
