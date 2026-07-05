@@ -271,7 +271,7 @@ namespace ariac {
         if (context.opts->triple.isOSWindows()) {
             link_windows();
         } else {
-            ARIA_UNREACHABLE();
+            ARIA_UNREACHABLE("Invalid OS");
         }
     }
 
@@ -358,7 +358,7 @@ namespace ariac {
                 } else if (info.ret_by_integer) {
                     ret_type = llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(info.int_bits));
                 } else {
-                    ARIA_UNREACHABLE();
+                    ARIA_UNREACHABLE("Invalid ABIRetTypeInfo");
                 }
             }
             
@@ -376,7 +376,7 @@ namespace ariac {
                 } else if (info.pass_by_integer) {
                     params.push_back(llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(info.int_bits)));
                 } else {
-                    ARIA_UNREACHABLE();
+                    ARIA_UNREACHABLE("Invalid ABIRetTypeInfo");
                 }
             }
 
@@ -420,7 +420,7 @@ namespace ariac {
 
             return s;
         } else {
-            ARIA_UNREACHABLE();
+            ARIA_UNREACHABLE("Invalid type");
         }
     }
 
@@ -430,7 +430,7 @@ namespace ariac {
             case LinkageKind::Extern: return llvm::GlobalValue::LinkageTypes::ExternalLinkage;
             case LinkageKind::Static: return llvm::GlobalValue::LinkageTypes::InternalLinkage;
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid linkage kind");
         }
     }
 

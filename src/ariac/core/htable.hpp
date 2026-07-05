@@ -69,7 +69,7 @@ namespace ariac {
                 head = head->next;
             }
 
-            ARIA_UNREACHABLE();
+            ARIA_UNREACHABLE("Should never be reached");
         }
 
     private:

@@ -609,7 +609,7 @@ namespace ariac {
             return peek(-1);
         }
 
-        ARIA_UNREACHABLE();
+        ARIA_UNREACHABLE("Should never be reached");
     }
 
     void Lexer::add_token(TokenKind kind, const SourceLoc& loc, std::string_view string) {

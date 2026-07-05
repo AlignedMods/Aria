@@ -124,7 +124,7 @@ namespace ariac {
             TYPE(Float, float_type)
             TYPE(Double, double_type)
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid type kind");
         }
     }
 
@@ -226,7 +226,7 @@ namespace ariac {
 
             case TypeKind::Typedef: return typedef_.base->get_size();
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid type kind");
         }
     }
 
@@ -261,7 +261,7 @@ namespace ariac {
 
             case TypeKind::Typedef: return typedef_.base->get_bit_size();
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid type kind");
         }
     }
 
@@ -283,7 +283,7 @@ namespace ariac {
             case TypeKind::Pointer: {
                 if (context.opts->triple.isX86_64()) { return 8; }
                 else if (context.opts->triple.isX86_32()) { return 4; }
-                else { ARIA_UNREACHABLE(); }
+                else { ARIA_UNREACHABLE("Invalid arch"); }
 
                 return 0;
             }
@@ -291,7 +291,7 @@ namespace ariac {
             case TypeKind::Slice: {
                 if (context.opts->triple.isX86_64()) { return 8; }
                 else if (context.opts->triple.isX86_32()) { return 4; }
-                else { ARIA_UNREACHABLE(); }
+                else { ARIA_UNREACHABLE("Invalid arch"); }
 
                 return 0;
             }
@@ -307,7 +307,7 @@ namespace ariac {
                 return alignment;
             }
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid type kind");
         }
     }
 
@@ -315,7 +315,7 @@ namespace ariac {
         std::string str;
 
         switch (type->kind) {
-            case TypeKind::Error:   str += "error"; break;
+            case TypeKind::Error:   str += "<error_type>"; break;
             case TypeKind::Void:    str += "void"; break;
 
             case TypeKind::Bool:    str += "bool"; break;
@@ -443,7 +443,7 @@ namespace ariac {
                 break;
             }
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid type kind");
         }
 
         return str;

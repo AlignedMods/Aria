@@ -51,7 +51,7 @@ namespace ariac {
 
             case DeclKind::GenericParameter: return "GenericParameter";
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid decl kind");
         }
     }
 
@@ -65,7 +65,7 @@ namespace ariac {
             case DeclVisibility::Public: return "public";
             case DeclVisibility::Private: return "private";
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid decl visibility");
         }
     }
 
@@ -103,7 +103,7 @@ namespace ariac {
             case LinkageKind::Extern: return "extern";
             case LinkageKind::Static: return "static";
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid linkage kind");
         }
     }
 

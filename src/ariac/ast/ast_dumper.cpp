@@ -242,7 +242,7 @@ namespace ariac {
                 return;
             }
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid expr kind");
         }
     }
 
@@ -372,7 +372,7 @@ namespace ariac {
             case DeclKind::GenericParameter: m_output += fmt::format("GenericParameterDecl {} '{}'\n", source_loc_to_string(decl->loc), decl->generic_parameter.identifier);
                 return;
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid decl kind");
         }
     }
 
@@ -442,7 +442,7 @@ namespace ariac {
                 dump_stmt(stmt->defer.statement, indentation + 4);
                 return;
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid stmt kind");
         }
     }
 
@@ -458,7 +458,7 @@ namespace ariac {
             return;
         }
 
-        ARIA_UNREACHABLE();
+        ARIA_UNREACHABLE("Invalid specifier kind");
     }
 
     void ASTDumper::dump_const_expr_val(ConstExpr* val, size_t indentation) {
@@ -505,7 +505,7 @@ namespace ariac {
                 return;
             }
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid attribute kind");
         }
     }
 

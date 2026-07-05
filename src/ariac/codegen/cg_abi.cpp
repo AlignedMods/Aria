@@ -36,13 +36,13 @@ namespace ariac {
                         break;
                     }
 
-                    default: ARIA_UNREACHABLE();
+                    default: ARIA_UNREACHABLE("Invalid arch");
                 }
 
                 break;
             } // Win32
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid OS");
         }
 
         return info;
@@ -78,13 +78,13 @@ namespace ariac {
                         break;
                     }
 
-                    default: ARIA_UNREACHABLE();
+                    default: ARIA_UNREACHABLE("Invalid arch");
                 }
 
                 break;
             } // Win32
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid OS");
         }
 
         return info;

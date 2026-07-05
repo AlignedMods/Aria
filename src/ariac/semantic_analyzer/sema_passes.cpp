@@ -180,7 +180,7 @@ namespace ariac {
                     break;
                 }
 
-                default: ARIA_UNREACHABLE();
+                default: ARIA_UNREACHABLE("Invalid generic decl");
             }
         }
     }
@@ -299,7 +299,7 @@ namespace ariac {
                     context.report_compiler_diagnostic(func->loc, fmt::format("Redefining struct '{}' as function", f.identifier));
                     context.report_compiler_diagnostic(func->loc, "Previous declaration here", CompilerDiagKind::Note, func->parent_unit);
                 } else {
-                    ARIA_UNREACHABLE();
+                    ARIA_UNREACHABLE("Invalid decl kind");
                 }
 
                 func->kind = DeclKind::Error;

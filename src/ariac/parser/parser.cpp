@@ -509,7 +509,7 @@ namespace ariac {
                        DeclRefExpr(t.string, nullptr));
         }
 
-        ARIA_UNREACHABLE();
+        ARIA_UNREACHABLE("Should never be reached");
     }
 
     Expr* Parser::parse_env(Expr* left) {
@@ -1145,10 +1145,10 @@ namespace ariac {
                 return &error_stmt;
             }
 
-            case TokenKind::Last: ARIA_UNREACHABLE();
+            case TokenKind::Last: ARIA_UNREACHABLE("Invalid token kind");
         }
 
-        ARIA_UNREACHABLE();
+        ARIA_UNREACHABLE("Should never be reached");
         return nullptr;
     }
 

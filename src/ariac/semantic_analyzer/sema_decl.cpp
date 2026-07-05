@@ -183,7 +183,7 @@ namespace ariac {
                     break;
                 }
 
-                default: ARIA_UNREACHABLE();
+                default: ARIA_UNREACHABLE("Invalid impl field");
             }
         }
 
@@ -290,7 +290,7 @@ namespace ariac {
             case DeclKind::Enum: return resolve_enum_decl(decl);
             case DeclKind::Generic: return resolve_generic_decl(decl);
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid decl kind");
         }
     }
 

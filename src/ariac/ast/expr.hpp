@@ -67,7 +67,7 @@ namespace ariac {
             case CastKind::ArrayToPointer: return "ArrayToPointer";
             case CastKind::LValueToRValue: return "LValueToRValue";
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid cast kind");
         }
     }
 
@@ -94,7 +94,7 @@ namespace ariac {
             case UnaryOperatorKind::Increment: return "++";
             case UnaryOperatorKind::Decrement: return "--";
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid unary operator");
         }
     }
 
@@ -157,7 +157,7 @@ namespace ariac {
             case BinaryOperatorKind::IsEq: return "==";
             case BinaryOperatorKind::IsNotEq: return "!=";
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid binary operator");
         }
     }
 
@@ -178,7 +178,7 @@ namespace ariac {
             case ConstExprKind::String: return "String";
             case ConstExprKind::Struct: return "Struct";
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid const expr kind");
         }
     }
 
@@ -191,7 +191,7 @@ namespace ariac {
             case ExprValueKind::LValue: return "lvalue";
             case ExprValueKind::RValue: return "rvalue";
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid expr value kind");
         }
     }
 

@@ -47,7 +47,7 @@ namespace ariac {
                 break;
             }
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid decl kind");
         }
 
         return copy;

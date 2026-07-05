@@ -83,7 +83,7 @@ namespace ariac {
 
                     m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
                 } else {
-                    ARIA_UNREACHABLE();
+                    ARIA_UNREACHABLE("Invalid ABIParamTypeInfo");
                 }
             }
 
@@ -118,7 +118,7 @@ namespace ariac {
         switch (m.parent->impl.parent->kind) {
             case DeclKind::Struct: parent_name = m.parent->impl.parent->struct_.identifier; break;
             case DeclKind::Typedef: parent_name = m.parent->impl.parent->typedef_.identifier; break;
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid method parent");
         }
 
         std::string sig = fmt::format("{}.{}.{}", valid_module_name(m.parent->parent_module->name), parent_name, m.identifier);
@@ -194,7 +194,7 @@ namespace ariac {
 
                                 m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
                             } else {
-                                ARIA_UNREACHABLE();
+                                ARIA_UNREACHABLE("Invalid ABIParamTypeInfo");
                             }
                         }
 
@@ -216,7 +216,7 @@ namespace ariac {
             case DeclKind::Var: return gen_var_decl(decl);
             case DeclKind::Function: return gen_function_decl(decl);
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid decl kind");
         }
     }
 

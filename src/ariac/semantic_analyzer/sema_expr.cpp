@@ -98,7 +98,7 @@ namespace ariac {
                     case DeclKind::Struct:
                     case DeclKind::Typedef: expr->type = TypeInfo::get_error(); return;
 
-                    default: ARIA_UNREACHABLE();
+                    default: ARIA_UNREACHABLE("Invalid symbol kind");
                 }
             } else {
                 dr.referenced_decl = &error_decl;
@@ -126,7 +126,7 @@ namespace ariac {
                         case DeclKind::Field: mem_type = field->field.type; break;
                         case DeclKind::Method: mem_type = field->method.type; break;
 
-                        default: ARIA_UNREACHABLE();
+                        default: ARIA_UNREACHABLE("Invalid field kind");
                     }
 
                     Expr* self = Expr::Create(expr->loc, ExprKind::Self, 
@@ -195,7 +195,7 @@ namespace ariac {
                     case DeclKind::Enum:
                     case DeclKind::Generic: expr->type = TypeInfo::get_error(); return;
 
-                    default: ARIA_UNREACHABLE();
+                    default: ARIA_UNREACHABLE("Invalid symbol kind");
                 }
             } else {
                 for (Decl* im : context.active_comp_unit->imports) {
@@ -231,7 +231,7 @@ namespace ariac {
                             case DeclKind::Typedef:
                             case DeclKind::Enum: expr->type = TypeInfo::get_error(); return;
 
-                            default: ARIA_UNREACHABLE();
+                            default: ARIA_UNREACHABLE("Invalid symbol kind");
                         }
                     }
                 }
@@ -295,7 +295,7 @@ namespace ariac {
                             case DeclKind::Var:
                             case DeclKind::Param: break;
 
-                            default: ARIA_UNREACHABLE();
+                            default: ARIA_UNREACHABLE("Invalid decl kind");
                         }
                     }
 
@@ -317,7 +317,7 @@ namespace ariac {
                     switch (fd->kind) {
                         case DeclKind::Field: member_type = fd->field.type; break;
                         case DeclKind::Method: member_type = fd->method.type; break;
-                        default: ARIA_UNREACHABLE();
+                        default: ARIA_UNREACHABLE("Invalid field kind");
                     }
                     mem.referenced_member = fd;
 
@@ -345,7 +345,7 @@ namespace ariac {
                             case DeclKind::Error: member_type = TypeInfo::get_error(); break;
                             case DeclKind::Field: member_type = fd->field.type; break;
                             case DeclKind::Method: member_type = fd->method.type; break;
-                            default: ARIA_UNREACHABLE();
+                            default: ARIA_UNREACHABLE("Invalid field kind");
                         }
                         mem.referenced_member = fd;
 
@@ -372,7 +372,7 @@ namespace ariac {
                         case DeclKind::Error: member_type = TypeInfo::get_error(); break;
                         case DeclKind::Field: member_type = fd->field.type; break;
                         case DeclKind::Method: member_type = fd->method.type; break;
-                        default: ARIA_UNREACHABLE();
+                        default: ARIA_UNREACHABLE("Invalid field kind");
                     }
                     mem.referenced_member = fd;
 
@@ -1133,7 +1133,7 @@ namespace ariac {
                 return;
             }
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid binary operator");
         }
     }
 
@@ -1200,7 +1200,7 @@ namespace ariac {
             case ExprKind::BinaryOperator: resolve_binary_operator_expr(expr); break;
             case ExprKind::CompoundAssign: resolve_compound_assign_expr(expr); break;
             case ExprKind::Const: break;
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid expr kind");
         }
     }
 
@@ -1321,13 +1321,13 @@ namespace ariac {
                                 return val;
                             }
 
-                            default: ARIA_UNREACHABLE();
+                            default: ARIA_UNREACHABLE("Invalid const expr kind");
                         }
 
-                        ARIA_UNREACHABLE();
+                        ARIA_UNREACHABLE("Should never be reached");
                     }
 
-                    default: ARIA_UNREACHABLE();
+                    default: ARIA_UNREACHABLE("Invalid unary operator");
                 }
 
                 return nullptr;
@@ -1352,7 +1352,7 @@ namespace ariac {
                                 case TypeKind::Long: return INT(CAST(i64, val));
                                 case TypeKind::ULong: return INT(CAST(u64, val));
 
-                                default: ARIA_UNREACHABLE();
+                                default: ARIA_UNREACHABLE("Invalid type kind");
                             }
                         } else {
                             u64 val = eval_const_expr(expr->implicit_cast.expression)->const_.integer;
@@ -1367,11 +1367,11 @@ namespace ariac {
                                 case TypeKind::Long: return INT(CAST(i64, val));
                                 case TypeKind::ULong: return INT(CAST(u64, val));
 
-                                default: ARIA_UNREACHABLE();
+                                default: ARIA_UNREACHABLE("Invalid type kind");
                             }
                         }
 
-                        ARIA_UNREACHABLE();
+                        ARIA_UNREACHABLE("Should never be reached");
                         return nullptr;
                     }
 
@@ -1379,7 +1379,7 @@ namespace ariac {
                         return eval_const_expr(expr->implicit_cast.expression);
                     }
 
-                    default: ARIA_UNREACHABLE();
+                    default: ARIA_UNREACHABLE("Invalid cast kind");
                 }
 
                 #undef INT
@@ -1407,7 +1407,7 @@ namespace ariac {
                                     ConstExpr(ConstExprKind::Floating, lhs->const_.number + rhs->const_.number));
                             }
 
-                            default: ARIA_UNREACHABLE();
+                            default: ARIA_UNREACHABLE("Invalid const expr kind");
                         }
 
                         return nullptr;
@@ -1427,7 +1427,7 @@ namespace ariac {
                                     ConstExpr(ConstExprKind::Floating, lhs->const_.number * rhs->const_.number));
                             }
 
-                            default: ARIA_UNREACHABLE();
+                            default: ARIA_UNREACHABLE("Invalid const expr kind");
                         }
 
                         return nullptr;
@@ -1445,7 +1445,7 @@ namespace ariac {
                                         ExprValueKind::RValue, lhs->type, 
                                         ConstExpr(ConstExprKind::Integer, lhs->const_.integer / rhs->const_.integer));
                                 } else {
-                                    ARIA_UNREACHABLE();
+                                    ARIA_UNREACHABLE("Invalid type");
                                 }
 
                                 return nullptr;
@@ -1457,19 +1457,19 @@ namespace ariac {
                                     ConstExpr(ConstExprKind::Floating, lhs->const_.number / rhs->const_.number));
                             }
 
-                            default: ARIA_UNREACHABLE();
+                            default: ARIA_UNREACHABLE("Invalid const expr kind");
                         }
 
                         return nullptr;
                     }
 
-                    default: ARIA_UNREACHABLE();
+                    default: ARIA_UNREACHABLE("Invalid binary operator");
                 }
 
                 return nullptr;
             }
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Should never be reached");
         }
     }
 
@@ -1572,9 +1572,10 @@ namespace ariac {
         if (!type_is_equal(lhs->type, rhs->type)) {
             context.report_compiler_diagnostic(lhs->loc,
                 fmt::format("Mismatched types '{}' and '{}'", type_info_to_string(lhs->type), type_info_to_string(rhs->type)));
+            return;
         }
 
-        ARIA_UNREACHABLE();
+        ARIA_UNREACHABLE("Should never be reached");
     }
 
 } // namespace ariac

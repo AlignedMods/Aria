@@ -177,7 +177,7 @@ namespace ariac {
             case StmtKind::Expr: return resolve_expr_stmt(stmt);
             case StmtKind::Decl: return resolve_decl_stmt(stmt);
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid stmt kind");
         }
     }
 

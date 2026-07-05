@@ -21,5 +21,5 @@
 #endif
 
 #ifndef ARIA_UNREACHABLE
-    #define ARIA_UNREACHABLE() ARIA_ASSERT(false, "Unreachable!")
+    #define ARIA_UNREACHABLE(message) do { fmt::print(stderr, "{}:{}, Unreachable statement reached: {}", __FILE__, __LINE__, message); ARIA_DEBUGBREAK(); abort(); } while(0)
 #endif

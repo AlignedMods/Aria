@@ -227,7 +227,7 @@ namespace ariac {
 
             case TokenKind::Identifier: return "identifier";
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid token kind");
         }
 
         return nullptr;

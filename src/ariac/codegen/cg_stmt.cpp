@@ -149,7 +149,7 @@ namespace ariac {
                 llvm::Value* load = m_active_module_context.builder->CreateLoad(ty, ret_int);
                 m_active_module_context.builder->CreateRet(load);
             } else {
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Invalid ret abi");
             }
         } else {
             m_active_module_context.builder->CreateRetVoid();
@@ -185,7 +185,7 @@ namespace ariac {
             case StmtKind::Expr: return gen_expr_stmt(stmt);
             case StmtKind::Decl: return gen_decl_stmt(stmt);
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid stmt kind");
         }
     }
 

@@ -189,13 +189,13 @@ namespace ariac {
                         break;
                     }
 
-                    default: ARIA_UNREACHABLE();
+                    default: ARIA_UNREACHABLE("Invalid const expr kind");
                 }
 
                 break;
             }
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid expr kind");
         }
 
         return copy;

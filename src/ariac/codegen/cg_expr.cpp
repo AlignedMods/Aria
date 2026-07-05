@@ -7,7 +7,7 @@ namespace ariac {
         if (bl.value) { return llvm::ConstantInt::getTrue(*m_active_module_context.context); }
         else { return llvm::ConstantInt::getFalse(*m_active_module_context.context); }
 
-        ARIA_UNREACHABLE();
+        ARIA_UNREACHABLE("Should never be reached");
     }
 
     llvm::Value* Codegen::gen_character_literal_expr(Expr* expr) {
@@ -103,7 +103,7 @@ namespace ariac {
                         break;
                     }
 
-                    default: ARIA_UNREACHABLE();
+                    default: ARIA_UNREACHABLE("Invalid type kind");
                 }
 
                 for (Decl* field : fields) {
@@ -129,7 +129,7 @@ namespace ariac {
                 return m_active_module_context.builder->getInt32(static_cast<u32>(mem.referenced_member->enum_constant.resolved_value));
             }
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid decl kind");
         }
     }
 
@@ -154,7 +154,7 @@ namespace ariac {
                     return m_active_module_context.builder->getInt64(mem.parent->type->array.size);
                 } 
 
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Should never be reached");
                 break;
             }
 
@@ -165,11 +165,11 @@ namespace ariac {
                     return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 1);
                 } 
 
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Should never be reached");
                 break;
             }
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid type kind");
         }
     }
 
@@ -202,7 +202,7 @@ namespace ariac {
                 llvm::Value* i = m_active_module_context.builder->CreateLoad(llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(info.int_bits)), copy);
                 args.push_back(i);
             } else {
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Invalid ABIParamTypeInfo");
             }
         }
 
@@ -267,7 +267,7 @@ namespace ariac {
                 llvm::Value* i = m_active_module_context.builder->CreateLoad(llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(info.int_bits)), copy);
                 args.push_back(i);
             } else {
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Invalid ABIParamTypeInfo");
             }
         }
 
@@ -282,7 +282,7 @@ namespace ariac {
             m_active_module_context.builder->CreateStore(call, temp);
             return m_active_module_context.builder->CreateLoad(ty, temp);
         } else {
-            ARIA_UNREACHABLE();
+            ARIA_UNREACHABLE("Invalid ABIRetTypeInfo");
         }
     }
 
@@ -305,7 +305,7 @@ namespace ariac {
                 return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type->base), loaded, index);
             }
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid type kind");
         }
     }
 
@@ -388,7 +388,7 @@ namespace ariac {
                     }
                 }
 
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Should never be reached");
                 break;
             }
 
@@ -401,7 +401,7 @@ namespace ariac {
                     return m_active_module_context.builder->CreateFPExt(val, type_info_to_llvm_type(expr->type), "fpext");
                 }
 
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Should never be reached");
                 break;
             }
 
@@ -414,7 +414,7 @@ namespace ariac {
                     return m_active_module_context.builder->CreateUIToFP(val, type_info_to_llvm_type(expr->type), "uifp");
                 }
 
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Should never be reached");
                 break;
             }
 
@@ -427,7 +427,7 @@ namespace ariac {
                     return m_active_module_context.builder->CreateFPToUI(val, type_info_to_llvm_type(expr->type), "fpui");
                 }
 
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Should never be reached");
                 break;
             }
 
@@ -469,7 +469,7 @@ namespace ariac {
                 return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(expr->type), val);
             }
 
-            default: fmt::print(stderr, "{}", cast_kind_to_string(ic.kind)); ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid cast kind");
         }
     }
 
@@ -496,7 +496,7 @@ namespace ariac {
                     return m_active_module_context.builder->CreateFNeg(val, "fneg");
                 }
 
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Should be unreachable");
                 return nullptr;
             }
 
@@ -525,16 +525,16 @@ namespace ariac {
                     inc = m_active_module_context.builder->CreateAdd(load, m_active_module_context.builder->getIntN(un.expression->type->get_bit_size(), 1), "inc");
                     m_active_module_context.builder->CreateStore(inc, start_val);
                 } else {
-                    ARIA_UNREACHABLE();
+                    ARIA_UNREACHABLE("Invalid expression type");
                 }
 
                 if (un.infix) { return load; }
                 else { return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(un.expression->type), start_val); }
 
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Should be unreachable");
             }
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid unary operator");
         }
     }
 
@@ -552,7 +552,7 @@ namespace ariac {
                     return m_active_module_context.builder->CreateFAdd(lhs, rhs, "fadd");
                 }
 
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Should be unreachable");
                 break;
             }
 
@@ -566,7 +566,7 @@ namespace ariac {
                     return m_active_module_context.builder->CreateFSub(lhs, rhs, "fsub");
                 }
 
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Should be unreachable");
                 break;
             }
 
@@ -580,7 +580,7 @@ namespace ariac {
                     return m_active_module_context.builder->CreateFMul(lhs, rhs, "fmul");
                 }
 
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Should be unreachable");
                 break;
             }
 
@@ -598,7 +598,7 @@ namespace ariac {
                     return m_active_module_context.builder->CreateFDiv(lhs, rhs, "fdiv");
                 }
 
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Should be unreachable");
                 break;
             }
 
@@ -616,7 +616,7 @@ namespace ariac {
                     return m_active_module_context.builder->CreateFRem(lhs, rhs, "frem");
                 }
 
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Should be unreachable");
                 break;
             }
 
@@ -634,7 +634,7 @@ namespace ariac {
                     return m_active_module_context.builder->CreateFCmpULT(lhs, rhs, "flt");
                 }
 
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Should be unreachable");
                 break;
             }
 
@@ -652,7 +652,7 @@ namespace ariac {
                     return m_active_module_context.builder->CreateFCmpUGT(lhs, rhs, "fgt");
                 }
 
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Should be unreachable");
                 break;
             }
 
@@ -668,7 +668,7 @@ namespace ariac {
                     }
                 }
 
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Should be unreachable");
                 break;
             }
 
@@ -717,7 +717,7 @@ namespace ariac {
                 return m_active_module_context.builder->CreateICmpNE(rhs, lhs);
             }
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid binary operator");
         }
     }
 
@@ -740,7 +740,7 @@ namespace ariac {
                     return lhs;
                 }
 
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Should be unreachable");
                 break;
             }
 
@@ -755,7 +755,7 @@ namespace ariac {
                     return lhs;
                 }
 
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Should be unreachable");
                 break;
             }
 
@@ -770,7 +770,7 @@ namespace ariac {
                     return lhs;
                 }
 
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Should be unreachable");
                 break;
             }
 
@@ -791,11 +791,11 @@ namespace ariac {
                     return lhs;
                 }
 
-                ARIA_UNREACHABLE();
+                ARIA_UNREACHABLE("Should be unreachable");
                 break;
             }
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid compound binary operator");
         }
     }
 
@@ -831,7 +831,7 @@ namespace ariac {
                 return llvm::ConstantStruct::get(llvm::dyn_cast<llvm::StructType>(type_info_to_llvm_type(expr->type)), vals);
             }
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid const expr kind");
         }
 
         return nullptr;
@@ -866,7 +866,7 @@ namespace ariac {
             case ExprKind::CompoundAssign: return gen_compound_assign_expr(expr);
             case ExprKind::Const: return gen_const_expr(expr);
 
-            default: ARIA_UNREACHABLE();
+            default: ARIA_UNREACHABLE("Invalid expr kind");
         }
     }
 
