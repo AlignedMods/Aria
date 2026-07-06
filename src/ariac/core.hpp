@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ariac/core/platform.hpp"
+#include "ariac/types.hpp"
 
 #include "fmt/printf.h"
 #include "fmt/color.h"
@@ -23,3 +24,11 @@
 #ifndef ARIA_UNREACHABLE
     #define ARIA_UNREACHABLE(message) do { fmt::print(stderr, "{}:{}, Unreachable statement reached: {}", __FILE__, __LINE__, message); ARIA_DEBUGBREAK(); abort(); } while(0)
 #endif
+
+namespace ariac {
+
+    inline u64 align_value(u64 val, u64 alignment) {
+        return ((val + alignment - 1) / alignment) * alignment;
+    }
+
+} // namespace ariac

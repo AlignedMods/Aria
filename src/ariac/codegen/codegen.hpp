@@ -12,6 +12,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/DIBuilder.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/LegacyPassManager.h"
@@ -44,6 +45,17 @@ namespace ariac {
             std::unordered_map<Decl*, llvm::Function*> functions;
             std::unordered_map<Decl*, llvm::Value*> named_values;
             std::unordered_map<Decl*, std::string> generic_structs;
+        };
+
+        struct DebugModuleContext {
+            std::unordered_map<std::string_view, llvm::DICompileUnit*> units;
+            std::unordered_map<std::string_view, llvm::DIBuilder*> builders;
+            std::unordered_map<std::string_view, std::unordered_map<std::string, llvm::DIType*>> cached_types;
+            llvm::DICompileUnit* active_unit = nullptr;
+            llvm::DIBuilder* active_builder = nullptr;
+            std::unordered_map<std::string, llvm::DIType*>* active_cached_types = nullptr;
+
+            llvm::DIScope* scope = nullptr;
         };
 
         struct ABIParamTypeInfo {
@@ -141,6 +153,7 @@ namespace ariac {
         void gen_stmt(Stmt* stmt);
 
         llvm::Type* type_info_to_llvm_type(TypeInfo* t);
+        llvm::DIType* type_info_to_debug_type(TypeInfo* t);
         llvm::GlobalValue::LinkageTypes linkage_kind_to_llvm(LinkageKind kind);
 
         std::string valid_module_name(std::string_view name);
@@ -151,8 +164,11 @@ namespace ariac {
         ABIParamTypeInfo get_param_abi_type_info(TypeInfo* t);
         ABIRetTypeInfo get_ret_abi_type_info(TypeInfo* t);
 
+        void set_debug_loc(const SourceLoc& loc);
+
     private:
         ModuleContext m_active_module_context;
+        DebugModuleContext m_active_debug_context;
         std::unordered_map<Module*, ModuleContext> m_module_contexts;
         const llvm::Target* m_target = nullptr;
         llvm::TargetMachine* m_machine = nullptr;

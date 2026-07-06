@@ -79,6 +79,25 @@ namespace ariac {
         gen_builtin_types();
 
         for (CompilationUnit* unit : mod->units) {
+            if (!m_active_debug_context.builders.contains(unit->filename)) {
+                llvm::DIBuilder* b = new llvm::DIBuilder(*ctx.module);
+                m_active_debug_context.builders[unit->filename] = b;
+            }
+
+            m_active_debug_context.active_builder = m_active_debug_context.builders.at(unit->filename);
+
+            if (!m_active_debug_context.units.contains(unit->filename)) {
+                std::filesystem::path p = unit->filename;
+
+                llvm::DICompileUnit* u = m_active_debug_context.active_builder->createCompileUnit(llvm::dwarf::DW_LANG_C,
+                    m_active_debug_context.active_builder->createFile(p.filename().string(), p.parent_path().string()), "ariac", false, "", 0);
+
+                m_active_debug_context.units[unit->filename] = u;
+            }
+
+            m_active_debug_context.active_unit = m_active_debug_context.units.at(unit->filename);
+            m_active_debug_context.active_cached_types = &m_active_debug_context.cached_types[unit->filename];
+
             for (Decl* struct_ : unit->structs) {
                 gen_struct_decl(struct_);
             }
@@ -94,12 +113,20 @@ namespace ariac {
         }
 
         for (CompilationUnit* unit : mod->units) {
+            m_active_debug_context.active_builder = m_active_debug_context.builders.at(unit->filename);
+            m_active_debug_context.active_unit = m_active_debug_context.units.at(unit->filename);
+            m_active_debug_context.active_cached_types = &m_active_debug_context.cached_types[unit->filename];
+
             for (Decl* global : unit->globals) {
                 gen_var_decl(global);
             }
         }
 
         for (CompilationUnit* unit : mod->units) {
+            m_active_debug_context.active_builder = m_active_debug_context.builders.at(unit->filename);
+            m_active_debug_context.active_unit = m_active_debug_context.units.at(unit->filename);
+            m_active_debug_context.active_cached_types = &m_active_debug_context.cached_types[unit->filename];
+
             for (Decl* func : unit->funcs) {
                 gen_function_decl(func);
             }
@@ -112,9 +139,22 @@ namespace ariac {
             llvm::Type* ptr_type = llvm::PointerType::get(*m_active_module_context.context, 0);
             llvm::Type* slice_type = llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice");
 
+            if (context.opts->triple.isWindowsMSVCEnvironment()) {
+                // Fix for undefined symbol '_fltused' on MSVC when not using CRT
+                llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, int32_type, false, llvm::GlobalValue::ExternalLinkage, llvm::Constant::getNullValue(int32_type), "_fltused");
+            }
+
             llvm::Function* main = llvm::Function::Create(llvm::FunctionType::get(int32_type, { int32_type, ptr_type}, false), llvm::GlobalValue::LinkageTypes::ExternalLinkage, "main", *m_active_module_context.module);
             m_active_module_context.function = main;
             main->setDSOLocal(true);
+
+            llvm::DISubprogram* sp = m_active_debug_context.active_builder->createFunction(m_active_debug_context.active_unit->getFile(),
+                "main", {}, m_active_debug_context.active_unit->getFile(), context.main_func->loc.line,
+                m_active_debug_context.active_builder->createSubroutineType({}), context.main_func->loc.line, llvm::DINode::FlagPrototyped, llvm::DISubprogram::SPFlagDefinition);
+
+            main->setSubprogram(sp);
+            m_active_debug_context.scope = sp;
+            set_debug_loc(context.main_func->loc);
 
             llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", main);
             m_active_module_context.builder->SetInsertPoint(bb);
@@ -232,6 +272,11 @@ namespace ariac {
 
         m_active_module_context.module->setDataLayout(m_machine->createDataLayout());
         m_active_module_context.module->setTargetTriple(context.opts->triple.str());
+
+        // Finalize all DIBuilders
+        for (auto& [_, b] : m_active_debug_context.builders) {
+            b->finalize();
+        }
     }
 
     void Codegen::gen_mod_to_obj(Module* mod) {
@@ -427,6 +472,68 @@ namespace ariac {
         }
     }
 
+    llvm::DIType* Codegen::type_info_to_debug_type(TypeInfo* t) {
+        std::string str_type = type_info_to_string(t, false);
+
+        if (m_active_debug_context.cached_types.contains(str_type)) {
+            return m_active_debug_context.active_cached_types->at(str_type);
+        }
+
+        llvm::DIType* dit = nullptr;
+
+        if (t->is_void()) {
+            dit = m_active_debug_context.active_builder->createBasicType(str_type, 0, llvm::dwarf::DW_ATE_boolean);
+        } else if (t->is_boolean()) {
+            dit = m_active_debug_context.active_builder->createBasicType(str_type, 1, llvm::dwarf::DW_ATE_boolean);
+        } else if (t->is_integral()) {
+            unsigned encoding = 0;
+
+            if (t->is_unsigned()) {
+                if (t->kind == TypeKind::Char) { encoding = llvm::dwarf::DW_ATE_unsigned_char; }
+                else { encoding = llvm::dwarf::DW_ATE_unsigned; }
+            } else {
+                if (t->kind == TypeKind::IChar) { encoding = llvm::dwarf::DW_ATE_signed_char; }
+                else { encoding = llvm::dwarf::DW_ATE_signed; }
+            }
+
+            dit = m_active_debug_context.active_builder->createBasicType(str_type, t->get_bit_size(), encoding);
+        } else if (t->is_floating_point()) {
+            dit = m_active_debug_context.active_builder->createBasicType(str_type, t->get_bit_size(), llvm::dwarf::DW_ATE_float);
+        } else if (t->is_pointer()) {
+            dit = m_active_debug_context.active_builder->createPointerType(type_info_to_debug_type(t->base), t->get_bit_size());
+        } else if (t->is_slice()) {
+            dit = m_active_debug_context.active_builder->createBasicType(str_type, t->get_size() * 8, llvm::dwarf::DW_ATE_ASCII);
+            // dit = m_active_debug_context.active_builder->createStructType(m_active_debug_context.scope, str_type, m_active_debug_context.scope->getFile(),
+            //     t->loc, t->get_size() * 8, t->get_alignment() * 8, llvm::DINode::DIFlags::FlagZero, 
+        } else if (t->is_structure()) {
+            std::vector<llvm::Metadata*> elems;
+
+            u64 offset_bits = 0;
+            for (Decl* d : t->struct_.source_decl->struct_.fields) {
+                ARIA_ASSERT(d->kind == DeclKind::Field, "Invalid field");
+
+                llvm::DIType* mem = m_active_debug_context.active_builder->createMemberType(m_active_debug_context.scope, d->field.identifier, 
+                    m_active_debug_context.scope->getFile(), d->loc.line, d->field.type->get_bit_size(), d->field.type->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
+                    type_info_to_debug_type(d->field.type));
+
+                elems.push_back(mem);
+                offset_bits += align_value(d->field.type->get_bit_size(), t->get_alignment() * 8);
+            }
+
+            dit = m_active_debug_context.active_builder->createStructType(m_active_debug_context.scope,
+                str_type, m_active_debug_context.scope->getFile(), t->struct_.source_decl->loc.line, t->get_size() * 8, t->get_alignment() * 8,
+                llvm::DINode::DIFlags::FlagExplicit, nullptr, m_active_debug_context.active_builder->getOrCreateArray(elems));
+        } else if (t->is_typedef()) {
+            dit = m_active_debug_context.active_builder->createTypedef(type_info_to_debug_type(t->typedef_.base), t->typedef_.identifier, 
+                m_active_debug_context.active_unit->getFile(), t->typedef_.source_decl->loc.line, m_active_debug_context.scope);
+        } else {
+            ARIA_UNREACHABLE("Invalid type");
+        }
+
+        (*m_active_debug_context.active_cached_types)[str_type] = dit;
+        return dit;
+    }
+
     llvm::GlobalValue::LinkageTypes Codegen::linkage_kind_to_llvm(LinkageKind kind) {
         switch (kind) {
             case LinkageKind::None: return llvm::GlobalValue::LinkageTypes::ExternalLinkage;
@@ -464,6 +571,15 @@ namespace ariac {
         ARIA_ASSERT(m_active_module_context.alloca_marker, "alloca_marker needs to be set");
         llvm::IRBuilder<> TmpB(m_active_module_context.alloca_marker);
         return TmpB.CreateAlloca(type, nullptr, name);
+    }
+
+    void Codegen::set_debug_loc(const SourceLoc& loc) {
+        if (!loc.is_valid()) {
+            m_active_module_context.builder->SetCurrentDebugLocation(llvm::DebugLoc());
+            return;
+        }
+
+        m_active_module_context.builder->SetCurrentDebugLocation(llvm::DILocation::get(*m_active_module_context.context, loc.line, loc.col, m_active_debug_context.scope));
     }
 
 } // namespace ariac

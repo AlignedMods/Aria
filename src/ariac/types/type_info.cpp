@@ -24,10 +24,6 @@ namespace ariac {
     static TypeInfo* char_slice_type;
     static TypeInfo* std_core_string_type;
 
-    static u64 align_value(u64 val, u64 alignment) {
-        return ((val + alignment - 1) / alignment) * alignment;
-    }
-
     TypeInfo* TypeInfo::create_basic(TypeKind kind, SourceLoc loc) {
         TypeInfo* t = context.allocate<TypeInfo>();
         t->kind = kind;
@@ -129,7 +125,7 @@ namespace ariac {
     }
 
     TypeInfo* TypeInfo::get_void_ptr() {
-        if (void_ptr_type) { return char_ptr_type; }
+        if (void_ptr_type) { return void_ptr_type; }
         void_ptr_type = create_with_base(TypeKind::Pointer, get_basic(TypeKind::Void));
         return void_ptr_type;
     }
@@ -258,6 +254,17 @@ namespace ariac {
 
             case TypeKind::Float: return 32;
             case TypeKind::Double: return 64;
+
+            case TypeKind::Pointer: {
+                switch (context.opts->triple.getArch()) {
+                    case llvm::Triple::x86: return 32;
+                    case llvm::Triple::x86_64: return 64;
+
+                    default: ARIA_TODO("Other arch");
+                }
+            }
+
+            case TypeKind::Structure: return get_size() * 8;
 
             case TypeKind::Typedef: return typedef_.base->get_bit_size();
 

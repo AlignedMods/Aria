@@ -4,6 +4,7 @@ namespace ariac {
 
     llvm::Value* Codegen::gen_boolean_literal_expr(Expr* expr) {
         BooleanLiteralExpr& bl = expr->boolean_literal;
+        set_debug_loc(expr->loc);
         if (bl.value) { return llvm::ConstantInt::getTrue(*m_active_module_context.context); }
         else { return llvm::ConstantInt::getFalse(*m_active_module_context.context); }
 
@@ -12,16 +13,19 @@ namespace ariac {
 
     llvm::Value* Codegen::gen_character_literal_expr(Expr* expr) {
         CharacterLiteralExpr& cl = expr->character_literal;
+        set_debug_loc(expr->loc);
         return llvm::ConstantInt::get(*m_active_module_context.context, llvm::APInt(8, cl.value, expr->type->is_signed()));
     }
 
     llvm::Value* Codegen::gen_integer_literal_expr(Expr* expr) {
         IntegerLiteralExpr& il = expr->integer_literal;
+        set_debug_loc(expr->loc);
         return llvm::ConstantInt::get(*m_active_module_context.context, llvm::APInt(static_cast<unsigned>(expr->type->get_bit_size()), il.value));
     }
 
     llvm::Value* Codegen::gen_floating_literal_expr(Expr* expr) {
         FloatingLiteralExpr& fl = expr->floating_literal;
+        set_debug_loc(expr->loc);
         if (expr->type->kind == TypeKind::Float) {
             return llvm::ConstantFP::get(*m_active_module_context.context, llvm::APFloat(static_cast<float>(fl.value)));
         } else {
@@ -31,6 +35,7 @@ namespace ariac {
 
     llvm::Value* Codegen::gen_string_literal_expr(Expr* expr) {
         StringLiteralExpr& sl = expr->string_literal;
+        set_debug_loc(expr->loc);
        
         if (expr->type->is_string()) {
             llvm::GlobalVariable* str = m_active_module_context.builder->CreateGlobalString(sl.value, "str", 0, nullptr);
@@ -46,11 +51,13 @@ namespace ariac {
     }
 
     llvm::Value* Codegen::gen_null_expr(Expr* expr) {
+        set_debug_loc(expr->loc);
         return llvm::Constant::getNullValue(type_info_to_llvm_type(expr->type));
     }
 
     llvm::Value* Codegen::gen_decl_ref_expr(Expr* expr) {
         DeclRefExpr& dr = expr->decl_ref;
+        set_debug_loc(expr->loc);
             
         if (dr.referenced_decl->kind == DeclKind::Function) {
             if (!m_active_module_context.functions.contains(dr.referenced_decl)) {
@@ -77,6 +84,7 @@ namespace ariac {
 
     llvm::Value* Codegen::gen_member_expr(Expr* expr) {
         MemberExpr& mem = expr->member;
+        set_debug_loc(expr->loc);
 
         switch (mem.referenced_member->kind) {
             case DeclKind::Field: {
@@ -135,6 +143,7 @@ namespace ariac {
 
     llvm::Value* Codegen::gen_builtin_member_expr(Expr* expr) {
         MemberExpr& mem = expr->member;
+        set_debug_loc(expr->loc);
         
         llvm::Value* val = gen_expr(mem.parent);
         TypeInfo* type = mem.parent->type;
@@ -174,11 +183,13 @@ namespace ariac {
     }
 
     llvm::Value* Codegen::gen_self_expr(Expr* expr) {
+        set_debug_loc(expr->loc);
         return m_active_module_context.builder->CreateLoad(llvm::PointerType::get(*m_active_module_context.context, 0), m_self_value, "self");
     }
 
     llvm::Value* Codegen::gen_call_expr(Expr* expr) {
         CallExpr& call = expr->call;
+        set_debug_loc(expr->loc);
         
         std::vector<llvm::Value*> args;
         args.reserve(call.arguments.size);
@@ -224,6 +235,7 @@ namespace ariac {
 
     llvm::Value* Codegen::gen_construct_expr(Expr* expr) {
         ConstructExpr& ct = expr->construct;
+        set_debug_loc(expr->loc);
 
         llvm::Type* type = type_info_to_llvm_type(expr->type);
 
@@ -251,6 +263,7 @@ namespace ariac {
 
     llvm::Value* Codegen::gen_method_call_expr(Expr* expr) {
         MethodCallExpr& mc = expr->method_call;
+        set_debug_loc(expr->loc);
 
         std::vector<llvm::Value*> args;
 
@@ -296,6 +309,7 @@ namespace ariac {
 
     llvm::Value* Codegen::gen_array_subscript_expr(Expr* expr) {
         ArraySubscriptExpr& arr = expr->array_subscript;
+        set_debug_loc(expr->loc);
 
         llvm::Value* index = gen_expr(arr.index);
         llvm::Value* array = gen_expr(arr.array);
@@ -319,6 +333,7 @@ namespace ariac {
 
     llvm::Value* Codegen::gen_to_slice_expr(Expr* expr) {
         ToSliceExpr& t = expr->to_slice;
+        set_debug_loc(expr->loc);
 
         llvm::Type* type = type_info_to_llvm_type(expr->type);
         llvm::Value* slice = alloca_at_entry(m_active_module_context.function, "to_slice", type);
@@ -336,6 +351,7 @@ namespace ariac {
 
     llvm::Value* Codegen::gen_new_expr(Expr* expr) {
         NewExpr& n = expr->new_;
+        set_debug_loc(expr->loc);
         
         llvm::Function* func = m_active_module_context.module->getFunction("calloc");
         
@@ -352,6 +368,7 @@ namespace ariac {
 
     llvm::Value* Codegen::gen_delete_expr(Expr* expr) {
         DeleteExpr& del = expr->delete_;
+        set_debug_loc(expr->loc);
         
         llvm::Function* func = m_active_module_context.module->getFunction("free");
         
@@ -366,6 +383,7 @@ namespace ariac {
 
     llvm::Value* Codegen::gen_sizeof_expr(Expr* expr) {
         SizeofExpr& sz = expr->sizeof_;
+        set_debug_loc(expr->loc);
 
         if (sz.type) {
             return m_active_module_context.builder->getInt64(sz.type->get_size());
@@ -376,11 +394,13 @@ namespace ariac {
 
     llvm::Value* Codegen::gen_paren_expr(Expr* expr) {
         ParenExpr& p = expr->paren;
+        set_debug_loc(expr->loc);
         return gen_expr(p.expression);
     }
 
     llvm::Value* Codegen::gen_implicit_cast_expr(Expr* expr) {
         ImplicitCastExpr& ic = expr->implicit_cast;
+        set_debug_loc(expr->loc);
 
         switch (ic.kind) {
             case CastKind::Integral: {
@@ -483,11 +503,13 @@ namespace ariac {
 
     llvm::Value* Codegen::gen_cast_expr(Expr* expr) {
         CastExpr& cast = expr->cast;
+        set_debug_loc(expr->loc);
         return gen_expr(cast.expression);
     }
 
     llvm::Value* Codegen::gen_unary_operator_expr(Expr* expr) {
         UnaryOperatorExpr& un = expr->unary_operator;
+        set_debug_loc(expr->loc);
 
         switch (un.op) {
             case UnaryOperatorKind::Not: {
@@ -548,6 +570,7 @@ namespace ariac {
 
     llvm::Value* Codegen::gen_binary_operator_expr(Expr* expr) {
         BinaryOperatorExpr& bin = expr->binary_operator;
+        set_debug_loc(expr->loc);
 
         switch (bin.op) {
             case BinaryOperatorKind::Add: {
@@ -731,6 +754,7 @@ namespace ariac {
 
     llvm::Value* Codegen::gen_compound_assign_expr(Expr* expr) {
         CompoundAssignExpr& comp = expr->compound_assign;
+        set_debug_loc(expr->loc);
 
         llvm::Value* lhs = gen_expr(comp.lhs);
         llvm::Value* lhs_val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(comp.lhs->type), lhs);
@@ -809,6 +833,7 @@ namespace ariac {
 
     llvm::Value* Codegen::gen_const_expr(Expr* expr) {
         ConstExpr& c = expr->const_;
+        set_debug_loc(expr->loc);
 
         switch (c.kind) {
             case ConstExprKind::Boolean: {
@@ -880,6 +905,7 @@ namespace ariac {
 
     llvm::Value* Codegen::gen_init_expr(Expr* expr, llvm::Value* dst) {
         llvm::Value* val = gen_expr(expr);
+        set_debug_loc(expr->loc);
 
         if (expr->type->is_array()) {
             // Call memcpy since we copy arrays

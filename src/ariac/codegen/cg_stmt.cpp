@@ -4,6 +4,7 @@ namespace ariac {
 
     void Codegen::gen_block_stmt(Stmt* stmt) {
         BlockStmt& block = stmt->block;
+        set_debug_loc(stmt->loc);
 
         for (Stmt* stmt : block.stmts) {
             gen_stmt(stmt);
