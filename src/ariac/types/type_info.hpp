@@ -155,7 +155,7 @@ namespace ariac {
         bool is_error() const { return kind == TypeKind::Error; }
 
         bool is_primitive() const {
-            return is_void() || is_boolean() || is_numeric();
+            return is_error() || is_void() || is_boolean() || is_numeric();
         }
 
         bool is_void() const {
@@ -217,6 +217,10 @@ namespace ariac {
             return kind == TypeKind::Enum;
         }
 
+        bool is_generic() const {
+            return kind == TypeKind::Generic;
+        }
+
         bool is_string() const;
 
         bool is_signed() const {
@@ -234,6 +238,7 @@ namespace ariac {
         u64 get_size() const;
         u64 get_bit_size() const;
         u64 get_alignment() const;
+        TypeInfo* get_bottom_type() const; // Get the type of the bottom of the type hierarchy
     };
 
     std::string type_info_to_string(TypeInfo* type, bool pretty = true);

@@ -406,7 +406,7 @@ namespace ariac {
                         member_type = TypeInfo::create_with_base(TypeKind::Pointer, parent_type->array.base);
                         expr->kind = ExprKind::BuiltinMember;
                     } else if (mem.member == "len") {
-                        member_type = TypeInfo::get_basic(TypeKind::ULong);
+                        member_type = TypeInfo::get_basic(TypeKind::Sz);
                         expr->value_kind = ExprValueKind::RValue;
                         expr->kind = ExprKind::BuiltinMember;
                     }
@@ -420,7 +420,7 @@ namespace ariac {
                         member_type = TypeInfo::create_with_base(TypeKind::Pointer, parent_type->base);
                         expr->kind = ExprKind::BuiltinMember;
                     } else if (mem.member == "len") {
-                        member_type = TypeInfo::get_basic(TypeKind::ULong);
+                        member_type = TypeInfo::get_basic(TypeKind::Sz);
                         expr->kind = ExprKind::BuiltinMember;
                     }
 
@@ -652,14 +652,7 @@ namespace ariac {
             Decl* fd = s->struct_.fields.items[i++];
             if (fd->kind == DeclKind::Error) { continue; }
 
-            ConversionCost cost = get_conversion_cost(fd->field.type, arg->type);
-            if (cost.cast_needed) {
-                if (cost.implicit_cast_possible) {
-                    insert_implicit_cast(fd->field.type, arg->type, arg, cost.kind);
-                } else {
-                    context.report_compiler_diagnostic(arg->loc, fmt::format("Could not convert from '{}' to field type '{}'", type_info_to_string(arg->type), type_info_to_string(fd->field.type)));
-                }
-            }
+            try_insert_implicit_cast(fd->field.type, arg);
 
             if (fd->visibility == DeclVisibility::Private) {
                 context.report_compiler_diagnostic(arg->loc, fmt::format("Cannot initialize private field '{}'", fd->field.identifier));
@@ -744,14 +737,7 @@ namespace ariac {
             default: context.report_compiler_diagnostic(subs.array->loc, "'[' operator can only be used with a pointer/slice/array"); expr->type = TypeInfo::get_error(); break;
         }
 
-        ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(TypeKind::ULong), subs.index->type);
-        if (cost.cast_needed) {
-            if (cost.implicit_cast_possible) {
-                insert_implicit_cast(TypeInfo::get_basic(TypeKind::ULong), subs.index->type, subs.index, cost.kind);
-            } else {
-                context.report_compiler_diagnostic(subs.index->loc, fmt::format("Array index cannot be implicitly converted from '{}' to 'ulong'", type_info_to_string(subs.index->type)));
-            }
-        }
+        try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Sz), subs.index);
     }
 
     void SemanticAnalyzer::resolve_to_slice_expr(Expr* expr) {
@@ -785,14 +771,7 @@ namespace ariac {
             default: context.report_compiler_diagnostic(tos.source->loc, "Only a pointer/slice/array can be converted to a slice"); expr->type = TypeInfo::get_error(); break;
         }
 
-        ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(TypeKind::ULong), tos.len->type);
-        if (cost.cast_needed) {
-            if (cost.implicit_cast_possible) {
-                insert_implicit_cast(TypeInfo::get_basic(TypeKind::ULong), tos.len->type, tos.len, cost.kind);
-            } else {
-                context.report_compiler_diagnostic(tos.len->loc, fmt::format("Slice length cannot be implicitly converted from '{}' to 'ulong'", type_info_to_string(tos.len->type)));
-            }
-        }
+        try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Sz), tos.len);
     }
 
     void SemanticAnalyzer::resolve_new_expr(Expr* expr) {
@@ -810,28 +789,14 @@ namespace ariac {
                 require_rvalue(n.initializer);
                 m_temporary_context = false;
 
-                ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(TypeKind::ULong), n.initializer->type);
-                if (cost.cast_needed) {
-                    if (cost.implicit_cast_possible) {
-                        insert_implicit_cast(TypeInfo::get_basic(TypeKind::ULong), n.initializer->type, n.initializer, cost.kind);
-                    } else {
-                        context.report_compiler_diagnostic(n.initializer->loc, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(n.initializer->type), type_info_to_string(TypeInfo::get_basic(TypeKind::ULong))));
-                    }
-                }
+                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Sz), n.initializer);
             } else {
                 m_temporary_context = true;
                 resolve_expr(n.initializer);
                 require_rvalue(n.initializer);
                 m_temporary_context = false;
 
-                ConversionCost cost = get_conversion_cost(expr->type->base, n.initializer->type);
-                if (cost.cast_needed) {
-                    if (cost.implicit_cast_possible) {
-                        insert_implicit_cast(expr->type->base, n.initializer->type, n.initializer, cost.kind);
-                    } else {
-                        context.report_compiler_diagnostic(n.initializer->loc, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(n.initializer->type), type_info_to_string(expr->type->base)));
-                    }
-                }
+                try_insert_implicit_cast(expr->type->base, n.initializer);
             }
         }
     }
@@ -912,20 +877,11 @@ namespace ariac {
         require_rvalue(cast.expression);
         expr->type = cast.type;
 
-        TypeInfo* srcType = cast.expression->type;
-        TypeInfo* dstType = cast.type;
+        TypeInfo* dst_type = cast.type;
 
-        if (srcType->is_error() || dstType->is_error()) { return; }
+        if (expr->type->is_error() || dst_type->is_error()) { return; }
 
-        ConversionCost cost = get_conversion_cost(dstType, srcType);
-
-        if (cost.cast_needed) {
-            if (cost.explicit_cast_possible) {
-                insert_implicit_cast(dstType, srcType, cast.expression, cost.kind);
-            } else {
-                context.report_compiler_diagnostic(expr->loc, fmt::format("Cannot cast '{}' to '{}'", type_info_to_string(srcType), type_info_to_string(dstType)));
-            }
-        }
+        try_insert_implicit_cast(dst_type, cast.expression);
 
         if (expr->result_discarded) {
             context.report_compiler_diagnostic(expr->loc, "Discarding result of explicit cast", CompilerDiagKind::Warning);
@@ -1177,17 +1133,7 @@ namespace ariac {
                 }
 
                 require_rvalue(RHS);
-
-                ConversionCost cost = get_conversion_cost(LHS->type, RHS->type);
-
-                if (cost.cast_needed) {
-                    if (cost.implicit_cast_possible) {
-                        insert_implicit_cast(LHS->type, RHS->type, RHS, cost.kind);
-                    } else {
-                        context.report_compiler_diagnostic(expr->loc, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(RHS->type), type_info_to_string(LHS->type)));
-                    }
-                }
-
+                try_insert_implicit_cast(LHS->type, RHS);
                 return;
             }
 
@@ -1196,24 +1142,8 @@ namespace ariac {
                 require_rvalue(LHS);
                 require_rvalue(RHS);
 
-                ConversionCost costLHS = get_conversion_cost(TypeInfo::get_basic(TypeKind::Bool), LHS->type);
-                ConversionCost costRHS = get_conversion_cost(TypeInfo::get_basic(TypeKind::Bool), RHS->type);
-
-                if (costLHS.cast_needed) {
-                    if (costLHS.implicit_cast_possible) {
-                        insert_implicit_cast(TypeInfo::get_basic(TypeKind::Bool), LHS->type, LHS, costLHS.kind);
-                    } else {
-                        context.report_compiler_diagnostic(LHS->loc, fmt::format("Cannot implicitly convert from '{}' to 'bool'", type_info_to_string(LHS->type)));
-                    }
-                }
-
-                if (costRHS.cast_needed) {
-                    if (costRHS.implicit_cast_possible) {
-                        insert_implicit_cast(TypeInfo::get_basic(TypeKind::Bool), RHS->type, RHS, costRHS.kind);
-                    } else {
-                        context.report_compiler_diagnostic(LHS->loc, fmt::format("Cannot implicitly convert from '{}' to 'bool'", type_info_to_string(RHS->type)));
-                    }
-                }
+                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Bool), LHS);
+                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Bool), RHS);
 
                 expr->type = TypeInfo::get_basic(TypeKind::Bool);
                 expr->value_kind = ExprValueKind::RValue;
@@ -1252,16 +1182,7 @@ namespace ariac {
             return;
         }
 
-        ConversionCost cost = get_conversion_cost(LHS->type, RHS->type);
-        
-        if (cost.cast_needed) {
-            if (cost.implicit_cast_possible) {
-                insert_implicit_cast(LHS->type, RHS->type, RHS, cost.kind);
-                *RHS->type = *LHS->type;
-            } else {
-                context.report_compiler_diagnostic(comp.rhs->loc, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(RHS->type), type_info_to_string(LHS->type)));
-            }
-        }
+        try_insert_implicit_cast(LHS->type, RHS);
     }
 
     void SemanticAnalyzer::resolve_expr(Expr* expr) {
@@ -1581,6 +1502,23 @@ namespace ariac {
         Expr* implicitCast = Expr::Create(src->loc, ExprKind::ImplicitCast, ExprValueKind::RValue, dstType, ImplicitCastExpr(src, castKind));
 
         replace_expr(srcExpr, implicitCast);
+    }
+
+    void SemanticAnalyzer::try_insert_implicit_cast(TypeInfo* dst_type, Expr* src_expr) {
+        ConversionCost cost = get_conversion_cost(dst_type, src_expr->type);
+
+        if (cost.cast_needed) {
+            if (cost.implicit_cast_possible) {
+                insert_implicit_cast(dst_type, src_expr->type, src_expr, cost.kind);
+            } else if (cost.explicit_cast_possible) {
+                context.report_compiler_diagnostic_with_notes(src_expr->loc, 
+                    fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(src_expr->type), type_info_to_string(dst_type)),
+                    { "You can however insert an explicit cast in the code" });
+            } else {
+                context.report_compiler_diagnostic(src_expr->loc, 
+                    fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(src_expr->type), type_info_to_string(dst_type)));
+            }
+        }
     }
 
     void SemanticAnalyzer::require_rvalue(Expr* expr) {

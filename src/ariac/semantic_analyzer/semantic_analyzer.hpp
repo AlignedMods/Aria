@@ -124,6 +124,7 @@ namespace ariac {
 
         ConversionCost get_conversion_cost(TypeInfo* dst, TypeInfo* src);
         void insert_implicit_cast(TypeInfo* dst_type, TypeInfo* src_type, Expr* src_expr, CastKind cast_kind);
+        void try_insert_implicit_cast(TypeInfo* dst_type, Expr* src_expr);
         void require_rvalue(Expr* expr);
         void maybe_promote_to_int(Expr* expr);
         void insert_arithmetic_promotion(Expr* lhs, Expr* rhs);

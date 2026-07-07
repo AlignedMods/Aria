@@ -213,15 +213,7 @@ namespace ariac {
                 if (!is_const_expr(c.value)) {
                     context.report_compiler_diagnostic(c.value->loc, "Value of enum constant must be a constant expression");
                 } else {
-                    ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(TypeKind::Int), c.value->type);
-                    if (cost.cast_needed) {
-                        if (cost.implicit_cast_possible) {
-                            insert_implicit_cast(TypeInfo::get_basic(TypeKind::Int), c.value->type, c.value, cost.kind);
-                        } else {
-                            context.report_compiler_diagnostic(c.value->loc, fmt::format("Type of expression must be convertable to 'int' but is '{}'", type_info_to_string(c.value->type)));
-                        }
-                    }
-
+                    try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Int), c.value);
                     Expr* cons = eval_const_expr(c.value);
                     replace_expr(c.value, cons);
 

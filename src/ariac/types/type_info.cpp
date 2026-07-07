@@ -295,12 +295,7 @@ namespace ariac {
             }
 
             case TypeKind::Slice: {
-                switch (context.opts->triple.getArch()) {
-                    case llvm::Triple::x86: return 4;
-                    case llvm::Triple::x86_64: return 8;
-
-                    default: ARIA_TODO("Other arch");
-                }
+                return get_basic(TypeKind::Pointer)->get_size() + get_basic(TypeKind::Sz)->get_size();
             }
 
             case TypeKind::Structure: {
@@ -410,6 +405,23 @@ namespace ariac {
 
             default: ARIA_UNREACHABLE("Invalid type kind");
         }
+    }
+
+    TypeInfo* TypeInfo::get_bottom_type() const {
+        TypeInfo* t = const_cast<TypeInfo*>(this);
+
+        while (true) {
+            if (t->is_primitive() || t->is_structure() || t->is_typedef() || t->is_enum() || t->is_generic()) {
+                break;
+            }
+
+            if (t->is_pointer() || t->is_slice()) { t = t->base; continue; }
+            if (t->is_array()) { t = t->array.base; continue; }
+
+            ARIA_UNREACHABLE("Invald type");
+        }
+
+        return t;
     }
 
     std::string type_info_to_string(TypeInfo* type, bool pretty) {

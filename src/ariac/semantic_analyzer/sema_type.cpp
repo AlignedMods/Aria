@@ -205,7 +205,12 @@ namespace ariac {
         cost.explicit_cast_possible = true;
         cost.implicit_cast_possible = true;
 
-        if (dst->kind == TypeKind::Generic || src->kind == TypeKind::Generic) {
+        if (dst->get_bottom_type()->is_generic() || src->get_bottom_type()->is_generic()) {
+            cost.cast_needed = false;
+            return cost;
+        }
+
+        if (dst->is_error() || src->is_error()) {
             cost.cast_needed = false;
             return cost;
         }
@@ -259,9 +264,6 @@ namespace ariac {
                 if (src->base->is_void() || dst->base->is_void()) { // Allow void* conversions
                     cost.kind = CastKind::BitCast;
                     return cost;
-                } else if (src->base->kind == TypeKind::Generic || dst->base->kind == TypeKind::Generic) {
-                    cost.cast_needed = false;
-                    return cost;
                 }
             }
         }
@@ -271,6 +273,7 @@ namespace ariac {
                 cost.kind = CastKind::ArrayToSlice;
                 return cost;
             } else if (dst->is_pointer() && type_is_equal(dst->base, src->array.base)) {
+                cost.implicit_cast_possible = false; // Allow only explicit casts here
                 cost.kind = CastKind::ArrayToPointer;
                 return cost;
             }

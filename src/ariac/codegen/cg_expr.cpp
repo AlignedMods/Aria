@@ -160,7 +160,7 @@ namespace ariac {
                 if (mem.member == "mem") {
                     return val;
                 } else if (mem.member == "len") {
-                    return m_active_module_context.builder->getInt64(mem.parent->type->array.size);
+                    return llvm::ConstantInt::get(type_info_to_llvm_type(expr->type), mem.parent->type->array.size);
                 } 
 
                 ARIA_UNREACHABLE("Should never be reached");

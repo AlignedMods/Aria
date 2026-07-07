@@ -43,7 +43,7 @@ namespace ariac {
     void Codegen::gen_builtin_types() {
         llvm::StructType::create({
             llvm::PointerType::get(*m_active_module_context.context, 0),
-            llvm::Type::getInt64Ty(*m_active_module_context.context)
+            type_info_to_llvm_type(TypeInfo::get_basic(TypeKind::Sz))
         }, "$builtin_slice");
     }
 

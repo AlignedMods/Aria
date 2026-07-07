@@ -20,16 +20,8 @@ namespace ariac {
 
             if (var.initializer->type->is_error() || var.type->is_error()) { return; }
 
-            ConversionCost cost = get_conversion_cost(var.type, var.initializer->type);
-            if (cost.cast_needed) {
-                if (cost.implicit_cast_possible) {
-                    insert_implicit_cast(var.type, var.initializer->type, var.initializer, cost.kind);
-                } else {
-                    context.report_compiler_diagnostic(var.initializer->loc, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(var.initializer->type), type_info_to_string(var.type)));
-                }
-            }
-
             require_rvalue(var.initializer);
+            try_insert_implicit_cast(var.type, var.initializer);
 
             if (var.const_var) {
                 if (!is_const_expr(var.initializer)) {
@@ -45,18 +37,8 @@ namespace ariac {
         m_temporary_context = true;
         resolve_expr(arg);
 
-        TypeInfo* argType = arg->type;
-
-        ConversionCost cost = get_conversion_cost(param_type, argType);
-        if (cost.cast_needed) {
-            if (cost.implicit_cast_possible) {
-                insert_implicit_cast(param_type, argType, arg, cost.kind);
-            } else {
-                context.report_compiler_diagnostic(arg->loc, fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(argType), type_info_to_string(param_type)));
-            }
-        }
-
         require_rvalue(arg);
+        try_insert_implicit_cast(param_type, arg);
         m_temporary_context = false;
     }
 

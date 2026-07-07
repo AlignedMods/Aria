@@ -124,14 +124,7 @@ namespace ariac {
                 return;
             }
 
-            ConversionCost cost = get_conversion_cost(m_active_return_type, ret.value->type);
-            if (cost.cast_needed) {
-                if (cost.implicit_cast_possible) {
-                    insert_implicit_cast(m_active_return_type, ret.value->type, ret.value, cost.kind);
-                } else {
-                    context.report_compiler_diagnostic(ret.value->loc, fmt::format("Cannot implicitly convert '{}' to return type '{}'", type_info_to_string(ret.value->type), type_info_to_string(m_active_return_type)));
-                }
-            }
+            try_insert_implicit_cast(m_active_return_type, ret.value);
         }
     }
 
