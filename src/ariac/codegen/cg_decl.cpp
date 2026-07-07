@@ -39,15 +39,23 @@ namespace ariac {
     }
 
     void Codegen::gen_function_decl(Decl* decl) {
-        FunctionDecl& fn = decl->function;
+        FunctionDecl* fn = nullptr;
 
-        if (fn.linkage_kind == LinkageKind::Extern) { return; }
+        if (decl->kind == DeclKind::Function) {
+            fn = &decl->function;
+        } else if (decl->kind == DeclKind::FunctionSpecilization) {
+            fn = &decl->function_specilization.source->function;
+        } else {
+            ARIA_UNREACHABLE("Invalid function decl");
+        }
+
+        if (fn->linkage_kind == LinkageKind::Extern) { return; }
 
         if (!m_active_module_context.functions.contains(decl)) {
             gen_function_prototype(decl);
         }
 
-        if (fn.body) {
+        if (fn->body) {
             llvm::Function* function = m_active_module_context.functions.at(decl);
             m_active_module_context.function = function;
             function->setDSOLocal(true);
@@ -62,7 +70,7 @@ namespace ariac {
             // Do not set any source locations for the function prologue
             set_debug_loc({});
 
-            m_ret_type_abi = get_ret_abi_type_info(fn.type->function.return_type);
+            m_ret_type_abi = get_ret_abi_type_info(fn->type->function.return_type);
             unsigned idx = m_ret_type_abi.ret_by_ptr ? 1 : 0;
 
             if (m_ret_type_abi.type->is_boolean()) {
@@ -74,7 +82,7 @@ namespace ariac {
 
             m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
 
-            for (Decl* param : fn.parameters) {
+            for (Decl* param : fn->parameters) {
                 ABIParamTypeInfo info = get_param_abi_type_info(param->param.type);
 
                 if (info.pass_direct) {
@@ -112,7 +120,7 @@ namespace ariac {
                     llvm::DILocation::get(*m_active_module_context.context, decl->loc.line, decl->loc.col, sp), m_active_module_context.builder->GetInsertBlock());
             }
 
-            gen_stmt(fn.body);
+            gen_stmt(fn->body);
             m_active_module_context.alloca_marker->eraseFromParent();
             m_active_module_context.alloca_marker = nullptr;
             if (llvm::verifyFunction(*function, &llvm::errs())) { throw std::exception(); }
@@ -120,18 +128,34 @@ namespace ariac {
     }
 
     void Codegen::gen_function_prototype(Decl* decl) {
-        FunctionDecl& fn = decl->function;
         std::string sig;
 
-        if (fn.linkage_kind == LinkageKind::Extern) {
-            sig = fn.identifier;
-        } else {
-            sig = fmt::format("{}.{}", valid_module_name(decl->parent_module->name), fn.identifier);
+        if (decl->kind == DeclKind::Function) {
+            FunctionDecl& fn = decl->function;
+            if (fn.linkage_kind == LinkageKind::Extern) {
+                sig = fn.identifier;
+            } else {
+                sig = fmt::format("{}.{}", valid_module_name(decl->parent_module->name), fn.identifier);
+            }
+
+            llvm::Type* fn_ty = type_info_to_llvm_type(fn.type);
+            llvm::Function* function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), llvm::GlobalValue::LinkageTypes::ExternalLinkage, 0, sig, m_active_module_context.module);
+            m_active_module_context.functions[decl] = function;
+
+            return;
+        } else if (decl->kind == DeclKind::FunctionSpecilization) {
+            FunctionSpecilizationDecl& fn = decl->function_specilization;
+            sig = fmt::format("{}.{}__G{}", valid_module_name(decl->parent_module->name), fn.source->function.identifier, fn.types.size);
+            for (TypeInfo* t : fn.types) { sig += mangle_type(t); }
+
+            llvm::Type* fn_ty = type_info_to_llvm_type(fn.source->function.type);
+            llvm::Function* function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), llvm::GlobalValue::LinkageTypes::ExternalLinkage, 0, sig, m_active_module_context.module);
+            m_active_module_context.functions[decl] = function;
+
+            return;
         }
 
-        llvm::Type* fn_ty = type_info_to_llvm_type(fn.type);
-        llvm::Function* function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), llvm::GlobalValue::LinkageTypes::ExternalLinkage, 0, sig, m_active_module_context.module);
-        m_active_module_context.functions[decl] = function;
+        ARIA_UNREACHABLE("Invalid function prototype");
     }
 
     void Codegen::gen_method_prototype(Decl* decl) {

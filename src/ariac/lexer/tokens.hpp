@@ -84,8 +84,11 @@ namespace ariac {
         Enum,
         As,
         Const,
+        Cast,
         HashPrivate, // #private
         AtIf, // @if
+        AtIntegral, // @Integral
+        AtFloatingPoint, // @FloatingPoint
         // ^^^ Keywords ^^^ //
 
         // VVV Types VVV //
@@ -204,6 +207,7 @@ namespace ariac {
             case TokenKind::Enum: return "enum";
             case TokenKind::As: return "as";
             case TokenKind::Const: return "const";
+            case TokenKind::Cast: return "cast";
             case TokenKind::HashPrivate: return "#private";
             case TokenKind::AtIf: return "@if";
             // ^^^ Keywords ^^^ //

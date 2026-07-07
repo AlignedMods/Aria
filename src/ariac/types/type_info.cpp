@@ -1,5 +1,6 @@
 #include "ariac/types/type_info.hpp"
 #include "ariac/ast/decl.hpp"
+#include "ariac/ast/expr.hpp"
 #include "ariac/compilation_context.hpp"
 
 namespace ariac {
@@ -81,9 +82,89 @@ namespace ariac {
         return t;
     }
 
+    TypeInfo* TypeInfo::create_unresolved(Expr* e, SourceLoc loc) {
+        TypeInfo* t = create_basic(TypeKind::Unresolved, loc);
+        t->unresolved = UnresolvedType(e);
+        return t;
+    }
+
     TypeInfo* TypeInfo::dup(TypeInfo* type) {
-        TypeInfo* t = context.allocate<TypeInfo>();
-        memcpy(reinterpret_cast<void*>(t), type, sizeof(TypeInfo));
+        if (type == nullptr) { return nullptr; }
+
+        TypeInfo* t = TypeInfo::create_basic(type->kind, type->loc);
+
+        switch (type->kind) {
+            case TypeKind::Error:
+            case TypeKind::Void:
+            case TypeKind::Bool:
+            case TypeKind::Char:
+            case TypeKind::IChar:
+            case TypeKind::Short:
+            case TypeKind::UShort:
+            case TypeKind::Int:
+            case TypeKind::UInt:
+            case TypeKind::Long:
+            case TypeKind::ULong:
+            case TypeKind::Sz:
+            case TypeKind::Isz:
+            case TypeKind::Float:
+            case TypeKind::Double: break;
+
+            case TypeKind::Pointer: t->base = TypeInfo::dup(type->base); break;
+
+            case TypeKind::Array: {
+                t->array.base = TypeInfo::dup(type->base);
+                t->array.expression = Expr::dup(type->array.expression);
+                t->array.size = type->array.size;
+                break;
+            }
+
+            case TypeKind::Slice: t->base = TypeInfo::dup(type->base); break;
+
+            case TypeKind::Function:
+            case TypeKind::Method: {
+                for (TypeInfo* ty : type->function.param_types) {
+                    t->function.param_types.append(TypeInfo::dup(ty));
+                }
+
+                t->function.return_type = TypeInfo::dup(type->function.return_type);
+                t->function.var_arg = type->function.var_arg;
+                break;
+            }
+
+            case TypeKind::Structure: {
+                t->struct_.identifier = type->struct_.identifier;
+                t->struct_.source_decl = type->struct_.source_decl;
+                break;
+            }
+
+            case TypeKind::Typedef: {
+                t->typedef_.identifier = type->typedef_.identifier;
+                t->typedef_.base = TypeInfo::dup(type->typedef_.base);
+                t->typedef_.source_decl = type->typedef_.source_decl;
+                break;
+            }
+
+            case TypeKind::Enum: {
+                t->enum_.identifier = type->enum_.identifier;
+                t->enum_.source_decl = type->enum_.source_decl;
+                break;
+            }
+
+            case TypeKind::Generic: {
+                t->generic.identifier = type->generic.identifier;
+                t->generic.resolved_decl = type->generic.resolved_decl;
+                break;
+            }
+
+            case TypeKind::Unresolved: {
+                t->unresolved.ident = type->unresolved.ident;
+                break;
+            }
+
+            default: ARIA_UNREACHABLE("Invalid type kind");
+        }
+
         return t;
     }
 
@@ -160,6 +241,19 @@ namespace ariac {
         } else {
             return is_slice() && base->kind == TypeKind::Char;
         }
+    }
+
+    bool TypeInfo::has_generic_integral_requirement() const {
+        if (kind != TypeKind::Generic) { return false; }
+        if (!generic.resolved_decl) { return false; }
+
+        ARIA_ASSERT(generic.resolved_decl->kind == DeclKind::GenericParameter, "Invalid generic parameter");
+
+        for (auto& req : generic.resolved_decl->generic_parameter.requirements) {
+            if (req == GenericRequirement::Integral) { return true; }
+        }
+
+        return false;
     }
 
     u64 TypeInfo::get_size() const {

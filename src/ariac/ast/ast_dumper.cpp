@@ -153,8 +153,8 @@ namespace ariac {
             case ExprKind::MethodCall: m_output += fmt::format("MethodCallExpr {} '{}' {}\n",
                 source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
-                dump_expr(expr->method_call.callee, indentation + 4);
-                for (Expr* arg : expr->method_call.arguments) {
+                dump_expr(expr->call.callee, indentation + 4);
+                for (Expr* arg : expr->call.arguments) {
                     dump_expr(arg, indentation + 4);
                 }
                 return;
@@ -290,6 +290,15 @@ namespace ariac {
                 }
                 return;
 
+            case DeclKind::FunctionSpecilization: m_output += fmt::format("FunctionSpecilizationDecl {}", source_loc_to_string(decl->loc));
+                for (size_t i = 0; i < decl->function_specilization.types.size; i++) {
+                    m_output += fmt::format("'{}' ", type_info_to_string(decl->function_specilization.types.items[i]));
+                }
+                m_output += '\n';
+
+                dump_decl(decl->function_specilization.source, indentation + 4);
+                return;
+
             case DeclKind::Struct: m_output += fmt::format("StructDecl {} '{}'\n",
                 source_loc_to_string(decl->loc), decl->struct_.identifier);
 
@@ -369,7 +378,13 @@ namespace ariac {
 
                 return;
 
-            case DeclKind::GenericParameter: m_output += fmt::format("GenericParameterDecl {} '{}'\n", source_loc_to_string(decl->loc), decl->generic_parameter.identifier);
+            case DeclKind::GenericParameter: m_output += fmt::format("GenericParameterDecl {} '{}' ", source_loc_to_string(decl->loc), decl->generic_parameter.identifier);
+                for (size_t i = 0; i < decl->generic_parameter.requirements.size; i++) {
+                     if (i < 0) { m_output += ", "; }
+                     m_output += generic_requirement_to_string(decl->generic_parameter.requirements.items[i]);
+                }
+                m_output += '\n';
+
                 return;
 
             default: ARIA_UNREACHABLE("Invalid decl kind");

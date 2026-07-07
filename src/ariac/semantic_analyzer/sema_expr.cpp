@@ -192,8 +192,24 @@ namespace ariac {
 
                     case DeclKind::Struct:
                     case DeclKind::Typedef:
-                    case DeclKind::Enum:
-                    case DeclKind::Generic: expr->type = TypeInfo::get_error(); return;
+                    case DeclKind::Enum: expr->type = TypeInfo::get_error(); return;
+
+                    case DeclKind::Generic: {
+                        switch (sym->generic.decl->kind) {
+                            case DeclKind::Function: {
+                                resolve_function_decl(sym->generic.decl);
+                                expr->type = sym->generic.decl->function.type;
+                                return;
+                            }
+
+                            case DeclKind::Struct: {
+                                expr->type = TypeInfo::get_error();
+                                return;
+                            }
+
+                            default: ARIA_UNREACHABLE("Invalid generic decl");
+                        }
+                    }
 
                     default: ARIA_UNREACHABLE("Invalid symbol kind");
                 }
@@ -481,6 +497,80 @@ namespace ariac {
 
         if (call.callee->decl_ref.referenced_decl->kind != DeclKind::Error) {
             if (!call.callee->type->is_error()) {
+                if (call.generic_arguments.size > 0) {
+                    Decl* g = call.callee->decl_ref.referenced_decl;
+
+                    if (call.callee->decl_ref.referenced_decl->kind != DeclKind::Generic) {
+                        context.report_compiler_diagnostic(expr->loc, "Cannot provide generic arguments to a non generic function");
+                    } else {
+                        if (call.generic_arguments.size != g->generic.parameters.size) {
+                            context.report_compiler_diagnostic(expr->loc, fmt::format("Mismatched generic instantiation, generic expects {} arguments but got {}", g->generic.parameters.size, call.generic_arguments.size));
+                        } else {
+                            Decl* specilization = nullptr;
+                            for (Decl* i : g->generic.specilizations) {
+                                ARIA_ASSERT(i->kind == DeclKind::FunctionSpecilization, "Invalid generic specilization");
+
+                                bool failed = false;
+                                for (size_t idx = 0; idx < call.generic_arguments.size; idx++) {
+                                    if (!type_is_equal(call.generic_arguments.items[idx], i->function_specilization.types.items[idx])) { failed = true; break; }
+                                }
+
+                                if (!failed) { specilization = i; }
+                            }
+
+                            if (!specilization) {
+                                Decl* func = Decl::dup(g->generic.decl);
+                                func->parent_module = g->parent_module;
+                                func->parent_unit = g->parent_unit;
+                                specilization = Decl::Create(g->loc, DeclKind::FunctionSpecilization, g->visibility, FunctionSpecilizationDecl(call.generic_arguments, func));
+                                specilization->parent_module = g->parent_module;
+                                specilization->parent_unit = g->parent_unit;
+                                g->generic.specilizations.append(specilization);
+
+                                for (size_t i = 0; i < call.generic_arguments.size; i++) {
+                                    Decl* gen_param = g->generic.parameters.items[i];
+                                    TypeInfo* gen_arg = call.generic_arguments.items[i];
+                                    ARIA_ASSERT(gen_param->kind == DeclKind::GenericParameter, "Invalid generic parameter");
+                                    
+                                    for (auto& req : gen_param->generic_parameter.requirements) {
+                                        bool is_satifised = false;
+
+                                        switch (req) {
+                                            case GenericRequirement::Integral: {
+                                                is_satifised = gen_arg->is_integral();
+                                                break;
+                                            }
+
+                                            case GenericRequirement::FloatingPoint: {
+                                                is_satifised = gen_arg->is_floating_point();
+                                                break;
+                                            }
+
+                                            default: ARIA_UNREACHABLE("Invalid generic requirement");
+                                        }
+
+                                        if (!is_satifised) {
+                                            context.report_compiler_diagnostic(gen_arg->loc, fmt::format("Argument '{}' does not satisfy generic requirement '{}'", i, generic_requirement_to_string(req)));
+                                            gen_arg = TypeInfo::get_error();
+                                        }
+                                    }
+
+                                    m_specialized_generic_types[gen_param->generic_parameter.identifier] = gen_arg;
+                                }
+
+                                bool prev_val = m_replace_generic_types;
+                                m_replace_generic_types = true;
+                                resolve_function_decl(func);
+                                m_replace_generic_types = prev_val;
+
+                                calleeType = func->function.type;
+                                call.callee->decl_ref.referenced_decl = specilization;
+                                call.callee->type = calleeType;
+                            }
+                        }
+                    }
+                }
+
                 FunctionType& fn_type = calleeType->function;
 
                 if (fn_type.param_types.size != call.arguments.size && !fn_type.var_arg) {
@@ -499,13 +589,15 @@ namespace ariac {
                             resolve_expr(arg);
 
                             if (arg->type->is_integral()) {
+                                require_rvalue(arg);
+
                                 if (arg->type->get_bit_size() < 32) { // Promote to int
-                                    require_rvalue(arg);
                                     insert_implicit_cast(TypeInfo::get_basic(TypeKind::Int), arg->type, arg, CastKind::Integral);
                                 }
                             } else if (arg->type->is_floating_point()) {
+                                require_rvalue(arg);
+
                                 if (arg->type->kind == TypeKind::Float) { // Promote to double
-                                    require_rvalue(arg);
                                     insert_implicit_cast(TypeInfo::get_basic(TypeKind::Double), arg->type, arg, CastKind::Floating);
                                 }
                             } else if (arg->type->is_array()) {
@@ -521,7 +613,6 @@ namespace ariac {
 
                 expr->type = fn_type.return_type;
                 expr->value_kind = ExprValueKind::RValue;
-
                 return;
             }
         } else {
@@ -578,7 +669,7 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_method_call_expr(Expr* expr) {
-        MethodCallExpr& mc = expr->method_call;
+        CallExpr& mc = expr->call;
 
         resolve_expr(mc.callee);
         TypeInfo* callee_type = mc.callee->type;
@@ -1516,6 +1607,10 @@ namespace ariac {
 
     void SemanticAnalyzer::insert_arithmetic_promotion(Expr* lhs, Expr* rhs) {
         if (lhs->type->kind == TypeKind::Error || rhs->type->kind == TypeKind::Error) {
+            return;
+        }
+
+        if (lhs->type->kind == TypeKind::Generic || rhs->type->kind == TypeKind::Generic) {
             return;
         }
 

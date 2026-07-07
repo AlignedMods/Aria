@@ -92,6 +92,7 @@ namespace ariac {
 
     struct GenericType {
         std::string_view identifier;
+        Decl* resolved_decl = nullptr;
     };
 
     struct GenericDeclType {
@@ -140,6 +141,7 @@ namespace ariac {
         static TypeInfo* create_enum(Decl* d, SourceLoc loc = {});
         static TypeInfo* create_generic_decl(Decl* d, SourceLoc loc = {});
         static TypeInfo* create_generic(std::string_view name, SourceLoc loc = {});
+        static TypeInfo* create_unresolved(Expr* e, SourceLoc loc = {});
 
         static TypeInfo* get_error();
         static TypeInfo* get_void();
@@ -169,7 +171,8 @@ namespace ariac {
                    kind == TypeKind::Short || kind == TypeKind::UShort ||
                    kind == TypeKind::Int   || kind == TypeKind::UInt   ||
                    kind == TypeKind::Long  || kind == TypeKind::ULong  ||
-                   kind == TypeKind::Sz  || kind == TypeKind::Isz;
+                   kind == TypeKind::Sz    || kind == TypeKind::Isz    ||
+                   has_generic_integral_requirement();
         }
 
         bool is_floating_point() const {
@@ -225,6 +228,8 @@ namespace ariac {
             ARIA_ASSERT(is_integral(), "is_unsigned() cannot operate on a non-integral type");
             return kind == TypeKind::Char || kind == TypeKind::UShort || kind == TypeKind::UInt || kind == TypeKind::ULong;
         }
+
+        bool has_generic_integral_requirement() const;
 
         u64 get_size() const;
         u64 get_bit_size() const;

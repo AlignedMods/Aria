@@ -23,6 +23,7 @@ namespace ariac {
         Var,
         Param,
         Function,
+        FunctionSpecilization,
         Struct,
         StructSpecilization,
         Impl,
@@ -42,12 +43,14 @@ namespace ariac {
             case DeclKind::Var: return "Var";
             case DeclKind::Param: return "Param";
             case DeclKind::Function: return "Function";
+            case DeclKind::FunctionSpecilization: return "FunctionSpecilization";
             case DeclKind::Struct: return "Struct";
             case DeclKind::Typedef: return "Typedef";
             case DeclKind::Enum: return "Enum";
             case DeclKind::EnumConstant: return "EnumConstant";
             case DeclKind::Field: return "Field";
             case DeclKind::Method: return "Method";
+            case DeclKind::Generic: return "Generic";
 
             case DeclKind::GenericParameter: return "GenericParameter";
 
@@ -104,6 +107,20 @@ namespace ariac {
             case LinkageKind::Static: return "static";
 
             default: ARIA_UNREACHABLE("Invalid linkage kind");
+        }
+    }
+
+    enum class GenericRequirement : u8 {
+        Integral,
+        FloatingPoint
+    };
+
+    inline const char* generic_requirement_to_string(GenericRequirement req) {
+        switch (req) {
+            case GenericRequirement::Integral: return "@Integral";
+            case GenericRequirement::FloatingPoint: return "@FloatingPoint";
+
+            default: ARIA_UNREACHABLE("Invalid generic requirement");
         }
     }
 
@@ -164,6 +181,14 @@ namespace ariac {
         TinyVector<Decl*> parameters;
         Stmt* body = nullptr;
         LinkageKind linkage_kind = LinkageKind::None;
+    };
+
+    struct FunctionSpecilizationDecl {
+        FunctionSpecilizationDecl(TinyVector<TypeInfo*> types, Decl* source)
+            : types(types), source(source) {}
+
+        TinyVector<TypeInfo*> types;
+        Decl* source = nullptr;
     };
 
     struct StructDecl {
@@ -254,10 +279,11 @@ namespace ariac {
     };
 
     struct GenericParameterDecl {
-        GenericParameterDecl(std::string_view ident)
-            : identifier(ident) {}
+        GenericParameterDecl(std::string_view ident, TinyVector<GenericRequirement> requirements)
+            : identifier(ident), requirements(requirements) {}
 
         std::string_view identifier;
+        TinyVector<GenericRequirement> requirements;
     };
 
     struct Decl {
@@ -286,6 +312,7 @@ namespace ariac {
             VarDecl var;
             ParamDecl param;
             FunctionDecl function;
+            FunctionSpecilizationDecl function_specilization;
             StructDecl struct_;
             StructSpecilizationDecl struct_specilization;
             ImplDecl impl;
@@ -315,6 +342,9 @@ namespace ariac {
 
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, FunctionDecl function)
             : loc(loc), kind(kind), visibility(visibility), function(function) {}
+
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, FunctionSpecilizationDecl function)
+            : loc(loc), kind(kind), visibility(visibility), function_specilization(function) {}
 
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, StructDecl struc)
             : loc(loc), kind(kind), visibility(visibility), struct_(struc) {}

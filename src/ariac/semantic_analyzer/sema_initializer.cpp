@@ -11,10 +11,11 @@ namespace ariac {
 
             // Handle type inferrence here
             if (!var.type) {
+                var.type = var.initializer->type;
+
                 if (var.initializer->type->is_void()) {
                     context.report_compiler_diagnostic(decl->loc, "Cannot create variable of void type");
                 }
-                var.type = var.initializer->type;
             }
 
             if (var.initializer->type->is_error() || var.type->is_error()) { return; }

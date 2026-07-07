@@ -468,7 +468,9 @@ namespace ariac {
             }
         }
 
-        if (scratch_buffer_cmp("@if")) { add_token(TokenKind::AtIf, loc, "@if"); return; }
+        if (scratch_buffer_cmp("@if"))            { add_token(TokenKind::AtIf, loc, "@if"); return; }
+        if (scratch_buffer_cmp("@Integral"))      { add_token(TokenKind::AtIntegral, loc, "@Integral"); return; }
+        if (scratch_buffer_cmp("@FloatingPoint")) { add_token(TokenKind::AtFloatingPoint, loc, "@FloatingPoint"); return; }
 
         context.report_compiler_diagnostic(loc, "Unknown identifier following '@'");
     }
@@ -516,6 +518,7 @@ namespace ariac {
         if (scratch_buffer_cmp("enum"))     { add_token(TokenKind::Enum,     loc, "enum");     return; }
         if (scratch_buffer_cmp("as"))       { add_token(TokenKind::As,       loc, "as");       return; }
         if (scratch_buffer_cmp("const"))    { add_token(TokenKind::Const,    loc, "const");    return; }
+        if (scratch_buffer_cmp("cast"))     { add_token(TokenKind::Cast,     loc, "cast");     return; }
 
         if (scratch_buffer_cmp("void"))     { add_token(TokenKind::Void,     loc, "void");     return; }
         if (scratch_buffer_cmp("bool"))     { add_token(TokenKind::Bool,     loc, "bool");     return; }

@@ -277,11 +277,12 @@ namespace ariac {
     };
 
     struct CallExpr {
-        CallExpr(Expr* callee, TinyVector<Expr*> args)
-            : callee(callee), arguments(args) {}
+        CallExpr(Expr* callee, TinyVector<Expr*> args, TinyVector<TypeInfo*> generic_args)
+            : callee(callee), arguments(args), generic_arguments(generic_args) {}
 
         Expr* callee;
         TinyVector<Expr*> arguments;
+        TinyVector<TypeInfo*> generic_arguments;
     };
 
     struct ConstructExpr {
@@ -291,16 +292,6 @@ namespace ariac {
         TinyVector<Expr*> arguments;
         bool is_const = true;
     };
-
-    struct MethodCallExpr {
-        MethodCallExpr(Expr* callee, TinyVector<Expr*> args)
-            : callee(callee), arguments(args) {}
-    
-        Expr* callee;
-        TinyVector<Expr*> arguments;
-    };
-
-    static_assert(sizeof(MethodCallExpr) == sizeof(CallExpr), "Sizes of MethodCallExpr and CallExpr must be equal");
 
     struct ArraySubscriptExpr {
         ArraySubscriptExpr(Expr* array, Expr* index)
@@ -358,7 +349,7 @@ namespace ariac {
     // CastExpr
     // Represents an explicit cast in the original source code
     // This node should never represent an implicit cast, for that use ImplicitCastExpr
-    // eg. int a = <int>5.5;
+    // eg. int a = (int)5.5;
     struct CastExpr {
         CastExpr(Expr* expr, TypeInfo* type)
             : expression(expr), type(type) {}
@@ -368,7 +359,7 @@ namespace ariac {
     };
 
     // ImplicitCastExpr
-    // Represents an implicit cast automatically inserted by the type checker/semantic analyzer
+    // Represents an implicit cast automatically inserted by the semantic analyzer
     // eg. float a = 5; -> here "5" is implicitly converted to a float
     struct ImplicitCastExpr {
         ImplicitCastExpr(Expr* expr, CastKind castKind)
@@ -475,7 +466,6 @@ namespace ariac {
             TemporaryExpr temporary;
             CallExpr call;
             ConstructExpr construct;
-            MethodCallExpr method_call;
             ArraySubscriptExpr array_subscript;
             ToSliceExpr to_slice;
             NewExpr new_;
@@ -528,9 +518,6 @@ namespace ariac {
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ConstructExpr construct)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), construct(construct) {}
-
-        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, MethodCallExpr method_call)
-            : loc(loc), kind(kind), value_kind(value_kind), type(type), method_call(method_call) {}
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ArraySubscriptExpr arr_subs)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), array_subscript(arr_subs) {}

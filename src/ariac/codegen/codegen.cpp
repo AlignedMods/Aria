@@ -106,7 +106,7 @@ namespace ariac {
                 ARIA_ASSERT(gen->kind == DeclKind::Generic, "Invalid generic decl");
 
                 for (Decl* spec : gen->generic.specilizations) {
-                    ARIA_ASSERT(spec->kind == DeclKind::StructSpecilization, "Invalid generic specilization");
+                    if (spec->kind != DeclKind::StructSpecilization) { continue; }
                     gen_struct_decl(spec->struct_specilization.source);
                 }
             }
@@ -129,6 +129,15 @@ namespace ariac {
 
             for (Decl* func : unit->funcs) {
                 gen_function_decl(func);
+            }
+
+            for (Decl* gen : unit->generics) {
+                ARIA_ASSERT(gen->kind == DeclKind::Generic, "Invalid generic decl");
+
+                for (Decl* spec : gen->generic.specilizations) {
+                    if (spec->kind != DeclKind::FunctionSpecilization) { continue; }
+                    gen_function_decl(spec);
+                }
             }
         }
 
@@ -532,6 +541,24 @@ namespace ariac {
 
         (*m_active_debug_context.active_cached_types)[str_type] = dit;
         return dit;
+    }
+
+    std::string Codegen::mangle_type(TypeInfo* t) {
+        switch (t->kind) {
+            case TypeKind::Void: return "v";
+            case TypeKind::Bool: return "b";
+            case TypeKind::Char: return "c";
+            case TypeKind::IChar: return "ic";
+            case TypeKind::Short: return "s";
+            case TypeKind::UShort: return "us";
+            case TypeKind::Int: return "i";
+            case TypeKind::UInt: return "ui";
+            case TypeKind::Long: return "l";
+            case TypeKind::ULong: return "ul";
+            case TypeKind::Pointer: return fmt::format("P{}", mangle_type(t->base));
+
+            default: ARIA_UNREACHABLE("Invalid type kind");
+        }
     }
 
     llvm::GlobalValue::LinkageTypes Codegen::linkage_kind_to_llvm(LinkageKind kind) {

@@ -26,7 +26,7 @@ impl StringStream {
     }
 
     fn append_int(i: int) -> void {
-        let u: uint = <uint>i;
+        let u: uint = cast(int, i);
     
         if (i < 0) {
             append_char('-');
@@ -40,7 +40,7 @@ impl StringStream {
         let rest = u;
         
         do {
-            append_char(<char>(<uint>('0') + (rest % 10u)));
+            append_char(cast(char, cast(uint, '0') + (rest % 10u)));
             rest /= 10u;
         } while rest != 0u;
     }

@@ -67,20 +67,26 @@ namespace ariac {
                     copy->call.arguments.append(Expr::dup(arg));
                 }
 
-                copy->call.callee = Expr::dup(c.callee);
+                for (TypeInfo* arg : c.generic_arguments) {
+                    copy->call.generic_arguments.append(TypeInfo::dup(arg));
+                }
 
+                copy->call.callee = Expr::dup(c.callee);
                 break;
             }
 
             case ExprKind::MethodCall: {
-                MethodCallExpr& m = e->method_call;
+                CallExpr& m = e->call;
                 
                 for (Expr* arg : m.arguments) {
-                    copy->method_call.arguments.append(Expr::dup(arg));
+                    copy->call.arguments.append(Expr::dup(arg));
                 }
 
-                copy->method_call.callee = Expr::dup(m.callee);
+                for (TypeInfo* arg : m.generic_arguments) {
+                    copy->call.generic_arguments.append(TypeInfo::dup(arg));
+                }
 
+                copy->call.callee = Expr::dup(m.callee);
                 break;
             }
 

@@ -59,7 +59,7 @@ namespace ariac {
         DeclRefExpr& dr = expr->decl_ref;
         set_debug_loc(expr->loc);
             
-        if (dr.referenced_decl->kind == DeclKind::Function) {
+        if (dr.referenced_decl->kind == DeclKind::Function || dr.referenced_decl->kind == DeclKind::FunctionSpecilization) {
             if (!m_active_module_context.functions.contains(dr.referenced_decl)) {
                 gen_function_prototype(dr.referenced_decl);
             }
@@ -262,7 +262,7 @@ namespace ariac {
     }
 
     llvm::Value* Codegen::gen_method_call_expr(Expr* expr) {
-        MethodCallExpr& mc = expr->method_call;
+        CallExpr& mc = expr->call;
         set_debug_loc(expr->loc);
 
         std::vector<llvm::Value*> args;

@@ -67,7 +67,7 @@ namespace ariac {
 
                     case DeclKind::GenericParameter: {
                         type->kind = TypeKind::Generic;
-                        type->generic = GenericType(t.ident->decl_ref.referenced_decl->generic_parameter.identifier);
+                        type->generic = GenericType(t.ident->decl_ref.referenced_decl->generic_parameter.identifier, t.ident->decl_ref.referenced_decl);
                         break;
                     }
 
@@ -189,7 +189,6 @@ namespace ariac {
                     m_replace_generic_types = true;
                     resolve_struct_decl(struc);
                     m_replace_generic_types = prev_val;
-
                 }
 
                 gi.resolved_decl = specilization;

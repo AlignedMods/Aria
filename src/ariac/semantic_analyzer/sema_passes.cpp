@@ -164,6 +164,8 @@ namespace ariac {
             GenericDecl& gen = g->generic;
             
             switch (gen.decl->kind) {
+                case DeclKind::Function: break;
+
                 case DeclKind::Struct: {
                     std::string_view ident = gen.decl->struct_.identifier;
 
@@ -232,6 +234,77 @@ namespace ariac {
 
             module->symbols[var.identifier] = global;
             unit->local_symbols[var.identifier] = global;       
+        }
+
+        for (size_t i = 0; i < unit->generics.size(); i++) {
+            Decl* gen = unit->generics[i];
+            ARIA_ASSERT(gen->kind == DeclKind::Generic, "Invalid generic decl");
+
+            switch (gen->generic.decl->kind) {
+                case DeclKind::Function: {
+                    Decl* func = gen->generic.decl;
+                    func->parent_module = module;
+                    func->parent_unit = unit;
+
+                    ARIA_ASSERT(func->kind == DeclKind::Function, "Invalid generic func");
+                    FunctionDecl& f = func->function;
+
+                    size_t i = m_generic_types.size();
+                    for (Decl* t : gen->generic.parameters) {
+                        m_generic_types.push_back(t);
+                    }
+
+                    resolve_type(f.type);
+                    m_generic_types.erase(m_generic_types.begin() + i, m_generic_types.end());
+
+                    for (size_t i = 0; i < f.parameters.size; i++) {
+                        f.parameters.items[i]->param.type = f.type->function.param_types.items[i];
+                    }
+
+                    bool erase = false;
+                    resolve_decl_attributes(func, func->attributes, &erase);
+                    
+                    if (erase) {
+                        context.active_comp_unit->generics.erase(context.active_comp_unit->funcs.begin() + i);
+                        i--;
+                        replace_decl(func, &error_decl);
+                        continue;
+                    }
+
+                    if (f.identifier == "main") {
+                        context.report_compiler_diagnostic(func->loc, "'main' function cannot be generic");
+                        continue;
+                    }
+
+                    if (module->symbols.contains(f.identifier)) {
+                        Decl* d = module->symbols.at(f.identifier);
+                    
+                        if (d->kind == DeclKind::Function) {
+                            context.report_compiler_diagnostic(func->loc, fmt::format("Redefining function '{}' as generic", f.identifier));
+                            context.report_compiler_diagnostic(func->loc, "Previous declaration here", CompilerDiagKind::Note, func->parent_unit);
+                        } else if (d->kind == DeclKind::Var) {
+                            context.report_compiler_diagnostic(func->loc, fmt::format("Redefining global variable '{}' as function", f.identifier));
+                            context.report_compiler_diagnostic(func->loc, "Previous declaration here", CompilerDiagKind::Note, func->parent_unit);
+                        } else if (d->kind == DeclKind::Struct) {
+                            context.report_compiler_diagnostic(func->loc, fmt::format("Redefining struct '{}' as function", f.identifier));
+                            context.report_compiler_diagnostic(func->loc, "Previous declaration here", CompilerDiagKind::Note, func->parent_unit);
+                        } else {
+                            ARIA_UNREACHABLE("Invalid decl kind");
+                        }
+                    
+                        func->kind = DeclKind::Error;
+                        continue;
+                    }
+
+                    module->symbols[f.identifier] = gen;
+                    unit->local_symbols[f.identifier] = gen;
+                    break;
+                }
+
+                case DeclKind::Struct: break;
+
+                default: ARIA_UNREACHABLE("Invalid generic kind");
+            }
         }
 
         for (size_t i = 0; i < unit->funcs.size(); i++) {

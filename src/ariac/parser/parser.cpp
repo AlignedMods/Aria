@@ -63,7 +63,7 @@ namespace ariac {
         // PREC_RELATIONAL
         m_expr_rules[TokenKind::EqEq] =              { nullptr, BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
         m_expr_rules[TokenKind::BangEq] =            { nullptr, BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
-        m_expr_rules[TokenKind::Less] =              { BIND_PARSE_RULE(parse_cast), BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
+        m_expr_rules[TokenKind::Less] =              { nullptr, BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
         m_expr_rules[TokenKind::LessEq] =            { nullptr, BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
         m_expr_rules[TokenKind::Greater] =           { nullptr, BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
         m_expr_rules[TokenKind::GreaterEq] =         { nullptr, BIND_PARSE_RULE(parse_binary), PREC_RELATIONAL };
@@ -104,6 +104,7 @@ namespace ariac {
         m_expr_rules[TokenKind::New] =               { BIND_PARSE_RULE(parse_new),     nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Delete] =            { BIND_PARSE_RULE(parse_delete),  nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Sizeof] =            { BIND_PARSE_RULE(parse_sizeof),  nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Cast] =              { BIND_PARSE_RULE(parse_cast),    nullptr, PREC_NONE };
     }
 
     void Parser::parse_impl() {
@@ -161,16 +162,6 @@ namespace ariac {
         ARIA_ASSERT(left == nullptr, "Parser::parse_grouping() should not have a left side");
 
         Token* lp = try_consume(TokenKind::LeftParen, "(");
-
-        if (is_primitive_type()) {
-            SourceLoc type_start = peek()->loc;
-            parse_type();
-            context.report_compiler_diagnostic(lp->loc + peek(-1)->loc, "Unexpected type found, did you mean to perform a cast? (<<type>> <expr>)");
-            sync_local();
-
-            return &error_expr;
-        }
-
         Expr* child = parse_expression();
         Token* rp = try_consume(TokenKind::RightParen, ")");
 
@@ -187,7 +178,9 @@ namespace ariac {
     Expr* Parser::parse_cast(Expr* left) {
         ARIA_ASSERT(left == nullptr, "Parser::parse_cast() should not have a left side");
 
-        Token* lp = try_consume(TokenKind::Less, "<");
+        Token& c = consume(); // consume "cast"
+        try_consume(TokenKind::LeftParen, "(");
+
         TypeInfo* type = nullptr;
 
         if (is_type()) {
@@ -197,14 +190,15 @@ namespace ariac {
             type = TypeInfo::get_error();
         }
 
-        if (!try_consume(TokenKind::Greater, ">")) {
+        try_consume(TokenKind::Comma, ",");
+        Expr* child = parse_expression();
+
+        if (!try_consume(TokenKind::RightParen, ")")) {
             sync_local();
             return &error_expr;
         }
 
-        Expr* child = parse_term();
-
-        return Expr::Create(lp->loc + child->loc, ExprKind::Cast, 
+        return Expr::Create(c.loc + peek(-1)->loc, ExprKind::Cast, 
             ExprValueKind::RValue, type,
             CastExpr(child, type));
     }
@@ -214,6 +208,28 @@ namespace ariac {
 
         Token* lp = try_consume(TokenKind::LeftParen, "(");
         TinyVector<Expr*> args;
+        TinyVector<TypeInfo*> generic_args;
+
+        if (match(TokenKind::Less)) {
+            consume();
+
+            while (!match(TokenKind::Greater)) {
+                if (is_type()) {
+                    generic_args.append(parse_type());
+                } else {
+                    context.report_compiler_diagnostic(peek()->loc, "Expected a type");
+                }
+
+                if (match(TokenKind::Comma)) { consume(); continue; }
+                else if (match(TokenKind::Greater)) { break; }
+
+                context.report_compiler_diagnostic(peek()->loc, "Expected ',' or '>'");
+                consume();
+            }
+
+            try_consume(TokenKind::Greater, ">");
+            try_consume(TokenKind::Comma, ",");
+        }
 
         while (!match(TokenKind::RightParen)) {
             Expr* val = parse_expression();
@@ -239,11 +255,11 @@ namespace ariac {
         if (left->kind == ExprKind::DeclRef) {
             return Expr::Create(left->loc + rp->loc, ExprKind::Call,
                 ExprValueKind::RValue, nullptr, 
-                CallExpr(left, args));
+                CallExpr(left, args, generic_args));
         } else if (left->kind == ExprKind::Member) {
             return Expr::Create(left->loc + rp->loc, ExprKind::MethodCall,
                 ExprValueKind::RValue, nullptr, 
-                MethodCallExpr(left, args));
+                CallExpr(left, args, generic_args));
         } else {
             context.report_compiler_diagnostic(lp->loc + rp->loc, "Callee of call expression must be a reference to a declaration or method");
             return &error_expr;
@@ -1026,6 +1042,7 @@ namespace ariac {
             case TokenKind::Identifier:
             case TokenKind::New:
             case TokenKind::Delete:
+            case TokenKind::Cast:
                 return parse_expression_statement();
 
             case TokenKind::LeftCurly:
@@ -1269,6 +1286,11 @@ namespace ariac {
             return &error_decl;
         }
 
+        TinyVector<Decl*> generic_params;
+        if (match(TokenKind::Less)) {
+            generic_params = parse_generic_params();
+        }
+
         bool is_var_arg = false;
         auto[params, param_types] = parse_function_params(&is_var_arg);
 
@@ -1294,11 +1316,18 @@ namespace ariac {
         }
 
         TypeInfo* final_type = TypeInfo::create_function(TypeKind::Function, ret_type, param_types, is_var_arg);
-        Decl* decl = Decl::Create(ident->loc + ret_type->loc, DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, final_type, params, body, linkage));
-        decl->attributes = attrs;
 
-        context.active_comp_unit->funcs.push_back(decl);
-        return decl;
+        Decl* f = Decl::Create(ident->loc + ret_type->loc, DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, final_type, params, body, linkage));
+        f->attributes = attrs;
+
+        if (generic_params.size == 0) {
+            context.active_comp_unit->funcs.push_back(f);
+            return f;
+        } else {
+            Decl* g = Decl::Create(f->loc, DeclKind::Generic, m_current_visibility, GenericDecl(generic_params, f));
+            context.active_comp_unit->generics.push_back(g);
+            return g;
+        }
     }
 
     std::pair<TinyVector<Decl*>, TinyVector<TypeInfo*>> Parser::parse_function_params(bool* var_arg) {
@@ -1374,7 +1403,29 @@ namespace ariac {
         while (peek() && !match(TokenKind::Greater)) {
             Token* ident = try_consume(TokenKind::Identifier, "identifier");
             if (!ident) { continue; }
-            params.append(Decl::Create(ident->loc, DeclKind::GenericParameter, DeclVisibility::Public, GenericParameterDecl(ident->string)));
+
+            TinyVector<GenericRequirement> reqs;
+            if (match(TokenKind::Colon)) {
+                consume();
+                
+                switch (peek()->kind) {
+                    case TokenKind::AtIntegral: {
+                        consume();
+                        reqs.append(GenericRequirement::Integral);
+                        break;
+                    }
+
+                    case TokenKind::AtFloatingPoint: {
+                        consume();
+                        reqs.append(GenericRequirement::FloatingPoint);
+                        break;
+                    }
+
+                    default: context.report_compiler_diagnostic(peek()->loc, "Expected either '@Integral' or '@FloatingPoint'"); break;
+                }
+            }
+
+            params.append(Decl::Create(ident->loc, DeclKind::GenericParameter, DeclVisibility::Public, GenericParameterDecl(ident->string, reqs)));
 
             if (match(TokenKind::Comma)) { consume(); continue; }
             if (match(TokenKind::Greater)) { break; }
