@@ -3,6 +3,7 @@
 #include "ariac/core/htable.hpp"
 #include "ariac/core/vector.hpp"
 #include "ariac/compilation_context.hpp"
+#include "ariac/ast/generic.hpp"
 
 #include <string_view>
 
@@ -107,20 +108,6 @@ namespace ariac {
             case LinkageKind::Static: return "static";
 
             default: ARIA_UNREACHABLE("Invalid linkage kind");
-        }
-    }
-
-    enum class GenericRequirement : u8 {
-        Integral,
-        FloatingPoint
-    };
-
-    inline const char* generic_requirement_to_string(GenericRequirement req) {
-        switch (req) {
-            case GenericRequirement::Integral: return "@Integral";
-            case GenericRequirement::FloatingPoint: return "@FloatingPoint";
-
-            default: ARIA_UNREACHABLE("Invalid generic requirement");
         }
     }
 

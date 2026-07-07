@@ -250,7 +250,20 @@ namespace ariac {
         ARIA_ASSERT(generic.resolved_decl->kind == DeclKind::GenericParameter, "Invalid generic parameter");
 
         for (auto& req : generic.resolved_decl->generic_parameter.requirements) {
-            if (req == GenericRequirement::Integral) { return true; }
+            if (req.kind == GenericRequirementKind::Integral) { return true; }
+        }
+
+        return false;
+    }
+
+    bool TypeInfo::has_generic_floating_requirement() const {
+        if (kind != TypeKind::Generic) { return false; }
+        if (!generic.resolved_decl) { return false; }
+
+        ARIA_ASSERT(generic.resolved_decl->kind == DeclKind::GenericParameter, "Invalid generic parameter");
+
+        for (auto& req : generic.resolved_decl->generic_parameter.requirements) {
+            if (req.kind == GenericRequirementKind::FloatingPoint) { return true; }
         }
 
         return false;
@@ -295,7 +308,7 @@ namespace ariac {
             }
 
             case TypeKind::Slice: {
-                return get_basic(TypeKind::Pointer)->get_size() + get_basic(TypeKind::Sz)->get_size();
+                return get_void_ptr()->get_size() + get_basic(TypeKind::Sz)->get_size();
             }
 
             case TypeKind::Structure: {

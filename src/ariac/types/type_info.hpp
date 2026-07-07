@@ -176,7 +176,7 @@ namespace ariac {
         }
 
         bool is_floating_point() const {
-            return kind == TypeKind::Float || kind == TypeKind::Double;
+            return kind == TypeKind::Float || kind == TypeKind::Double || has_generic_floating_requirement();
         }
 
         bool is_numeric() const {
@@ -234,6 +234,7 @@ namespace ariac {
         }
 
         bool has_generic_integral_requirement() const;
+        bool has_generic_floating_requirement() const;
 
         u64 get_size() const;
         u64 get_bit_size() const;

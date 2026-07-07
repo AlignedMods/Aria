@@ -126,7 +126,7 @@ namespace ariac {
             case ExprKind::Cast: {
                 CastExpr& c = e->cast;
                 copy->cast.expression = Expr::dup(c.expression);
-                copy->type = TypeInfo::dup(c.type);
+                copy->cast.type = TypeInfo::dup(c.type);
                 break;
             }
 

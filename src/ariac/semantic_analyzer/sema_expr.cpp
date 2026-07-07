@@ -535,22 +535,32 @@ namespace ariac {
                                     for (auto& req : gen_param->generic_parameter.requirements) {
                                         bool is_satifised = false;
 
-                                        switch (req) {
-                                            case GenericRequirement::Integral: {
+                                        switch (req.kind) {
+                                            case GenericRequirementKind::Integral: {
                                                 is_satifised = gen_arg->is_integral();
                                                 break;
                                             }
 
-                                            case GenericRequirement::FloatingPoint: {
+                                            case GenericRequirementKind::FloatingPoint: {
                                                 is_satifised = gen_arg->is_floating_point();
+                                                break;
+                                            }
+
+                                            case GenericRequirementKind::ConvertibleTo: {
+                                                ConversionCost cost = get_conversion_cost(req.arg, gen_arg);
+                                                if (cost.cast_needed && !cost.explicit_cast_possible) {
+                                                    is_satifised = false;
+                                                } else {
+                                                    is_satifised = true;
+                                                }
                                                 break;
                                             }
 
                                             default: ARIA_UNREACHABLE("Invalid generic requirement");
                                         }
 
-                                        if (!is_satifised) {
-                                            context.report_compiler_diagnostic(gen_arg->loc, fmt::format("Argument '{}' does not satisfy generic requirement '{}'", i, generic_requirement_to_string(req)));
+                                        if (!is_satifised && !gen_arg->is_error()) {
+                                            context.report_compiler_diagnostic(gen_arg->loc, fmt::format("Argument '{}' does not satisfy generic requirement '{}'", i, generic_requirement_kind_to_string(req.kind)));
                                             gen_arg = TypeInfo::get_error();
                                         }
                                     }
@@ -604,7 +614,7 @@ namespace ariac {
                                 insert_implicit_cast(TypeInfo::create_with_base(TypeKind::Pointer, arg->type->array.base), arg->type, arg, CastKind::ArrayToPointer);
                             } else if (arg->type->is_pointer()) {
                                 require_rvalue(arg);
-                            } else {
+                            } else if (!arg->type->is_error()) {
                                 context.report_compiler_diagnostic(arg->loc, fmt::format("Passing argument of non-trivial type ('{}') is not allowed", type_info_to_string(arg->type)));
                             }
                         }
@@ -890,6 +900,7 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_implicit_cast_expr(Expr* expr) {
         ImplicitCastExpr& i = expr->implicit_cast;
+        resolve_type(expr->type);
         resolve_expr(i.expression);
     }
 

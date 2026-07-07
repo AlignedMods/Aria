@@ -181,13 +181,12 @@ namespace ariac {
         Token& c = consume(); // consume "cast"
         try_consume(TokenKind::LeftParen, "(");
 
-        TypeInfo* type = nullptr;
+        TypeInfo* type = TypeInfo::get_error();
 
         if (is_type()) {
             type = parse_type();
         } else {
             context.report_compiler_diagnostic(peek()->loc, "Expected a type");
-            type = TypeInfo::get_error();
         }
 
         try_consume(TokenKind::Comma, ",");
@@ -1400,28 +1399,51 @@ namespace ariac {
             return params;
         }
 
+        auto add_req = [this](TinyVector<GenericRequirement>* reqs) {
+            switch (peek()->kind) {
+                case TokenKind::AtIntegral: {
+                    consume();
+                    reqs->append(GenericRequirement(GenericRequirementKind::Integral));
+                    break;
+                }
+
+                case TokenKind::AtFloatingPoint: {
+                    consume();
+                    reqs->append(GenericRequirement(GenericRequirementKind::FloatingPoint));
+                    break;
+                }
+
+                case TokenKind::AtConvertibleTo: {
+                    consume();
+                    TypeInfo* type = TypeInfo::get_error();
+                    try_consume(TokenKind::LeftParen, "(");
+
+                    if (!is_type()) {
+                        context.report_compiler_diagnostic(peek()->loc, "Expected a type");
+                    } else {
+                        type = parse_type();
+                    }
+                    try_consume(TokenKind::RightParen, ")");
+                    reqs->append(GenericRequirement(GenericRequirementKind::ConvertibleTo, type));
+                    break;
+                }
+
+                default: context.report_compiler_diagnostic(peek()->loc, "Expected either '@Integral', '@FloatingPoint' or '@ConvertibleTo'"); break;
+            }
+        };
+
         while (peek() && !match(TokenKind::Greater)) {
             Token* ident = try_consume(TokenKind::Identifier, "identifier");
-            if (!ident) { continue; }
+            if (!ident) { break; }
 
             TinyVector<GenericRequirement> reqs;
             if (match(TokenKind::Colon)) {
                 consume();
-                
-                switch (peek()->kind) {
-                    case TokenKind::AtIntegral: {
-                        consume();
-                        reqs.append(GenericRequirement::Integral);
-                        break;
-                    }
+                add_req(&reqs);
 
-                    case TokenKind::AtFloatingPoint: {
-                        consume();
-                        reqs.append(GenericRequirement::FloatingPoint);
-                        break;
-                    }
-
-                    default: context.report_compiler_diagnostic(peek()->loc, "Expected either '@Integral' or '@FloatingPoint'"); break;
+                while (match(TokenKind::DoubleAmpersand)) {
+                    consume();
+                    add_req(&reqs);
                 }
             }
 

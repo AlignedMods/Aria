@@ -89,6 +89,7 @@ namespace ariac {
         AtIf, // @if
         AtIntegral, // @Integral
         AtFloatingPoint, // @FloatingPoint
+        AtConvertibleTo, // @ConvertibleTo
         // ^^^ Keywords ^^^ //
 
         // VVV Types VVV //

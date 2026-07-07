@@ -381,7 +381,7 @@ namespace ariac {
             case DeclKind::GenericParameter: m_output += fmt::format("GenericParameterDecl {} '{}' ", source_loc_to_string(decl->loc), decl->generic_parameter.identifier);
                 for (size_t i = 0; i < decl->generic_parameter.requirements.size; i++) {
                      if (i < 0) { m_output += ", "; }
-                     m_output += generic_requirement_to_string(decl->generic_parameter.requirements.items[i]);
+                     m_output += generic_requirement_kind_to_string(decl->generic_parameter.requirements.items[i].kind);
                 }
                 m_output += '\n';
 
