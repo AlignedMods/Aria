@@ -39,12 +39,12 @@ namespace ariac {
                 case '~': add_token(TokenKind::Squigly, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), "~"); break;
                 case ',': add_token(TokenKind::Comma, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), ","); break;
                 case ':': {
-                    if (try_consume(':')) { add_token(TokenKind::ColonColon, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "::"); break; }
+                    if (try_consume(':')) { add_token(TokenKind::ColonColon, SourceLoc(m_current_line, get_column(m_index - 2), m_index - 2, 2), "::"); break; }
                     else { add_token(TokenKind::Colon, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), ":"); break; }
                 }
 
                 case '.': {
-                    if (peek() == '.' && peek(1) == '.') { consume(2); add_token(TokenKind::TripleDot, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 3), "..."); break; }
+                    if (peek() == '.' && peek(1) == '.') { consume(2); add_token(TokenKind::TripleDot, SourceLoc(m_current_line, get_column(m_index - 3), m_index - 3, 3), "..."); break; }
                     else { add_token(TokenKind::Dot, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), "."); break; }
                 }
 
@@ -515,6 +515,7 @@ namespace ariac {
         if (scratch_buffer_cmp("extern"))   { add_token(TokenKind::Extern,   loc, "extern");   return; }
         if (scratch_buffer_cmp("static"))   { add_token(TokenKind::Static,   loc, "static");   return; }
         if (scratch_buffer_cmp("sizeof"))   { add_token(TokenKind::Sizeof,   loc, "sizeof");   return; }
+        if (scratch_buffer_cmp("typeid"))   { add_token(TokenKind::Typeid,   loc, "typeid");   return; }
         if (scratch_buffer_cmp("typedef"))  { add_token(TokenKind::Typedef,  loc, "typedef");  return; }
         if (scratch_buffer_cmp("enum"))     { add_token(TokenKind::Enum,     loc, "enum");     return; }
         if (scratch_buffer_cmp("as"))       { add_token(TokenKind::As,       loc, "as");       return; }
@@ -535,6 +536,7 @@ namespace ariac {
         if (scratch_buffer_cmp("isz"))      { add_token(TokenKind::Isz,      loc, "isz");      return; }
         if (scratch_buffer_cmp("float"))    { add_token(TokenKind::Float,    loc, "float");    return; }
         if (scratch_buffer_cmp("double"))   { add_token(TokenKind::Double,   loc, "double");   return; }
+        if (scratch_buffer_cmp("typeinfo")) { add_token(TokenKind::TypeInfo, loc, "typeinfo"); return; }
 
         add_token(TokenKind::Identifier, loc, scratch_buffer_to_str());
     }

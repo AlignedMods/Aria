@@ -320,6 +320,16 @@ namespace ariac {
                     return;
                 }
 
+                case TypeKind::TypeInfo: {
+                    if (mem.member == "name") {
+                        member_type = TypeInfo::get_string();
+                        expr->kind = ExprKind::BuiltinMember;
+                    }
+
+                    searching = false;
+                    break;
+                }
+
                 case TypeKind::Structure: {
                     StructType& sd = parent_type->struct_;
 
@@ -441,7 +451,7 @@ namespace ariac {
                 case TypeKind::Typedef: { parent_type = parent_type->typedef_.base; break; }
 
                 default: {
-                    context.report_compiler_diagnostic(mem.parent->loc, fmt::format("Expression must be of slice, array or struct type but is '{}'", type_info_to_string(parent_type)));
+                    context.report_compiler_diagnostic(mem.parent->loc, fmt::format("Expression must be of typeinfo, slice, array or struct type but is '{}'", type_info_to_string(parent_type)));
                     expr->type = TypeInfo::get_error();
                     mem.referenced_member = &error_decl;
                     return;
@@ -635,6 +645,67 @@ namespace ariac {
         call.callee->kind = ExprKind::Error;
     }
 
+    void SemanticAnalyzer::resolve_builtin_call_expr(Expr* expr) {
+        BuiltinCallExpr& bc = expr->builtin_call;
+
+        if (!expr->type) {
+            switch (bc.kind) {
+                case BuiltinCallKind::Sizeof: {
+                    expr->type = TypeInfo::get_basic(TypeKind::Sz);
+                    break;
+                }
+
+                case BuiltinCallKind::Typeid: {
+                    expr->type = TypeInfo::get_basic(TypeKind::TypeInfo);
+                    break;
+                }
+
+                default: ARIA_UNREACHABLE("Invalid builtin call kind");
+            }
+        }
+
+        if (bc.type) { resolve_type(bc.type); return; }
+
+        if (bc.expression) {
+            resolve_expr(bc.expression);
+
+            if (bc.expression->kind == ExprKind::DeclRef) {
+                switch (bc.expression->decl_ref.referenced_decl->kind) {
+                    case DeclKind::Struct: {
+                        if (bc.expression->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
+                            CompilationUnit* old_unit = context.active_comp_unit;
+                            context.active_comp_unit = bc.expression->decl_ref.referenced_decl->parent_unit;
+                            resolve_struct_decl(bc.expression->decl_ref.referenced_decl);
+                            context.active_comp_unit = old_unit;
+                        }
+
+                        bc.type = TypeInfo::create_struct(bc.expression->decl_ref.referenced_decl);
+                        break;
+                    }
+
+                    case DeclKind::Typedef: {
+                        if (bc.expression->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
+                            CompilationUnit* old_unit = context.active_comp_unit;
+                            context.active_comp_unit = bc.expression->decl_ref.referenced_decl->parent_unit;
+                            resolve_typedef_decl(bc.expression->decl_ref.referenced_decl);
+                            context.active_comp_unit = old_unit;
+                        }
+
+                        bc.type = TypeInfo::create_typedef(bc.expression->decl_ref.referenced_decl);
+                        break;
+                    }
+
+                    case DeclKind::GenericParameter: {
+                        bc.type = TypeInfo::create_generic(bc.expression->decl_ref.identifier);
+                        break;
+                    }
+
+                    default: break;
+                }
+            }
+        }
+    }
+
     void SemanticAnalyzer::resolve_construct_expr(Expr* expr) {
         ConstructExpr& construct = expr->construct;
 
@@ -819,51 +890,6 @@ namespace ariac {
 
         if (!d.expression->type->is_pointer()) {
             context.report_compiler_diagnostic(expr->loc, "'delete' can only be used with pointer types");
-        }
-    }
-
-    void SemanticAnalyzer::resolve_sizeof_expr(Expr* expr) {
-        SizeofExpr& sz = expr->sizeof_;
-
-        if (sz.type) { resolve_type(sz.type); return; }
-
-        if (sz.expression) {
-            resolve_expr(sz.expression);
-
-            if (sz.expression->kind == ExprKind::DeclRef) {
-                switch (sz.expression->decl_ref.referenced_decl->kind) {
-                    case DeclKind::Struct: {
-                        if (sz.expression->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
-                            CompilationUnit* old_unit = context.active_comp_unit;
-                            context.active_comp_unit = sz.expression->decl_ref.referenced_decl->parent_unit;
-                            resolve_struct_decl(sz.expression->decl_ref.referenced_decl);
-                            context.active_comp_unit = old_unit;
-                        }
-
-                        sz.type = TypeInfo::create_struct(sz.expression->decl_ref.referenced_decl);
-                        break;
-                    }
-
-                    case DeclKind::Typedef: {
-                        if (sz.expression->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
-                            CompilationUnit* old_unit = context.active_comp_unit;
-                            context.active_comp_unit = sz.expression->decl_ref.referenced_decl->parent_unit;
-                            resolve_typedef_decl(sz.expression->decl_ref.referenced_decl);
-                            context.active_comp_unit = old_unit;
-                        }
-
-                        sz.type = TypeInfo::create_typedef(sz.expression->decl_ref.referenced_decl);
-                        break;
-                    }
-
-                    case DeclKind::GenericParameter: {
-                        sz.type = TypeInfo::create_generic(sz.expression->decl_ref.identifier);
-                        break;
-                    }
-
-                    default: break;
-                }
-            }
         }
     }
 
@@ -1209,13 +1235,13 @@ namespace ariac {
             case ExprKind::Member: resolve_member_expr(expr); break;
             case ExprKind::Self: resolve_self_expr(expr); break;
             case ExprKind::Call: resolve_call_expr(expr); break;
+            case ExprKind::BuiltinCall: resolve_builtin_call_expr(expr); break;
             case ExprKind::Construct: resolve_construct_expr(expr); break;
             case ExprKind::MethodCall: resolve_method_call_expr(expr); break;
             case ExprKind::ArraySubscript: resolve_array_subscript_expr(expr); break;
             case ExprKind::ToSlice: resolve_to_slice_expr(expr); break;
             case ExprKind::New: resolve_new_expr(expr); break;
             case ExprKind::Delete: resolve_delete_expr(expr); break;
-            case ExprKind::Sizeof: resolve_sizeof_expr(expr); break;
             case ExprKind::Paren: resolve_paren_expr(expr); break;
             case ExprKind::Cast: resolve_cast_expr(expr); break;
             case ExprKind::ImplicitCast: resolve_implicit_cast_expr(expr); break;

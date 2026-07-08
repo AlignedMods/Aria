@@ -110,10 +110,10 @@ namespace ariac {
                 break;
             }
 
-            case ExprKind::Sizeof: {
-                SizeofExpr& s = e->sizeof_;
-                if (s.expression) { copy->sizeof_.expression = Expr::dup(s.expression); }
-                if (s.type) { copy->sizeof_.type = TypeInfo::dup(s.type); }
+            case ExprKind::BuiltinCall: {
+                BuiltinCallExpr& b = e->builtin_call;
+                if (b.expression) { copy->builtin_call.expression = Expr::dup(b.expression); }
+                if (b.type) { copy->builtin_call.type = TypeInfo::dup(b.type); }
                 break;
             }
 

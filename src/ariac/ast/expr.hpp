@@ -27,13 +27,13 @@ namespace ariac {
         Self,
         Temporary,
         Call,
+        BuiltinCall,
         Construct,
         MethodCall,
         ArraySubscript,
         ToSlice,
         New,
         Delete,
-        Sizeof,
         Paren,
         Cast,
         ImplicitCast,
@@ -42,6 +42,19 @@ namespace ariac {
         CompoundAssign,
         Const
     };
+
+    enum class BuiltinCallKind {
+        Sizeof,
+        Typeid
+    };
+    inline const char* builtin_call_kind_to_string(BuiltinCallKind kind) {
+        switch (kind) {
+            case BuiltinCallKind::Sizeof: return "sizeof";
+            case BuiltinCallKind::Typeid: return "typeid";
+
+            default: ARIA_UNREACHABLE("Invalid built in call");
+        }
+    }
 
     enum class CastKind {
         Invalid,
@@ -285,6 +298,18 @@ namespace ariac {
         TinyVector<TypeInfo*> generic_arguments;
     };
 
+    struct BuiltinCallExpr {
+        BuiltinCallExpr(Expr* expr, BuiltinCallKind kind)
+            : type(nullptr), expression(expr), kind(kind) {}
+
+        BuiltinCallExpr(TypeInfo* t, BuiltinCallKind kind)
+            : type(t), expression(nullptr), kind(kind) {}
+
+        BuiltinCallKind kind;
+        TypeInfo* type;
+        Expr* expression;
+    };
+
     struct ConstructExpr {
         ConstructExpr(TinyVector<Expr*> args)
             : arguments(args) {}
@@ -322,17 +347,6 @@ namespace ariac {
             : expression(expr) {}
 
         Expr* expression = nullptr;
-    };
-
-    struct SizeofExpr {
-        SizeofExpr(Expr* expr)
-            : expression(expr) {}
-
-        SizeofExpr(TypeInfo* type)
-            : type(type) {}
-
-        Expr* expression = nullptr;
-        TypeInfo* type = nullptr;
     };
 
     // ParenExpr
@@ -465,12 +479,12 @@ namespace ariac {
             MemberExpr member;
             TemporaryExpr temporary;
             CallExpr call;
+            BuiltinCallExpr builtin_call;
             ConstructExpr construct;
             ArraySubscriptExpr array_subscript;
             ToSliceExpr to_slice;
             NewExpr new_;
             DeleteExpr delete_;
-            SizeofExpr sizeof_;
             ParenExpr paren;
             CastExpr cast;
             ImplicitCastExpr implicit_cast;
@@ -516,6 +530,9 @@ namespace ariac {
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, CallExpr call)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), call(call) {}
 
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, BuiltinCallExpr call)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), builtin_call(call) {}
+
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ConstructExpr construct)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), construct(construct) {}
 
@@ -530,9 +547,6 @@ namespace ariac {
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, DeleteExpr delete_)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), delete_(delete_) {}
-
-        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, SizeofExpr sizeof_)
-            : loc(loc), kind(kind), value_kind(value_kind), type(type), sizeof_(sizeof_) {}
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ParenExpr paren)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), paren(paren) {}

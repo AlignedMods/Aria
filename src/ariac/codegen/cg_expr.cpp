@@ -156,6 +156,15 @@ namespace ariac {
         while (type->kind == TypeKind::Typedef) { type = type->typedef_.base; }
 
         switch (type->kind) {
+            case TypeKind::TypeInfo: {
+                if (mem.member == "name") {
+                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 0);
+                }
+
+                ARIA_UNREACHABLE("Should never be reached");
+                break;
+            }
+
             case TypeKind::Array: {
                 if (mem.member == "mem") {
                     return val;
@@ -231,6 +240,35 @@ namespace ariac {
         }
 
         return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(llvm::dyn_cast<llvm::Function>(callee)), args, expr->type->is_void() ? "" : "call");
+    }
+
+    llvm::Value* Codegen::gen_builtin_call_expr(Expr* expr) {
+        BuiltinCallExpr& bc = expr->builtin_call;
+        set_debug_loc(expr->loc);
+
+        switch (bc.kind) {
+            case BuiltinCallKind::Sizeof: {
+                if (bc.type) {
+                    return m_active_module_context.builder->getInt(llvm::APInt(expr->type->get_bit_size(), bc.type->get_size()));
+                } else {
+                    return m_active_module_context.builder->getInt(llvm::APInt(expr->type->get_bit_size(), bc.expression->type->get_size()));
+                }
+                break;
+            }
+
+            case BuiltinCallKind::Typeid: {
+                llvm::Type* typeinfo_type = type_info_to_llvm_type(expr->type);
+                TypeInfo* arg_type = bc.type ? bc.type : bc.expression->type;
+
+                llvm::GlobalVariable* str = m_active_module_context.builder->CreateGlobalString(type_info_to_string(arg_type), "typeid.name", 0, nullptr);
+                llvm::Constant* vals[2] = { str, m_active_module_context.builder->getInt64(str->getValueType()->getArrayNumElements() - 1) };
+                llvm::Constant* type_name = llvm::ConstantStruct::get(llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice"), llvm::ArrayRef(vals));
+
+                return llvm::ConstantStruct::get(llvm::dyn_cast<llvm::StructType>(typeinfo_type), type_name);
+            }
+
+            default: ARIA_UNREACHABLE("Invalid builtin call kind");
+        }
     }
 
     llvm::Value* Codegen::gen_construct_expr(Expr* expr) {
@@ -379,17 +417,6 @@ namespace ariac {
         
         llvm::Value* ptr = gen_expr(del.expression);
         return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(func), ptr);
-    }
-
-    llvm::Value* Codegen::gen_sizeof_expr(Expr* expr) {
-        SizeofExpr& sz = expr->sizeof_;
-        set_debug_loc(expr->loc);
-
-        if (sz.type) {
-            return m_active_module_context.builder->getInt64(sz.type->get_size());
-        } else {
-            return m_active_module_context.builder->getInt64(sz.expression->type->get_size());
-        }
     }
 
     llvm::Value* Codegen::gen_paren_expr(Expr* expr) {
@@ -884,13 +911,13 @@ namespace ariac {
             case ExprKind::BuiltinMember: return gen_builtin_member_expr(expr);
             case ExprKind::Self: return gen_self_expr(expr);
             case ExprKind::Call: return gen_call_expr(expr);
+            case ExprKind::BuiltinCall: return gen_builtin_call_expr(expr);
             case ExprKind::Construct: return gen_construct_expr(expr);
             case ExprKind::MethodCall: return gen_method_call_expr(expr);
             case ExprKind::ArraySubscript: return gen_array_subscript_expr(expr);
             case ExprKind::ToSlice: return gen_to_slice_expr(expr);
             case ExprKind::New: return gen_new_expr(expr);
             case ExprKind::Delete: return gen_delete_expr(expr);
-            case ExprKind::Sizeof: return gen_sizeof_expr(expr);
             case ExprKind::Paren: return gen_paren_expr(expr);
             case ExprKind::ImplicitCast: return gen_implicit_cast_expr(expr);
             case ExprKind::Cast: return gen_cast_expr(expr);

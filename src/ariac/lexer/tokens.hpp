@@ -80,6 +80,7 @@ namespace ariac {
         Extern,
         Static,
         Sizeof,
+        Typeid,
         Typedef,
         Enum,
         As,
@@ -107,6 +108,7 @@ namespace ariac {
         Isz,
         Float,
         Double,
+        TypeInfo,
         // ^^^ Types ^^^ //
 
         Identifier,
@@ -228,6 +230,7 @@ namespace ariac {
             case TokenKind::Isz: return "isz";
             case TokenKind::Float: return "float";
             case TokenKind::Double: return "double";
+            case TokenKind::TypeInfo: return "typeinfo";
             // ^^^ Types ^^^ //
 
             case TokenKind::Identifier: return "identifier";

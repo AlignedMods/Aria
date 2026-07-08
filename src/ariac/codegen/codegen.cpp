@@ -41,10 +41,12 @@ namespace ariac {
     }
 
     void Codegen::gen_builtin_types() {
-        llvm::StructType::create({
+        llvm::StructType* slice_type = llvm::StructType::create({
             llvm::PointerType::get(*m_active_module_context.context, 0),
             type_info_to_llvm_type(TypeInfo::get_basic(TypeKind::Sz))
         }, "$builtin_slice");
+
+        llvm::StructType::create(slice_type, "$builtin_typeinfo");
     }
 
     void Codegen::setup_env() {
@@ -393,6 +395,8 @@ namespace ariac {
             return llvm::Type::getFloatTy(*m_active_module_context.context);
         } else if (t->kind == TypeKind::Double) {
             return llvm::Type::getDoubleTy(*m_active_module_context.context);
+        } else if (t->kind == TypeKind::TypeInfo) {
+            return llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_typeinfo");
         } else if (t->kind == TypeKind::Array) {
             return llvm::ArrayType::get(type_info_to_llvm_type(t->array.base), static_cast<size_t>(t->array.size));
         } else if (t->kind == TypeKind::Slice) {
@@ -508,6 +512,8 @@ namespace ariac {
             dit = m_active_debug_context.active_builder->createBasicType(str_type, t->get_bit_size(), encoding);
         } else if (t->is_floating_point()) {
             dit = m_active_debug_context.active_builder->createBasicType(str_type, t->get_bit_size(), llvm::dwarf::DW_ATE_float);
+        } else if (t->is_typeinfo()) {
+            dit = m_active_debug_context.active_builder->createBasicType(str_type, t->get_size() * 8, llvm::dwarf::DW_ATE_ASCII);
         } else if (t->is_pointer()) {
             dit = m_active_debug_context.active_builder->createPointerType(type_info_to_debug_type(t->base), t->get_bit_size());
         } else if (t->is_slice()) {

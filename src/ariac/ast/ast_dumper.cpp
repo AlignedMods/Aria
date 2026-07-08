@@ -142,6 +142,14 @@ namespace ariac {
                 }
                 return;
 
+            case ExprKind::BuiltinCall: m_output += fmt::format("BuiltinCallExpr {} {} '{}' '{}' {}\n",
+                source_loc_to_string(expr->loc), builtin_call_kind_to_string(expr->builtin_call.kind), 
+                type_info_to_string(expr->builtin_call.expression ? expr->builtin_call.expression->type : expr->builtin_call.type, false), 
+                    type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
+
+                if (expr->builtin_call.expression) { dump_expr(expr->builtin_call.expression, indentation + 4); }
+                return;
+
             case ExprKind::Construct: m_output += fmt::format("ConstructExpr {} '{}' {}\n",
                 source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
@@ -184,12 +192,6 @@ namespace ariac {
                 source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->delete_.expression, indentation + 4);
-                return;
-
-            case ExprKind::Sizeof: m_output += fmt::format("SizeofExpr {} '{}' '{}' {}\n",
-                source_loc_to_string(expr->loc), type_info_to_string(expr->sizeof_.expression ? expr->sizeof_.expression->type : expr->sizeof_.type, false), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
-
-                if (expr->sizeof_.expression) { dump_expr(expr->sizeof_.expression, indentation + 4); }
                 return;
 
             case ExprKind::Paren: m_output += fmt::format("ParenExpr {} '{}' {}\n",
@@ -290,7 +292,7 @@ namespace ariac {
                 }
                 return;
 
-            case DeclKind::FunctionSpecilization: m_output += fmt::format("FunctionSpecilizationDecl {}", source_loc_to_string(decl->loc));
+            case DeclKind::FunctionSpecilization: m_output += fmt::format("FunctionSpecilizationDecl {} ", source_loc_to_string(decl->loc));
                 for (size_t i = 0; i < decl->function_specilization.types.size; i++) {
                     m_output += fmt::format("'{}' ", type_info_to_string(decl->function_specilization.types.items[i]));
                 }
@@ -308,7 +310,7 @@ namespace ariac {
 
                 return;
 
-            case DeclKind::StructSpecilization: m_output += fmt::format("StructSpecilizationDecl {}", source_loc_to_string(decl->loc));
+            case DeclKind::StructSpecilization: m_output += fmt::format("StructSpecilizationDecl {} ", source_loc_to_string(decl->loc));
                 for (size_t i = 0; i < decl->struct_specilization.types.size; i++) {
                     m_output += fmt::format("'{}' ", type_info_to_string(decl->struct_specilization.types.items[i]));
                 }
@@ -378,7 +380,8 @@ namespace ariac {
 
                 return;
 
-            case DeclKind::GenericParameter: m_output += fmt::format("GenericParameterDecl {} '{}' ", source_loc_to_string(decl->loc), decl->generic_parameter.identifier);
+            case DeclKind::GenericParameter: m_output += fmt::format("GenericParameterDecl {} '{}'{} ", source_loc_to_string(decl->loc), decl->generic_parameter.identifier,
+                decl->generic_parameter.variadic ? " variadic" : "");
                 for (size_t i = 0; i < decl->generic_parameter.requirements.size; i++) {
                      if (i < 0) { m_output += ", "; }
                      m_output += generic_requirement_kind_to_string(decl->generic_parameter.requirements.items[i].kind);

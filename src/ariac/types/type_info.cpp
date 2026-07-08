@@ -20,6 +20,7 @@ namespace ariac {
     static TypeInfo* isz_type;
     static TypeInfo* float_type;
     static TypeInfo* double_type;
+    static TypeInfo* typeinfo_type;
     static TypeInfo* void_ptr_type;
     static TypeInfo* char_ptr_type;
     static TypeInfo* char_slice_type;
@@ -108,7 +109,8 @@ namespace ariac {
             case TypeKind::Sz:
             case TypeKind::Isz:
             case TypeKind::Float:
-            case TypeKind::Double: break;
+            case TypeKind::Double:
+            case TypeKind::TypeInfo: break;
 
             case TypeKind::Pointer: t->base = TypeInfo::dup(type->base); break;
 
@@ -200,6 +202,7 @@ namespace ariac {
             TYPE(Isz, isz_type)
             TYPE(Float, float_type)
             TYPE(Double, double_type)
+            TYPE(TypeInfo, typeinfo_type)
 
             default: ARIA_UNREACHABLE("Invalid type kind");
         }
@@ -223,13 +226,14 @@ namespace ariac {
             char_slice_type = create_with_base(TypeKind::Slice, get_basic(TypeKind::Char));
             return char_slice_type;
         } else {
+            if (std_core_string_type) { return std_core_string_type; }
+
             ARIA_ASSERT(context.std_core_module->symbols.contains("String"), "std::core module must contain a definition for 'String'");
             Decl* sym = context.std_core_module->symbols.at("String");
             
             ARIA_ASSERT(sym->kind == DeclKind::Typedef, "std::core::String must be a typedef");
             ARIA_ASSERT(sym->typedef_.type->kind == TypeKind::Slice && sym->typedef_.type->base->kind == TypeKind::Char, "std::core::String must be a typedef to char[]");
 
-            if (std_core_string_type) { return std_core_string_type; }
             std_core_string_type = create_typedef(sym);
             return std_core_string_type;
         }
@@ -297,6 +301,10 @@ namespace ariac {
 
             case TypeKind::Float: return 4;
             case TypeKind::Double: return 8;
+
+            case TypeKind::TypeInfo: {
+                return get_string()->get_size();
+            }
 
             case TypeKind::Pointer: {
                 switch (context.opts->triple.getArch()) {
@@ -460,6 +468,8 @@ namespace ariac {
 
             case TypeKind::Float:   str += "float"; break;
             case TypeKind::Double:  str += "double"; break;
+
+            case TypeKind::TypeInfo:  str += "typeinfo"; break;
 
             case TypeKind::Pointer: {
                 TypeInfo* t = type->base;

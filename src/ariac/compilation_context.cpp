@@ -21,10 +21,10 @@ namespace ariac {
     CompilationContext context;
 
     static const char* stdlib_files[] = {
+        "core/types.aria",
         "libc.aria",
         "io/io.aria",
         "core/string_stream.aria",
-        "core/string.aria",
         "core/mem.aria",
         "core/list.aria",
         "process/process.aria"

@@ -27,6 +27,10 @@ namespace ariac {
         Float,
         Double,
 
+        // TypeInfo is a built in type that has the following runtime layout:
+        // name: String;
+        TypeInfo,
+
         Pointer,
         Array,
         Slice,
@@ -155,7 +159,7 @@ namespace ariac {
         bool is_error() const { return kind == TypeKind::Error; }
 
         bool is_primitive() const {
-            return is_error() || is_void() || is_boolean() || is_numeric();
+            return is_error() || is_void() || is_boolean() || is_numeric() || is_typeinfo();
         }
 
         bool is_void() const {
@@ -181,6 +185,10 @@ namespace ariac {
 
         bool is_numeric() const {
             return is_integral() || is_floating_point();
+        }
+
+        bool is_typeinfo() const {
+            return kind == TypeKind::TypeInfo;
         }
 
         bool is_num_or_ptr() const { return is_numeric() || is_pointer(); }

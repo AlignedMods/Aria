@@ -266,11 +266,12 @@ namespace ariac {
     };
 
     struct GenericParameterDecl {
-        GenericParameterDecl(std::string_view ident, TinyVector<GenericRequirement> requirements)
-            : identifier(ident), requirements(requirements) {}
+        GenericParameterDecl(std::string_view ident, TinyVector<GenericRequirement> requirements, bool variadic)
+            : identifier(ident), requirements(requirements), variadic(variadic) {}
 
         std::string_view identifier;
         TinyVector<GenericRequirement> requirements;
+        bool variadic;
     };
 
     struct Decl {

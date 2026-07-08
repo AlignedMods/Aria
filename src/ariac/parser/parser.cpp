@@ -88,23 +88,24 @@ namespace ariac {
         m_expr_rules[TokenKind::GreaterGreaterEq] =  { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
 
         // PREC_NONE                                     
-        m_expr_rules[TokenKind::True] =              { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::False] =             { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::CharLit] =           { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::IntLit] =            { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::UIntLit] =           { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::LongLit] =           { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::ULongLit] =          { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::NumLit] =            { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::StrLit] =            { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::CStrLit] =           { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Null] =              { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Identifier] =        { BIND_PARSE_RULE(parse_primary), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Env] =               { BIND_PARSE_RULE(parse_env),     nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::New] =               { BIND_PARSE_RULE(parse_new),     nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Delete] =            { BIND_PARSE_RULE(parse_delete),  nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Sizeof] =            { BIND_PARSE_RULE(parse_sizeof),  nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Cast] =              { BIND_PARSE_RULE(parse_cast),    nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::True] =              { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::False] =             { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::CharLit] =           { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::IntLit] =            { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::UIntLit] =           { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::LongLit] =           { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::ULongLit] =          { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::NumLit] =            { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::StrLit] =            { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::CStrLit] =           { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Null] =              { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Identifier] =        { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Env] =               { BIND_PARSE_RULE(parse_env),           nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::New] =               { BIND_PARSE_RULE(parse_new),           nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Delete] =            { BIND_PARSE_RULE(parse_delete),        nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Sizeof] =            { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Typeid] =            { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Cast] =              { BIND_PARSE_RULE(parse_cast),          nullptr, PREC_NONE };
     }
 
     void Parser::parse_impl() {
@@ -262,6 +263,15 @@ namespace ariac {
         } else {
             context.report_compiler_diagnostic(lp->loc + rp->loc, "Callee of call expression must be a reference to a declaration or method");
             return &error_expr;
+        }
+    }
+
+    BuiltinCallKind Parser::get_builtin_call_from_token(Token* token) {
+        switch (token->kind) {
+            case TokenKind::Sizeof: return BuiltinCallKind::Sizeof;
+            case TokenKind::Typeid: return BuiltinCallKind::Typeid;
+
+            default: ARIA_UNREACHABLE("Invalid builtin call kind");
         }
     }
 
@@ -607,13 +617,13 @@ namespace ariac {
             DeleteExpr(expr));
     }
 
-    Expr* Parser::parse_sizeof(Expr* left) {
-        ARIA_ASSERT(left == nullptr, "Parser::parse_sizeof() should not have a left side");
+    Expr* Parser::parse_builtin_call(Expr* left) {
+        ARIA_ASSERT(left == nullptr, "Parser::parse_builtin_call() should not have a left side");
 
         TypeInfo* type = nullptr;
         Expr* expr = nullptr;
 
-        Token& s = consume(); // consume "sizeof"
+        Token& op = consume(); // consume op
         try_consume(TokenKind::LeftParen, "(");
 
         if (is_primitive_type()) { type = parse_type(); }
@@ -625,9 +635,11 @@ namespace ariac {
             return &error_expr;
         }
 
-        return Expr::Create(s.loc + peek(-1)->loc, ExprKind::Sizeof,
-            ExprValueKind::RValue, TypeInfo::get_basic(TypeKind::ULong),
-            expr ? SizeofExpr(expr) : SizeofExpr(type));
+        BuiltinCallKind kind = get_builtin_call_from_token(&op);
+
+        return Expr::Create(op.loc + peek(-1)->loc, ExprKind::BuiltinCall,
+            ExprValueKind::RValue, nullptr,
+            expr ? BuiltinCallExpr(expr, kind) : BuiltinCallExpr(type, kind));
     }
 
     Expr* Parser::parse_precedence_with_left(Expr* left, size_t precedence) {
@@ -712,6 +724,7 @@ namespace ariac {
             case TokenKind::Isz:
             case TokenKind::Float:
             case TokenKind::Double:
+            case TokenKind::TypeInfo:
             case TokenKind::Const: return true;
             default: return false;
         }
@@ -786,6 +799,8 @@ namespace ariac {
         
             case TokenKind::Float:      consume(); type->kind = TypeKind::Float; break;
             case TokenKind::Double:     consume(); type->kind = TypeKind::Double; break;
+
+            case TokenKind::TypeInfo:   consume(); type->kind = TypeKind::TypeInfo; break;
         
             case TokenKind::Identifier: {
                 consume();
@@ -1039,6 +1054,8 @@ namespace ariac {
             case TokenKind::NumLit:
             case TokenKind::StrLit:
             case TokenKind::Identifier:
+            case TokenKind::Sizeof:
+            case TokenKind::Typeid:
             case TokenKind::New:
             case TokenKind::Delete:
             case TokenKind::Cast:
@@ -1136,7 +1153,8 @@ namespace ariac {
             case TokenKind::Long:
             case TokenKind::ULong:
             case TokenKind::Float:
-            case TokenKind::Double: {
+            case TokenKind::Double:
+            case TokenKind::TypeInfo: {
                 Token& tok = consume();
                 context.report_compiler_diagnostic(tok.loc, fmt::format("Unexpected type '{}', did you mean to declare a variable? (let <name>: <type>)", token_kind_to_string(tok.kind)));
                 return &error_stmt;
@@ -1432,9 +1450,17 @@ namespace ariac {
             }
         };
 
+        bool variadic = false;
         while (peek() && !match(TokenKind::Greater)) {
             Token* ident = try_consume(TokenKind::Identifier, "identifier");
             if (!ident) { break; }
+            SourceLoc loc = ident->loc;
+
+            if (match(TokenKind::TripleDot)) {
+                Token& t = consume();
+                variadic = true;
+                loc += t.loc;
+            }
 
             TinyVector<GenericRequirement> reqs;
             if (match(TokenKind::Colon)) {
@@ -1447,9 +1473,16 @@ namespace ariac {
                 }
             }
 
-            params.append(Decl::Create(ident->loc, DeclKind::GenericParameter, DeclVisibility::Public, GenericParameterDecl(ident->string, reqs)));
+            params.append(Decl::Create(ident->loc, DeclKind::GenericParameter, DeclVisibility::Public, GenericParameterDecl(ident->string, reqs, variadic)));
 
-            if (match(TokenKind::Comma)) { consume(); continue; }
+            if (match(TokenKind::Comma)) {
+                Token& c = consume();
+
+                if (variadic) {
+                    context.report_compiler_diagnostic(c.loc, "Cannot declare more generic parameters after a variadic parameter");
+                }
+                continue;
+            }
             if (match(TokenKind::Greater)) { break; }
 
             context.report_compiler_diagnostic(peek()->loc, "Expected either ',' or '>'");
