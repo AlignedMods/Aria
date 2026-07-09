@@ -265,6 +265,9 @@ namespace ariac {
                     cost.kind = CastKind::BitCast;
                     return cost;
                 }
+            } else if (dst->is_any() && !src->base->is_void()) { // Ptr to any
+                cost.kind = CastKind::PointerToAny;
+                return cost;
             }
         }
 

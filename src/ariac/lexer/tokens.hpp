@@ -109,6 +109,7 @@ namespace ariac {
         Float,
         Double,
         TypeInfo,
+        Any,
         // ^^^ Types ^^^ //
 
         Identifier,
@@ -231,6 +232,7 @@ namespace ariac {
             case TokenKind::Float: return "float";
             case TokenKind::Double: return "double";
             case TokenKind::TypeInfo: return "typeinfo";
+            case TokenKind::Any: return "any";
             // ^^^ Types ^^^ //
 
             case TokenKind::Identifier: return "identifier";

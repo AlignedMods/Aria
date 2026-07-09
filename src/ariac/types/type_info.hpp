@@ -31,6 +31,11 @@ namespace ariac {
         // name: String;
         TypeInfo,
 
+        // Any is a built in type that has the following runtime layout:
+        // type: *typeinfo;
+        // value: *void;
+        Any,
+
         Pointer,
         Array,
         Slice,
@@ -152,6 +157,7 @@ namespace ariac {
         static TypeInfo* get_basic(TypeKind kind);
         static TypeInfo* get_void_ptr();
         static TypeInfo* get_char_ptr();
+        static TypeInfo* get_typeinfo_ptr();
         static TypeInfo* get_string();
 
         static TypeInfo* dup(TypeInfo* type);
@@ -159,7 +165,7 @@ namespace ariac {
         bool is_error() const { return kind == TypeKind::Error; }
 
         bool is_primitive() const {
-            return is_error() || is_void() || is_boolean() || is_numeric() || is_typeinfo();
+            return is_error() || is_void() || is_boolean() || is_numeric() || is_typeinfo() || is_any();
         }
 
         bool is_void() const {
@@ -189,6 +195,10 @@ namespace ariac {
 
         bool is_typeinfo() const {
             return kind == TypeKind::TypeInfo;
+        }
+
+        bool is_any() const {
+            return kind == TypeKind::Any;
         }
 
         bool is_num_or_ptr() const { return is_numeric() || is_pointer(); }

@@ -23,6 +23,7 @@ namespace ariac {
     static TypeInfo* typeinfo_type;
     static TypeInfo* void_ptr_type;
     static TypeInfo* char_ptr_type;
+    static TypeInfo* typeinfo_ptr_type;
     static TypeInfo* char_slice_type;
     static TypeInfo* std_core_string_type;
 
@@ -110,7 +111,8 @@ namespace ariac {
             case TypeKind::Isz:
             case TypeKind::Float:
             case TypeKind::Double:
-            case TypeKind::TypeInfo: break;
+            case TypeKind::TypeInfo:
+            case TypeKind::Any: break;
 
             case TypeKind::Pointer: t->base = TypeInfo::dup(type->base); break;
 
@@ -220,6 +222,12 @@ namespace ariac {
         return char_ptr_type;
     }
 
+    TypeInfo* TypeInfo::get_typeinfo_ptr() {
+        if (typeinfo_ptr_type) { return typeinfo_ptr_type; }
+        typeinfo_ptr_type = create_with_base(TypeKind::Pointer, get_basic(TypeKind::TypeInfo));
+        return typeinfo_ptr_type;
+    }
+
     TypeInfo* TypeInfo::get_string() {
         if (context.opts->no_stdlib) {
             if (char_slice_type) { return char_slice_type; }
@@ -304,6 +312,10 @@ namespace ariac {
 
             case TypeKind::TypeInfo: {
                 return get_string()->get_size();
+            }
+
+            case TypeKind::Any: {
+                return get_void_ptr()->get_size() * 2;
             }
 
             case TypeKind::Pointer: {
@@ -397,6 +409,17 @@ namespace ariac {
             case TypeKind::Float: return 4;
             case TypeKind::Double: return 8;
 
+            case TypeKind::Sz:
+            case TypeKind::Isz: {
+                if (context.opts->triple.getArch() == llvm::Triple::x86_64) { return 8; }
+                else if (context.opts->triple.getArch() == llvm::Triple::x86) { return 4; }
+                else { ARIA_UNREACHABLE("Invalid arch"); }
+
+                return 0;
+            }
+
+            case TypeKind::Any: return TypeInfo::get_void_ptr()->get_alignment();
+
             case TypeKind::Pointer: {
                 if (context.opts->triple.getArch() == llvm::Triple::x86_64) { return 8; }
                 else if (context.opts->triple.getArch() == llvm::Triple::x86) { return 4; }
@@ -470,6 +493,7 @@ namespace ariac {
             case TypeKind::Double:  str += "double"; break;
 
             case TypeKind::TypeInfo:  str += "typeinfo"; break;
+            case TypeKind::Any:  str += "any"; break;
 
             case TypeKind::Pointer: {
                 TypeInfo* t = type->base;

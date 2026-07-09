@@ -165,6 +165,17 @@ namespace ariac {
                 break;
             }
 
+            case TypeKind::Any: {
+                if (mem.member == "type") {
+                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 0);
+                } else if (mem.member == "value") {
+                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 1);
+                }
+
+                ARIA_UNREACHABLE("Should never be reached");
+                break;
+            }
+
             case TypeKind::Array: {
                 if (mem.member == "mem") {
                     return val;
@@ -257,14 +268,7 @@ namespace ariac {
             }
 
             case BuiltinCallKind::Typeid: {
-                llvm::Type* typeinfo_type = type_info_to_llvm_type(expr->type);
-                TypeInfo* arg_type = bc.type ? bc.type : bc.expression->type;
-
-                llvm::GlobalVariable* str = m_active_module_context.builder->CreateGlobalString(type_info_to_string(arg_type), "typeid.name", 0, nullptr);
-                llvm::Constant* vals[2] = { str, m_active_module_context.builder->getInt64(str->getValueType()->getArrayNumElements() - 1) };
-                llvm::Constant* type_name = llvm::ConstantStruct::get(llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice"), llvm::ArrayRef(vals));
-
-                return llvm::ConstantStruct::get(llvm::dyn_cast<llvm::StructType>(typeinfo_type), type_name);
+                return get_typeinfo(bc.type ? bc.type : bc.expression->type);
             }
 
             default: ARIA_UNREACHABLE("Invalid builtin call kind");
@@ -491,16 +495,18 @@ namespace ariac {
             }
 
             case CastKind::ArrayToSlice: {
-                llvm::Value* slice = alloca_at_entry(m_active_module_context.function, "arrtoslice", expr->type);
+                llvm::Type* slice_type = type_info_to_llvm_type(expr->type);
+
+                llvm::Value* slice = alloca_at_entry(m_active_module_context.function, "arrtoslice", slice_type);
                 llvm::Value* arr = gen_expr(ic.expression);
 
-                llvm::Value* mem = m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(expr->type), slice, m_active_module_context.builder->getInt64(0), "ptradd", true);
-                llvm::Value* len = m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(expr->type), slice, m_active_module_context.builder->getInt64(1), "ptradd", true);
+                llvm::Value* mem = m_active_module_context.builder->CreateStructGEP(slice_type, slice, 0);
+                llvm::Value* len = m_active_module_context.builder->CreateStructGEP(slice_type, slice, 1);
 
                 m_active_module_context.builder->CreateStore(arr, mem);
-                m_active_module_context.builder->CreateStore(m_active_module_context.builder->getInt64(ic.expression->type->array.size), len);
+                m_active_module_context.builder->CreateStore(m_active_module_context.builder->getInt(llvm::APInt(TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), ic.expression->type->array.size)), len);
 
-                return slice;
+                return m_active_module_context.builder->CreateLoad(slice_type, slice);
             }
 
             case CastKind::ArrayToPointer: {
@@ -511,6 +517,23 @@ namespace ariac {
                 } else {
                     return gen_expr(ic.expression);
                 }
+            }
+
+            case CastKind::PointerToAny: {
+                llvm::Type* any_type = llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_any");
+
+                llvm::Value* typeinfo = get_typeinfo(ic.expression->type->base);
+                llvm::Value* value = gen_expr(ic.expression);
+
+                llvm::Value* any_temp = alloca_at_entry(m_active_module_context.function, "ptrtoany", any_type);
+
+                llvm::Value* any_typeinfo = m_active_module_context.builder->CreateStructGEP(any_type, any_temp, 0);
+                m_active_module_context.builder->CreateStore(typeinfo, any_typeinfo);
+
+                llvm::Value* any_value = m_active_module_context.builder->CreateStructGEP(any_type, any_temp, 1);
+                m_active_module_context.builder->CreateStore(value, any_value);
+
+                return m_active_module_context.builder->CreateLoad(any_type, any_temp);
             }
 
             case CastKind::LValueToRValue: {

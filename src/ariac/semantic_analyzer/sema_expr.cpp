@@ -330,6 +330,19 @@ namespace ariac {
                     break;
                 }
 
+                case TypeKind::Any: {
+                    if (mem.member == "type") {
+                        member_type = TypeInfo::get_typeinfo_ptr();
+                        expr->kind = ExprKind::BuiltinMember;
+                    } else if (mem.member == "value") {
+                        member_type = TypeInfo::get_void_ptr();
+                        expr->kind = ExprKind::BuiltinMember;
+                    }
+
+                    searching = false;
+                    break;
+                }
+
                 case TypeKind::Structure: {
                     StructType& sd = parent_type->struct_;
 
@@ -451,7 +464,7 @@ namespace ariac {
                 case TypeKind::Typedef: { parent_type = parent_type->typedef_.base; break; }
 
                 default: {
-                    context.report_compiler_diagnostic(mem.parent->loc, fmt::format("Expression must be of typeinfo, slice, array or struct type but is '{}'", type_info_to_string(parent_type)));
+                    context.report_compiler_diagnostic(mem.parent->loc, fmt::format("Expression must be of 'typeinfo', 'any', slice, array or struct type but is '{}'", type_info_to_string(mem.parent->type)));
                     expr->type = TypeInfo::get_error();
                     mem.referenced_member = &error_decl;
                     return;
@@ -656,7 +669,7 @@ namespace ariac {
                 }
 
                 case BuiltinCallKind::Typeid: {
-                    expr->type = TypeInfo::get_basic(TypeKind::TypeInfo);
+                    expr->type = TypeInfo::create_with_base(TypeKind::Pointer, TypeInfo::get_basic(TypeKind::TypeInfo));
                     break;
                 }
 
@@ -790,6 +803,7 @@ namespace ariac {
         require_rvalue(subs.index);
 
         if (subs.array->type->is_error()) { expr->type = TypeInfo::get_error(); return; }
+        while (subs.array->type->is_typedef()) { subs.array->type = subs.array->type->typedef_.base; }
 
         switch (subs.array->type->kind) {
             case TypeKind::Pointer: {
@@ -989,10 +1003,6 @@ namespace ariac {
             case UnaryOperatorKind::Dereference: {
                 if (type->is_error()) { expr->type = type; break; }
 
-                if (unop.expression->value_kind != ExprValueKind::LValue) {
-                    context.report_compiler_diagnostic(expr->loc, "Dereferencing requires an lvalue");
-                }
-
                 require_rvalue(unop.expression);
 
                 if (type->is_pointer()) {
@@ -1169,6 +1179,11 @@ namespace ariac {
                     return;
                 }
 
+                if (!is_assignable_expr(LHS)) {
+                    context.report_compiler_diagnostic(LHS->loc, "Must be an assignable expression");
+                    return;
+                }
+
                 require_rvalue(RHS);
                 try_insert_implicit_cast(LHS->type, RHS);
                 return;
@@ -1216,6 +1231,11 @@ namespace ariac {
 
         if (is_const_expr(LHS)) {
             context.report_compiler_diagnostic(LHS->loc, "Cannot assign to constant expression");
+            return;
+        }
+
+        if (!is_assignable_expr(LHS)) {
+            context.report_compiler_diagnostic(LHS->loc, "Must be an assignable expression");
             return;
         }
 
@@ -1527,6 +1547,20 @@ namespace ariac {
             }
 
             default: ARIA_UNREACHABLE("Should never be reached");
+        }
+    }
+
+    bool SemanticAnalyzer::is_assignable_expr(Expr* expr) {
+        switch (expr->kind) {
+            case ExprKind::DeclRef: return true;
+            case ExprKind::Member: return true;
+            case ExprKind::ArraySubscript: return is_assignable_expr(expr->array_subscript.array);
+
+            case ExprKind::Paren: return is_assignable_expr(expr->paren.expression);
+            case ExprKind::Cast: return is_assignable_expr(expr->cast.expression);
+            case ExprKind::ImplicitCast: return is_assignable_expr(expr->implicit_cast.expression);
+
+            default: return false;
         }
     }
 

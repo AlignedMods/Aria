@@ -116,8 +116,8 @@ namespace ariac {
                 dump_expr(expr->member.parent, indentation + 4);
                 return;
 
-            case ExprKind::BuiltinMember: m_output += fmt::format("BuiltinMemberExpr {} '{}' '{}' {}\n",
-                source_loc_to_string(expr->loc), expr->member.member,
+            case ExprKind::BuiltinMember: m_output += fmt::format("BuiltinMemberExpr {} '{}'{} '{}' {}\n",
+                source_loc_to_string(expr->loc), expr->member.member, expr->member.implicit_deref ? " implicit_deref" : "",
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->member.parent, indentation + 4);

@@ -56,3 +56,7 @@ extern fn fscanf(stream: *FILE, format: *char, ...) -> int;
 
 extern fn printf(format: *char, ...) -> int;
 extern fn fprintf(stream: *FILE, format: *char, ...) -> int;
+
+// string.h
+
+extern fn strcmp(lhs: *char, rhs: *char) -> int;

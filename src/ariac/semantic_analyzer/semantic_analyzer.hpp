@@ -119,6 +119,8 @@ namespace ariac {
         bool is_const_expr(Expr* expr);
         Expr* eval_const_expr(Expr* expr);
 
+        bool is_assignable_expr(Expr* expr);
+
         void push_scope(bool allow_break = false, bool allow_continue = false);
         void pop_scope();
 

@@ -65,6 +65,7 @@ namespace ariac {
         BitCast,
         ArrayToSlice,
         ArrayToPointer,
+        PointerToAny,
 
         LValueToRValue
     };
@@ -78,6 +79,7 @@ namespace ariac {
             case CastKind::BitCast: return "BitCast";
             case CastKind::ArrayToSlice: return "ArrayToSlice";
             case CastKind::ArrayToPointer: return "ArrayToPointer";
+            case CastKind::PointerToAny: return "PointerToAny";
             case CastKind::LValueToRValue: return "LValueToRValue";
 
             default: ARIA_UNREACHABLE("Invalid cast kind");

@@ -725,7 +725,7 @@ namespace ariac {
             case TokenKind::Float:
             case TokenKind::Double:
             case TokenKind::TypeInfo:
-            case TokenKind::Const: return true;
+            case TokenKind::Any: return true;
             default: return false;
         }
 
@@ -801,6 +801,7 @@ namespace ariac {
             case TokenKind::Double:     consume(); type->kind = TypeKind::Double; break;
 
             case TokenKind::TypeInfo:   consume(); type->kind = TypeKind::TypeInfo; break;
+            case TokenKind::Any:        consume(); type->kind = TypeKind::Any; break;
         
             case TokenKind::Identifier: {
                 consume();

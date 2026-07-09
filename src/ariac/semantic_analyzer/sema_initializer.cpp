@@ -20,8 +20,8 @@ namespace ariac {
 
             if (var.initializer->type->is_error() || var.type->is_error()) { return; }
 
-            require_rvalue(var.initializer);
             try_insert_implicit_cast(var.type, var.initializer);
+            require_rvalue(var.initializer);
 
             if (var.const_var) {
                 if (!is_const_expr(var.initializer)) {
@@ -37,8 +37,8 @@ namespace ariac {
         m_temporary_context = true;
         resolve_expr(arg);
 
-        require_rvalue(arg);
         try_insert_implicit_cast(param_type, arg);
+        require_rvalue(arg);
         m_temporary_context = false;
     }
 

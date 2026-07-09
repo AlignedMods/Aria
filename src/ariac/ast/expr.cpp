@@ -112,6 +112,7 @@ namespace ariac {
 
             case ExprKind::BuiltinCall: {
                 BuiltinCallExpr& b = e->builtin_call;
+                copy->builtin_call.kind = b.kind;
                 if (b.expression) { copy->builtin_call.expression = Expr::dup(b.expression); }
                 if (b.type) { copy->builtin_call.type = TypeInfo::dup(b.type); }
                 break;

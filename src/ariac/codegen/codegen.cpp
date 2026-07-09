@@ -41,12 +41,15 @@ namespace ariac {
     }
 
     void Codegen::gen_builtin_types() {
+        llvm::Type* ptr_type = llvm::PointerType::get(*m_active_module_context.context, 0);
+
         llvm::StructType* slice_type = llvm::StructType::create({
-            llvm::PointerType::get(*m_active_module_context.context, 0),
+            ptr_type,
             type_info_to_llvm_type(TypeInfo::get_basic(TypeKind::Sz))
         }, "$builtin_slice");
 
         llvm::StructType::create(slice_type, "$builtin_typeinfo");
+        llvm::StructType::create({ ptr_type, ptr_type }, "$builtin_any");
     }
 
     void Codegen::setup_env() {
@@ -397,6 +400,8 @@ namespace ariac {
             return llvm::Type::getDoubleTy(*m_active_module_context.context);
         } else if (t->kind == TypeKind::TypeInfo) {
             return llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_typeinfo");
+        } else if (t->kind == TypeKind::Any) {
+            return llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_any");
         } else if (t->kind == TypeKind::Array) {
             return llvm::ArrayType::get(type_info_to_llvm_type(t->array.base), static_cast<size_t>(t->array.size));
         } else if (t->kind == TypeKind::Slice) {
@@ -514,12 +519,29 @@ namespace ariac {
             dit = m_active_debug_context.active_builder->createBasicType(str_type, t->get_bit_size(), llvm::dwarf::DW_ATE_float);
         } else if (t->is_typeinfo()) {
             dit = m_active_debug_context.active_builder->createBasicType(str_type, t->get_size() * 8, llvm::dwarf::DW_ATE_ASCII);
+        } else if (t->is_any()) {
+            dit = m_active_debug_context.active_builder->createBasicType(str_type, t->get_size() * 8, llvm::dwarf::DW_ATE_ASCII);
         } else if (t->is_pointer()) {
             dit = m_active_debug_context.active_builder->createPointerType(type_info_to_debug_type(t->base), t->get_bit_size());
+        } else if (t->is_array()) {
+            dit = m_active_debug_context.active_builder->createArrayType(t->array.size, t->array.base->get_alignment() * 8, type_info_to_debug_type(t->array.base), {});
         } else if (t->is_slice()) {
-            dit = m_active_debug_context.active_builder->createBasicType(str_type, t->get_size() * 8, llvm::dwarf::DW_ATE_ASCII);
-            // dit = m_active_debug_context.active_builder->createStructType(m_active_debug_context.scope, str_type, m_active_debug_context.scope->getFile(),
-            //     t->loc, t->get_size() * 8, t->get_alignment() * 8, llvm::DINode::DIFlags::FlagZero, 
+            std::array<llvm::Metadata*, 2> elems{};
+
+            u64 offset_bits = 0;
+            elems[0] = m_active_debug_context.active_builder->createMemberType(m_active_debug_context.scope, "mem", 
+                m_active_debug_context.scope->getFile(), 0, TypeInfo::get_void_ptr()->get_bit_size(), TypeInfo::get_void_ptr()->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
+                type_info_to_debug_type(TypeInfo::create_with_base(TypeKind::Pointer, t->base)));
+
+            offset_bits += TypeInfo::get_void_ptr()->get_bit_size();
+
+            elems[1] = m_active_debug_context.active_builder->createMemberType(m_active_debug_context.scope, "len", 
+                m_active_debug_context.scope->getFile(), 0, TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), TypeInfo::get_basic(TypeKind::Sz)->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
+                type_info_to_debug_type(TypeInfo::get_basic(TypeKind::Sz)));
+
+            dit = m_active_debug_context.active_builder->createStructType(m_active_debug_context.scope,
+                str_type, m_active_debug_context.scope->getFile(), 0, t->get_size() * 8, t->get_alignment() * 8,
+                llvm::DINode::DIFlags::FlagExplicit, nullptr, m_active_debug_context.active_builder->getOrCreateArray(elems));
         } else if (t->is_structure()) {
             std::vector<llvm::Metadata*> elems;
 
@@ -561,6 +583,11 @@ namespace ariac {
             case TypeKind::UInt: return "ui";
             case TypeKind::Long: return "l";
             case TypeKind::ULong: return "ul";
+
+            case TypeKind::Float: return "f";
+            case TypeKind::Double: return "d";
+
+            case TypeKind::TypeInfo: return "ti";
             case TypeKind::Pointer: return fmt::format("P{}", mangle_type(t->base));
 
             default: ARIA_UNREACHABLE("Invalid type kind");
@@ -604,6 +631,28 @@ namespace ariac {
         ARIA_ASSERT(m_active_module_context.alloca_marker, "alloca_marker needs to be set");
         llvm::IRBuilder<> TmpB(m_active_module_context.alloca_marker);
         return TmpB.CreateAlloca(type, nullptr, name);
+    }
+
+    llvm::Value* Codegen::get_typeinfo(TypeInfo* t) {
+        llvm::Type* typeinfo_type = llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_typeinfo");
+        std::string str_arg = type_info_to_string(t);
+        llvm::Type* llvm_arg_type = type_info_to_llvm_type(t);
+
+        if (m_active_module_context.typeinfos.contains(str_arg)) {
+            return m_active_module_context.typeinfos.at(str_arg);
+        }
+
+        llvm::GlobalVariable* str = m_active_module_context.builder->CreateGlobalString(str_arg, "typeid.name", 0, nullptr);
+        llvm::Constant* vals[2] = { str, m_active_module_context.builder->getInt64(str_arg.length()) };
+        llvm::Constant* type_name = llvm::ConstantStruct::get(llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice"), llvm::ArrayRef(vals));
+
+        llvm::Constant* initializer = llvm::ConstantStruct::get(llvm::dyn_cast<llvm::StructType>(typeinfo_type), type_name);
+
+        std::string ti_name = fmt::format("type_infoZ{}", mangle_type(t));
+        llvm::GlobalVariable* ti = new llvm::GlobalVariable(*m_active_module_context.module, typeinfo_type, true, llvm::GlobalValue::LinkageTypes::InternalLinkage, initializer, ti_name);
+        m_active_module_context.typeinfos[str_arg] = ti;
+
+        return ti;
     }
 
     void Codegen::set_debug_loc(const SourceLoc& loc) {

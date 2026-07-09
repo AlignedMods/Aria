@@ -78,8 +78,8 @@ namespace ariac {
                 }
 
                 case '&': {
-                    if (try_consume('=')) { add_token(TokenKind::AmpersandEq, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "&="); break; }
-                    else if (try_consume('&')) { add_token(TokenKind::DoubleAmpersand, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "&&"); break; }
+                    if (try_consume('=')) { add_token(TokenKind::AmpersandEq, SourceLoc(m_current_line, get_column(m_index - 2), m_index - 2, 2), "&="); break; }
+                    else if (try_consume('&')) { add_token(TokenKind::DoubleAmpersand, SourceLoc(m_current_line, get_column(m_index - 2), m_index - 2, 2), "&&"); break; }
                     else { add_token(TokenKind::Ampersand, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "&"); break; }
                 }
 
@@ -273,7 +273,7 @@ namespace ariac {
                 } else if (std::tolower(peek()) == 'a' || std::tolower(peek()) == 'b'
                         || std::tolower(peek()) == 'c' || std::tolower(peek()) == 'd'
                         || std::tolower(peek()) == 'e' || std::tolower(peek()) == 'f') {
-                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("invalid hexadecimal digit '{}' in decimal literal", peek()));
+                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("Invalid hexadecimal digit '{}' in decimal literal", peek()));
                     consume();
                     errored = true;
                 } else {
@@ -291,13 +291,13 @@ namespace ariac {
                 if (peek() >= '0' && peek() <= '7') {
                     consume();
                 } else if (peek() == '8' || peek() == '9') {
-                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("invalid digit '{}' in octal literal", peek()));
+                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("Invalid digit '{}' in octal literal", peek()));
                     consume();
                     errored = true;
                 } else if (std::tolower(peek()) == 'a' || std::tolower(peek()) == 'b'
                         || std::tolower(peek()) == 'c' || std::tolower(peek()) == 'd'
                         || std::tolower(peek()) == 'e' || std::tolower(peek()) == 'f') {
-                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("invalid hexadecimal digit '{}' in octal literal", peek()));
+                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("Invalid hexadecimal digit '{}' in octal literal", peek()));
                     consume();
                     errored = true;
                 } else {
@@ -307,13 +307,13 @@ namespace ariac {
                 if (peek() == '0' || peek() == '1') {
                     consume();
                 } else if (std::isdigit(peek())) {
-                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("invalid digit '{}' in binary literal", peek()));
+                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("Invalid digit '{}' in binary literal", peek()));
                     consume();
                     errored = true;
                 } else if (std::tolower(peek()) == 'a' || std::tolower(peek()) == 'b'
                         || std::tolower(peek()) == 'c' || std::tolower(peek()) == 'd'
                         || std::tolower(peek()) == 'e' || std::tolower(peek()) == 'f') {
-                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("invalid hexadecimal digit '{}' in binary literal", peek()));
+                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("Invalid hexadecimal digit '{}' in binary literal", peek()));
                     consume();
                     errored = true;
                 } else {
@@ -329,7 +329,7 @@ namespace ariac {
             char suffix = std::tolower(peek());
             if (suffix == 'u' || suffix == 'i') {
                 if (encounteredPeriod) {
-                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), 1), fmt::format("cannot use '{}' suffix in a floating-point literal", suffix));
+                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), 1), fmt::format("Cannot use '{}' suffix in a floating-point literal", suffix));
                     consume();
                     errored = true;
                 } else {
@@ -346,7 +346,7 @@ namespace ariac {
                 auto [ptr, ec] = std::from_chars(buf.data(), buf.data() + buf.length(), number); 
 
                 if (ec == std::errc::result_out_of_range) {
-                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()), "magnitude of floating-point literal is too large, maximum is 1.7976931348623157E+308");
+                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()), "Magnitude of floating-point literal is too large, maximum is 1.7976931348623157E+308");
                     number = 0.0;
                 }
             }
@@ -367,7 +367,7 @@ namespace ariac {
 
                 if (ec == std::errc::result_out_of_range) {
                     SourceLoc loc;
-                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()), "integer literal is too large to fit into any integer type");
+                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()), "Integer literal is too large to fit into any integer type");
                     integer = 0;
                 }
             }
@@ -537,6 +537,7 @@ namespace ariac {
         if (scratch_buffer_cmp("float"))    { add_token(TokenKind::Float,    loc, "float");    return; }
         if (scratch_buffer_cmp("double"))   { add_token(TokenKind::Double,   loc, "double");   return; }
         if (scratch_buffer_cmp("typeinfo")) { add_token(TokenKind::TypeInfo, loc, "typeinfo"); return; }
+        if (scratch_buffer_cmp("any"))      { add_token(TokenKind::Any,      loc, "any");      return; }
 
         add_token(TokenKind::Identifier, loc, scratch_buffer_to_str());
     }

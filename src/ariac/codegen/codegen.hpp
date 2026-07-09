@@ -45,6 +45,7 @@ namespace ariac {
             std::unordered_map<Decl*, llvm::Function*> functions;
             std::unordered_map<Decl*, llvm::Value*> named_values;
             std::unordered_map<Decl*, std::string> generic_structs;
+            std::unordered_map<std::string, llvm::Value*> typeinfos; // Runtime type information for types
         };
 
         struct DebugModuleContext {
@@ -159,6 +160,8 @@ namespace ariac {
 
         llvm::AllocaInst* alloca_at_entry(llvm::Function* f, llvm::StringRef name, TypeInfo* type);
         llvm::AllocaInst* alloca_at_entry(llvm::Function* f, llvm::StringRef name, llvm::Type* type);
+
+        llvm::Value* get_typeinfo(TypeInfo* t);
 
         ABIParamTypeInfo get_param_abi_type_info(TypeInfo* t);
         ABIRetTypeInfo get_ret_abi_type_info(TypeInfo* t);
