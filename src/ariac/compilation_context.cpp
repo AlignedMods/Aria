@@ -27,7 +27,8 @@ namespace ariac {
         "core/string_stream.aria",
         "core/mem.aria",
         "core/list.aria",
-        "process/process.aria"
+        "core/any.aria",
+        "process/process.aria",
     };
 
     inline static std::string get_line(const std::string& str, size_t line) {

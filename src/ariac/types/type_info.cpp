@@ -317,7 +317,7 @@ namespace ariac {
             case TypeKind::Double: return 8;
 
             case TypeKind::TypeInfo: {
-                return get_string()->get_size();
+                return get_string()->get_size() * 2 + get_basic(TypeKind::Sz)->get_size() + get_char_slice()->get_size();
             }
 
             case TypeKind::Any: {
@@ -573,7 +573,7 @@ namespace ariac {
                 TypedefType ty = type->typedef_;
 
                 if (pretty) {
-                    str += (ty.source_decl && ty.source_decl->parent_module) ? fmt::format("{}::{} (aka '{}')", ty.source_decl->parent_module->name, ty.identifier, type_info_to_string(ty.base, pretty)) : fmt::format("{} (aka '{}')", ty.identifier, type_info_to_string(ty.base, pretty));
+                    str += (ty.source_decl && ty.source_decl->parent_module) ? fmt::format("{}::{}", ty.source_decl->parent_module->name, ty.identifier) : fmt::format("{}", ty.identifier);
                 } else {
                     str += (ty.source_decl && ty.source_decl->parent_module) ? fmt::format("{}::{}':'{}", ty.source_decl->parent_module->name, ty.identifier, type_info_to_string(ty.base, pretty)) : fmt::format("{}':'{}", ty.identifier, type_info_to_string(ty.base, pretty));
                 }

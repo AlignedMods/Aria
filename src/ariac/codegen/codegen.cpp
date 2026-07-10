@@ -42,13 +42,14 @@ namespace ariac {
 
     void Codegen::gen_builtin_types() {
         llvm::Type* ptr_type = llvm::PointerType::get(*m_active_module_context.context, 0);
+        llvm::Type* sz_type = type_info_to_llvm_type(TypeInfo::get_basic(TypeKind::Sz));
 
         llvm::StructType* slice_type = llvm::StructType::create({
             ptr_type,
-            type_info_to_llvm_type(TypeInfo::get_basic(TypeKind::Sz))
+            sz_type
         }, "$builtin_slice");
 
-        llvm::StructType::create(slice_type, "$builtin_typeinfo");
+        llvm::StructType::create({ slice_type, slice_type, sz_type, slice_type }, "$builtin_typeinfo");
         llvm::StructType::create({ ptr_type, ptr_type }, "$builtin_any");
     }
 
@@ -629,7 +630,9 @@ namespace ariac {
             case TypeKind::Double: return "d";
 
             case TypeKind::TypeInfo: return "ti";
+            case TypeKind::Any: return "a";
 
+            case TypeKind::Array: return fmt::format("A{}.{}", t->array.size, mangle_type(t->base));
             case TypeKind::Pointer: return fmt::format("P{}", mangle_type(t->base));
             case TypeKind::Slice: return fmt::format("S{}", mangle_type(t->base));
 
@@ -678,25 +681,54 @@ namespace ariac {
         return TmpB.CreateAlloca(type, nullptr, name);
     }
 
-    llvm::Value* Codegen::get_typeinfo(TypeInfo* t) {
-        llvm::Type* typeinfo_type = llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_typeinfo");
-        std::string str_arg = type_info_to_string(t);
-        llvm::Type* llvm_arg_type = type_info_to_llvm_type(t);
+    llvm::Constant* Codegen::get_string(std::string_view s) {
+        llvm::GlobalVariable* str = m_active_module_context.builder->CreateGlobalString(s, ".str", 0, nullptr);
+        llvm::Constant* vals[2] = { str, m_active_module_context.builder->getInt64(s.length()) };
+        return llvm::ConstantStruct::get(llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice"), llvm::ArrayRef(vals));
+    }
 
-        if (m_active_module_context.typeinfos.contains(str_arg)) {
-            return m_active_module_context.typeinfos.at(str_arg);
+    llvm::Constant* Codegen::get_typeinfo(TypeInfo* t) {
+        llvm::StructType* typeinfo_type = llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_typeinfo");
+        llvm::StructType* slice_type = llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice");
+        TypeInfo* type = t->is_typedef() ? t->typedef_.base : t;
+        std::string name = type_info_to_string(type);
+
+        if (m_active_module_context.typeinfos.contains(name)) {
+            return m_active_module_context.typeinfos.at(name);
         }
 
-        llvm::GlobalVariable* str = m_active_module_context.builder->CreateGlobalString(str_arg, "typeid.name", 0, nullptr);
-        llvm::Constant* vals[2] = { str, m_active_module_context.builder->getInt64(str_arg.length()) };
-        llvm::Constant* type_name = llvm::ConstantStruct::get(llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice"), llvm::ArrayRef(vals));
+        std::string_view kind;
+        u64 len = 0;
+        std::vector<llvm::Constant*> types;
 
-        llvm::Constant* initializer = llvm::ConstantStruct::get(llvm::dyn_cast<llvm::StructType>(typeinfo_type), type_name);
+        if (type->is_pointer()) {
+            kind = "pointer";
+        } else if (type->is_slice()) {
+            kind = "slice";
+        } else if (type->is_array()) {
+            kind = "array";
+            len = type->array.size;
+            types.push_back(get_typeinfo(type->array.base));
+        }
+
+        std::array<llvm::Constant*, 4> args{};
+        args[0] = get_string(name); // name
+        args[1] = get_string(kind); // kind
+        args[2] = m_active_module_context.builder->getInt(llvm::APInt(TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), len)); // len
+        
+        if (types.size() == 1) {
+            args[3] = llvm::ConstantStruct::get(slice_type, { types[0], 
+                m_active_module_context.builder->getInt(llvm::APInt(TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), 1)) });
+        } else {
+            ARIA_ASSERT(types.size() == 0, "Invalid amount of types");
+            args[3] = llvm::Constant::getNullValue(slice_type);
+        }
+
+        llvm::Constant* initializer = llvm::ConstantStruct::get(typeinfo_type, args);
 
         std::string ti_name = fmt::format("type_infoZ{}", mangle_type(t));
         llvm::GlobalVariable* ti = new llvm::GlobalVariable(*m_active_module_context.module, typeinfo_type, true, llvm::GlobalValue::LinkageTypes::InternalLinkage, initializer, ti_name);
-        m_active_module_context.typeinfos[str_arg] = ti;
-
+        m_active_module_context.typeinfos[name] = ti;
         return ti;
     }
 

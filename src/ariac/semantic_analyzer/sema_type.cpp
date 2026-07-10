@@ -288,8 +288,8 @@ namespace ariac {
     }
 
     bool SemanticAnalyzer::type_is_equal(TypeInfo* lhs, TypeInfo* rhs) {
-        while (lhs->is_typedef()) { lhs = lhs->typedef_.base; }
-        while (rhs->is_typedef()) { rhs = rhs->typedef_.base; }
+        if (lhs->is_typedef()) { lhs = lhs->typedef_.base; }
+        if (rhs->is_typedef()) { rhs = rhs->typedef_.base; }
 
         if (lhs->is_enum() && rhs->is_enum()) { return true; }
 

@@ -44,6 +44,7 @@ namespace ariac {
 
         TinyVector<Stmt*> stmts;
         bool unsafe = false;
+        bool reaches_end = true;
     };
 
     struct WhileStmt {

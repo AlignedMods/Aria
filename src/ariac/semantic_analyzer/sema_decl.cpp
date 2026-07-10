@@ -194,6 +194,11 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_typedef_decl(Decl* decl) {
         TypedefDecl& td = decl->typedef_;
+        resolve_type(td.type);
+
+        while (td.type->is_typedef()) {
+            td.type = td.type->typedef_.base;
+        }
     }
 
     void SemanticAnalyzer::resolve_enum_decl(Decl* decl) {

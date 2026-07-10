@@ -5,25 +5,25 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_boolean_literal_expr(Expr* expr) {
         if (expr->result_discarded) {
-            context.report_compiler_diagnostic(expr->loc, "Discarding result of boolean literal", CompilerDiagKind::Warning);
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
         }
     }
 
     void SemanticAnalyzer::resolve_character_literal_expr(Expr* expr) {
         if (expr->result_discarded) {
-            context.report_compiler_diagnostic(expr->loc, "Discarding result of character literal", CompilerDiagKind::Warning);
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
         }
     }
 
     void SemanticAnalyzer::resolve_integer_literal_expr(Expr* expr) {
         if (expr->result_discarded) {
-            context.report_compiler_diagnostic(expr->loc, "Discarding result of integer literal", CompilerDiagKind::Warning);
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
         }
     }
 
     void SemanticAnalyzer::resolve_floating_literal_expr(Expr* expr) {
         if (expr->result_discarded) {
-            context.report_compiler_diagnostic(expr->loc, "Discarding result of floating point literal", CompilerDiagKind::Warning);
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
         }
     }
 
@@ -31,13 +31,13 @@ namespace ariac {
         if (!expr->type) { expr->type = TypeInfo::get_string(); }
 
         if (expr->result_discarded) {
-            context.report_compiler_diagnostic(expr->loc, "Discarding result of string literal is not allowed");
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
         }
     }
 
     void SemanticAnalyzer::resolve_null_expr(Expr* expr) {
         if (expr->result_discarded) {
-            context.report_compiler_diagnostic(expr->loc, "Discarding result of null", CompilerDiagKind::Warning);
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
         }
     }
 
@@ -47,7 +47,7 @@ namespace ariac {
         std::string pretty_ident = dr.name_specifier ? fmt::format("{}::{}", dr.name_specifier->name.identifier, dr.identifier) : fmt::format("{}", dr.identifier);
         
         if (expr->result_discarded) {
-            context.report_compiler_diagnostic(expr->loc, "Discarding result of identifier", CompilerDiagKind::Warning);
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
         }
 
         auto resolve_with_specifier = [&]() {
@@ -97,6 +97,23 @@ namespace ariac {
 
                     case DeclKind::Struct:
                     case DeclKind::Typedef: expr->type = TypeInfo::get_error(); return;
+
+                    case DeclKind::Generic: {
+                        switch (sym->generic.decl->kind) {
+                            case DeclKind::Function: {
+                                resolve_function_decl(sym->generic.decl);
+                                expr->type = sym->generic.decl->function.type;
+                                return;
+                            }
+
+                            case DeclKind::Struct: {
+                                expr->type = TypeInfo::get_error();
+                                return;
+                            }
+
+                            default: ARIA_UNREACHABLE("Invalid generic decl");
+                        }
+                    }
 
                     default: ARIA_UNREACHABLE("Invalid symbol kind");
                 }
@@ -252,6 +269,20 @@ namespace ariac {
                             case DeclKind::Typedef:
                             case DeclKind::Enum: expr->type = TypeInfo::get_error(); return;
 
+                            case DeclKind::Generic: {
+                                if (sym->generic.decl->kind == DeclKind::Function) {
+                                    context.report_compiler_diagnostic_with_notes(expr->loc, "Generic functions from other modules must be prefixed with the module name",
+                                        { fmt::format("Did you mean to write '{}::{}'", import.resolved_module->name, dr.identifier)});
+
+                                    resolve_function_decl(sym->generic.decl);
+                                    expr->type = sym->generic.decl->function.type;
+                                } else {
+                                    expr->type = TypeInfo::get_error();
+                                }
+
+                                return;
+                            }
+
                             default: ARIA_UNREACHABLE("Invalid symbol kind");
                         }
                     }
@@ -329,6 +360,12 @@ namespace ariac {
                     if (mem.member == "name") {
                         member_type = TypeInfo::get_string();
                         expr->kind = ExprKind::BuiltinMember;
+                    } else if (mem.member == "kind") {
+                        member_type = TypeInfo::get_string();
+                        expr->kind = ExprKind::BuiltinMember;
+                    } else if (mem.member == "len") {
+                        member_type = TypeInfo::get_basic(TypeKind::Sz);
+                        expr->kind = ExprKind::BuiltinMember;
                     }
 
                     searching = false;
@@ -342,7 +379,7 @@ namespace ariac {
                     } else if (mem.member == "value") {
                         member_type = TypeInfo::get_void_ptr();
                         expr->kind = ExprKind::BuiltinMember;
-                    }
+                    } 
 
                     searching = false;
                     break;
@@ -491,7 +528,7 @@ namespace ariac {
         expr->type = member_type;
 
         if (expr->result_discarded) {
-            context.report_compiler_diagnostic(expr->loc, "Discarding result of member access", CompilerDiagKind::Warning);
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
         }
     }
 
@@ -542,6 +579,10 @@ namespace ariac {
                         if (call.generic_arguments.size != g->generic.parameters.size) {
                             context.report_compiler_diagnostic(expr->loc, fmt::format("Mismatched generic instantiation, generic expects {} arguments but got {}", g->generic.parameters.size, call.generic_arguments.size));
                         } else {
+                            for (TypeInfo* t : call.generic_arguments) {
+                                resolve_type(t);
+                            }
+
                             Decl* specilization = nullptr;
                             for (Decl* i : g->generic.specilizations) {
                                 ARIA_ASSERT(i->kind == DeclKind::FunctionSpecilization, "Invalid generic specilization");
@@ -954,7 +995,7 @@ namespace ariac {
         try_insert_implicit_cast(dst_type, cast.expression);
 
         if (expr->result_discarded) {
-            context.report_compiler_diagnostic(expr->loc, "Discarding result of explicit cast", CompilerDiagKind::Warning);
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
         }
     }
 
@@ -1122,7 +1163,7 @@ namespace ariac {
                 expr->value_kind = ExprValueKind::RValue;
 
                 if (expr->result_discarded) {
-                    context.report_compiler_diagnostic(expr->loc, "Discarding result of binary operator", CompilerDiagKind::Warning);
+                    context.report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
                 }
 
                 return;
@@ -1154,7 +1195,7 @@ namespace ariac {
                 expr->value_kind = ExprValueKind::RValue;
 
                 if (expr->result_discarded) {
-                    context.report_compiler_diagnostic(expr->loc, "Discarding result of binary operator", CompilerDiagKind::Warning);
+                    context.report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
                 }
                 return;
             }
@@ -1180,7 +1221,7 @@ namespace ariac {
                 expr->value_kind = ExprValueKind::RValue;
 
                 if (expr->result_discarded) {
-                    context.report_compiler_diagnostic(expr->loc, "Discarding result of bitwise operator", CompilerDiagKind::Warning);
+                    context.report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
                 }
                 return;
             }
@@ -1221,7 +1262,7 @@ namespace ariac {
                 expr->value_kind = ExprValueKind::RValue;
 
                 if (expr->result_discarded) {
-                    context.report_compiler_diagnostic(expr->loc, "Discarding result of logical operator", CompilerDiagKind::Warning);
+                    context.report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
                 }
                 return;
             }

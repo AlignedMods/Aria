@@ -113,12 +113,12 @@ namespace ariac {
 
         m_active_module_context.builder->SetInsertPoint(if_body);
         gen_block_stmt(i.body);
-        m_active_module_context.builder->CreateBr(if_end);
+        if (i.body->block.reaches_end) { m_active_module_context.builder->CreateBr(if_end); }
 
         if (else_body) {
             m_active_module_context.builder->SetInsertPoint(else_body);
             gen_block_stmt(i.else_body);
-            m_active_module_context.builder->CreateBr(if_end);
+            if (i.body->block.reaches_end) { m_active_module_context.builder->CreateBr(if_end); }
         }
 
         m_active_module_context.builder->SetInsertPoint(if_end);

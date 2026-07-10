@@ -8,6 +8,8 @@ namespace ariac {
         for (Stmt* s : block.stmts) {
             resolve_stmt(s);
         }
+
+        stmt->block.reaches_end = m_scopes.back().reaches_end;
     }
 
     void SemanticAnalyzer::resolve_while_stmt(Stmt* stmt) {

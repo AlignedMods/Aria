@@ -83,7 +83,6 @@ namespace ariac {
             m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
 
             for (Decl* param : fn->parameters) {
-                
                 TypeInfo* param_type = param->param.variadic ? TypeInfo::create_with_base(TypeKind::Slice, param->param.type) : param->param.type;
                 ABIParamTypeInfo info = get_param_abi_type_info(param_type);
 

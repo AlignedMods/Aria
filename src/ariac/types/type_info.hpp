@@ -29,6 +29,9 @@ namespace ariac {
 
         // TypeInfo is a built in type that has the following runtime layout:
         // name: String;
+        // kind: String;
+        // len: sz;
+        // types: []*typeinfo;
         TypeInfo,
 
         // Any is a built in type that has the following runtime layout:

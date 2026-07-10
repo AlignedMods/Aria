@@ -158,6 +158,10 @@ namespace ariac {
             case TypeKind::TypeInfo: {
                 if (mem.member == "name") {
                     return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 0);
+                } else if (mem.member == "kind") {
+                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 1);
+                } else if (mem.member == "len") {
+                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 2);
                 }
 
                 ARIA_UNREACHABLE("Should never be reached");
@@ -247,39 +251,33 @@ namespace ariac {
             llvm::Type* any_type = llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_any");
             size_t var_num = call.arguments.size - call.callee->type->function.param_types.size + 1;
             llvm::Type* arr_type = llvm::ArrayType::get(any_type, var_num);
-            llvm::Value* temp_arr = alloca_at_entry(m_active_module_context.function, "temp", arr_type);
-
-            m_active_module_context.builder->CreateStore(llvm::Constant::getNullValue(arr_type), temp_arr);
+            llvm::Value* slots = alloca_at_entry(m_active_module_context.function, "varargslots", arr_type);
 
             size_t arg_idx = 0;
             for (size_t i = call.callee->type->function.param_types.size - 1; i < call.arguments.size; i++) {
                 Expr* arg = call.arguments.items[i];
+                llvm::Value* taddr = alloca_at_entry(m_active_module_context.function, "tempaddr", type_info_to_llvm_type(arg->type));
+
                 llvm::Value* val = gen_expr(arg);
-
-                llvm::Value* addr = alloca_at_entry(m_active_module_context.function, "tempaddr", llvm::PointerType::get(*m_active_module_context.context, 0));
-                m_active_module_context.builder->CreateStore(val, addr);
-
                 llvm::Value* ti = get_typeinfo(arg->type);
+                m_active_module_context.builder->CreateStore(val, taddr);
 
-                llvm::Value* curr_arg = m_active_module_context.builder->CreateGEP(arr_type, temp_arr, {
-                    m_active_module_context.builder->getInt32(0), m_active_module_context.builder->getInt32(arg_idx) });
+                llvm::Value* undef = llvm::UndefValue::get(any_type);
+                llvm::Value* any = m_active_module_context.builder->CreateInsertValue(undef, ti, 0);
+                any = m_active_module_context.builder->CreateInsertValue(any, taddr, 1);
 
-                llvm::Value* ptr_to_any = alloca_at_entry(m_active_module_context.function, "ptrtoany", any_type);
+                llvm::Value* zero = m_active_module_context.builder->getInt32(0);
+                llvm::Value* idx = m_active_module_context.builder->getInt32(static_cast<i32>(arg_idx));
+                llvm::Value* curr_arg = m_active_module_context.builder->CreateGEP(arr_type, slots, { zero, idx });
 
-                llvm::Value* any_type_addr = m_active_module_context.builder->CreateStructGEP(any_type, ptr_to_any, 0);
-                m_active_module_context.builder->CreateStore(ti, any_type_addr);
-
-                llvm::Value* any_value_addr = m_active_module_context.builder->CreateStructGEP(any_type, ptr_to_any, 1);
-                m_active_module_context.builder->CreateStore(addr, any_type_addr);
-
-                m_active_module_context.builder->CreateStore(m_active_module_context.builder->CreateLoad(any_type, ptr_to_any), curr_arg);
+                m_active_module_context.builder->CreateStore(any, curr_arg);
                 arg_idx++;
             }
 
             llvm::Value* slice = alloca_at_entry(m_active_module_context.function, "arr_to_slice", slice_type);
             
             llvm::Value* mem = m_active_module_context.builder->CreateStructGEP(slice_type, slice, 0);
-            m_active_module_context.builder->CreateStore(temp_arr, mem);
+            m_active_module_context.builder->CreateStore(slots, mem);
 
             llvm::Value* len = m_active_module_context.builder->CreateStructGEP(slice_type, slice, 1);
             m_active_module_context.builder->CreateStore(m_active_module_context.builder->getInt(llvm::APInt(TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), var_num)), len);

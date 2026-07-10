@@ -1,0 +1,15 @@
+module std::core;
+
+import libc;
+
+fn any_has_type<T>(a: *any) -> bool {
+    return libc::strcmp(a.type.name.mem, typeid(T).name.mem) == 0;
+}
+
+fn any_is_array(a: *any) -> bool {
+    return libc::strcmp(a.type.kind.mem, c"array") == 0;
+}
+
+fn any_cast<T>(a: *any) -> T {
+    return *cast(*T, a.value);
+}
