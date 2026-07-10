@@ -432,7 +432,12 @@ namespace ariac {
                 params.push_back(llvm::PointerType::get(*m_active_module_context.context, 0)); // self
             }
 
-            for (TypeInfo* type : t->function.param_types) {
+            for (size_t i = 0; i < t->function.param_types.size; i++) {
+                if (t->function.variadic == VariadicKind::Named && i == t->function.param_types.size - 1) {
+                    break;
+                }
+
+                TypeInfo* type = t->function.param_types.items[i];
                 ABIParamTypeInfo info = get_param_abi_type_info(type);
 
                 if (info.pass_direct) {
@@ -446,7 +451,19 @@ namespace ariac {
                 }
             }
 
-            return llvm::FunctionType::get(ret_type, params, t->function.var_arg);
+            if (t->function.variadic == VariadicKind::Named) {
+                ABIParamTypeInfo info = get_param_abi_type_info(TypeInfo::get_char_slice());
+
+                if (info.pass_by_ptr) {
+                    params.push_back(llvm::PointerType::get(*m_active_module_context.context, 0));
+                } else if (info.pass_by_integer) {
+                    params.push_back(llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(info.int_bits)));
+                } else {
+                    ARIA_UNREACHABLE("Invalid ABIRetTypeInfo");
+                }
+            }
+
+            return llvm::FunctionType::get(ret_type, params, t->function.variadic == VariadicKind::Unnamed);
         } else if (t->kind == TypeKind::Structure) {
             std::string name = fmt::format("{}.{}", valid_module_name(t->struct_.source_decl->parent_module->name), t->struct_.identifier);
             llvm::Type* s = llvm::StructType::getTypeByName(*m_active_module_context.context, name);
@@ -518,9 +535,33 @@ namespace ariac {
         } else if (t->is_floating_point()) {
             dit = m_active_debug_context.active_builder->createBasicType(str_type, t->get_bit_size(), llvm::dwarf::DW_ATE_float);
         } else if (t->is_typeinfo()) {
-            dit = m_active_debug_context.active_builder->createBasicType(str_type, t->get_size() * 8, llvm::dwarf::DW_ATE_ASCII);
+            std::array<llvm::Metadata*, 1> elems{};
+
+            u64 offset_bits = 0;
+            elems[0] = m_active_debug_context.active_builder->createMemberType(m_active_debug_context.scope, "type", 
+                m_active_debug_context.scope->getFile(), 0, TypeInfo::get_string()->get_bit_size(), TypeInfo::get_string()->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
+                type_info_to_debug_type(TypeInfo::get_string()));
+
+            dit = m_active_debug_context.active_builder->createStructType(m_active_debug_context.scope,
+                str_type, m_active_debug_context.scope->getFile(), 0, t->get_size() * 8, t->get_alignment() * 8,
+                llvm::DINode::DIFlags::FlagExplicit, nullptr, m_active_debug_context.active_builder->getOrCreateArray(elems));
         } else if (t->is_any()) {
-            dit = m_active_debug_context.active_builder->createBasicType(str_type, t->get_size() * 8, llvm::dwarf::DW_ATE_ASCII);
+            std::array<llvm::Metadata*, 2> elems{};
+
+            u64 offset_bits = 0;
+            elems[0] = m_active_debug_context.active_builder->createMemberType(m_active_debug_context.scope, "type", 
+                m_active_debug_context.scope->getFile(), 0, TypeInfo::get_typeinfo_ptr()->get_bit_size(), TypeInfo::get_typeinfo_ptr()->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
+                type_info_to_debug_type(TypeInfo::get_typeinfo_ptr()));
+
+            offset_bits += TypeInfo::get_typeinfo_ptr()->get_bit_size();
+
+            elems[1] = m_active_debug_context.active_builder->createMemberType(m_active_debug_context.scope, "value", 
+                m_active_debug_context.scope->getFile(), 0, TypeInfo::get_void_ptr()->get_bit_size(), TypeInfo::get_void_ptr()->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
+                type_info_to_debug_type(TypeInfo::get_void_ptr()));
+
+            dit = m_active_debug_context.active_builder->createStructType(m_active_debug_context.scope,
+                str_type, m_active_debug_context.scope->getFile(), 0, t->get_size() * 8, t->get_alignment() * 8,
+                llvm::DINode::DIFlags::FlagExplicit, nullptr, m_active_debug_context.active_builder->getOrCreateArray(elems));
         } else if (t->is_pointer()) {
             dit = m_active_debug_context.active_builder->createPointerType(type_info_to_debug_type(t->base), t->get_bit_size());
         } else if (t->is_array()) {
@@ -588,7 +629,11 @@ namespace ariac {
             case TypeKind::Double: return "d";
 
             case TypeKind::TypeInfo: return "ti";
+
             case TypeKind::Pointer: return fmt::format("P{}", mangle_type(t->base));
+            case TypeKind::Slice: return fmt::format("S{}", mangle_type(t->base));
+
+            case TypeKind::Typedef: return mangle_type(t->typedef_.base);
 
             default: ARIA_UNREACHABLE("Invalid type kind");
         }

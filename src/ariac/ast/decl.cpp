@@ -38,7 +38,7 @@ namespace ariac {
                     copy->function.parameters.append(Decl::dup(p));
                 }
 
-                copy->function.body = Stmt::dup(f.body);
+                if (f.body) { copy->function.body = Stmt::dup(f.body); }
                 copy->function.linkage_kind = f.linkage_kind;
                 break;
             }

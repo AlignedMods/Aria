@@ -48,8 +48,8 @@ namespace ariac {
             context.report_compiler_diagnostic(decl->loc, "Function marked 'extern' must not have body");
         }
 
-        if (fnDecl.type->function.var_arg && fnDecl.linkage_kind != LinkageKind::Extern) {
-            context.report_compiler_diagnostic(decl->loc, "Function with variable amount of parameters (vararg) must be marked 'extern'");
+        if (fnDecl.type->function.variadic == VariadicKind::Unnamed && fnDecl.linkage_kind != LinkageKind::Extern) {
+            context.report_compiler_diagnostic(decl->loc, "C style variadic functions must be marked 'extern'");
         }
 
         if (fnDecl.body) {

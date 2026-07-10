@@ -54,15 +54,27 @@ namespace ariac {
         Unresolved
     };
 
+    enum class VariadicKind {
+        None,
+
+        Unnamed, // foo(int a, int b, ...);
+                 // Supported only on functions marked 'extern'
+
+        Named // foo(int a, int b, args...);
+              // Supported on all functions
+    };
+
     struct TypeInfo;
 
     struct FunctionType {
-        FunctionType(TypeInfo* ret, TinyVector<TypeInfo*> params, bool var_arg)
-            : return_type(ret), param_types(params), var_arg(var_arg) {}
+        FunctionType(TypeInfo* ret, TinyVector<TypeInfo*> params, VariadicKind var)
+            : return_type(ret), param_types(params), variadic(var) {}
+
+        bool is_variadic() const { return variadic == VariadicKind::Unnamed || variadic == VariadicKind::Named; }
 
         TypeInfo* return_type = nullptr;
         TinyVector<TypeInfo*> param_types;
-        bool var_arg = false;
+        VariadicKind variadic;
     };
 
     struct ArrayType {
@@ -143,7 +155,7 @@ namespace ariac {
 
         static TypeInfo* create_basic(TypeKind kind, SourceLoc loc = {});
         static TypeInfo* create_with_base(TypeKind kind, TypeInfo* base, SourceLoc loc = {});
-        static TypeInfo* create_function(TypeKind kind, TypeInfo* ret, TinyVector<TypeInfo*> params, bool var_arg, SourceLoc loc = {});
+        static TypeInfo* create_function(TypeKind kind, TypeInfo* ret, TinyVector<TypeInfo*> params, VariadicKind variadic, SourceLoc loc = {});
         static TypeInfo* create_struct(Decl* d, SourceLoc loc = {});
         static TypeInfo* create_struct(std::string_view name, Decl* d, SourceLoc loc = {});
         static TypeInfo* create_typedef(Decl* d, SourceLoc loc = {});
@@ -158,6 +170,7 @@ namespace ariac {
         static TypeInfo* get_void_ptr();
         static TypeInfo* get_char_ptr();
         static TypeInfo* get_typeinfo_ptr();
+        static TypeInfo* get_char_slice();
         static TypeInfo* get_string();
 
         static TypeInfo* dup(TypeInfo* type);

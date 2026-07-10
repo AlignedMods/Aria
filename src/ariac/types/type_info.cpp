@@ -21,6 +21,7 @@ namespace ariac {
     static TypeInfo* float_type;
     static TypeInfo* double_type;
     static TypeInfo* typeinfo_type;
+    static TypeInfo* any_type;
     static TypeInfo* void_ptr_type;
     static TypeInfo* char_ptr_type;
     static TypeInfo* typeinfo_ptr_type;
@@ -40,11 +41,11 @@ namespace ariac {
         return t;
     }
 
-    TypeInfo* TypeInfo::create_function(TypeKind kind, TypeInfo* ret, TinyVector<TypeInfo*> params, bool var_arg, SourceLoc loc) {
+    TypeInfo* TypeInfo::create_function(TypeKind kind, TypeInfo* ret, TinyVector<TypeInfo*> params, VariadicKind variadic, SourceLoc loc) {
         TypeInfo* t = context.allocate<TypeInfo>();
         t->kind = kind;
         t->loc = loc;
-        t->function = FunctionType(ret, params, var_arg);
+        t->function = FunctionType(ret, params, variadic);
         return t;
     }
 
@@ -132,7 +133,7 @@ namespace ariac {
                 }
 
                 t->function.return_type = TypeInfo::dup(type->function.return_type);
-                t->function.var_arg = type->function.var_arg;
+                t->function.variadic = type->function.variadic;
                 break;
             }
 
@@ -205,6 +206,7 @@ namespace ariac {
             TYPE(Float, float_type)
             TYPE(Double, double_type)
             TYPE(TypeInfo, typeinfo_type)
+            TYPE(Any, any_type)
 
             default: ARIA_UNREACHABLE("Invalid type kind");
         }
@@ -228,11 +230,15 @@ namespace ariac {
         return typeinfo_ptr_type;
     }
 
+    TypeInfo* TypeInfo::get_char_slice() {
+        if (char_slice_type) { return char_slice_type; }
+        char_slice_type = create_with_base(TypeKind::Slice, get_basic(TypeKind::Char));
+        return char_slice_type;
+    }
+
     TypeInfo* TypeInfo::get_string() {
         if (context.opts->no_stdlib) {
-            if (char_slice_type) { return char_slice_type; }
-            char_slice_type = create_with_base(TypeKind::Slice, get_basic(TypeKind::Char));
-            return char_slice_type;
+            return get_char_slice();
         } else {
             if (std_core_string_type) { return std_core_string_type; }
 
@@ -386,6 +392,8 @@ namespace ariac {
                 }
             }
 
+            case TypeKind::Slice: return get_size() * 8;
+
             case TypeKind::Structure: return get_size() * 8;
 
             case TypeKind::Typedef: return typedef_.base->get_bit_size();
@@ -418,6 +426,7 @@ namespace ariac {
                 return 0;
             }
 
+            case TypeKind::TypeInfo: return TypeInfo::get_string()->get_alignment();
             case TypeKind::Any: return TypeInfo::get_void_ptr()->get_alignment();
 
             case TypeKind::Pointer: {
@@ -446,6 +455,8 @@ namespace ariac {
 
                 return alignment;
             }
+
+            case TypeKind::Typedef: return typedef_.base->get_alignment();
 
             default: ARIA_UNREACHABLE("Invalid type kind");
         }
@@ -525,7 +536,8 @@ namespace ariac {
                     }
                 }
 
-                if (ty.var_arg) { str += ", ..."; }
+                if (ty.variadic == VariadicKind::Unnamed) { str += ", ..."; }
+                else if (ty.variadic == VariadicKind::Named) { str += "..."; }
 
                 str += ")";
                 str += fmt::format(" -> {}", type_info_to_string(ty.return_type, pretty));
@@ -542,7 +554,8 @@ namespace ariac {
                     str += type_info_to_string(ty.param_types.items[i], pretty);
                 }
 
-                if (ty.var_arg) { str += ", ..."; }
+                if (ty.variadic == VariadicKind::Unnamed) { str += ", ..."; }
+                else if (ty.variadic == VariadicKind::Named) { str += "..."; }
 
                 str += ")";
                 str += fmt::format(" -> {}", type_info_to_string(ty.return_type, pretty));

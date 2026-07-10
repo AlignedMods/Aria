@@ -144,10 +144,10 @@ namespace ariac {
 
             case ExprKind::BuiltinCall: m_output += fmt::format("BuiltinCallExpr {} {} '{}' '{}' {}\n",
                 source_loc_to_string(expr->loc), builtin_call_kind_to_string(expr->builtin_call.kind), 
-                type_info_to_string(expr->builtin_call.expression ? expr->builtin_call.expression->type : expr->builtin_call.type, false), 
-                    type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
+                type_info_to_string(expr->builtin_call.type ? expr->builtin_call.type : expr->builtin_call.expression->type, false), 
+                type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
-                if (expr->builtin_call.expression) { dump_expr(expr->builtin_call.expression, indentation + 4); }
+                if (expr->builtin_call.expression && !expr->builtin_call.type) { dump_expr(expr->builtin_call.expression, indentation + 4); }
                 return;
 
             case ExprKind::Construct: m_output += fmt::format("ConstructExpr {} '{}' {}\n",
@@ -274,8 +274,8 @@ namespace ariac {
                 }
                 return;
 
-            case DeclKind::Param: m_output += fmt::format("ParamDecl {} '{}' '{}'\n",
-                source_loc_to_string(decl->loc), decl->param.identifier, type_info_to_string(decl->param.type, false));
+            case DeclKind::Param: m_output += fmt::format("ParamDecl {} '{}' '{}'{}\n",
+                source_loc_to_string(decl->loc), decl->param.identifier, type_info_to_string(decl->param.type, false), decl->param.variadic ? " variadic" : "");
                 return;
 
             case DeclKind::Function: m_output += fmt::format("FunctionDecl {} '{}' {} '{}' {}\n",
@@ -443,6 +443,7 @@ namespace ariac {
             case StmtKind::If: m_output += fmt::format("IfStmt {}\n", source_loc_to_string(stmt->loc));
                 dump_expr(stmt->if_.condition, indentation + 4);
                 dump_stmt(stmt->if_.body, indentation + 4);
+
                 if (stmt->if_.else_body) { dump_stmt(stmt->if_.else_body, indentation + 4); }
                 return;
 

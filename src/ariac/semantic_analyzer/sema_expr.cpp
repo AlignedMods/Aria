@@ -180,7 +180,12 @@ namespace ariac {
                     }
 
                     case DeclKind::Param: {
-                        expr->type = sym->param.type;
+                        if (sym->param.variadic) {
+                            expr->type = TypeInfo::create_with_base(TypeKind::Slice, sym->param.type);
+                        } else {
+                            expr->type = sym->param.type;
+                        }
+
                         return;
                     }
 
@@ -457,7 +462,10 @@ namespace ariac {
                     }
 
                     parent_type = parent_type->base;
+                    implicit_deref = true;
                     mem.implicit_deref = true;
+
+                    require_rvalue(mem.parent);
                     break;
                 }
 
@@ -485,6 +493,11 @@ namespace ariac {
         if (expr->result_discarded) {
             context.report_compiler_diagnostic(expr->loc, "Discarding result of member access", CompilerDiagKind::Warning);
         }
+    }
+
+    void SemanticAnalyzer::resolve_builtin_member_expr(Expr* expr) {
+        MemberExpr& m = expr->member;
+        resolve_expr(m.parent);
     }
 
     void SemanticAnalyzer::resolve_self_expr(Expr* expr) {
@@ -606,17 +619,18 @@ namespace ariac {
 
                 FunctionType& fn_type = calleeType->function;
 
-                if (fn_type.param_types.size != call.arguments.size && !fn_type.var_arg) {
+                if (fn_type.param_types.size != call.arguments.size && !fn_type.is_variadic()) {
                     context.report_compiler_diagnostic(expr->loc, fmt::format("Mismatched argument count, function expects {} but got {}", fn_type.param_types.size, call.arguments.size));
                     for (size_t i = 0; i < call.arguments.size; i++) {
                         resolve_expr(call.arguments.items[i]);
                     }
                 } else {
                     for (size_t i = 0; i < fn_type.param_types.size; i++) {
+                        if (fn_type.variadic == VariadicKind::Named && i == fn_type.param_types.size - 1) { break; }
                         resolve_param_initializer(fn_type.param_types.items[i], call.arguments.items[i]);
                     }
 
-                    if (fn_type.var_arg) {
+                    if (fn_type.variadic == VariadicKind::Unnamed) {
                         for (size_t i = fn_type.param_types.size; i < call.arguments.size; i++) {
                             Expr* arg = call.arguments.items[i];
                             resolve_expr(arg);
@@ -640,6 +654,12 @@ namespace ariac {
                             } else if (!arg->type->is_error()) {
                                 context.report_compiler_diagnostic(arg->loc, fmt::format("Passing argument of non-trivial type ('{}') is not allowed", type_info_to_string(arg->type)));
                             }
+                        }
+                    } else if (fn_type.variadic == VariadicKind::Named) {
+                        for (size_t i = fn_type.param_types.size - 1; i < call.arguments.size; i++) {
+                            Expr* arg = call.arguments.items[i];
+                            resolve_expr(arg);
+                            require_rvalue(arg);
                         }
                     }
                 }
@@ -1253,6 +1273,7 @@ namespace ariac {
             case ExprKind::Null: resolve_null_expr(expr); break;
             case ExprKind::DeclRef: resolve_decl_ref_expr(expr); break;
             case ExprKind::Member: resolve_member_expr(expr); break;
+            case ExprKind::BuiltinMember: resolve_builtin_member_expr(expr); break;
             case ExprKind::Self: resolve_self_expr(expr); break;
             case ExprKind::Call: resolve_call_expr(expr); break;
             case ExprKind::BuiltinCall: resolve_builtin_call_expr(expr); break;

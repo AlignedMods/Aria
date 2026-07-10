@@ -152,11 +152,12 @@ namespace ariac {
     };
 
     struct ParamDecl {
-        ParamDecl(std::string_view identifier, TypeInfo* type)
-            : identifier(identifier), type(type) {}
+        ParamDecl(std::string_view identifier, TypeInfo* type, bool variadic)
+            : identifier(identifier), type(type), variadic(variadic) {}
 
         std::string_view identifier;
         TypeInfo* type = nullptr;
+        bool variadic;
     };
 
     struct FunctionDecl {

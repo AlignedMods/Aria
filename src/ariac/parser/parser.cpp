@@ -974,7 +974,7 @@ namespace ariac {
 
     Stmt* Parser::parse_if() {
         Token i = consume(); // consume "if"
-        
+
         Expr* condition = parse_expression();
         Stmt* body = parse_block_inline();
         Stmt* else_body = nullptr;
@@ -1309,8 +1309,8 @@ namespace ariac {
             generic_params = parse_generic_params();
         }
 
-        bool is_var_arg = false;
-        auto[params, param_types] = parse_function_params(&is_var_arg);
+        VariadicKind variadic = VariadicKind::None;
+        auto[params, param_types] = parse_function_params(&variadic);
 
         if (match(TokenKind::Arrow)) {
             consume();
@@ -1333,7 +1333,7 @@ namespace ariac {
             try_consume(TokenKind::Semi, ";");
         }
 
-        TypeInfo* final_type = TypeInfo::create_function(TypeKind::Function, ret_type, param_types, is_var_arg);
+        TypeInfo* final_type = TypeInfo::create_function(TypeKind::Function, ret_type, param_types, variadic);
 
         Decl* f = Decl::Create(ident->loc + ret_type->loc, DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, final_type, params, body, linkage));
         f->attributes = attrs;
@@ -1348,7 +1348,7 @@ namespace ariac {
         }
     }
 
-    std::pair<TinyVector<Decl*>, TinyVector<TypeInfo*>> Parser::parse_function_params(bool* var_arg) {
+    std::pair<TinyVector<Decl*>, TinyVector<TypeInfo*>> Parser::parse_function_params(VariadicKind* variadic) {
         TinyVector<Decl*> params;
         TinyVector<TypeInfo*> param_types;
 
@@ -1363,7 +1363,7 @@ namespace ariac {
 
             if (match(TokenKind::TripleDot)) {
                 Token& triple = consume();
-                *var_arg = true;
+                *variadic = VariadicKind::Unnamed;
 
                 if (match(TokenKind::Comma)) {
                     Token& c = consume();
@@ -1382,6 +1382,28 @@ namespace ariac {
                     continue;
                 }
 
+                if (match(TokenKind::TripleDot)) {
+                    Token& triple = consume();
+                    *variadic = VariadicKind::Named;
+
+                    TypeInfo* t = TypeInfo::get_basic(TypeKind::Any);
+
+                    params.append(Decl::Create(param_ident->loc, DeclKind::Param, DeclVisibility::Public, ParamDecl(param_ident->string, t, true)));
+                    param_types.append(t);
+
+                    if (match(TokenKind::Comma)) {
+                        Token& c = consume();
+                        context.report_compiler_diagnostic(c.loc, "Cannot declare parameters after '...'");
+                        continue;
+                    } else if (match(TokenKind::RightParen)) {
+                        break;
+                    } else {
+                        context.report_compiler_diagnostic(peek()->loc, "Expected ')'");
+                        sync_params();
+                        continue;
+                    }
+                }
+
                 try_consume(TokenKind::Colon, ":");
 
                 if (!is_type()) {
@@ -1392,7 +1414,7 @@ namespace ariac {
 
                 TypeInfo* paramType = parse_type();
                 
-                params.append(Decl::Create(param_ident->loc, DeclKind::Param, DeclVisibility::Public, ParamDecl(param_ident->string, paramType)));
+                params.append(Decl::Create(param_ident->loc, DeclKind::Param, DeclVisibility::Public, ParamDecl(param_ident->string, paramType, false)));
                 param_types.append(paramType);
 
                 if (match(TokenKind::Comma)) { consume(); continue; }
@@ -1573,8 +1595,8 @@ namespace ariac {
                 Token* name = try_consume(TokenKind::Identifier, "identifier");
                 if (!name) { sync_local(); continue; }
                 
-                bool is_var_arg = false;
-                auto[params, param_types] = parse_function_params(&is_var_arg);
+                VariadicKind variadic = VariadicKind::None;
+                auto[params, param_types] = parse_function_params(&variadic);
 
                 TypeInfo* ret_type = TypeInfo::get_error();
 
@@ -1590,7 +1612,7 @@ namespace ariac {
 
                 Stmt* body = parse_block();
 
-                TypeInfo* final_type = TypeInfo::create_function(TypeKind::Method, ret_type, param_types, is_var_arg);
+                TypeInfo* final_type = TypeInfo::create_function(TypeKind::Method, ret_type, param_types, variadic);
                 impl->impl.fields.append(Decl::Create(loc + peek(-1)->loc, DeclKind::Method,
                     visibility, MethodDecl(impl, name->string, final_type, params, body)));
             } else if (match(TokenKind::HashPrivate)) {
