@@ -45,6 +45,10 @@ namespace ariac {
         DeclRefExpr& dr = expr->decl_ref;
 
         std::string pretty_ident = dr.name_specifier ? fmt::format("{}::{}", dr.name_specifier->name.identifier, dr.identifier) : fmt::format("{}", dr.identifier);
+
+        // if (pretty_ident == "core::any_has_type") {
+        //     ARIA_DEBUGBREAK();
+        // }
         
         if (expr->result_discarded) {
             context.report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
@@ -147,7 +151,7 @@ namespace ariac {
                     }
 
                     Expr* self = Expr::Create(expr->loc, ExprKind::Self, 
-                        ExprValueKind::RValue, TypeInfo::create_with_base(TypeKind::Pointer, m_active_struct), 
+                        ExprValueKind::LValue, TypeInfo::create_with_base(TypeKind::Pointer, m_active_struct), 
                         ErrorExpr());
 
                     Expr* member = Expr::Create(expr->loc, ExprKind::Member,
@@ -219,7 +223,16 @@ namespace ariac {
                     case DeclKind::Generic: {
                         switch (sym->generic.decl->kind) {
                             case DeclKind::Function: {
+                                Module* m = context.active_module;
+                                CompilationUnit* c = context.active_comp_unit;
+                                context.active_module = sym->parent_module;
+                                context.active_comp_unit = sym->parent_unit;
+
                                 resolve_function_decl(sym->generic.decl);
+
+                                context.active_module = m;
+                                context.active_comp_unit = c;
+
                                 expr->type = sym->generic.decl->function.type;
                                 return;
                             }
@@ -363,8 +376,15 @@ namespace ariac {
                     } else if (mem.member == "kind") {
                         member_type = TypeInfo::get_string();
                         expr->kind = ExprKind::BuiltinMember;
+                    } else if (mem.member == "size") {
+                        member_type = TypeInfo::get_basic(TypeKind::Sz);
+                        expr->kind = ExprKind::BuiltinMember;
                     } else if (mem.member == "len") {
                         member_type = TypeInfo::get_basic(TypeKind::Sz);
+                        expr->kind = ExprKind::BuiltinMember;
+                    } else if (mem.member == "types") {
+                        TypeInfo* ti_ptr = TypeInfo::create_with_base(TypeKind::Pointer, TypeInfo::get_basic(TypeKind::TypeInfo));
+                        member_type = TypeInfo::create_with_base(TypeKind::Slice, ti_ptr);
                         expr->kind = ExprKind::BuiltinMember;
                     }
 
@@ -538,6 +558,16 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_self_expr(Expr* expr) {
+        if (!m_active_struct) {
+            context.report_compiler_diagnostic(expr->loc, "Cannot use 'self' outside of a method");
+            expr->type = TypeInfo::get_error();
+            return;
+        }
+
+        if (!expr->type) {
+            expr->type = TypeInfo::create_with_base(TypeKind::Pointer, m_active_struct);
+        }
+
         resolve_type(expr->type);
     }
 
@@ -546,7 +576,10 @@ namespace ariac {
 
         resolve_expr(call.callee);
 
-        if (call.callee->kind == ExprKind::Error) { expr->type = TypeInfo::get_error(); return;}
+        if (call.callee->kind == ExprKind::Error) {
+            expr->type = TypeInfo::get_error();
+            return;
+        }
 
         if (call.callee->kind == ExprKind::Member) {
             expr->kind = ExprKind::MethodCall;
@@ -790,28 +823,48 @@ namespace ariac {
         }
 
         resolve_type(expr->type);
-        Decl* s = expr->type->struct_.source_decl;
 
-        if (construct.arguments.size > s->struct_.fields.size) {
-            context.report_compiler_diagnostic(expr->loc, fmt::format("Too many initializers for '{}', expected {} but provided {}", type_info_to_string(expr->type), s->struct_.fields.size, construct.arguments.size));
-            expr->type = TypeInfo::get_error();
-            return;
-        }
+        if (expr->type->is_structure()) {
+            Decl* s = expr->type->struct_.source_decl;
 
-        size_t i = 0;
-        for (Expr* arg : construct.arguments) {
-            resolve_expr(arg);
+            if (construct.arguments.size > s->struct_.fields.size) {
+                context.report_compiler_diagnostic(expr->loc, fmt::format("Too many initializers for '{}', expected {} but provided {}", type_info_to_string(expr->type), s->struct_.fields.size, construct.arguments.size));
+                expr->type = TypeInfo::get_error();
+                return;
+            }
 
-            if (!is_const_expr(arg)) { construct.is_const = false; }
+            size_t i = 0;
+            for (Expr* arg : construct.arguments) {
+                resolve_expr(arg);
 
-            Decl* fd = s->struct_.fields.items[i++];
-            if (fd->kind == DeclKind::Error) { continue; }
+                if (!is_const_expr(arg)) { construct.is_const = false; }
 
-            try_insert_implicit_cast(fd->field.type, arg);
+                Decl* fd = s->struct_.fields.items[i++];
+                if (fd->kind == DeclKind::Error) { continue; }
 
-            if (fd->visibility == DeclVisibility::Private) {
-                context.report_compiler_diagnostic(arg->loc, fmt::format("Cannot initialize private field '{}'", fd->field.identifier));
-                context.report_compiler_diagnostic(fd->loc, "Declared here", CompilerDiagKind::Note, fd->parent_unit);
+                try_insert_implicit_cast(fd->field.type, arg);
+
+                if (fd->visibility == DeclVisibility::Private) {
+                    context.report_compiler_diagnostic(arg->loc, fmt::format("Cannot initialize private field '{}'", fd->field.identifier));
+                    context.report_compiler_diagnostic(fd->loc, "Declared here", CompilerDiagKind::Note, fd->parent_unit);
+                }
+            }
+        } else {
+            ARIA_ASSERT(expr->type->is_any(), "Type must be any");
+
+            construct.is_const = false;
+
+            if (construct.arguments.size > 2) {
+                context.report_compiler_diagnostic(expr->loc, fmt::format("Too many initializers for '{}', expected 2 but provided {}", type_info_to_string(expr->type), construct.arguments.size));
+                expr->type = TypeInfo::get_error();
+                return;
+            }
+
+            for (size_t i = 0; i < construct.arguments.size; i++) {
+                Expr* arg = construct.arguments.items[i];
+                resolve_expr(arg);
+                if (i == 0) { try_insert_implicit_cast(TypeInfo::get_typeinfo_ptr(), arg); }
+                if (i == 1) { try_insert_implicit_cast(TypeInfo::get_void_ptr(), arg); }
             }
         }
     }
@@ -1341,7 +1394,8 @@ namespace ariac {
         
         // We may be referencing ourselves
         if (compare_module_names(name.identifier, context.active_comp_unit->parent->name)) {
-            mod = context.active_comp_unit->parent;
+            name.referenced_module = context.active_comp_unit->parent;
+            return;
         }
 
         for (Decl* import : context.active_comp_unit->imports) {
@@ -1621,6 +1675,16 @@ namespace ariac {
             case ExprKind::Paren: return is_assignable_expr(expr->paren.expression);
             case ExprKind::Cast: return is_assignable_expr(expr->cast.expression);
             case ExprKind::ImplicitCast: return is_assignable_expr(expr->implicit_cast.expression);
+
+            case ExprKind::UnaryOperator: {
+                switch (expr->unary_operator.op) {
+                    case UnaryOperatorKind::Increment:
+                    case UnaryOperatorKind::Decrement:
+                    case UnaryOperatorKind::Dereference: return true;
+
+                    default: return false;
+                }
+            }
 
             default: return false;
         }

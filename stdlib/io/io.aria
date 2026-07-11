@@ -18,74 +18,8 @@ fn fprintfln(file: File, fmt: String, args...) { internal_vprintf(file.handle, f
 #private
 
 fn internal_vprintf(file: *FILE, fmt: String, args: []any, add_newline: bool) {
-    let var_idx = 0;
-
-    for (i: sz = 0; i < fmt.len; i++) {
-        if fmt[i] == '%' {
-            i++;
-            if fmt[i] == '%' {
-                libc::fputc('%', file);
-            } else if fmt[i] == 's' {
-                i++;
-
-                if var_idx < args.len {
-                    let arg = &args[var_idx++];
-                    internal_vprint_arg(file, arg);
-                }
-            }
-        } else {
-            libc::fputc(fmt[i], file);
-        }
-    }
-
-    if add_newline {
-        libc::fputc('\n', file);
-    }
-}
-
-fn internal_vprint_arg(file: *FILE, arg: *any) {
-    if core::any_has_type(<char>, arg) {
-        libc::fprintf(file, c"%c", core::any_cast(<char>, arg));
-        return;
-    }
-
-    if core::any_has_type(<short>, arg) {
-        libc::fprintf(file, c"%d", core::any_cast(<short>, arg));
-        return;
-    }
-
-    if core::any_has_type(<ushort>, arg) {
-        libc::fprintf(file, c"%u", core::any_cast(<ushort>, arg));
-        return;
-    }
-
-    if core::any_has_type(<int>, arg) {
-        libc::fprintf(file, c"%d", core::any_cast(<int>, arg));
-        return;
-    }
-
-    if core::any_has_type(<uint>, arg) {
-        libc::fprintf(file, c"%u", core::any_cast(<uint>, arg));
-        return;
-    }
-
-    if core::any_has_type(<float>, arg) {
-        libc::fprintf(file, c"%f", core::any_cast(<float>, arg));
-        return;
-    }
-
-    if core::any_has_type(<double>, arg) {
-        libc::fprintf(file, c"%f", core::any_cast(<double>, arg));
-        return;
-    }
-
-    if core::any_has_type(<String>, arg) {
-        let str = core::any_cast(<String>, arg);
-        libc::fprintf(file, c"%.*s", str.len, str.mem);
-        return;
-    }
-
-    if core::any_is_array(arg) {
-        return;
-    }
+    let s: StringStream;
+    s.vappendf(fmt, args);
+    if add_newline { s.append_char('\n'); }
+    libc::fputs(s.to_ptr(), file);
 }

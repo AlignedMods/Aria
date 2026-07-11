@@ -160,8 +160,12 @@ namespace ariac {
                     return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 0);
                 } else if (mem.member == "kind") {
                     return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 1);
-                } else if (mem.member == "len") {
+                } else if (mem.member == "size") {
                     return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 2);
+                } else if (mem.member == "len") {
+                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 3);
+                } else if (mem.member == "types") {
+                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 4);
                 }
 
                 ARIA_UNREACHABLE("Should never be reached");
@@ -207,7 +211,7 @@ namespace ariac {
 
     llvm::Value* Codegen::gen_self_expr(Expr* expr) {
         set_debug_loc(expr->loc);
-        return m_active_module_context.builder->CreateLoad(llvm::PointerType::get(*m_active_module_context.context, 0), m_self_value, "self");
+        return m_self_value;
     }
 
     llvm::Value* Codegen::gen_call_expr(Expr* expr) {

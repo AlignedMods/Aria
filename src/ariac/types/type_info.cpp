@@ -317,7 +317,7 @@ namespace ariac {
             case TypeKind::Double: return 8;
 
             case TypeKind::TypeInfo: {
-                return get_string()->get_size() * 2 + get_basic(TypeKind::Sz)->get_size() + get_char_slice()->get_size();
+                return (get_string()->get_size() * 2) + (get_basic(TypeKind::Sz)->get_size() * 2) + get_char_slice()->get_size();
             }
 
             case TypeKind::Any: {
@@ -332,6 +332,8 @@ namespace ariac {
                     default: ARIA_TODO("Other arch");
                 }
             }
+
+            case TypeKind::Array: return array.base->get_size() * array.size;
 
             case TypeKind::Slice: {
                 return get_void_ptr()->get_size() + get_basic(TypeKind::Sz)->get_size();

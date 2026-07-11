@@ -86,6 +86,7 @@ namespace ariac {
         As,
         Const,
         Cast,
+        Self,
         HashPrivate, // #private
         AtIf, // @if
         AtIntegral, // @Integral
@@ -212,6 +213,7 @@ namespace ariac {
             case TokenKind::As: return "as";
             case TokenKind::Const: return "const";
             case TokenKind::Cast: return "cast";
+            case TokenKind::Self: return "self";
             case TokenKind::HashPrivate: return "#private";
             case TokenKind::AtIf: return "@if";
             // ^^^ Keywords ^^^ //

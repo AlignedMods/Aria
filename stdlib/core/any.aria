@@ -13,3 +13,11 @@ fn any_is_array(a: *any) -> bool {
 fn any_cast<T>(a: *any) -> T {
     return *cast(*T, a.value);
 }
+
+// Treats a like an array and indexes into it
+fn any_index(a: *any, idx: sz) -> any {
+    let ptr = &(cast(*char, a.value)[idx * a.type.types[0].size]);
+
+    let result = any(a.type.types[0], ptr);
+    return result;
+}

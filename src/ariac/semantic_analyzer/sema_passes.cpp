@@ -394,21 +394,26 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_unit_code(Module* module, CompilationUnit* unit) {
         context.active_comp_unit = unit;
-        
-        for (Decl* struc : unit->structs) {
-            resolve_struct_decl(struc);
-        }
-
-        for (Decl* gen : unit->generics) {
-            resolve_generic_decl(gen);
-        }
 
         for (Decl* var : unit->globals) {
             resolve_var_decl(var);
         }
 
+        for (Decl* impl : unit->impls) {
+            ARIA_ASSERT(impl->kind == DeclKind::Impl, "Invalid impl decl");
+
+            for (Decl* method : impl->impl.fields) {
+                ARIA_ASSERT(method->kind == DeclKind::Method, "Invalid method decl");
+                resolve_method_body(method);
+            }
+        }
+
         for (Decl* func : unit->funcs) {
-            resolve_function_decl(func);
+            ARIA_ASSERT(func->kind == DeclKind::Function, "Invalid function decl");
+
+            if (func->function.body) {
+                resolve_function_body(func);
+            }
         }
     }
 

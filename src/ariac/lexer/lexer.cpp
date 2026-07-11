@@ -521,6 +521,7 @@ namespace ariac {
         if (scratch_buffer_cmp("as"))       { add_token(TokenKind::As,       loc, "as");       return; }
         if (scratch_buffer_cmp("const"))    { add_token(TokenKind::Const,    loc, "const");    return; }
         if (scratch_buffer_cmp("cast"))     { add_token(TokenKind::Cast,     loc, "cast");     return; }
+        if (scratch_buffer_cmp("self"))     { add_token(TokenKind::Self,     loc, "self");     return; }
 
         if (scratch_buffer_cmp("void"))     { add_token(TokenKind::Void,     loc, "void");     return; }
         if (scratch_buffer_cmp("bool"))     { add_token(TokenKind::Bool,     loc, "bool");     return; }

@@ -100,12 +100,15 @@ namespace ariac {
         m_expr_rules[TokenKind::CStrLit] =           { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Null] =              { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Identifier] =        { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Self] =              { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Env] =               { BIND_PARSE_RULE(parse_env),           nullptr, PREC_NONE };
         m_expr_rules[TokenKind::New] =               { BIND_PARSE_RULE(parse_new),           nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Delete] =            { BIND_PARSE_RULE(parse_delete),        nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Sizeof] =            { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Typeid] =            { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Cast] =              { BIND_PARSE_RULE(parse_cast),          nullptr, PREC_NONE };
+
+        m_expr_rules[TokenKind::Any] = { BIND_PARSE_RULE(parse_construct), nullptr, PREC_NONE };
     }
 
     void Parser::parse_impl() {
@@ -264,6 +267,38 @@ namespace ariac {
             context.report_compiler_diagnostic(lp->loc + rp->loc, "Callee of call expression must be a reference to a declaration or method");
             return &error_expr;
         }
+    }
+
+    Expr* Parser::parse_construct(Expr* left) {
+        ARIA_ASSERT(left == nullptr, "Parser::parse_construct() should not have a left side");
+
+        TypeInfo* t = parse_type();
+
+        Token* lp = try_consume(TokenKind::LeftParen, "(");
+        TinyVector<Expr*> args;
+
+        while (!match(TokenKind::RightParen)) {
+            Expr* val = parse_expression();
+
+            if (!expr_ok(val)) {
+                sync_local();
+                break;
+            }
+
+            args.append(val);
+    
+            if (match(TokenKind::Comma)) {
+                consume();
+                continue;
+            }
+
+            break;
+        }
+    
+        Token* rp = try_consume(TokenKind::RightParen, ")");
+        if (!rp) { return &error_expr; }
+
+        return Expr::Create(t->loc + rp->loc, ExprKind::Construct, ExprValueKind::RValue, t, ConstructExpr(args));
     }
 
     BuiltinCallKind Parser::get_builtin_call_from_token(Token* token) {
@@ -482,6 +517,10 @@ namespace ariac {
             case TokenKind::Null: {
                 return Expr::Create(t.loc, ExprKind::Null,
                     ExprValueKind::RValue, TypeInfo::get_void_ptr(), ErrorExpr());
+            }
+
+            case TokenKind::Self: {
+                return Expr::Create(t.loc, ExprKind::Self, ExprValueKind::LValue, nullptr, ErrorExpr());
             }
 
             case TokenKind::Identifier: {
@@ -1060,6 +1099,7 @@ namespace ariac {
             case TokenKind::New:
             case TokenKind::Delete:
             case TokenKind::Cast:
+            case TokenKind::Self:
                 return parse_expression_statement();
 
             case TokenKind::LeftCurly:
@@ -1598,9 +1638,11 @@ namespace ariac {
                 VariadicKind variadic = VariadicKind::None;
                 auto[params, param_types] = parse_function_params(&variadic);
 
-                TypeInfo* ret_type = TypeInfo::get_error();
+                TypeInfo* ret_type = TypeInfo::get_void();
 
-                if (try_consume(TokenKind::Arrow, "->")) {
+                if (match(TokenKind::Arrow)) {
+                    consume();
+
                     if (!is_type()) {
                         context.report_compiler_diagnostic(peek()->loc, "Expected a type after '->'");
                         sync_local();

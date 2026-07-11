@@ -39,43 +39,20 @@ namespace ariac {
     void SemanticAnalyzer::resolve_function_decl(Decl* decl) {
         if (decl->resolve_status == ResolveStatus::Done || decl->resolve_status == ResolveStatus::InProgress) { return; }
         decl->resolve_status = ResolveStatus::InProgress;
-        FunctionDecl fnDecl = decl->function;
-        resolve_type(fnDecl.type);
+        FunctionDecl fn = decl->function;
+        resolve_type(fn.type);
 
-        std::string ident = fmt::format("{}", fnDecl.identifier);
+        std::string ident = fmt::format("{}", fn.identifier);
         
-        if (fnDecl.linkage_kind == LinkageKind::Extern && fnDecl.body) {
+        if (fn.linkage_kind == LinkageKind::Extern && fn.body) {
             context.report_compiler_diagnostic(decl->loc, "Function marked 'extern' must not have body");
         }
 
-        if (fnDecl.type->function.variadic == VariadicKind::Unnamed && fnDecl.linkage_kind != LinkageKind::Extern) {
+        if (fn.type->function.variadic == VariadicKind::Unnamed && fn.linkage_kind != LinkageKind::Extern) {
             context.report_compiler_diagnostic(decl->loc, "C style variadic functions must be marked 'extern'");
         }
 
-        if (fnDecl.body) {
-            TypeInfo* prev_ret_type = m_active_return_type;
-            m_active_return_type = fnDecl.type->function.return_type;
-            push_scope();
-            
-            for (Decl* p : fnDecl.parameters) {
-                resolve_param_decl(p);
-            }
-            
-            if (fnDecl.body) {
-                resolve_block_stmt(fnDecl.body);
-            }
-
-            if (m_scopes.back().reaches_end) {
-                if (!fnDecl.type->function.return_type->is_void()) {
-                    context.report_compiler_diagnostic(decl->loc, "Control flow reaches end of function with a non void return type");
-                } else {
-                    fnDecl.body->block.stmts.append(Stmt::Create(decl->loc, StmtKind::Return, ReturnStmt(nullptr)));
-                }
-            }
-
-            pop_scope();
-            m_active_return_type = prev_ret_type;
-        } else if (fnDecl.linkage_kind != LinkageKind::Extern) {
+        if (!fn.body && fn.linkage_kind != LinkageKind::Extern) {
             context.report_compiler_diagnostic_with_notes(decl->loc, "Body for this function must be specified",
                 { "If this function is defined elsewhere, use 'extern'"} );
         }
@@ -153,42 +130,6 @@ namespace ariac {
         }
 
         if (!s.type) { s.type = TypeInfo::create_struct(i.parent); }
-
-        m_active_struct = s.type;
-
-        for (Decl* field : i.fields) {
-            switch (field->kind) {
-                case DeclKind::Method: {
-                    resolve_type(field->method.type);
-                    TypeInfo* prev_ret_type = m_active_return_type;
-                    m_active_return_type = field->method.type->function.return_type;
-                    push_scope();
-
-                    size_t idx = 0;
-                    for (Decl* p : field->method.parameters) {
-                        resolve_param_decl(p);
-                    }
-
-                    resolve_block_stmt(field->method.body);
-
-                    if (m_scopes.back().reaches_end) {
-                        if (!field->method.type->function.return_type->is_void()) {
-                            context.report_compiler_diagnostic(decl->loc, "Control flow reaches end of function with a non void return type");
-                        } else {
-                            field->method.body->block.stmts.append(Stmt::Create(decl->loc, StmtKind::Return, ReturnStmt(nullptr)));
-                        }
-                    }
-
-                    pop_scope();
-                    m_active_return_type = prev_ret_type;
-                    break;
-                }
-
-                default: ARIA_UNREACHABLE("Invalid impl field");
-            }
-        }
-
-        m_active_struct = nullptr;
         decl->resolve_status = ResolveStatus::Done;
     }
 
@@ -246,6 +187,56 @@ namespace ariac {
 
         resolve_decl(gen.decl);
         m_generic_types.erase(m_generic_types.begin() + i, m_generic_types.end());
+    }
+
+    void SemanticAnalyzer::resolve_function_body(Decl* decl) {
+        FunctionDecl& fn = decl->function;
+
+        m_active_return_type = fn.type->function.return_type;
+        push_scope();
+        
+        for (Decl* p : fn.parameters) {
+            resolve_param_decl(p);
+        }
+        
+        resolve_block_stmt(fn.body);
+
+        if (m_scopes.back().reaches_end) {
+            if (!fn.type->function.return_type->is_void()) {
+                context.report_compiler_diagnostic(decl->loc, "Control flow reaches end of function with a non void return type");
+            } else {
+                fn.body->block.stmts.append(Stmt::Create(decl->loc, StmtKind::Return, ReturnStmt(nullptr)));
+            }
+        }
+
+        pop_scope();
+        m_active_return_type = nullptr;
+    }
+
+    void SemanticAnalyzer::resolve_method_body(Decl* decl) {
+        MethodDecl& m = decl->method;
+
+        m_active_return_type = m.type->function.return_type;
+        m_active_struct = m.parent->impl.parent->struct_.type;
+        push_scope();
+        
+        for (Decl* p : m.parameters) {
+            resolve_param_decl(p);
+        }
+        
+        resolve_block_stmt(m.body);
+
+        if (m_scopes.back().reaches_end) {
+            if (!m.type->function.return_type->is_void()) {
+                context.report_compiler_diagnostic(decl->loc, "Control flow reaches end of method with a non void return type");
+            } else {
+                m.body->block.stmts.append(Stmt::Create(decl->loc, StmtKind::Return, ReturnStmt(nullptr)));
+            }
+        }
+
+        pop_scope();
+        m_active_struct = nullptr;
+        m_active_return_type = nullptr;
     }
 
     void SemanticAnalyzer::resolve_decl_attributes(Decl* decl, TinyVector<DeclAttribute> attrs, bool* erase_decl) {
