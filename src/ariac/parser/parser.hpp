@@ -41,6 +41,7 @@ namespace ariac {
         Expr* parse_member(Expr* left);
         Expr* parse_primary(Expr* left);
         Expr* parse_identifier(Token t);
+        Expr* parse_array_literal(Expr* left);
         Expr* parse_env(Expr* left);
         Expr* parse_new(Expr* left);
         Expr* parse_delete(Expr* left);

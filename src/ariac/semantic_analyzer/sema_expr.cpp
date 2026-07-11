@@ -869,6 +869,24 @@ namespace ariac {
         }
     }
 
+    void SemanticAnalyzer::resolve_array_literal_expr(Expr* expr) {
+        ArrayLiteralExpr& lit = expr->array_literal;
+
+        TypeInfo* base_type = nullptr;
+
+        for (Expr* arg : lit.arguments) {
+            resolve_expr(arg);
+
+            if (!base_type) {
+                base_type = arg->type;
+            } else {
+                try_insert_implicit_cast(base_type, arg);
+            }
+        }
+
+        expr->type = TypeInfo::create_array(base_type, lit.arguments.size);
+    }
+
     void SemanticAnalyzer::resolve_method_call_expr(Expr* expr) {
         CallExpr& mc = expr->call;
 
@@ -1045,7 +1063,14 @@ namespace ariac {
 
         if (expr->type->is_error() || dst_type->is_error()) { return; }
 
-        try_insert_implicit_cast(dst_type, cast.expression);
+        ConversionCost cost = get_conversion_cost(dst_type, cast.expression->type);
+        if (cost.cast_needed) {
+            if (cost.explicit_cast_possible) {
+                insert_implicit_cast(dst_type, cast.expression->type, cast.expression, cost.kind);
+            } else {
+                context.report_compiler_diagnostic(expr->loc, fmt::format("Cannot cast from '{}' to '{}'", type_info_to_string(cast.expression->type),  type_info_to_string(dst_type)));
+            }
+        }
 
         if (expr->result_discarded) {
             context.report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
@@ -1372,6 +1397,7 @@ namespace ariac {
             case ExprKind::Call: resolve_call_expr(expr); break;
             case ExprKind::BuiltinCall: resolve_builtin_call_expr(expr); break;
             case ExprKind::Construct: resolve_construct_expr(expr); break;
+            case ExprKind::ArrayLiteral: resolve_array_literal_expr(expr); break;
             case ExprKind::MethodCall: resolve_method_call_expr(expr); break;
             case ExprKind::ArraySubscript: resolve_array_subscript_expr(expr); break;
             case ExprKind::ToSlice: resolve_to_slice_expr(expr); break;

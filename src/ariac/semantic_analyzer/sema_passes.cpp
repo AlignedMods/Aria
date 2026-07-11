@@ -415,6 +415,25 @@ namespace ariac {
                 resolve_function_body(func);
             }
         }
+
+        for (Decl* gen : unit->generics) {
+            ARIA_ASSERT(gen->kind == DeclKind::Generic, "Invalid generic decl");
+
+            if (gen->generic.decl->kind == DeclKind::Struct) { continue; }
+            resolve_function_body(gen->generic.decl);
+
+            for (Decl* spec : gen->generic.specilizations) {
+                ARIA_ASSERT(spec->kind == DeclKind::FunctionSpecilization, "Invalid function specilization");
+
+                for (size_t i = 0; i < spec->function_specilization.types.size; i++) {
+                    m_specialized_generic_types[gen->generic.parameters.items[i]->generic_parameter.identifier] = spec->function_specilization.types.items[i];
+                }
+
+                m_replace_generic_types = true;
+                resolve_function_body(spec->function_specilization.source);
+                m_replace_generic_types = false;
+            }
+        }
     }
 
 } // namespace ariac

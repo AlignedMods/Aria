@@ -363,6 +363,37 @@ namespace ariac {
         }
     }
 
+    llvm::Value* Codegen::gen_array_literal_expr(Expr* expr) {
+        ArrayLiteralExpr& lit = expr->array_literal;
+        set_debug_loc(expr->loc);
+
+        llvm::Type* type = type_info_to_llvm_type(expr->type);
+
+        if (lit.is_const) {
+            std::vector<llvm::Constant*> fields;
+            for (Expr* arg : lit.arguments) {
+                fields.push_back(llvm::dyn_cast<llvm::Constant>(gen_expr(arg)));
+            }
+            return llvm::ConstantArray::get(llvm::dyn_cast<llvm::ArrayType>(type), fields);
+        } else {
+            llvm::Value* temp = alloca_at_entry(m_active_module_context.function, "arrayliteral", expr->type);
+            llvm::Value* zero = llvm::Constant::getNullValue(type);
+            m_active_module_context.builder->CreateStore(zero, temp);
+
+            for (size_t i = 0; i < lit.arguments.size; i++) {
+                llvm::Value* arg = gen_expr(lit.arguments.items[i]);
+
+                llvm::Value* zero_val = m_active_module_context.builder->getInt64(0);
+                llvm::Value* i_val = m_active_module_context.builder->getInt64(i);
+
+                llvm::Value* field = m_active_module_context.builder->CreateGEP(type, temp, { zero_val, i_val });
+                m_active_module_context.builder->CreateStore(arg, field);
+            }
+
+            return m_active_module_context.builder->CreateLoad(type, temp);
+        }
+    }
+
     llvm::Value* Codegen::gen_method_call_expr(Expr* expr) {
         CallExpr& mc = expr->call;
         set_debug_loc(expr->loc);
@@ -996,6 +1027,7 @@ namespace ariac {
             case ExprKind::Call: return gen_call_expr(expr);
             case ExprKind::BuiltinCall: return gen_builtin_call_expr(expr);
             case ExprKind::Construct: return gen_construct_expr(expr);
+            case ExprKind::ArrayLiteral: return gen_array_literal_expr(expr);
             case ExprKind::MethodCall: return gen_method_call_expr(expr);
             case ExprKind::ArraySubscript: return gen_array_subscript_expr(expr);
             case ExprKind::ToSlice: return gen_to_slice_expr(expr);
@@ -1017,7 +1049,7 @@ namespace ariac {
         llvm::Value* val = gen_expr(expr);
         set_debug_loc(expr->loc);
 
-        if (expr->type->is_array()) {
+        if (expr->type->is_array() && expr->value_kind == ExprValueKind::LValue) {
             // Call memcpy since we copy arrays
             llvm::Value* size = m_active_module_context.builder->getInt64(expr->type->array.size);
             return m_active_module_context.builder->CreateMemCpy(dst, llvm::MaybeAlign::MaybeAlign(), val, llvm::MaybeAlign::MaybeAlign(), size);

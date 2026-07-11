@@ -158,6 +158,14 @@ namespace ariac {
                 }
                 return;
 
+            case ExprKind::ArrayLiteral: m_output += fmt::format("ArrayLiteralExpr {} '{}' {}\n",
+                source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
+
+                for (Expr* arg : expr->array_literal.arguments) {
+                    dump_expr(arg, indentation + 4);
+                }
+                return;
+
             case ExprKind::MethodCall: m_output += fmt::format("MethodCallExpr {} '{}' {}\n",
                 source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 

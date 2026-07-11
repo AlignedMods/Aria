@@ -36,7 +36,7 @@ namespace ariac {
 
         // PREC_CALL
         m_expr_rules[TokenKind::LeftParen] =         { BIND_PARSE_RULE(parse_grouping), BIND_PARSE_RULE(parse_call), PREC_CALL };
-        m_expr_rules[TokenKind::LeftBracket] =       { nullptr, BIND_PARSE_RULE(parse_array_subscript), PREC_CALL };
+        m_expr_rules[TokenKind::LeftBracket] =       { BIND_PARSE_RULE(parse_array_literal), BIND_PARSE_RULE(parse_array_subscript), PREC_CALL };
         m_expr_rules[TokenKind::Dot] =               { nullptr, BIND_PARSE_RULE(parse_member), PREC_CALL };
         m_expr_rules[TokenKind::Bang] =              { BIND_PARSE_RULE(parse_unary), nullptr, PREC_CALL };
         m_expr_rules[TokenKind::PlusPlus] =          { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_infix_unary), PREC_CALL };
@@ -574,6 +574,37 @@ namespace ariac {
         }
 
         ARIA_UNREACHABLE("Should never be reached");
+    }
+
+    Expr* Parser::parse_array_literal(Expr* left) {
+        ARIA_ASSERT(left == nullptr, "Parser::parse_array_literal() should not have a left side");
+
+        Token& lb = consume(); // consume "["
+        TinyVector<Expr*> args;
+
+        while (!match(TokenKind::RightBracket)) {
+            Expr* val = parse_expression();
+
+            if (!expr_ok(val)) {
+                sync_local();
+                break;
+            }
+
+            args.append(val);
+    
+            if (match(TokenKind::Comma)) {
+                consume();
+                continue;
+            }
+
+            break;
+        }
+
+        try_consume(TokenKind::RightBracket, "]");
+
+        return Expr::Create(lb.loc + peek(-1)->loc, ExprKind::ArrayLiteral,
+            ExprValueKind::RValue, nullptr,
+            ArrayLiteralExpr(args));
     }
 
     Expr* Parser::parse_env(Expr* left) {

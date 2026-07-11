@@ -69,6 +69,7 @@ namespace ariac {
         void resolve_call_expr(Expr* expr);
         void resolve_builtin_call_expr(Expr* expr);
         void resolve_construct_expr(Expr* expr);
+        void resolve_array_literal_expr(Expr* expr);
         void resolve_method_call_expr(Expr* expr);
         void resolve_array_subscript_expr(Expr* expr);
         void resolve_to_slice_expr(Expr* expr);

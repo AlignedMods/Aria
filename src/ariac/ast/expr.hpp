@@ -29,6 +29,7 @@ namespace ariac {
         Call,
         BuiltinCall,
         Construct,
+        ArrayLiteral,
         MethodCall,
         ArraySubscript,
         ToSlice,
@@ -320,6 +321,14 @@ namespace ariac {
         bool is_const = true;
     };
 
+    struct ArrayLiteralExpr {
+        ArrayLiteralExpr(TinyVector<Expr*> args)
+            : arguments(args) {}
+
+        TinyVector<Expr*> arguments;
+        bool is_const = true;
+    };
+
     struct ArraySubscriptExpr {
         ArraySubscriptExpr(Expr* array, Expr* index)
             : array(array), index(index) {}
@@ -483,6 +492,7 @@ namespace ariac {
             CallExpr call;
             BuiltinCallExpr builtin_call;
             ConstructExpr construct;
+            ArrayLiteralExpr array_literal;
             ArraySubscriptExpr array_subscript;
             ToSliceExpr to_slice;
             NewExpr new_;
@@ -537,6 +547,9 @@ namespace ariac {
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ConstructExpr construct)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), construct(construct) {}
+
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ArrayLiteralExpr lit)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), array_literal(lit) {}
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ArraySubscriptExpr arr_subs)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), array_subscript(arr_subs) {}

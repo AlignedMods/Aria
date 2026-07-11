@@ -159,6 +159,7 @@ namespace ariac {
 
         static TypeInfo* create_basic(TypeKind kind, SourceLoc loc = {});
         static TypeInfo* create_with_base(TypeKind kind, TypeInfo* base, SourceLoc loc = {});
+        static TypeInfo* create_array(TypeInfo* base, u64 size, SourceLoc loc = {});
         static TypeInfo* create_function(TypeKind kind, TypeInfo* ret, TinyVector<TypeInfo*> params, VariadicKind variadic, SourceLoc loc = {});
         static TypeInfo* create_struct(Decl* d, SourceLoc loc = {});
         static TypeInfo* create_struct(std::string_view name, Decl* d, SourceLoc loc = {});

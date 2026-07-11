@@ -41,6 +41,13 @@ namespace ariac {
         return t;
     }
 
+    TypeInfo* TypeInfo::create_array(TypeInfo* base, u64 size, SourceLoc loc) {
+        TypeInfo* t = create_basic(TypeKind::Array, loc);
+        t->array.base = base;
+        t->array.size = size;
+        return t;
+    }
+
     TypeInfo* TypeInfo::create_function(TypeKind kind, TypeInfo* ret, TinyVector<TypeInfo*> params, VariadicKind variadic, SourceLoc loc) {
         TypeInfo* t = context.allocate<TypeInfo>();
         t->kind = kind;
@@ -119,7 +126,7 @@ namespace ariac {
 
             case TypeKind::Array: {
                 t->array.base = TypeInfo::dup(type->base);
-                t->array.expression = Expr::dup(type->array.expression);
+                if (type->array.expression) { t->array.expression = Expr::dup(type->array.expression); }
                 t->array.size = type->array.size;
                 break;
             }

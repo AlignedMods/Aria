@@ -112,6 +112,7 @@ namespace ariac {
         llvm::Value* gen_call_expr(Expr* expr);
         llvm::Value* gen_builtin_call_expr(Expr* expr);
         llvm::Value* gen_construct_expr(Expr* expr);
+        llvm::Value* gen_array_literal_expr(Expr* expr);
         llvm::Value* gen_method_call_expr(Expr* expr);
         llvm::Value* gen_array_subscript_expr(Expr* expr);
         llvm::Value* gen_to_slice_expr(Expr* expr);
