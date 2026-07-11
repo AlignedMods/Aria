@@ -96,6 +96,7 @@ namespace ariac {
         void resolve_generic_decl(Decl* decl);
 
         void resolve_function_body(Decl* decl);
+        void resolve_generic_body(Decl* decl);
         void resolve_method_body(Decl* decl);
 
         void resolve_decl_attributes(Decl* decl, TinyVector<DeclAttribute> attrs, bool* erase_decl);

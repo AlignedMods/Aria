@@ -213,11 +213,44 @@ namespace ariac {
         m_active_return_type = nullptr;
     }
 
+    void SemanticAnalyzer::resolve_generic_body(Decl* decl) {
+        GenericDecl& gen = decl->generic;
+
+        if (gen.decl->kind == DeclKind::Struct) { return; }
+
+        for (Decl* t : gen.parameters) {
+            m_generic_types.push_back(t);
+        }
+
+        resolve_function_body(gen.decl);
+        m_generic_types.clear();
+
+        for (Decl* spec : gen.specilizations) {
+            ARIA_ASSERT(spec->kind == DeclKind::FunctionSpecilization, "Invalid function specilization");
+
+            Decl* func = Decl::dup(gen.decl);
+            func->parent_module = decl->parent_module;
+            func->parent_unit = decl->parent_unit;
+
+            func->function.type = spec->function_specilization.type;
+            spec->function_specilization.source = func;
+
+            for (size_t i = 0; i < spec->function_specilization.types.size; i++) {
+                m_specialized_generic_types[gen.parameters.items[i]->generic_parameter.identifier] = spec->function_specilization.types.items[i];
+            }
+
+            m_replace_generic_types = true;
+            resolve_function_body(spec->function_specilization.source);
+            m_replace_generic_types = false;
+        }
+    }
+
     void SemanticAnalyzer::resolve_method_body(Decl* decl) {
         MethodDecl& m = decl->method;
 
         m_active_return_type = m.type->function.return_type;
-        m_active_struct = m.parent->impl.parent->struct_.type;
+        resolve_struct_decl(m.parent->impl.parent);
+        m_active_struct = TypeInfo::create_struct(m.parent->impl.parent);
         push_scope();
         
         for (Decl* p : m.parameters) {

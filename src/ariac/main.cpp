@@ -4,6 +4,13 @@
 #include "llvm/TargetParser/Host.h"
 #include "fmt/format.h"
 
+#ifdef PLATFORM_WINDOWS
+    #include <io.h>
+
+    #define isatty _isatty
+    #define fileno _fileno
+#endif
+
 #include <cstring>
 #include <vector>
 
@@ -48,7 +55,8 @@ namespace ariac {
     }
 
     static bool is_next_opt() {
-        return next_arg()[0] == '-';
+        ARIA_ASSERT(!at_end(), "Invalid is_next_opt() call");
+        return args[arg_index + 1][0] == '-';
     }
 
     static bool match_arg(const char* str) {
@@ -159,6 +167,17 @@ namespace ariac {
 
     static int main_real(int argc, const char** argv) {
         BuildOptions opts = handle_args(argc, argv);
+
+        if (!std::filesystem::exists(opts.stdlib_path)) {
+            if (isatty(fileno(stdout))) {
+                fmt::print(fmt::fg(fmt::color::pale_violet_red), "error: ");
+                fmt::print("Could not find standard library: {}\n", opts.stdlib_path.string());
+            } else {
+                fmt::print(stderr, "error: Could not find standard library: {}\n", opts.stdlib_path.string());
+            }
+            return 1;
+        }
+
         context.compile_files(&opts);
         return 0;
     }

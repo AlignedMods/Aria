@@ -46,10 +46,6 @@ namespace ariac {
 
         std::string pretty_ident = dr.name_specifier ? fmt::format("{}::{}", dr.name_specifier->name.identifier, dr.identifier) : fmt::format("{}", dr.identifier);
 
-        // if (pretty_ident == "core::any_has_type") {
-        //     ARIA_DEBUGBREAK();
-        // }
-        
         if (expr->result_discarded) {
             context.report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
         }
@@ -629,14 +625,6 @@ namespace ariac {
                             }
 
                             if (!specilization) {
-                                Decl* func = Decl::dup(g->generic.decl);
-                                func->parent_module = g->parent_module;
-                                func->parent_unit = g->parent_unit;
-                                specilization = Decl::Create(g->loc, DeclKind::FunctionSpecilization, g->visibility, FunctionSpecilizationDecl(call.generic_arguments, func));
-                                specilization->parent_module = g->parent_module;
-                                specilization->parent_unit = g->parent_unit;
-                                g->generic.specilizations.append(specilization);
-
                                 for (size_t i = 0; i < call.generic_arguments.size; i++) {
                                     Decl* gen_param = g->generic.parameters.items[i];
                                     TypeInfo* gen_arg = call.generic_arguments.items[i];
@@ -678,12 +666,19 @@ namespace ariac {
                                     m_specialized_generic_types[gen_param->generic_parameter.identifier] = gen_arg;
                                 }
 
+                                TypeInfo* new_type = TypeInfo::dup(g->generic.decl->function.type);
+
                                 bool prev_val = m_replace_generic_types;
                                 m_replace_generic_types = true;
-                                resolve_function_decl(func);
-                                m_replace_generic_types = prev_val;
+                                resolve_type(new_type);
+                                m_replace_generic_types = false;
 
-                                calleeType = func->function.type;
+                                specilization = Decl::Create(g->loc, DeclKind::FunctionSpecilization, g->visibility, FunctionSpecilizationDecl(call.generic_arguments, new_type));
+                                specilization->parent_module = g->parent_module;
+                                specilization->parent_unit = g->parent_unit;
+                                g->generic.specilizations.append(specilization);
+
+                                calleeType = new_type;
                                 call.callee->decl_ref.referenced_decl = specilization;
                                 call.callee->type = calleeType;
                             }

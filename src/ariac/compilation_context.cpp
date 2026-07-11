@@ -77,11 +77,6 @@ namespace ariac {
     }
 
     void CompilationContext::compile_stdlib() {
-        if (!std::filesystem::exists(opts->stdlib_path)) {
-            fmt::print(stderr, "Could not find standard library");
-            return;
-        }
-
         for (const char* file : stdlib_files) {
             compile_file((opts->stdlib_path / file).string(), true);
         }
