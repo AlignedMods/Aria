@@ -83,7 +83,7 @@ namespace ariac {
             m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
 
             for (Decl* param : fn->parameters) {
-                TypeInfo* param_type = param->param.variadic ? TypeInfo::create_with_base(TypeKind::Slice, param->param.type) : param->param.type;
+                TypeInfo* param_type = param->param.variadic ? TypeInfo::create_slice(param->param.type) : param->param.type;
                 ABIParamTypeInfo info = get_param_abi_type_info(param_type);
 
                 llvm::DILocalVariable* dil = nullptr;
@@ -111,7 +111,7 @@ namespace ariac {
                     m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
 
                     dil = m_active_debug_context.active_builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
-                        decl->loc.line, type_info_to_debug_type(TypeInfo::create_with_base(TypeKind::Pointer, param_type)));
+                        decl->loc.line, type_info_to_debug_type(TypeInfo::create_pointer(param_type, false)));
                 } else if (info.pass_by_integer) {
                     llvm::AllocaInst* a = alloca_at_entry(m_active_module_context.function, param->param.identifier, param_type);
                     m_active_module_context.named_values[param] = a;

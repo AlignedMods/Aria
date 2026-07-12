@@ -89,6 +89,7 @@ namespace ariac {
         Self,
         HashPrivate, // #private
         AtIf, // @if
+        AtBuiltin, // @builtin
         AtIntegral, // @Integral
         AtFloatingPoint, // @FloatingPoint
         AtConvertibleTo, // @ConvertibleTo
@@ -216,6 +217,7 @@ namespace ariac {
             case TokenKind::Self: return "self";
             case TokenKind::HashPrivate: return "#private";
             case TokenKind::AtIf: return "@if";
+            case TokenKind::AtBuiltin: return "@builtin";
             // ^^^ Keywords ^^^ //
             
             // VVV Types VVV //

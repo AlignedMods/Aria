@@ -80,7 +80,7 @@ namespace ariac {
                 case '&': {
                     if (try_consume('=')) { add_token(TokenKind::AmpersandEq, SourceLoc(m_current_line, get_column(m_index - 2), m_index - 2, 2), "&="); break; }
                     else if (try_consume('&')) { add_token(TokenKind::DoubleAmpersand, SourceLoc(m_current_line, get_column(m_index - 2), m_index - 2, 2), "&&"); break; }
-                    else { add_token(TokenKind::Ampersand, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 2), "&"); break; }
+                    else { add_token(TokenKind::Ampersand, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), "&"); break; }
                 }
 
                 case '|': {
@@ -469,6 +469,7 @@ namespace ariac {
         }
 
         if (scratch_buffer_cmp("@if"))            { add_token(TokenKind::AtIf, loc, "@if"); return; }
+        if (scratch_buffer_cmp("@builtin"))       { add_token(TokenKind::AtBuiltin, loc, "@builtin"); return; }
         if (scratch_buffer_cmp("@Integral"))      { add_token(TokenKind::AtIntegral, loc, "@Integral"); return; }
         if (scratch_buffer_cmp("@FloatingPoint")) { add_token(TokenKind::AtFloatingPoint, loc, "@FloatingPoint"); return; }
         if (scratch_buffer_cmp("@ConvertibleTo")) { add_token(TokenKind::AtConvertibleTo, loc, "@ConvertibleTo"); return; }

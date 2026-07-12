@@ -94,7 +94,7 @@ namespace ariac {
                 TinyVector<Decl*> fields;
 
                 if (mem.implicit_deref) {
-                    type = mem.parent->type->base;
+                    type = mem.parent->type->pointer.base;
                     if (mem.parent->value_kind == ExprValueKind::LValue) {
                         val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr()), val);
                     }
@@ -149,7 +149,7 @@ namespace ariac {
         TypeInfo* type = mem.parent->type;
 
         if (mem.implicit_deref) {
-            type = mem.parent->type->base;
+            type = mem.parent->type->pointer.base;
         }
 
         while (type->kind == TypeKind::Typedef) { type = type->typedef_.base; }
@@ -449,7 +449,7 @@ namespace ariac {
 
         switch (arr.array->type->kind) {
             case TypeKind::Pointer:
-                return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type->base), array, index);
+                return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type->pointer.base), array, index);
 
             case TypeKind::Array:
                 return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type), array, { m_active_module_context.builder->getInt64(0), index });
@@ -457,7 +457,7 @@ namespace ariac {
             case TypeKind::Slice: {
                 llvm::Value* mem = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(arr.array->type), array, 0);
                 llvm::Value* loaded = m_active_module_context.builder->CreateLoad(llvm::PointerType::get(*m_active_module_context.context, 0), mem);
-                return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type->base), loaded, index);
+                return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type->slice.base), loaded, index);
             }
 
             default: ARIA_UNREACHABLE("Invalid type kind");
@@ -494,7 +494,7 @@ namespace ariac {
             func = llvm::Function::Create(type, llvm::GlobalValue::ExternalLinkage, "calloc", *m_active_module_context.module);
         }
 
-        llvm::Value* elem_size = m_active_module_context.builder->getInt64(expr->type->base->get_size());
+        llvm::Value* elem_size = m_active_module_context.builder->getInt64(expr->type->pointer.base->get_size());
         llvm::Value* arr_size = n.array ? gen_expr(n.initializer) : m_active_module_context.builder->getInt64(1);
         return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(func), {{elem_size, arr_size}}, "new");
     }
@@ -585,21 +585,6 @@ namespace ariac {
                 return gen_expr(ic.expression);
             }
 
-            case CastKind::ArrayToSlice: {
-                llvm::Type* slice_type = type_info_to_llvm_type(expr->type);
-
-                llvm::Value* slice = alloca_at_entry(m_active_module_context.function, "arrtoslice", slice_type);
-                llvm::Value* arr = gen_expr(ic.expression);
-
-                llvm::Value* mem = m_active_module_context.builder->CreateStructGEP(slice_type, slice, 0);
-                llvm::Value* len = m_active_module_context.builder->CreateStructGEP(slice_type, slice, 1);
-
-                m_active_module_context.builder->CreateStore(arr, mem);
-                m_active_module_context.builder->CreateStore(m_active_module_context.builder->getInt(llvm::APInt(TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), ic.expression->type->array.size)), len);
-
-                return m_active_module_context.builder->CreateLoad(slice_type, slice);
-            }
-
             case CastKind::ArrayToPointer: {
                 if (ic.expression->value_kind == ExprValueKind::LValue) {
                     llvm::Value* val = gen_expr(ic.expression);
@@ -613,7 +598,7 @@ namespace ariac {
             case CastKind::PointerToAny: {
                 llvm::Type* any_type = llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_any");
 
-                llvm::Value* typeinfo = get_typeinfo(ic.expression->type->base);
+                llvm::Value* typeinfo = get_typeinfo(ic.expression->type->pointer.base);
                 llvm::Value* value = gen_expr(ic.expression);
 
                 llvm::Value* any_temp = alloca_at_entry(m_active_module_context.function, "ptrtoany", any_type);

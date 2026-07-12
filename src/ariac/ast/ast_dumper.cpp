@@ -343,6 +343,8 @@ namespace ariac {
 
             case DeclKind::Typedef: m_output += fmt::format("TypedefDecl {} '{}' '{}'\n",
                 source_loc_to_string(decl->loc), type_info_to_string(decl->typedef_.type, false), decl->typedef_.identifier);
+
+                dump_attributes(decl->attributes, indentation + 4);
                 return;
 
             case DeclKind::Enum: m_output += fmt::format("EnumDecl {} '{}'\n",
@@ -528,7 +530,12 @@ namespace ariac {
         switch (attr.kind) {
             case DeclAttributeKind::If: {
                 m_output += "IfAttribute\n";
-                dump_expr(attr.arg, indentation + 4);
+                dump_expr(attr.expr, indentation + 4);
+                return;
+            }
+
+            case DeclAttributeKind::Builtin: {
+                m_output += fmt::format("BuiltinAttribute '{}'\n", attr.string);
                 return;
             }
 

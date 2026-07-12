@@ -75,18 +75,26 @@ namespace ariac {
 
     enum class DeclAttributeKind {
         None,
-        If
+        If,
+        Builtin
     };
 
     struct DeclAttribute {
         DeclAttribute(DeclAttributeKind kind)
-            : kind(kind), arg(nullptr) {}
+            : kind(kind) {}
 
-        DeclAttribute(DeclAttributeKind kind, Expr* arg)
-            : kind(kind), arg(arg) {}
+        DeclAttribute(DeclAttributeKind kind, Expr* expr)
+            : kind(kind), expr(expr) {}
+
+        DeclAttribute(DeclAttributeKind kind, std::string_view str)
+            : kind(kind), string(str) {}
 
         DeclAttributeKind kind = DeclAttributeKind::None;
-        Expr* arg = nullptr;
+
+        union {
+            Expr* expr = nullptr;
+            std::string_view string;
+        };
     };
 
     enum class ResolveStatus {
@@ -286,6 +294,7 @@ namespace ariac {
 
         DeclKind kind = DeclKind::Invalid;
         DeclVisibility visibility = DeclVisibility::Public;
+
         TinyVector<DeclAttribute> attributes;
 
         SourceLoc loc;

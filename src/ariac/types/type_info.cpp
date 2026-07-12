@@ -35,9 +35,9 @@ namespace ariac {
         return t;
     }
 
-    TypeInfo* TypeInfo::create_with_base(TypeKind kind, TypeInfo* base, SourceLoc loc) {
-        TypeInfo* t = create_basic(kind, loc);
-        t->base = base;
+    TypeInfo* TypeInfo::create_pointer(TypeInfo* base, bool is_const, SourceLoc loc) {
+        TypeInfo* t = create_basic(TypeKind::Pointer, loc);
+        t->pointer = PointerType(base, is_const);
         return t;
     }
 
@@ -45,6 +45,12 @@ namespace ariac {
         TypeInfo* t = create_basic(TypeKind::Array, loc);
         t->array.base = base;
         t->array.size = size;
+        return t;
+    }
+
+    TypeInfo* TypeInfo::create_slice(TypeInfo* base, SourceLoc loc) {
+        TypeInfo* t = create_basic(TypeKind::Slice, loc);
+        t->slice = SliceType(base);
         return t;
     }
 
@@ -122,16 +128,23 @@ namespace ariac {
             case TypeKind::TypeInfo:
             case TypeKind::Any: break;
 
-            case TypeKind::Pointer: t->base = TypeInfo::dup(type->base); break;
+            case TypeKind::Pointer: {
+                t->pointer.base = TypeInfo::dup(type->pointer.base);
+                t->pointer.is_const = type->pointer.is_const;
+                break;
+            }
 
             case TypeKind::Array: {
-                t->array.base = TypeInfo::dup(type->base);
+                t->array.base = TypeInfo::dup(type->array.base);
                 if (type->array.expression) { t->array.expression = Expr::dup(type->array.expression); }
                 t->array.size = type->array.size;
                 break;
             }
 
-            case TypeKind::Slice: t->base = TypeInfo::dup(type->base); break;
+            case TypeKind::Slice: {
+                t->slice.base = TypeInfo::dup(type->slice.base);
+                break;
+            }
 
             case TypeKind::Function:
             case TypeKind::Method: {
@@ -221,39 +234,37 @@ namespace ariac {
 
     TypeInfo* TypeInfo::get_void_ptr() {
         if (void_ptr_type) { return void_ptr_type; }
-        void_ptr_type = create_with_base(TypeKind::Pointer, get_basic(TypeKind::Void));
+        void_ptr_type = create_pointer(get_basic(TypeKind::Void), false);
         return void_ptr_type;
     }
 
     TypeInfo* TypeInfo::get_char_ptr() {
         if (char_ptr_type) { return char_ptr_type; }
-        char_ptr_type = create_with_base(TypeKind::Pointer, get_basic(TypeKind::Char));
+        char_ptr_type = create_pointer(get_basic(TypeKind::Char), false);
         return char_ptr_type;
     }
 
     TypeInfo* TypeInfo::get_typeinfo_ptr() {
         if (typeinfo_ptr_type) { return typeinfo_ptr_type; }
-        typeinfo_ptr_type = create_with_base(TypeKind::Pointer, get_basic(TypeKind::TypeInfo));
+        typeinfo_ptr_type = create_pointer(get_basic(TypeKind::TypeInfo), true);
         return typeinfo_ptr_type;
     }
 
     TypeInfo* TypeInfo::get_char_slice() {
         if (char_slice_type) { return char_slice_type; }
-        char_slice_type = create_with_base(TypeKind::Slice, get_basic(TypeKind::Char));
+        char_slice_type = create_slice(get_basic(TypeKind::Char));
         return char_slice_type;
     }
 
     TypeInfo* TypeInfo::get_string() {
-        if (context.opts->no_stdlib) {
+        if (!context.string_type) {
             return get_char_slice();
         } else {
             if (std_core_string_type) { return std_core_string_type; }
-
-            ARIA_ASSERT(context.std_core_module->symbols.contains("String"), "std::core module must contain a definition for 'String'");
-            Decl* sym = context.std_core_module->symbols.at("String");
+            Decl* sym = context.string_type;
             
-            ARIA_ASSERT(sym->kind == DeclKind::Typedef, "std::core::String must be a typedef");
-            ARIA_ASSERT(sym->typedef_.type->kind == TypeKind::Slice && sym->typedef_.type->base->kind == TypeKind::Char, "std::core::String must be a typedef to char[]");
+            ARIA_ASSERT(sym->kind == DeclKind::Typedef, "string type must be a typedef");
+            ARIA_ASSERT(sym->typedef_.type->kind == TypeKind::Slice && sym->typedef_.type->slice.base->kind == TypeKind::Char, "string type must be a typedef to []char");
 
             std_core_string_type = create_typedef(sym);
             return std_core_string_type;
@@ -264,7 +275,7 @@ namespace ariac {
         if (std_core_string_type) {
             return is_typedef() && typedef_.source_decl == std_core_string_type->typedef_.source_decl;
         } else {
-            return is_slice() && base->kind == TypeKind::Char;
+            return is_slice() && slice.base->kind == TypeKind::Char;
         }
     }
 
@@ -479,8 +490,9 @@ namespace ariac {
                 break;
             }
 
-            if (t->is_pointer() || t->is_slice()) { t = t->base; continue; }
+            if (t->is_pointer()) { t = t->pointer.base; continue; }
             if (t->is_array()) { t = t->array.base; continue; }
+            if (t->is_slice()) { t = t->slice.base; continue; }
 
             ARIA_UNREACHABLE("Invald type");
         }
@@ -516,8 +528,8 @@ namespace ariac {
             case TypeKind::Any:  str += "any"; break;
 
             case TypeKind::Pointer: {
-                TypeInfo* t = type->base;
-                str = fmt::format("*{}", type_info_to_string(t), pretty);
+                TypeInfo* t = type->pointer.base;
+                str = fmt::format("*{}{}", type->pointer.is_const ? "const " : "", type_info_to_string(t, pretty));
                 break;
             }
 
@@ -528,7 +540,7 @@ namespace ariac {
             }
 
             case TypeKind::Slice: {
-                TypeInfo* t = type->base;
+                TypeInfo* t = type->slice.base;
                 str = fmt::format("[]{}", type_info_to_string(t, pretty));
                 break;
             }
@@ -580,12 +592,7 @@ namespace ariac {
 
             case TypeKind::Typedef: {
                 TypedefType ty = type->typedef_;
-
-                if (pretty) {
-                    str += (ty.source_decl && ty.source_decl->parent_module) ? fmt::format("{}::{}", ty.source_decl->parent_module->name, ty.identifier) : fmt::format("{}", ty.identifier);
-                } else {
-                    str += (ty.source_decl && ty.source_decl->parent_module) ? fmt::format("{}::{}':'{}", ty.source_decl->parent_module->name, ty.identifier, type_info_to_string(ty.base, pretty)) : fmt::format("{}':'{}", ty.identifier, type_info_to_string(ty.base, pretty));
-                }
+                str += (ty.source_decl && ty.source_decl->parent_module) ? fmt::format("typedef {}::{}", ty.source_decl->parent_module->name, ty.identifier) : fmt::format("typedef {}", ty.identifier);
                 break;
             }
 

@@ -276,22 +276,41 @@ namespace ariac {
         for (auto& attr : attrs) {
             switch (attr.kind) {
                 case DeclAttributeKind::If: {
-                    resolve_expr(attr.arg);
+                    resolve_expr(attr.expr);
 
-                    if (!is_const_expr(attr.arg)) {
-                        context.report_compiler_diagnostic(attr.arg->loc, "Expression must be a compile time constant");
+                    if (!is_const_expr(attr.expr)) {
+                        context.report_compiler_diagnostic(attr.expr->loc, "Expression must be a compile time constant");
                         break;
                     }
 
-                    if (!attr.arg->type->is_boolean()) {
-                        context.report_compiler_diagnostic(attr.arg->loc, "Expression must be of type 'bool'");
+                    if (!attr.expr->type->is_boolean()) {
+                        context.report_compiler_diagnostic(attr.expr->loc, "Expression must be of type 'bool'");
                         break;
                     }
 
-                    bool result = eval_const_expr(attr.arg)->const_.boolean;
+                    bool result = eval_const_expr(attr.expr)->const_.boolean;
                     if (!result) { *erase_decl = true; }
                     break;
                 }
+
+                case DeclAttributeKind::Builtin: {
+                    if (attr.string == "string") {
+                        if (context.string_type) {
+                            context.report_compiler_diagnostic(decl->loc, "A type for string is already declared, please remove '@builtin(\"string\")'");
+                        } else {
+                            if (decl->kind == DeclKind::Typedef && decl->typedef_.type->is_slice() && decl->typedef_.type->slice.base->kind == TypeKind::Char) {
+                                context.string_type = decl;
+                            } else {
+                                context.report_compiler_diagnostic(decl->loc, "Builtin for 'string' must be a typedef for '[]char'");
+                            }
+                        }
+                    } else {
+                        context.report_compiler_diagnostic(decl->loc, fmt::format("Unknown builtin '{}'", attr.string));
+                    }
+                    break;
+                }
+
+                default: ARIA_UNREACHABLE("Invalid decl attribute");
             }
         }
     }

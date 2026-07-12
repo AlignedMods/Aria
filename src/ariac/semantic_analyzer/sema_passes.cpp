@@ -123,6 +123,8 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_unit_type_decls(Module* module, CompilationUnit* unit) {
+        context.active_comp_unit = unit;
+
         for (Decl* struc : unit->structs) {
             struc->parent_module = module;
             struc->parent_unit = unit;
@@ -134,12 +136,24 @@ namespace ariac {
             unit->local_symbols[ident] = struc;
         }
 
-        for (Decl* td : unit->typedefs) {
+        for (size_t i = 0; i < unit->typedefs.size(); i++) {
+            Decl* td = unit->typedefs[i];
+
             td->parent_module = module;
             td->parent_unit = unit;
 
             TypedefDecl& t = td->typedef_;
             std::string_view ident = t.identifier;
+
+            bool erase = false;
+            resolve_decl_attributes(td, td->attributes, &erase);
+            
+            if (erase) {
+                context.active_comp_unit->generics.erase(context.active_comp_unit->funcs.begin() + i);
+                i--;
+                replace_decl(td, &error_decl);
+                continue;
+            }
 
             module->symbols[ident] = td;
             unit->local_symbols[ident] = td;
@@ -343,7 +357,7 @@ namespace ariac {
                 }
 
                 if (f.parameters.size >= 1) {
-                    TypeInfo* type = TypeInfo::create_with_base(TypeKind::Slice, TypeInfo::get_string());
+                    TypeInfo* type = TypeInfo::create_slice(TypeInfo::get_string());
                     if (!type_is_equal(f.parameters.items[0]->param.type, type)) {
                         context.report_compiler_diagnostic(f.parameters.items[0]->loc, fmt::format("First parameter of 'main' function must be of type '{}'", type_info_to_string(type)));
                     }

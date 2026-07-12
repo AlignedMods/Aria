@@ -645,16 +645,17 @@ namespace ariac {
             type = TypeInfo::get_error();
         }
 
-        type->base = TypeInfo::dup(type);
+        type->pointer.base = TypeInfo::dup(type);
+        type->pointer.is_const = false;
         type->kind = TypeKind::Pointer;
 
         // parse_type() will handle array types
         // However we do not want this, so we remove the array from the type and add it to the new expression itself
-        bool array = type->base->kind == TypeKind::Array;
+        bool array = type->pointer.base->kind == TypeKind::Array;
 
         if (array) {
-            initializer = type->base->array.expression;
-            type->base = type->base->array.base;
+            initializer = type->pointer.base->array.expression;
+            type->pointer.base = type->pointer.base->array.base;
         } else if (match(TokenKind::LeftParen)) {
             consume();
 
@@ -828,7 +829,7 @@ namespace ariac {
                     try_consume(TokenKind::RightBracket, "]");
 
                     if (is_type()) {
-                        type->base = parse_type();
+                        type->slice.base = parse_type();
                         type->kind = TypeKind::Slice;
                     } else {
                         error_expected("type", peek()->loc);
@@ -840,9 +841,15 @@ namespace ariac {
         
             case TokenKind::Star: {
                 consume();
+
+                bool is_const = false;
+                if (match(TokenKind::Const)) {
+                    consume();
+                    is_const = true;
+                }
         
                 if (is_type()) {
-                    type->base = parse_type();
+                    type->pointer = PointerType(parse_type(), is_const);
                     type->kind = TypeKind::Pointer;
                 } else {
                     error_expected("type", peek()->loc);
@@ -921,7 +928,8 @@ namespace ariac {
                 { "Did you mean to put '*' before the type?" });
 
             consume();
-            type->base = TypeInfo::dup(type);
+            type->pointer.base = TypeInfo::dup(type);
+            type->pointer.is_const = false;
             type->kind = TypeKind::Pointer;
         }
 
@@ -934,7 +942,7 @@ namespace ariac {
                 type->array = ArrayType(TypeInfo::dup(type), parse_expression());
                 type->kind = TypeKind::Array;
             } else {
-                type->base = TypeInfo::dup(type);
+                type->slice.base = TypeInfo::dup(type);
                 type->kind = TypeKind::Slice;
             }
 
@@ -1280,7 +1288,7 @@ namespace ariac {
 
         for (auto& attr : attrs) {
             if (attr.kind == DeclAttributeKind::If) {
-                context.active_comp_unit->if_attr = attr.arg;
+                context.active_comp_unit->if_attr = attr.expr;
             }
         }
 
@@ -1746,9 +1754,12 @@ namespace ariac {
                 return &error_decl;
             }
 
+            TinyVector<DeclAttribute> attrs = parse_decl_attributes();
+
             try_consume(TokenKind::Semi, ";");
 
             Decl* d = Decl::Create(td.loc + peek(-1)->loc, DeclKind::Typedef, m_current_visibility, TypedefDecl(type, name->string));
+            d->attributes = attrs;
             context.active_comp_unit->typedefs.push_back(d);
             return d;
         }
@@ -1798,11 +1809,26 @@ namespace ariac {
             switch (peek()->kind) {
                 case TokenKind::AtIf: {
                     consume();
-                    try_consume(TokenKind::LeftParen, ")");
+                    try_consume(TokenKind::LeftParen, "(");
                     Expr* arg = parse_expression();
-                    try_consume(TokenKind::RightParen, "(");
+                    try_consume(TokenKind::RightParen, ")");
 
                     attrs.append(DeclAttribute(DeclAttributeKind::If, arg));
+                    break;
+                }
+
+                case TokenKind::AtBuiltin: {
+                    consume();
+                    try_consume(TokenKind::LeftParen, "(");
+
+                    std::string_view arg;
+
+                    Token* str = try_consume(TokenKind::StrLit, "string literal");
+                    if (str) { arg = str->string;}
+
+                    try_consume(TokenKind::RightParen, ")");
+
+                    attrs.append(DeclAttribute(DeclAttributeKind::Builtin, arg));
                     break;
                 }
 

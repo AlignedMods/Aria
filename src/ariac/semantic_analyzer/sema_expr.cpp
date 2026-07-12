@@ -147,7 +147,7 @@ namespace ariac {
                     }
 
                     Expr* self = Expr::Create(expr->loc, ExprKind::Self, 
-                        ExprValueKind::LValue, TypeInfo::create_with_base(TypeKind::Pointer, m_active_struct), 
+                        ExprValueKind::LValue, TypeInfo::create_pointer(m_active_struct, false), 
                         ErrorExpr());
 
                     Expr* member = Expr::Create(expr->loc, ExprKind::Member,
@@ -198,7 +198,7 @@ namespace ariac {
 
                     case DeclKind::Param: {
                         if (sym->param.variadic) {
-                            expr->type = TypeInfo::create_with_base(TypeKind::Slice, sym->param.type);
+                            expr->type = TypeInfo::create_slice(sym->param.type);
                         } else {
                             expr->type = sym->param.type;
                         }
@@ -379,8 +379,8 @@ namespace ariac {
                         member_type = TypeInfo::get_basic(TypeKind::Sz);
                         expr->kind = ExprKind::BuiltinMember;
                     } else if (mem.member == "types") {
-                        TypeInfo* ti_ptr = TypeInfo::create_with_base(TypeKind::Pointer, TypeInfo::get_basic(TypeKind::TypeInfo));
-                        member_type = TypeInfo::create_with_base(TypeKind::Slice, ti_ptr);
+                        TypeInfo* ti_ptr = TypeInfo::create_pointer(TypeInfo::get_basic(TypeKind::TypeInfo), false);
+                        member_type = TypeInfo::create_slice(ti_ptr);
                         expr->kind = ExprKind::BuiltinMember;
                     }
 
@@ -484,7 +484,7 @@ namespace ariac {
 
                 case TypeKind::Array: {
                     if (mem.member == "mem") {
-                        member_type = TypeInfo::create_with_base(TypeKind::Pointer, parent_type->array.base);
+                        member_type = TypeInfo::create_pointer(parent_type->array.base, false);
                         expr->kind = ExprKind::BuiltinMember;
                     } else if (mem.member == "len") {
                         member_type = TypeInfo::get_basic(TypeKind::Sz);
@@ -498,7 +498,7 @@ namespace ariac {
 
                 case TypeKind::Slice: {
                     if (mem.member == "mem") {
-                        member_type = TypeInfo::create_with_base(TypeKind::Pointer, parent_type->base);
+                        member_type = TypeInfo::create_pointer(parent_type->slice.base, false);
                         expr->kind = ExprKind::BuiltinMember;
                     } else if (mem.member == "len") {
                         member_type = TypeInfo::get_basic(TypeKind::Sz);
@@ -514,7 +514,7 @@ namespace ariac {
                         context.report_compiler_diagnostic(expr->loc, "'.' operator allows only one level of implicit dereferencing");
                     }
 
-                    parent_type = parent_type->base;
+                    parent_type = parent_type->pointer.base;
                     implicit_deref = true;
                     mem.implicit_deref = true;
 
@@ -561,7 +561,7 @@ namespace ariac {
         }
 
         if (!expr->type) {
-            expr->type = TypeInfo::create_with_base(TypeKind::Pointer, m_active_struct);
+            expr->type = TypeInfo::create_pointer(m_active_struct, false);
         }
 
         resolve_type(expr->type);
@@ -717,7 +717,7 @@ namespace ariac {
                                     insert_implicit_cast(TypeInfo::get_basic(TypeKind::Double), arg->type, arg, CastKind::Floating);
                                 }
                             } else if (arg->type->is_array()) {
-                                insert_implicit_cast(TypeInfo::create_with_base(TypeKind::Pointer, arg->type->array.base), arg->type, arg, CastKind::ArrayToPointer);
+                                insert_implicit_cast(TypeInfo::create_pointer(arg->type->array.base, false), arg->type, arg, CastKind::ArrayToPointer);
                             } else if (arg->type->is_pointer()) {
                                 require_rvalue(arg);
                             } else if (!arg->type->is_error()) {
@@ -758,7 +758,7 @@ namespace ariac {
                 }
 
                 case BuiltinCallKind::Typeid: {
-                    expr->type = TypeInfo::create_with_base(TypeKind::Pointer, TypeInfo::get_basic(TypeKind::TypeInfo));
+                    expr->type = TypeInfo::get_typeinfo_ptr();
                     break;
                 }
 
@@ -936,18 +936,18 @@ namespace ariac {
             case TypeKind::Pointer: {
                 require_rvalue(subs.array);
 
-                if (subs.array->type->base->is_void()) {
+                if (subs.array->type->pointer.base->is_void()) {
                     context.report_compiler_diagnostic(expr->loc, "Cannot index into 'void*' because it would dereference to 'void'");
                     expr->type = TypeInfo::get_error();
                     break;
                 }
 
-                expr->type = subs.array->type->base;
+                expr->type = subs.array->type->pointer.base;
                 break;
             }
 
             case TypeKind::Slice: {
-                expr->type = subs.array->type->base;
+                expr->type = subs.array->type->slice.base;
                 break;
             }
 
@@ -974,7 +974,7 @@ namespace ariac {
         switch (tos.source->type->kind) {
             case TypeKind::Pointer: {
                 require_rvalue(tos.source);
-                expr->type = TypeInfo::create_with_base(TypeKind::Slice, tos.source->type->base);
+                expr->type = TypeInfo::create_slice(tos.source->type->pointer.base);
                 break;
             }
 
@@ -986,7 +986,7 @@ namespace ariac {
             }
 
             case TypeKind::Array: {
-                expr->type = TypeInfo::create_with_base(TypeKind::Slice, tos.source->type->array.base);
+                expr->type = TypeInfo::create_slice(tos.source->type->array.base);
                 break;
             }
 
@@ -1018,7 +1018,7 @@ namespace ariac {
                 require_rvalue(n.initializer);
                 m_temporary_context = false;
 
-                try_insert_implicit_cast(expr->type->base, n.initializer);
+                try_insert_implicit_cast(expr->type->pointer.base, n.initializer);
             }
         }
     }
@@ -1117,7 +1117,7 @@ namespace ariac {
                     context.report_compiler_diagnostic(expr->loc, "Address of operation ('&') requries an lvalue");
                 }
 
-                TypeInfo* new_type = TypeInfo::create_with_base(TypeKind::Pointer, type);
+                TypeInfo* new_type = TypeInfo::create_pointer(type, false);
                 expr->type = new_type;
                 break;
             }
@@ -1129,7 +1129,7 @@ namespace ariac {
                     context.report_compiler_diagnostic(expr->loc, "RValue address of operation ('&&') requries an rvalue");
                 }
 
-                TypeInfo* new_type = TypeInfo::create_with_base(TypeKind::Pointer, type);
+                TypeInfo* new_type = TypeInfo::create_pointer(type, false);
                 expr->type = new_type;
                 break;
             }
@@ -1140,7 +1140,7 @@ namespace ariac {
                 require_rvalue(unop.expression);
 
                 if (type->is_pointer()) {
-                    if (type->base->is_void()) {
+                    if (type->pointer.base->is_void()) {
                         context.report_compiler_diagnostic(expr->loc, "Cannot dereference a void*");
                     }
                 } else {
@@ -1148,7 +1148,7 @@ namespace ariac {
                     break;
                 }
 
-                expr->type = type->base;
+                expr->type = type->pointer.base;
                 expr->value_kind = ExprValueKind::LValue;
                 break;
             }

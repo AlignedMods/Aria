@@ -149,6 +149,8 @@ namespace ariac {
         Module* std_core_module = nullptr;
         Decl* main_func = nullptr;
 
+        Decl* string_type = nullptr;
+
         CompilerReflectionData reflection_data;
         bool has_errors = false;
 

@@ -94,8 +94,8 @@ namespace ariac {
                 break;
             }
 
-            case TypeKind::Pointer: resolve_type(type->base); break;
-            case TypeKind::Slice: resolve_type(type->base); break;
+            case TypeKind::Pointer: resolve_type(type->pointer.base); break;
+            case TypeKind::Slice: resolve_type(type->slice.base); break;
             
             case TypeKind::Array: {
                 resolve_type(type->array.base);
@@ -205,6 +205,9 @@ namespace ariac {
         cost.explicit_cast_possible = true;
         cost.implicit_cast_possible = true;
 
+        if (dst->is_typedef()) { dst = dst->typedef_.base; }
+        if (src->is_typedef()) { src = src->typedef_.base; }
+
         if (dst->get_bottom_type()->is_generic() || src->get_bottom_type()->is_generic()) {
             cost.cast_needed = false;
             return cost;
@@ -215,7 +218,12 @@ namespace ariac {
             return cost;
         }
 
-        if (type_is_equal(src, dst)) {
+        if (dst->is_void() && src->is_void()) {
+            cost.cast_needed = false;
+            return cost;
+        }
+
+        if (dst->is_boolean() && src->is_boolean()) {
             cost.cast_needed = false;
             return cost;
         }
@@ -259,27 +267,65 @@ namespace ariac {
             return cost;
         }
 
+        if (dst->is_typeinfo() && src->is_typeinfo()) {
+            cost.cast_needed = false;
+            return cost;
+        }
+
+        if (dst->is_any() && src->is_any()) {
+            cost.cast_needed = false;
+            return cost;
+        }
+
         if (src->is_pointer()) {
             if (dst->is_pointer()) { // Ptr to ptr
-                if (src->base->is_void() || dst->base->is_void()) { // Allow void* conversions
+                if (src->pointer.is_const && !dst->pointer.is_const) { // *const int -> *int is not allowed
+                    cost.implicit_cast_possible = false;
+                    cost.explicit_cast_possible = false;
+                    return cost;
+                }
+
+                if (src->pointer.base->is_void() || dst->pointer.base->is_void()) { // Allow void* conversions
                     cost.kind = CastKind::BitCast;
                     return cost;
                 }
-            } else if (dst->is_any() && !src->base->is_void()) { // Ptr to any
+
+                ConversionCost base_cost = get_conversion_cost(dst->pointer.base, src->pointer.base);
+                if (base_cost.cast_needed) {
+                    cost.explicit_cast_possible = false;
+                    cost.implicit_cast_possible = false;
+                    return cost;
+                }
+
+                cost.cast_needed = false;
+                return cost;
+            } else if (dst->is_any() && !src->pointer.base->is_void()) { // Ptr to any
                 cost.kind = CastKind::PointerToAny;
                 return cost;
             }
         }
 
         if (src->is_array()) {
-            if (dst->is_slice() && type_is_equal(dst->base, src->array.base)) {
-                cost.kind = CastKind::ArrayToSlice;
-                return cost;
-            } else if (dst->is_pointer() && type_is_equal(dst->base, src->array.base)) {
+            if (dst->is_pointer() && type_is_equal(dst->pointer.base, src->array.base)) {
                 cost.implicit_cast_possible = false; // Allow only explicit casts here
                 cost.kind = CastKind::ArrayToPointer;
                 return cost;
             }
+        }
+
+        if (src->is_slice() && dst->is_slice()) {
+            return get_conversion_cost(dst->slice.base, src->slice.base);
+        }
+
+        if (src->is_structure() && dst->is_structure()) {
+            if (src->struct_.source_decl != dst->struct_.source_decl) {
+                cost.explicit_cast_possible = false;
+                cost.implicit_cast_possible = false;
+                return cost;
+            }
+
+            cost.cast_needed = false;
+            return cost;
         }
 
         cost.explicit_cast_possible = false;
@@ -298,11 +344,11 @@ namespace ariac {
         }
 
         if (lhs->is_slice() && rhs->is_slice()) {
-            return type_is_equal(lhs->base, rhs->base);
+            return type_is_equal(lhs->slice.base, rhs->slice.base);
         }
 
         if (lhs->is_pointer() && rhs->is_pointer()) {
-            return type_is_equal(lhs->base, rhs->base);
+            return type_is_equal(lhs->pointer.base, rhs->pointer.base);
         }
 
         if (lhs->is_primitive() && rhs->is_primitive()) {
@@ -353,7 +399,6 @@ namespace ariac {
 
     bool SemanticAnalyzer::cast_needs_rvalue(CastKind kind) {
         switch (kind) {
-            case CastKind::ArrayToSlice:
             case CastKind::ArrayToPointer:
             case CastKind::LValueToRValue: return false;
 

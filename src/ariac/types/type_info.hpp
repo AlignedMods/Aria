@@ -70,15 +70,12 @@ namespace ariac {
 
     struct TypeInfo;
 
-    struct FunctionType {
-        FunctionType(TypeInfo* ret, TinyVector<TypeInfo*> params, VariadicKind var)
-            : return_type(ret), param_types(params), variadic(var) {}
+    struct PointerType {
+        PointerType(TypeInfo* base, bool is_const)
+            : base(base), is_const(is_const) {}
 
-        bool is_variadic() const { return variadic == VariadicKind::Unnamed || variadic == VariadicKind::Named; }
-
-        TypeInfo* return_type = nullptr;
-        TinyVector<TypeInfo*> param_types;
-        VariadicKind variadic;
+        TypeInfo* base = nullptr;
+        bool is_const = false;
     };
 
     struct ArrayType {
@@ -88,6 +85,24 @@ namespace ariac {
         TypeInfo* base = nullptr;
         Expr* expression = nullptr;
         u64 size = 0;
+    };
+
+    struct SliceType {
+        SliceType(TypeInfo* base)
+            : base(base) {}
+
+        TypeInfo* base = nullptr;
+    };
+
+    struct FunctionType {
+        FunctionType(TypeInfo* ret, TinyVector<TypeInfo*> params, VariadicKind var)
+            : return_type(ret), param_types(params), variadic(var) {}
+
+        bool is_variadic() const { return variadic == VariadicKind::Unnamed || variadic == VariadicKind::Named; }
+
+        TypeInfo* return_type = nullptr;
+        TinyVector<TypeInfo*> param_types;
+        VariadicKind variadic;
     };
 
     struct StructType {
@@ -145,9 +160,10 @@ namespace ariac {
         TypeKind kind = TypeKind::Error;
         SourceLoc loc;
         union {
-            TypeInfo* base = nullptr;
+            PointerType pointer;
             FunctionType function;
             ArrayType array;
+            SliceType slice;
             StructType struct_;
             TypedefType typedef_;
             EnumType enum_;
@@ -155,11 +171,14 @@ namespace ariac {
             GenericDeclType generic_decl;
             GenericInstantiationType generic_instantiation;
             UnresolvedType unresolved;
+
+            u64 _initializer = 0; // Hack so the compiler doesn't complain about 'no default constructor'
         };
 
         static TypeInfo* create_basic(TypeKind kind, SourceLoc loc = {});
-        static TypeInfo* create_with_base(TypeKind kind, TypeInfo* base, SourceLoc loc = {});
+        static TypeInfo* create_pointer(TypeInfo* base, bool is_const, SourceLoc loc = {});
         static TypeInfo* create_array(TypeInfo* base, u64 size, SourceLoc loc = {});
+        static TypeInfo* create_slice(TypeInfo* base, SourceLoc loc = {});
         static TypeInfo* create_function(TypeKind kind, TypeInfo* ret, TinyVector<TypeInfo*> params, VariadicKind variadic, SourceLoc loc = {});
         static TypeInfo* create_struct(Decl* d, SourceLoc loc = {});
         static TypeInfo* create_struct(std::string_view name, Decl* d, SourceLoc loc = {});

@@ -64,7 +64,6 @@ namespace ariac {
         IntegralToFloating,
         FloatingToIntegral,
         BitCast,
-        ArrayToSlice,
         ArrayToPointer,
         PointerToAny,
 
@@ -78,7 +77,6 @@ namespace ariac {
             case CastKind::IntegralToFloating: return "IntegralToFloating";
             case CastKind::FloatingToIntegral: return "FloatingToIntegral";
             case CastKind::BitCast: return "BitCast";
-            case CastKind::ArrayToSlice: return "ArrayToSlice";
             case CastKind::ArrayToPointer: return "ArrayToPointer";
             case CastKind::PointerToAny: return "PointerToAny";
             case CastKind::LValueToRValue: return "LValueToRValue";

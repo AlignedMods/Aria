@@ -590,7 +590,7 @@ namespace ariac {
                 str_type, m_active_debug_context.scope->getFile(), 0, t->get_size() * 8, t->get_alignment() * 8,
                 llvm::DINode::DIFlags::FlagExplicit, nullptr, m_active_debug_context.active_builder->getOrCreateArray(elems));
         } else if (t->is_pointer()) {
-            dit = m_active_debug_context.active_builder->createPointerType(type_info_to_debug_type(t->base), t->get_bit_size());
+            dit = m_active_debug_context.active_builder->createPointerType(type_info_to_debug_type(t->pointer.base), t->get_bit_size());
         } else if (t->is_array()) {
             dit = m_active_debug_context.active_builder->createArrayType(t->array.size, t->array.base->get_alignment() * 8, type_info_to_debug_type(t->array.base), {});
         } else if (t->is_slice()) {
@@ -599,7 +599,7 @@ namespace ariac {
             u64 offset_bits = 0;
             elems[0] = m_active_debug_context.active_builder->createMemberType(m_active_debug_context.scope, "mem", 
                 m_active_debug_context.scope->getFile(), 0, TypeInfo::get_void_ptr()->get_bit_size(), TypeInfo::get_void_ptr()->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
-                type_info_to_debug_type(TypeInfo::create_with_base(TypeKind::Pointer, t->base)));
+                type_info_to_debug_type(TypeInfo::create_pointer(t->slice.base, false)));
 
             offset_bits += TypeInfo::get_void_ptr()->get_bit_size();
 
@@ -658,9 +658,9 @@ namespace ariac {
             case TypeKind::TypeInfo: return "ti";
             case TypeKind::Any: return "a";
 
-            case TypeKind::Array: return fmt::format("A{}.{}", t->array.size, mangle_type(t->base));
-            case TypeKind::Pointer: return fmt::format("P{}", mangle_type(t->base));
-            case TypeKind::Slice: return fmt::format("S{}", mangle_type(t->base));
+            case TypeKind::Pointer: return fmt::format("P{}", mangle_type(t->pointer.base));
+            case TypeKind::Array: return fmt::format("A{}.{}", t->array.size, mangle_type(t->array.base));
+            case TypeKind::Slice: return fmt::format("S{}", mangle_type(t->slice.base));
 
             case TypeKind::Typedef: return mangle_type(t->typedef_.base);
 
