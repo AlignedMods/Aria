@@ -476,7 +476,15 @@ namespace ariac {
         m_active_module_context.builder->CreateStore(mem_val, mem);
 
         llvm::Value* len = m_active_module_context.builder->CreateStructGEP(type, slice, 1);
-        llvm::Value* len_val = gen_expr(t.len);
+        llvm::Value* len_val = nullptr;
+        
+        if (t.len) {
+            len_val = gen_expr(t.len);
+        } else {
+            ARIA_ASSERT(t.source->type->is_array(), "Type must be an array");
+            len_val = m_active_module_context.builder->getInt(llvm::APInt(TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), t.source->type->array.size));
+        }
+
         m_active_module_context.builder->CreateStore(len_val, len);
 
         return m_active_module_context.builder->CreateLoad(type, slice);
@@ -586,13 +594,9 @@ namespace ariac {
             }
 
             case CastKind::ArrayToPointer: {
-                if (ic.expression->value_kind == ExprValueKind::LValue) {
-                    llvm::Value* val = gen_expr(ic.expression);
-                    llvm::Value* zero = m_active_module_context.builder->getInt64(0);
-                    return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(ic.expression->type), val, { zero, zero }, "arraydecay", true);
-                } else {
-                    return gen_expr(ic.expression);
-                }
+                llvm::Value* val = gen_expr(ic.expression);
+                llvm::Value* zero = m_active_module_context.builder->getInt64(0);
+                return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(ic.expression->type), val, { zero, zero }, "arrtoptr", true);
             }
 
             case CastKind::PointerToAny: {

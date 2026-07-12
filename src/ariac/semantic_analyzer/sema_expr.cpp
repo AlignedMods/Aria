@@ -966,13 +966,21 @@ namespace ariac {
         ToSliceExpr& tos = expr->to_slice;
 
         resolve_expr(tos.source);
-        resolve_expr(tos.len);
-        require_rvalue(tos.len);
+
+        if (tos.len) {
+            resolve_expr(tos.len);
+            require_rvalue(tos.len);
+        }  
 
         if (tos.source->type->is_error()) { expr->type = TypeInfo::get_error(); return; }
 
         switch (tos.source->type->kind) {
             case TypeKind::Pointer: {
+                if (!tos.len) {
+                    context.report_compiler_diagnostic_with_notes(expr->loc, fmt::format("Cannot infer size of pointer type '{}'", type_info_to_string(tos.source->type)),
+                        { "Consider using '[:len]' instead of [..]"} );
+                }
+
                 require_rvalue(tos.source);
                 expr->type = TypeInfo::create_slice(tos.source->type->pointer.base);
                 break;
@@ -986,6 +994,7 @@ namespace ariac {
             }
 
             case TypeKind::Array: {
+                insert_implicit_cast(TypeInfo::create_pointer(tos.source->type->array.base, false), tos.source->type, tos.source, CastKind::ArrayToPointer);
                 expr->type = TypeInfo::create_slice(tos.source->type->array.base);
                 break;
             }
@@ -993,7 +1002,7 @@ namespace ariac {
             default: context.report_compiler_diagnostic(tos.source->loc, "Only a pointer/slice/array can be converted to a slice"); expr->type = TypeInfo::get_error(); break;
         }
 
-        try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Sz), tos.len);
+        if (tos.len) { try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Sz), tos.len); }
     }
 
     void SemanticAnalyzer::resolve_new_expr(Expr* expr) {
@@ -1051,7 +1060,6 @@ namespace ariac {
         
         resolve_type(cast.type);
         resolve_expr(cast.expression);
-        require_rvalue(cast.expression);
         expr->type = cast.type;
 
         TypeInfo* dst_type = cast.type;
@@ -1700,8 +1708,9 @@ namespace ariac {
             case ExprKind::UnaryOperator: {
                 switch (expr->unary_operator.op) {
                     case UnaryOperatorKind::Increment:
-                    case UnaryOperatorKind::Decrement:
-                    case UnaryOperatorKind::Dereference: return true;
+                    case UnaryOperatorKind::Decrement: return true;
+
+                    case UnaryOperatorKind::Dereference: return !expr->unary_operator.expression->type->pointer.is_const;
 
                     default: return false;
                 }

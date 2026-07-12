@@ -75,6 +75,18 @@ namespace ariac {
                 break;
             }
 
+            case ExprKind::ArrayLiteral: {
+                ArrayLiteralExpr& lit = e->array_literal;
+
+                for (Expr* arg : lit.arguments) {
+                    copy->array_literal.arguments.append(Expr::dup(arg));
+                }
+
+                copy->array_literal.is_const = lit.is_const;
+
+                break;
+            }
+
             case ExprKind::MethodCall: {
                 CallExpr& m = e->call;
                 

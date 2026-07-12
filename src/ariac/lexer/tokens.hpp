@@ -23,6 +23,7 @@ namespace ariac {
         Colon,
         ColonColon,
         Dot,
+        DotDot,
         TripleDot,
         Arrow,
         // ^^^ Punctuation ^^^ //
@@ -134,6 +135,7 @@ namespace ariac {
             case TokenKind::Colon: return ":";
             case TokenKind::ColonColon: return "::";
             case TokenKind::Dot: return ".";
+            case TokenKind::DotDot: return "..";
             case TokenKind::TripleDot: return "...";
             case TokenKind::Arrow: return "->";
             // ^^^ Punctuation ^^^ //

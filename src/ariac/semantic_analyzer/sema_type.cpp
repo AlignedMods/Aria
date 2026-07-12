@@ -311,6 +311,24 @@ namespace ariac {
                 cost.kind = CastKind::ArrayToPointer;
                 return cost;
             }
+
+            if (dst->is_array()) {
+                if (src->array.size != dst->array.size) {
+                    cost.implicit_cast_possible = false;
+                    cost.explicit_cast_possible = false;
+                    return cost;
+                }
+
+                ConversionCost base_cost = get_conversion_cost(dst->array.base, src->array.base);
+                if (base_cost.cast_needed) {
+                    cost.implicit_cast_possible = false;
+                    cost.explicit_cast_possible = false;
+                    return cost;
+                }
+
+                cost.cast_needed = false;
+                return cost;
+            }
         }
 
         if (src->is_slice() && dst->is_slice()) {

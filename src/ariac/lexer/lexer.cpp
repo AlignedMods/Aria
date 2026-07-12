@@ -44,8 +44,13 @@ namespace ariac {
                 }
 
                 case '.': {
-                    if (peek() == '.' && peek(1) == '.') { consume(2); add_token(TokenKind::TripleDot, SourceLoc(m_current_line, get_column(m_index - 3), m_index - 3, 3), "..."); break; }
-                    else { add_token(TokenKind::Dot, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), "."); break; }
+                    if (try_consume('.')) {
+                        if (try_consume('.')) { add_token(TokenKind::TripleDot, SourceLoc(m_current_line, get_column(m_index - 3), m_index - 3, 3), "..."); break; }
+                        else { add_token(TokenKind::DotDot, SourceLoc(m_current_line, get_column(m_index - 2), m_index - 2, 2), ".."); break; }
+                    }
+
+                    add_token(TokenKind::Dot, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), ".");
+                    break;
                 }
 
                 // Operators

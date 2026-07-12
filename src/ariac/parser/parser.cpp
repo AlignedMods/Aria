@@ -410,7 +410,14 @@ namespace ariac {
 
             return Expr::Create(left->loc + peek(-1)->loc, ExprKind::ToSlice,
                 ExprValueKind::RValue, nullptr,
-                ArraySubscriptExpr(left, len));
+                ToSliceExpr(left, len));
+        } else if (match(TokenKind::DotDot)) {
+            consume();
+            try_consume(TokenKind::RightBracket, "]");
+
+            return Expr::Create(left->loc + peek(-1)->loc, ExprKind::ToSlice,
+                ExprValueKind::RValue, nullptr,
+                ToSliceExpr(left, nullptr));
         } else {
             Expr* index = parse_expression();
             try_consume(TokenKind::RightBracket, "]");
