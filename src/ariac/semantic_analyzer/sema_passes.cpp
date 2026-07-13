@@ -14,29 +14,29 @@ namespace ariac {
             context.active_module = mod;
 
             for (size_t i = 0; i < mod->units.size(); i++) {
-            if (mod->units[i]->if_attr) {
-                resolve_expr(mod->units[i]->if_attr);
+                if (mod->units[i]->if_attr) {
+                    resolve_expr(mod->units[i]->if_attr);
 
-                if (!is_const_expr(mod->units[i]->if_attr)) {
-                    context.report_compiler_diagnostic(mod->units[i]->if_attr->loc, "Expression must be a compile time constant");
-                    break;
-                }
+                    if (!is_const_expr(mod->units[i]->if_attr)) {
+                        context.report_compiler_diagnostic(mod->units[i]->if_attr->loc, "Expression must be a compile time constant");
+                        break;
+                    }
 
-                if (!mod->units[i]->if_attr->type->is_boolean()) {
-                    context.report_compiler_diagnostic(mod->units[i]->if_attr->loc, "Expression must be of type 'bool'");
-                    break;
-                }
+                    if (!mod->units[i]->if_attr->type->is_boolean()) {
+                        context.report_compiler_diagnostic(mod->units[i]->if_attr->loc, "Expression must be of type 'bool'");
+                        break;
+                    }
 
-                bool result = eval_const_expr(mod->units[i]->if_attr)->const_.boolean;
-                if (!result) {
-                    mod->units.erase(mod->units.begin() + i);
-                    i--;
-                    continue;
+                    bool result = eval_const_expr(mod->units[i]->if_attr)->const_.boolean;
+                    if (!result) {
+                        mod->units.erase(mod->units.begin() + i);
+                        i--;
+                        continue;
+                    }
                 }
+                
+                resolve_unit_type_decls(mod, mod->units[i]);
             }
-            
-            resolve_unit_type_decls(mod, mod->units[i]);
-        }
         }
 
         for (Module* mod : context.modules) {

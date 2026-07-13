@@ -653,6 +653,9 @@ namespace ariac {
             case TypeKind::Long: return "l";
             case TypeKind::ULong: return "ul";
 
+            case TypeKind::Sz: return "z";
+            case TypeKind::Isz: return "iz";
+
             case TypeKind::Float: return "f";
             case TypeKind::Double: return "d";
 
@@ -708,8 +711,16 @@ namespace ariac {
         return TmpB.CreateAlloca(type, nullptr, name);
     }
 
-    llvm::Constant* Codegen::get_string(std::string_view s) {
-        llvm::GlobalVariable* str = m_active_module_context.builder->CreateGlobalString(s, ".str", 0, nullptr);
+    llvm::Constant* Codegen::get_sz(u64 i) {
+        return m_active_module_context.builder->getInt(llvm::APInt(TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), i));
+    }
+
+    llvm::Constant* Codegen::get_i64(u64 i) {
+        return m_active_module_context.builder->getInt64(i);
+    }
+
+    llvm::Constant* Codegen::get_string(std::string_view s, std::string_view name) {
+        llvm::GlobalVariable* str = m_active_module_context.builder->CreateGlobalString(s, name, 0, nullptr);
         llvm::Constant* vals[2] = { str, m_active_module_context.builder->getInt64(s.length()) };
         return llvm::ConstantStruct::get(llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice"), llvm::ArrayRef(vals));
     }
@@ -758,6 +769,27 @@ namespace ariac {
         llvm::GlobalVariable* ti = new llvm::GlobalVariable(*m_active_module_context.module, typeinfo_type, true, llvm::GlobalValue::LinkageTypes::InternalLinkage, initializer, ti_name);
         m_active_module_context.typeinfos[name] = ti;
         return ti;
+    }
+
+    llvm::Function* Codegen::get_assert_func() {
+        if (!context.assert_func) { return nullptr; }
+
+        if (!m_active_module_context.functions.contains(context.assert_func)) { gen_function_prototype(context.assert_func); }
+        return m_active_module_context.functions.at(context.assert_func);
+    }
+
+    void Codegen::call_assert(llvm::Value* cond, std::string_view file, u64 line, const std::string& fmt, const std::vector<llvm::Value*>& args, const std::vector<TypeInfo*>& types) {
+        llvm::Function* fn = get_assert_func();
+        if (!fn) { return; }
+
+        std::vector<llvm::Value*> aargs;
+        gen_call_param(&aargs, cond, TypeInfo::get_basic(TypeKind::Bool));
+        gen_call_param(&aargs, get_string(file, ".file"), TypeInfo::get_string());
+        gen_call_param(&aargs, get_i64(line), TypeInfo::get_basic(TypeKind::ULong));
+        gen_call_param(&aargs, get_string(fmt, ".assert_msg"), TypeInfo::get_string());
+        gen_call_variadic(&aargs, args, types);
+
+        m_active_module_context.builder->CreateCall(fn, aargs);
     }
 
     void Codegen::set_debug_loc(const SourceLoc& loc) {

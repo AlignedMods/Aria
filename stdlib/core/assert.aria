@@ -1,0 +1,16 @@
+module std::core;
+
+import std::io;
+import libc;
+
+fn assert(cond: bool, file: String, line: ulong, fmt: String, args...) @builtin("assert") {
+    if !cond { assert_fail(file, line, fmt, args); }
+}
+
+#private
+
+fn assert_fail(file: String, line: ulong, fmt: String, args: []any) {
+    io::eprintf("%s:%s: Assertion failed: ", file, line);
+    io::veprintf(fmt, args);
+    libc::abort();
+}

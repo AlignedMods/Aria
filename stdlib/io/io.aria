@@ -12,6 +12,12 @@ fn println(str: String) { libc::printf(c"%.*s\n", str.len, str.mem); }
 fn printf(fmt: String, args...) { internal_vprintf(libc::stdout(), fmt, args, false); }
 fn printfln(fmt: String, args...) { internal_vprintf(libc::stdout(), fmt, args, true); }
 
+fn eprintf(fmt: String, args...) { internal_vprintf(libc::stderr(), fmt, args, false); }
+fn eprintfln(fmt: String, args...) { internal_vprintf(libc::stderr(), fmt, args, true); }
+
+fn veprintf(fmt: String, args: []any) { internal_vprintf(libc::stderr(), fmt, args, false); }
+fn veprintfln(fmt: String, args: []any) { internal_vprintf(libc::stderr(), fmt, args, true); }
+
 fn fprintf(file: File, fmt: String, args...) { internal_vprintf(file.handle, fmt, args, false); }
 fn fprintfln(file: File, fmt: String, args...) { internal_vprintf(file.handle, fmt, args, true); }
 

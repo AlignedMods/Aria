@@ -28,6 +28,7 @@ namespace ariac {
         "core/mem.aria",
         "core/list.aria",
         "core/any.aria",
+        "core/assert.aria",
         "process/process.aria",
     };
 

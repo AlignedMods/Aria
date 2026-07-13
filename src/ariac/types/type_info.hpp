@@ -190,6 +190,7 @@ namespace ariac {
 
         static TypeInfo* get_error();
         static TypeInfo* get_void();
+        static TypeInfo* get_sz();
         static TypeInfo* get_basic(TypeKind kind);
         static TypeInfo* get_void_ptr();
         static TypeInfo* get_char_ptr();

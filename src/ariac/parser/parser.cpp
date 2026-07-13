@@ -520,9 +520,17 @@ namespace ariac {
             }
     
             case TokenKind::StrLit: {
+                scratch_buffer_clear();
+                scratch_buffer_append(t.string);
+
+                while (match(TokenKind::StrLit)) {
+                    Token& news = consume();
+                    scratch_buffer_append(news.string);
+                }
+
                 return Expr::Create(t.loc, ExprKind::StringLiteral,
                     ExprValueKind::RValue, nullptr, 
-                    StringLiteralExpr(t.string));
+                    StringLiteralExpr(scratch_buffer_to_str()));
             }
 
             case TokenKind::CStrLit: {
@@ -1400,6 +1408,8 @@ namespace ariac {
         
         Stmt* body = nullptr;
 
+        SourceLoc end_loc = peek(-1)->loc;
+
         if (match(TokenKind::LeftCurly)) {
             body = parse_block();
         } else {
@@ -1408,7 +1418,7 @@ namespace ariac {
 
         TypeInfo* final_type = TypeInfo::create_function(TypeKind::Function, ret_type, param_types, variadic);
 
-        Decl* f = Decl::Create(ident->loc + ret_type->loc, DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, final_type, params, body, linkage));
+        Decl* f = Decl::Create(ident->loc + end_loc, DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, final_type, params, body, linkage));
         f->attributes = attrs;
 
         if (generic_params.size == 0) {

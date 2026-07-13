@@ -48,12 +48,17 @@ impl StringStream {
     }
 
     fn append_uint(u: ulong) -> void {
-        let rest = u;
-        
+        let buf: [32]char;
+        let i: isz;
+
         do {
-            append_char(cast(char, cast(ulong, '0') + (rest % 10u)));
-            rest /= 10u;
-        } while rest != 0u;
+            buf[i++] = '0' + (u % 10u);
+            u /= 10u;
+        } while u > 0;
+
+        for (j: isz = 1; j < i + 1; j++) {
+            append_char(buf[i - j]);
+        }
     }
 
     fn append_any(arg: *any) {
@@ -92,6 +97,26 @@ impl StringStream {
             return;
         }
 
+        if core::any_has_type(<long>, arg) {
+            append_int(core::any_cast(<long>, arg));
+            return;
+        }
+
+        if core::any_has_type(<ulong>, arg) {
+            append_uint(core::any_cast(<ulong>, arg));
+            return;
+        }
+
+        if core::any_has_type(<sz>, arg) {
+            append_uint(core::any_cast(<sz>, arg));
+            return;
+        }
+
+        if core::any_has_type(<isz>, arg) {
+            append_int(core::any_cast(<isz>, arg));
+            return;
+        }
+
         if core::any_has_type(<String>, arg) {
             append_string(core::any_cast(<String>, arg));
             return;
@@ -115,8 +140,6 @@ impl StringStream {
                 if fmt[i] == '%' {
                     append_char('%');
                 } else if fmt[i] == 's' {
-                    i++;
-
                     if var_idx < args.len {
                         let arg = &args[var_idx++];
                         append_any(arg);

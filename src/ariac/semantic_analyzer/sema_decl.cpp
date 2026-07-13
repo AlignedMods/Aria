@@ -304,6 +304,33 @@ namespace ariac {
                                 context.report_compiler_diagnostic(decl->loc, "Builtin for 'string' must be a typedef for '[]char'");
                             }
                         }
+                    } else if (attr.string == "assert") {
+                        if (context.assert_func) {
+                            context.report_compiler_diagnostic(decl->loc, "A function for assert is already declared, please remove '@builtin(\"assert\")'");
+                        } else {
+                            if (decl->kind != DeclKind::Function) {
+                                context.report_compiler_diagnostic(decl->loc, "Builtin for 'assert' must be a function");
+                                break;
+                            }
+
+                            FunctionDecl& fn = decl->function;
+
+                            TinyVector<TypeInfo*> param_types;
+                            param_types.append(TypeInfo::get_basic(TypeKind::Bool));
+                            param_types.append(TypeInfo::get_string());
+                            param_types.append(TypeInfo::get_basic(TypeKind::ULong));
+                            param_types.append(TypeInfo::get_string());
+                            param_types.append(TypeInfo::get_basic(TypeKind::Any));
+
+                            TypeInfo* fn_ty = TypeInfo::create_function(TypeKind::Function, TypeInfo::get_void(), param_types, VariadicKind::Named);
+
+                            if (!type_is_equal(fn_ty, fn.type)) {
+                                context.report_compiler_diagnostic(decl->loc, fmt::format("Builtin for 'assert' must have signature '{}'", type_info_to_string(fn_ty)));
+                                break;
+                            }
+
+                            context.assert_func = decl;
+                        }
                     } else {
                         context.report_compiler_diagnostic(decl->loc, fmt::format("Unknown builtin '{}'", attr.string));
                     }

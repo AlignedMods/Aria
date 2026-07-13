@@ -201,6 +201,10 @@ namespace ariac {
         return get_basic(TypeKind::Void);
     }
 
+    TypeInfo* TypeInfo::get_sz() {
+        return get_basic(TypeKind::Sz);
+    }
+
     TypeInfo* TypeInfo::get_basic(TypeKind kind) {
         #define TYPE(ki, var) \
             case TypeKind::ki: { \

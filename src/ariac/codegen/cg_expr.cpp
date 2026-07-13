@@ -344,8 +344,15 @@ namespace ariac {
                 llvm::Value* src = gen_expr(i.arguments.items[1]);
                 llvm::Value* len = gen_expr(i.arguments.items[2]);
                 
-                m_active_module_context.builder->CreateMemCpy(dst, llvm::MaybeAlign(), src, llvm::MaybeAlign(), len);
-                break;
+                return m_active_module_context.builder->CreateMemCpy(dst, llvm::MaybeAlign(), src, llvm::MaybeAlign(), len);
+            }
+
+            case IntrinsicCallKind::Memset: {
+                llvm::Value* ptr = gen_expr(i.arguments.items[0]);
+                llvm::Value* val = gen_expr(i.arguments.items[1]);
+                llvm::Value* len = gen_expr(i.arguments.items[2]);
+                
+                return m_active_module_context.builder->CreateMemSet(ptr, val, len, llvm::MaybeAlign());
             }
 
             default: ARIA_UNREACHABLE("Invalid intrinsic call kind");
@@ -468,10 +475,21 @@ namespace ariac {
             case TypeKind::Pointer:
                 return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type->pointer.base), array, index);
 
-            case TypeKind::Array:
+            case TypeKind::Array: {
+                llvm::Value* cond = m_active_module_context.builder->CreateICmpULT(index, get_sz(arr.array->type->array.size), "lt");
+                call_assert(cond, m_active_debug_context.active_unit->getFilename(), expr->loc.line, "Array index out of bounds (len: %s, index: %s)",
+                    { get_sz(arr.array->type->array.size), index }, { TypeInfo::get_sz(), TypeInfo::get_sz() });
+
                 return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type), array, { m_active_module_context.builder->getInt64(0), index });
+            }
 
             case TypeKind::Slice: {
+                if (!array->getType()->isPointerTy()) {
+                    llvm::Value* tempaddr = alloca_at_entry(m_active_module_context.function, "tempaddr", array->getType());
+                    m_active_module_context.builder->CreateStore(array, tempaddr);
+                    array = tempaddr;
+                }
+
                 llvm::Value* mem = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(arr.array->type), array, 0);
                 llvm::Value* loaded = m_active_module_context.builder->CreateLoad(llvm::PointerType::get(*m_active_module_context.context, 0), mem);
                 return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type->slice.base), loaded, index);
@@ -676,6 +694,24 @@ namespace ariac {
                 if (un.expression->type->is_integral()) {
                     inc = m_active_module_context.builder->CreateAdd(load, m_active_module_context.builder->getIntN(un.expression->type->get_bit_size(), 1), "inc");
                     m_active_module_context.builder->CreateStore(inc, start_val);
+                } else {
+                    ARIA_UNREACHABLE("Invalid expression type");
+                }
+
+                if (un.infix) { return load; }
+                else { return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(un.expression->type), start_val); }
+
+                ARIA_UNREACHABLE("Should be unreachable");
+            }
+
+            case UnaryOperatorKind::Decrement: {
+                llvm::Value* start_val = gen_expr(un.expression);
+                llvm::Value* load = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(un.expression->type), start_val);
+                llvm::Value* dec = nullptr;
+
+                if (un.expression->type->is_integral()) {
+                    dec = m_active_module_context.builder->CreateSub(load, m_active_module_context.builder->getIntN(un.expression->type->get_bit_size(), 1), "dec");
+                    m_active_module_context.builder->CreateStore(dec, start_val);
                 } else {
                     ARIA_UNREACHABLE("Invalid expression type");
                 }
@@ -974,6 +1010,10 @@ namespace ariac {
                 } else {
                     return llvm::ConstantFP::get(*m_active_module_context.context, llvm::APFloat(c.number));
                 }
+            }
+
+            case ConstExprKind::String: {
+                return get_string(c.string);
             }
 
             case ConstExprKind::Struct: {

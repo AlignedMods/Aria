@@ -2,8 +2,12 @@ module std::core::mem;
 
 import libc;
 
-fn copy(dst: *void, src: *void, len: sz) -> void {
+fn copy(dst: *void, src: *void, len: sz) {
     $memcpy(dst, src, len, false);
+}
+
+fn set(ptr: *void, val: char, len: sz) {
+    $memset(ptr, val, len, false);
 }
 
 fn alloc<T>() -> *T {

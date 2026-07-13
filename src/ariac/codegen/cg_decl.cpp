@@ -149,7 +149,7 @@ namespace ariac {
             }
 
             llvm::Type* fn_ty = type_info_to_llvm_type(fn.type);
-            llvm::Function* function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), llvm::GlobalValue::LinkageTypes::ExternalLinkage, 0, sig, m_active_module_context.module);
+            llvm::Function* function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), linkage_kind_to_llvm(fn.linkage_kind), 0, sig, m_active_module_context.module);
             m_active_module_context.functions[decl] = function;
 
             return;
@@ -159,7 +159,7 @@ namespace ariac {
             for (TypeInfo* t : fn.types) { sig += mangle_type(t); }
 
             llvm::Type* fn_ty = type_info_to_llvm_type(fn.source->function.type);
-            llvm::Function* function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), llvm::GlobalValue::LinkageTypes::ExternalLinkage, 0, sig, m_active_module_context.module);
+            llvm::Function* function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), linkage_kind_to_llvm(fn.source->function.linkage_kind), 0, sig, m_active_module_context.module);
             m_active_module_context.functions[decl] = function;
 
             return;

@@ -829,6 +829,21 @@ namespace ariac {
                 break;
             }
 
+            case IntrinsicCallKind::Memset: {
+                expr->type = TypeInfo::get_void();
+
+                if (i.arguments.size != 4) {
+                    context.report_compiler_diagnostic(expr->loc, "Call to intrinsic function '$memset' must have 4 arguments");
+                    break;
+                }
+
+                try_insert_implicit_cast(TypeInfo::get_void_ptr(), i.arguments.items[0]); require_rvalue(i.arguments.items[0]);
+                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Char), i.arguments.items[1]); require_rvalue(i.arguments.items[1]);
+                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Sz), i.arguments.items[2]); require_rvalue(i.arguments.items[2]);
+                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Bool), i.arguments.items[3]); require_rvalue(i.arguments.items[3]);
+                break;
+            }
+
             default: ARIA_UNREACHABLE("Invalid intrinsic call kind");
         }
     }
@@ -957,6 +972,8 @@ namespace ariac {
         if (subs.array->type->is_error()) { expr->type = TypeInfo::get_error(); return; }
         while (subs.array->type->is_typedef()) { subs.array->type = subs.array->type->typedef_.base; }
 
+        try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Sz), subs.index);
+
         switch (subs.array->type->kind) {
             case TypeKind::Pointer: {
                 require_rvalue(subs.array);
@@ -983,8 +1000,6 @@ namespace ariac {
 
             default: context.report_compiler_diagnostic(subs.array->loc, "'[' operator can only be used with a pointer/slice/array"); expr->type = TypeInfo::get_error(); break;
         }
-
-        try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Sz), subs.index);
     }
 
     void SemanticAnalyzer::resolve_to_slice_expr(Expr* expr) {

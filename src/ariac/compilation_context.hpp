@@ -150,6 +150,7 @@ namespace ariac {
         Decl* main_func = nullptr;
 
         Decl* string_type = nullptr;
+        Decl* assert_func = nullptr;
 
         CompilerReflectionData reflection_data;
         bool has_errors = false;
