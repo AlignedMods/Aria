@@ -66,6 +66,7 @@ namespace ariac {
         void resolve_self_expr(Expr* expr);
         void resolve_call_expr(Expr* expr);
         void resolve_builtin_call_expr(Expr* expr);
+        void resolve_intrinsic_call_expr(Expr* expr);
         void resolve_construct_expr(Expr* expr);
         void resolve_array_literal_expr(Expr* expr);
         void resolve_method_call_expr(Expr* expr);

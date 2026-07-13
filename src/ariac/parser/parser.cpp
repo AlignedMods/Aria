@@ -106,6 +106,9 @@ namespace ariac {
         m_expr_rules[TokenKind::Typeid] =            { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Cast] =              { BIND_PARSE_RULE(parse_cast),          nullptr, PREC_NONE };
 
+        m_expr_rules[TokenKind::DollarMemcpy] =      { BIND_PARSE_RULE(parse_intrinsic_call), nullptr, PREC_NONE};
+        m_expr_rules[TokenKind::DollarMemset] =      { BIND_PARSE_RULE(parse_intrinsic_call), nullptr, PREC_NONE};
+
         m_expr_rules[TokenKind::Any] = { BIND_PARSE_RULE(parse_construct), nullptr, PREC_NONE };
     }
 
@@ -305,6 +308,15 @@ namespace ariac {
             case TokenKind::Typeid: return BuiltinCallKind::Typeid;
 
             default: ARIA_UNREACHABLE("Invalid builtin call kind");
+        }
+    }
+
+    IntrinsicCallKind Parser::get_intrinsic_call_from_token(Token* token) {
+        switch (token->kind) {
+            case TokenKind::DollarMemcpy: return IntrinsicCallKind::Memcpy;
+            case TokenKind::DollarMemset: return IntrinsicCallKind::Memset;
+
+            default: ARIA_UNREACHABLE("Invalid intrinsic call kind");
         }
     }
 
@@ -659,6 +671,40 @@ namespace ariac {
         return Expr::Create(op.loc + peek(-1)->loc, ExprKind::BuiltinCall,
             ExprValueKind::RValue, nullptr,
             expr ? BuiltinCallExpr(expr, kind) : BuiltinCallExpr(type, kind));
+    }
+
+    Expr* Parser::parse_intrinsic_call(Expr* left) {
+        ARIA_ASSERT(left == nullptr, "Parser::parse_intrinsic_call() should not have a left side");
+
+        Token i = consume(); // consume intrinsic
+        TinyVector<Expr*> args;
+
+        try_consume(TokenKind::LeftParen, "(");
+
+        while (!match(TokenKind::RightParen)) {
+            Expr* val = parse_expression();
+
+            if (!expr_ok(val)) {
+                sync_local();
+                break;
+            }
+
+            args.append(val);
+    
+            if (match(TokenKind::Comma)) {
+                consume();
+                continue;
+            }
+
+            break;
+        }
+    
+        Token* rp = try_consume(TokenKind::RightParen, ")");
+        if (!rp) { return &error_expr; }
+
+        return Expr::Create(i.loc + rp->loc, ExprKind::IntrinsicCall, 
+            ExprValueKind::RValue, nullptr,
+            IntrinsicCallExpr(args, get_intrinsic_call_from_token(&i)));
     }
 
     Expr* Parser::parse_precedence_with_left(Expr* left, size_t precedence) {
@@ -1085,6 +1131,8 @@ namespace ariac {
             case TokenKind::Typeid:
             case TokenKind::Cast:
             case TokenKind::Self:
+            case TokenKind::DollarMemcpy:
+            case TokenKind::DollarMemset:
                 return parse_expression_statement();
 
             case TokenKind::LeftCurly:

@@ -129,6 +129,12 @@ namespace ariac {
                     else { add_token(TokenKind::Greater, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), ">"); break; }
                 }
 
+                case '$': {
+                    backtrack();
+                    parse_dollar_symbol();
+                    break;
+                }
+
                 case '#': {
                     backtrack();
                     parse_hash_symbol();
@@ -432,6 +438,29 @@ namespace ariac {
         }
 
         add_token(c_style ? TokenKind::CStrLit : TokenKind::StrLit, loc, scratch_buffer_to_str());
+    }
+
+    void Lexer::parse_dollar_symbol() {
+        SourceLoc loc = SourceLoc(m_current_line, get_column(m_index), m_index, 1);
+        scratch_buffer_clear();
+
+        scratch_buffer_append('$');
+        consume();
+
+        while (true) {
+            if (std::isalpha(peek())) {
+                loc.len++;
+                scratch_buffer_append(peek());
+                consume();
+            } else {
+                break;
+            }
+        }
+
+        if (scratch_buffer_cmp("$memcpy")) { add_token(TokenKind::DollarMemcpy, loc, "$memcpy"); return; }
+        if (scratch_buffer_cmp("$memset")) { add_token(TokenKind::DollarMemset, loc, "$memset"); return; }
+
+        context.report_compiler_diagnostic(loc, "Unknown identifier following '$'");
     }
 
     void Lexer::parse_hash_symbol() {

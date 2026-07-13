@@ -2,10 +2,8 @@ module std::core::mem;
 
 import libc;
 
-fn copy(dst: *void, src: *void, size: ulong) -> void {
-    for (i: ulong = 0; i < size; ++i) {
-        cast(*char, dst)[i] = cast(*char, src)[i];
-    }
+fn copy(dst: *void, src: *void, len: sz) -> void {
+    $memcpy(dst, src, len, false);
 }
 
 fn alloc<T>() -> *T {

@@ -86,6 +86,8 @@ namespace ariac {
         Const,
         Cast,
         Self,
+        DollarMemcpy, // $memcpy
+        DollarMemset, // $memset
         HashPrivate, // #private
         AtIf, // @if
         AtBuiltin, // @builtin
@@ -213,6 +215,8 @@ namespace ariac {
             case TokenKind::Const: return "const";
             case TokenKind::Cast: return "cast";
             case TokenKind::Self: return "self";
+            case TokenKind::DollarMemcpy: return "$memcpy";
+            case TokenKind::DollarMemset: return "$memset";
             case TokenKind::HashPrivate: return "#private";
             case TokenKind::AtIf: return "@if";
             case TokenKind::AtBuiltin: return "@builtin";

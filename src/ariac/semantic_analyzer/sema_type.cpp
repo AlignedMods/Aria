@@ -285,7 +285,24 @@ namespace ariac {
                     return cost;
                 }
 
-                if (src->pointer.base->is_void() || dst->pointer.base->is_void()) { // Allow void* conversions
+                if (src->pointer.base->is_array()) {
+                    if (dst->pointer.base->is_void()) {
+                        cost.kind = CastKind::BitCast;
+                        return cost;
+                    }
+
+                    ConversionCost base_cost = get_conversion_cost(dst->pointer.base, src->pointer.base->array.base);
+                    if (base_cost.cast_needed) {
+                        cost.explicit_cast_possible = false;
+                        cost.implicit_cast_possible = false;
+                        return cost;
+                    }
+
+                    cost.kind = CastKind::BitCast;
+                    return cost;
+                }
+
+                if ((src->pointer.base->is_void() && !dst->pointer.base->is_void()) || (dst->pointer.base->is_void() && !src->pointer.base->is_void())) { // Allow void* conversions
                     cost.kind = CastKind::BitCast;
                     return cost;
                 }
@@ -306,12 +323,6 @@ namespace ariac {
         }
 
         if (src->is_array()) {
-            if (dst->is_pointer() && type_is_equal(dst->pointer.base, src->array.base)) {
-                cost.implicit_cast_possible = false; // Allow only explicit casts here
-                cost.kind = CastKind::ArrayToPointer;
-                return cost;
-            }
-
             if (dst->is_array()) {
                 if (src->array.size != dst->array.size) {
                     cost.implicit_cast_possible = false;
@@ -450,7 +461,6 @@ namespace ariac {
 
     bool SemanticAnalyzer::cast_needs_rvalue(CastKind kind) {
         switch (kind) {
-            case CastKind::ArrayToPointer:
             case CastKind::SliceToPointer:
             case CastKind::LValueToRValue: return false;
 

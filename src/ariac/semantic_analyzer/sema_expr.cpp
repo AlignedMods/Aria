@@ -716,8 +716,6 @@ namespace ariac {
                                 if (arg->type->kind == TypeKind::Float) { // Promote to double
                                     insert_implicit_cast(TypeInfo::get_basic(TypeKind::Double), arg->type, arg, CastKind::Floating);
                                 }
-                            } else if (arg->type->is_array()) {
-                                insert_implicit_cast(TypeInfo::create_pointer(arg->type->array.base, false), arg->type, arg, CastKind::ArrayToPointer);
                             } else if (arg->type->is_pointer()) {
                                 require_rvalue(arg);
                             } else if (!arg->type->is_error()) {
@@ -805,6 +803,33 @@ namespace ariac {
                     default: break;
                 }
             }
+        }
+    }
+
+    void SemanticAnalyzer::resolve_intrinsic_call_expr(Expr* expr) {
+        IntrinsicCallExpr& i = expr->intrinsic_call;
+
+        for (Expr* arg : i.arguments) {
+            resolve_expr(arg);
+        }
+
+        switch (i.kind) {
+            case IntrinsicCallKind::Memcpy: {
+                expr->type = TypeInfo::get_void();
+
+                if (i.arguments.size != 4) {
+                    context.report_compiler_diagnostic(expr->loc, "Call to intrinsic function '$memcpy' must have 4 arguments");
+                    break;
+                }
+
+                try_insert_implicit_cast(TypeInfo::get_void_ptr(), i.arguments.items[0]); require_rvalue(i.arguments.items[0]);
+                try_insert_implicit_cast(TypeInfo::get_void_ptr(), i.arguments.items[1]); require_rvalue(i.arguments.items[1]);
+                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Sz), i.arguments.items[2]); require_rvalue(i.arguments.items[2]);
+                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Bool), i.arguments.items[3]); require_rvalue(i.arguments.items[3]);
+                break;
+            }
+
+            default: ARIA_UNREACHABLE("Invalid intrinsic call kind");
         }
     }
 
@@ -994,7 +1019,10 @@ namespace ariac {
             }
 
             case TypeKind::Array: {
-                insert_implicit_cast(TypeInfo::create_pointer(tos.source->type->array.base, false), tos.source->type, tos.source, CastKind::ArrayToPointer);
+                if (tos.source->value_kind != ExprValueKind::LValue) {
+                    context.report_compiler_diagnostic(tos.source->loc, "Expression must be an lvalue");
+                }
+
                 expr->type = TypeInfo::create_slice(tos.source->type->array.base);
                 break;
             }
@@ -1361,6 +1389,7 @@ namespace ariac {
             case ExprKind::Self: resolve_self_expr(expr); break;
             case ExprKind::Call: resolve_call_expr(expr); break;
             case ExprKind::BuiltinCall: resolve_builtin_call_expr(expr); break;
+            case ExprKind::IntrinsicCall: resolve_intrinsic_call_expr(expr); break;
             case ExprKind::Construct: resolve_construct_expr(expr); break;
             case ExprKind::ArrayLiteral: resolve_array_literal_expr(expr); break;
             case ExprKind::MethodCall: resolve_method_call_expr(expr); break;

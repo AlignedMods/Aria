@@ -150,6 +150,15 @@ namespace ariac {
                 if (expr->builtin_call.expression && !expr->builtin_call.type) { dump_expr(expr->builtin_call.expression, indentation + 4); }
                 return;
 
+            case ExprKind::IntrinsicCall: m_output += fmt::format("IntrinsicCallExpr {} {} '{}' {}\n",
+                source_loc_to_string(expr->loc), intrinsic_call_kind_to_string(expr->intrinsic_call.kind),
+                type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
+
+                for (Expr* arg : expr->intrinsic_call.arguments) {
+                    dump_expr(arg, indentation + 4);
+                }
+                return;
+
             case ExprKind::Construct: m_output += fmt::format("ConstructExpr {} '{}' {}\n",
                 source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 

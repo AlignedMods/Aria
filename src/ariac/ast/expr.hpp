@@ -28,6 +28,7 @@ namespace ariac {
         Temporary,
         Call,
         BuiltinCall,
+        IntrinsicCall,
         Construct,
         ArrayLiteral,
         MethodCall,
@@ -55,6 +56,19 @@ namespace ariac {
         }
     }
 
+    enum class IntrinsicCallKind {
+        Memcpy,
+        Memset
+    };
+    inline const char* intrinsic_call_kind_to_string(IntrinsicCallKind kind) {
+        switch (kind) {
+            case IntrinsicCallKind::Memcpy: return "$memcpy";
+            case IntrinsicCallKind::Memset: return "$memset";
+
+            default: ARIA_UNREACHABLE("Invalid intrinsic call");
+        }
+    }
+
     enum class CastKind {
         Invalid,
         Integral,
@@ -62,7 +76,6 @@ namespace ariac {
         IntegralToFloating,
         FloatingToIntegral,
         BitCast,
-        ArrayToPointer,
         SliceToPointer,
         PointerToAny,
 
@@ -76,7 +89,6 @@ namespace ariac {
             case CastKind::IntegralToFloating: return "IntegralToFloating";
             case CastKind::FloatingToIntegral: return "FloatingToIntegral";
             case CastKind::BitCast: return "BitCast";
-            case CastKind::ArrayToPointer: return "ArrayToPointer";
             case CastKind::SliceToPointer: return "SliceToPointer";
             case CastKind::PointerToAny: return "PointerToAny";
             case CastKind::LValueToRValue: return "LValueToRValue";
@@ -311,6 +323,14 @@ namespace ariac {
         Expr* expression;
     };
 
+    struct IntrinsicCallExpr {
+        IntrinsicCallExpr(TinyVector<Expr*> args, IntrinsicCallKind kind)
+            : arguments(args), kind(kind) {}
+
+        TinyVector<Expr*> arguments;
+        IntrinsicCallKind kind;
+    };
+
     struct ConstructExpr {
         ConstructExpr(TinyVector<Expr*> args)
             : arguments(args) {}
@@ -474,6 +494,7 @@ namespace ariac {
             TemporaryExpr temporary;
             CallExpr call;
             BuiltinCallExpr builtin_call;
+            IntrinsicCallExpr intrinsic_call;
             ConstructExpr construct;
             ArrayLiteralExpr array_literal;
             ArraySubscriptExpr array_subscript;
@@ -525,6 +546,9 @@ namespace ariac {
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, BuiltinCallExpr call)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), builtin_call(call) {}
+
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, IntrinsicCallExpr call)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), intrinsic_call(call) {}
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ConstructExpr construct)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), construct(construct) {}

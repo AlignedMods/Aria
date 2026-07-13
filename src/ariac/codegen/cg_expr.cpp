@@ -335,6 +335,23 @@ namespace ariac {
         }
     }
 
+    llvm::Value* Codegen::gen_intrinsic_call_expr(Expr* expr) {
+        IntrinsicCallExpr& i = expr->intrinsic_call;
+
+        switch (i.kind) {
+            case IntrinsicCallKind::Memcpy: {
+                llvm::Value* dst = gen_expr(i.arguments.items[0]);
+                llvm::Value* src = gen_expr(i.arguments.items[1]);
+                llvm::Value* len = gen_expr(i.arguments.items[2]);
+                
+                m_active_module_context.builder->CreateMemCpy(dst, llvm::MaybeAlign(), src, llvm::MaybeAlign(), len);
+                break;
+            }
+
+            default: ARIA_UNREACHABLE("Invalid intrinsic call kind");
+        }
+    }
+
     llvm::Value* Codegen::gen_construct_expr(Expr* expr) {
         ConstructExpr& ct = expr->construct;
         set_debug_loc(expr->loc);
@@ -559,12 +576,6 @@ namespace ariac {
 
             case CastKind::BitCast: {
                 return gen_expr(ic.expression);
-            }
-
-            case CastKind::ArrayToPointer: {
-                llvm::Value* val = gen_expr(ic.expression);
-                llvm::Value* zero = m_active_module_context.builder->getInt64(0);
-                return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(ic.expression->type), val, { zero, zero }, "arrtoptr", true);
             }
 
             case CastKind::SliceToPointer: {
@@ -996,6 +1007,7 @@ namespace ariac {
             case ExprKind::Self: return gen_self_expr(expr);
             case ExprKind::Call: return gen_call_expr(expr);
             case ExprKind::BuiltinCall: return gen_builtin_call_expr(expr);
+            case ExprKind::IntrinsicCall: return gen_intrinsic_call_expr(expr);
             case ExprKind::Construct: return gen_construct_expr(expr);
             case ExprKind::ArrayLiteral: return gen_array_literal_expr(expr);
             case ExprKind::MethodCall: return gen_method_call_expr(expr);
