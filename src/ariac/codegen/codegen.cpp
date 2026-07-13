@@ -142,6 +142,7 @@ namespace ariac {
 
                 for (Decl* spec : gen->generic.specilizations) {
                     if (spec->kind != DeclKind::FunctionSpecilization) { continue; }
+                    ARIA_ASSERT(spec->function_specilization.source, "Invalid generic function specilization");
                     gen_function_decl(spec);
                 }
             }

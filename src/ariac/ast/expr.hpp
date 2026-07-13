@@ -33,8 +33,6 @@ namespace ariac {
         MethodCall,
         ArraySubscript,
         ToSlice,
-        New,
-        Delete,
         Paren,
         Cast,
         ImplicitCast,
@@ -65,6 +63,7 @@ namespace ariac {
         FloatingToIntegral,
         BitCast,
         ArrayToPointer,
+        SliceToPointer,
         PointerToAny,
 
         LValueToRValue
@@ -78,6 +77,7 @@ namespace ariac {
             case CastKind::FloatingToIntegral: return "FloatingToIntegral";
             case CastKind::BitCast: return "BitCast";
             case CastKind::ArrayToPointer: return "ArrayToPointer";
+            case CastKind::SliceToPointer: return "SliceToPointer";
             case CastKind::PointerToAny: return "PointerToAny";
             case CastKind::LValueToRValue: return "LValueToRValue";
 
@@ -343,21 +343,6 @@ namespace ariac {
         Expr* len = nullptr;
     };
 
-    struct NewExpr {
-        NewExpr(Expr* initializer, bool array)
-            : initializer(initializer), array(array) {}
-
-        Expr* initializer = nullptr;
-        bool array = false;
-    };
-
-    struct DeleteExpr {
-        DeleteExpr(Expr* expr)
-            : expression(expr) {}
-
-        Expr* expression = nullptr;
-    };
-
     // ParenExpr
     // At its core it just wraps an expression
     // These kinds of expressions are usually from the actual source code
@@ -493,8 +478,6 @@ namespace ariac {
             ArrayLiteralExpr array_literal;
             ArraySubscriptExpr array_subscript;
             ToSliceExpr to_slice;
-            NewExpr new_;
-            DeleteExpr delete_;
             ParenExpr paren;
             CastExpr cast;
             ImplicitCastExpr implicit_cast;
@@ -554,12 +537,6 @@ namespace ariac {
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ToSliceExpr to_slice)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), to_slice(to_slice) {}
-
-        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, NewExpr new_)
-            : loc(loc), kind(kind), value_kind(value_kind), type(type), new_(new_) {}
-
-        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, DeleteExpr delete_)
-            : loc(loc), kind(kind), value_kind(value_kind), type(type), delete_(delete_) {}
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ParenExpr paren)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), paren(paren) {}

@@ -515,8 +515,6 @@ namespace ariac {
         if (scratch_buffer_cmp("fn"))       { add_token(TokenKind::Fn,       loc, "fn");       return; }
         if (scratch_buffer_cmp("struct"))   { add_token(TokenKind::Struct,   loc, "struct");   return; }
         if (scratch_buffer_cmp("impl"))     { add_token(TokenKind::Impl,     loc, "impl");     return; }
-        if (scratch_buffer_cmp("new"))      { add_token(TokenKind::New,      loc, "new");      return; }
-        if (scratch_buffer_cmp("delete"))   { add_token(TokenKind::Delete,   loc, "delete");   return; }
         if (scratch_buffer_cmp("defer"))    { add_token(TokenKind::Defer,    loc, "defer");    return; }
         if (scratch_buffer_cmp("extern"))   { add_token(TokenKind::Extern,   loc, "extern");   return; }
         if (scratch_buffer_cmp("static"))   { add_token(TokenKind::Static,   loc, "static");   return; }

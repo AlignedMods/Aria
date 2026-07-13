@@ -102,8 +102,6 @@ namespace ariac {
         m_expr_rules[TokenKind::Identifier] =        { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Self] =              { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Env] =               { BIND_PARSE_RULE(parse_env),           nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::New] =               { BIND_PARSE_RULE(parse_new),           nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Delete] =            { BIND_PARSE_RULE(parse_delete),        nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Sizeof] =            { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Typeid] =            { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Cast] =              { BIND_PARSE_RULE(parse_cast),          nullptr, PREC_NONE };
@@ -638,63 +636,6 @@ namespace ariac {
         context.report_compiler_diagnostic(ident->loc, fmt::format("Unknown environment '{}'", ident->string));
     }
 
-    Expr* Parser::parse_new(Expr* left) {
-        ARIA_ASSERT(left == nullptr, "Parser::parse_new() should not have a left side");
-
-        Token& n = consume(); // consume "new"
-        TypeInfo* type = nullptr;
-        Expr* initializer = nullptr;
-
-        if (is_type()) {
-            type = parse_type();
-        } else {
-            context.report_compiler_diagnostic(peek()->loc, "Expected a type");
-            type = TypeInfo::get_error();
-        }
-
-        type->pointer.base = TypeInfo::dup(type);
-        type->pointer.is_const = false;
-        type->kind = TypeKind::Pointer;
-
-        // parse_type() will handle array types
-        // However we do not want this, so we remove the array from the type and add it to the new expression itself
-        bool array = type->pointer.base->kind == TypeKind::Array;
-
-        if (array) {
-            initializer = type->pointer.base->array.expression;
-            type->pointer.base = type->pointer.base->array.base;
-        } else if (match(TokenKind::LeftParen)) {
-            consume();
-
-            if (is_expression()) {
-                initializer = parse_expression();
-            }
-
-            try_consume(TokenKind::RightParen, ")");
-        } else {
-            context.report_compiler_diagnostic(peek()->loc, "Expected '(' or '['");
-        }
-
-        return Expr::Create(n.loc + peek(-1)->loc, ExprKind::New,
-            ExprValueKind::RValue, type,
-            NewExpr(initializer, array));
-    }
-
-    Expr* Parser::parse_delete(Expr* left) {
-        ARIA_ASSERT(left == nullptr, "Parser::parse_delete() should not have a left side");
-
-        Token& d = consume(); // consume "delete"
-        Expr* expr = parse_expression();
-
-        if (!expr_ok(expr)) {
-            return &error_expr;
-        }
-
-        return Expr::Create(d.loc + peek(-1)->loc, ExprKind::Delete,
-            ExprValueKind::RValue, TypeInfo::get_void(),
-            DeleteExpr(expr));
-    }
-
     Expr* Parser::parse_builtin_call(Expr* left) {
         ARIA_ASSERT(left == nullptr, "Parser::parse_builtin_call() should not have a left side");
 
@@ -1142,8 +1083,6 @@ namespace ariac {
             case TokenKind::Identifier:
             case TokenKind::Sizeof:
             case TokenKind::Typeid:
-            case TokenKind::New:
-            case TokenKind::Delete:
             case TokenKind::Cast:
             case TokenKind::Self:
                 return parse_expression_statement();

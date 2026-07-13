@@ -331,8 +331,41 @@ namespace ariac {
             }
         }
 
-        if (src->is_slice() && dst->is_slice()) {
-            return get_conversion_cost(dst->slice.base, src->slice.base);
+        if (src->is_slice()) {
+            if (dst->is_pointer()) {
+                if (dst->pointer.base->is_void()) {
+                    cost.kind = CastKind::SliceToPointer;
+                    cost.implicit_cast_possible = true;
+                    cost.explicit_cast_possible = true;
+                    return cost;
+                } else {
+                    ConversionCost base_cost = get_conversion_cost(dst->slice.base, src->slice.base);
+
+                    if (base_cost.cast_needed) {
+                        cost.implicit_cast_possible = false;
+                        cost.explicit_cast_possible = false;
+                        return cost;
+                    }
+
+                    cost.kind = CastKind::SliceToPointer;
+                    cost.implicit_cast_possible = true;
+                    cost.explicit_cast_possible = true;
+                    return cost;
+                }
+            }
+
+            if (dst->is_slice()) {
+                ConversionCost base_cost = get_conversion_cost(dst->slice.base, src->slice.base);
+
+                if (base_cost.cast_needed) {
+                    cost.implicit_cast_possible = false;
+                    cost.explicit_cast_possible = false;
+                    return cost;
+                }
+                
+                cost.cast_needed = false;
+                return cost;
+            }
         }
 
         if (src->is_structure() && dst->is_structure()) {
@@ -418,6 +451,7 @@ namespace ariac {
     bool SemanticAnalyzer::cast_needs_rvalue(CastKind kind) {
         switch (kind) {
             case CastKind::ArrayToPointer:
+            case CastKind::SliceToPointer:
             case CastKind::LValueToRValue: return false;
 
             default: return true;

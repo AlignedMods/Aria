@@ -1,5 +1,7 @@
 module std::core;
 
+import std::core::mem;
+
 struct StringStream {
     mem: *char;
     len: sz;
@@ -136,20 +138,17 @@ impl StringStream {
     }
 
     fn free() -> void {
-        delete mem;
+        mem::free(mem);
         len = 0;
         capacity = 0;
     }
 
     fn increase_capacity(cap: ulong) -> void {
-        let newData = new [cap]char;
+        let newData = mem::new_array(<char>, cap);
         
         if (mem != null) {
-            for (i: sz = 0; i < len; i++) {
-                newData[i] = mem[i];
-            }
-            
-            delete mem;
+            mem::copy(newData, mem, len);
+            mem::free(mem);
         }
         
         mem = newData;

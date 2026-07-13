@@ -109,16 +109,10 @@ namespace ariac {
                 break;
             }
 
-            case ExprKind::New: {
-                NewExpr& n = e->new_;
-                copy->new_.initializer = Expr::dup(n.initializer);
-                copy->new_.array = n.array;
-                break;
-            }
-
-            case ExprKind::Delete: {
-                DeleteExpr& d = e->delete_;
-                copy->delete_.expression = Expr::dup(d.expression);
+            case ExprKind::ToSlice: {
+                ToSliceExpr& t = e->to_slice;
+                if (t.len) copy->to_slice.len = Expr::dup(t.len);
+                copy->to_slice.source = Expr::dup(t.source);
                 break;
             }
 

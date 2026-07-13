@@ -1005,44 +1005,6 @@ namespace ariac {
         if (tos.len) { try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Sz), tos.len); }
     }
 
-    void SemanticAnalyzer::resolve_new_expr(Expr* expr) {
-        NewExpr& n = expr->new_;
-        resolve_type(expr->type);
-        
-        if (expr->result_discarded) {
-            context.report_compiler_diagnostic(expr->loc, "Discarding result of 'new' expression is not allowed");
-        }
-
-        if (n.initializer) {
-            if (n.array) {
-                m_temporary_context = true;
-                resolve_expr(n.initializer);
-                require_rvalue(n.initializer);
-                m_temporary_context = false;
-
-                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Sz), n.initializer);
-            } else {
-                m_temporary_context = true;
-                resolve_expr(n.initializer);
-                require_rvalue(n.initializer);
-                m_temporary_context = false;
-
-                try_insert_implicit_cast(expr->type->pointer.base, n.initializer);
-            }
-        }
-    }
-
-    void SemanticAnalyzer::resolve_delete_expr(Expr* expr) {
-        DeleteExpr& d = expr->delete_;
-
-        resolve_expr(d.expression);
-        require_rvalue(d.expression);
-
-        if (!d.expression->type->is_pointer()) {
-            context.report_compiler_diagnostic(expr->loc, "'delete' can only be used with pointer types");
-        }
-    }
-
     void SemanticAnalyzer::resolve_paren_expr(Expr* expr) {
         ParenExpr& paren = expr->paren;
         resolve_expr(paren.expression);
@@ -1404,8 +1366,6 @@ namespace ariac {
             case ExprKind::MethodCall: resolve_method_call_expr(expr); break;
             case ExprKind::ArraySubscript: resolve_array_subscript_expr(expr); break;
             case ExprKind::ToSlice: resolve_to_slice_expr(expr); break;
-            case ExprKind::New: resolve_new_expr(expr); break;
-            case ExprKind::Delete: resolve_delete_expr(expr); break;
             case ExprKind::Paren: resolve_paren_expr(expr); break;
             case ExprKind::Cast: resolve_cast_expr(expr); break;
             case ExprKind::ImplicitCast: resolve_implicit_cast_expr(expr); break;

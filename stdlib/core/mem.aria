@@ -1,7 +1,33 @@
-module std::core;
+module std::core::mem;
 
-fn memcpy(dst: *void, src: *void, size: ulong) -> void {
+import libc;
+
+fn copy(dst: *void, src: *void, size: ulong) -> void {
     for (i: ulong = 0; i < size; ++i) {
         cast(*char, dst)[i] = cast(*char, src)[i];
     }
+}
+
+fn alloc<T>() -> *T {
+    return libc::calloc(1, sizeof(T));
+}
+
+fn new<T>(init: T) -> *T {
+    let ptr = libc::malloc(sizeof(T));
+    *cast(*T, ptr) = init;
+    return ptr;
+}
+
+// Allocates a new array on the heap of size 'len' and does NOT zero initialize it
+fn alloc_array<T>(len: sz) -> []T {
+    return cast(*T, libc::malloc(len * sizeof(T)))[:len];
+}
+
+// Allocates a new array on the heap of size 'len' and zero initializes it
+fn new_array<T>(len: sz) -> []T {
+    return cast(*T, libc::calloc(len, sizeof(T)))[:len];
+}
+
+fn free(ptr: *void) {
+    libc::free(ptr);
 }

@@ -490,38 +490,6 @@ namespace ariac {
         return m_active_module_context.builder->CreateLoad(type, slice);
     }
 
-    llvm::Value* Codegen::gen_new_expr(Expr* expr) {
-        NewExpr& n = expr->new_;
-        set_debug_loc(expr->loc);
-        
-        llvm::Function* func = m_active_module_context.module->getFunction("calloc");
-        
-        if (!func) {
-            llvm::Type* ulong_ty = llvm::IntegerType::get(*m_active_module_context.context, 64);
-            llvm::FunctionType* type = llvm::FunctionType::get(llvm::PointerType::get(*m_active_module_context.context, 0), { ulong_ty, ulong_ty }, false);
-            func = llvm::Function::Create(type, llvm::GlobalValue::ExternalLinkage, "calloc", *m_active_module_context.module);
-        }
-
-        llvm::Value* elem_size = m_active_module_context.builder->getInt64(expr->type->pointer.base->get_size());
-        llvm::Value* arr_size = n.array ? gen_expr(n.initializer) : m_active_module_context.builder->getInt64(1);
-        return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(func), {{elem_size, arr_size}}, "new");
-    }
-
-    llvm::Value* Codegen::gen_delete_expr(Expr* expr) {
-        DeleteExpr& del = expr->delete_;
-        set_debug_loc(expr->loc);
-        
-        llvm::Function* func = m_active_module_context.module->getFunction("free");
-        
-        if (!func) {
-            llvm::FunctionType* type = llvm::FunctionType::get(type_info_to_llvm_type(TypeInfo::get_void()), { type_info_to_llvm_type(TypeInfo::get_void_ptr()) }, false);
-            func = llvm::Function::Create(type, llvm::GlobalValue::ExternalLinkage, "free", *m_active_module_context.module);
-        }
-        
-        llvm::Value* ptr = gen_expr(del.expression);
-        return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(func), ptr);
-    }
-
     llvm::Value* Codegen::gen_paren_expr(Expr* expr) {
         ParenExpr& p = expr->paren;
         set_debug_loc(expr->loc);
@@ -597,6 +565,19 @@ namespace ariac {
                 llvm::Value* val = gen_expr(ic.expression);
                 llvm::Value* zero = m_active_module_context.builder->getInt64(0);
                 return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(ic.expression->type), val, { zero, zero }, "arrtoptr", true);
+            }
+
+            case CastKind::SliceToPointer: {
+                llvm::Value* val = gen_expr(ic.expression);
+
+                if (ic.expression->value_kind == ExprValueKind::RValue) {
+                    llvm::Value* temp = alloca_at_entry(m_active_module_context.function, "tempaddr", val->getType());
+                    m_active_module_context.builder->CreateStore(val, temp);
+                    val = temp;
+                }
+
+                llvm::Value* gep = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(ic.expression->type), val, 0);
+                return m_active_module_context.builder->CreateLoad(llvm::PointerType::get(*m_active_module_context.context, 0), gep);
             }
 
             case CastKind::PointerToAny: {
@@ -1020,8 +1001,6 @@ namespace ariac {
             case ExprKind::MethodCall: return gen_method_call_expr(expr);
             case ExprKind::ArraySubscript: return gen_array_subscript_expr(expr);
             case ExprKind::ToSlice: return gen_to_slice_expr(expr);
-            case ExprKind::New: return gen_new_expr(expr);
-            case ExprKind::Delete: return gen_delete_expr(expr);
             case ExprKind::Paren: return gen_paren_expr(expr);
             case ExprKind::ImplicitCast: return gen_implicit_cast_expr(expr);
             case ExprKind::Cast: return gen_cast_expr(expr);

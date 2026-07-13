@@ -44,17 +44,15 @@ namespace ariac {
         void pass_imports();
         void pass_decls();
         void pass_code();
+        void pass_generics();
 
         void add_unit_to_module(Module* module, CompilationUnit* unit);
         void resolve_unit_imports(Module* module, CompilationUnit* unit);
 
-        void resolve_module_type_decls(Module* module);
-        void resolve_module_decls(Module* module);
         void resolve_unit_type_decls(Module* module, CompilationUnit* unit);
         void resolve_unit_decls(Module* module, CompilationUnit* unit);
-
-        void resolve_module_code(Module* module);
         void resolve_unit_code(Module* module, CompilationUnit* unit);
+        void resolve_unit_generics(Module* module, CompilationUnit* unit);
 
         void resolve_boolean_literal_expr(Expr* expr);
         void resolve_character_literal_expr(Expr* expr);
@@ -73,8 +71,6 @@ namespace ariac {
         void resolve_method_call_expr(Expr* expr);
         void resolve_array_subscript_expr(Expr* expr);
         void resolve_to_slice_expr(Expr* expr);
-        void resolve_new_expr(Expr* expr);
-        void resolve_delete_expr(Expr* expr);
         void resolve_paren_expr(Expr* expr);
         void resolve_cast_expr(Expr* expr);
         void resolve_implicit_cast_expr(Expr* expr);

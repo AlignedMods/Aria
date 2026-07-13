@@ -12,6 +12,7 @@ namespace ariac {
         pass_imports();
         pass_decls();
         pass_code();
+        pass_generics();
     }
 
     void SemanticAnalyzer::push_scope(bool allow_break, bool allow_continue) {

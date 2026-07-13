@@ -11,11 +11,40 @@ namespace ariac {
 
     void SemanticAnalyzer::pass_decls() {
         for (Module* mod : context.modules) {
-            resolve_module_type_decls(mod);
+            context.active_module = mod;
+
+            for (size_t i = 0; i < mod->units.size(); i++) {
+            if (mod->units[i]->if_attr) {
+                resolve_expr(mod->units[i]->if_attr);
+
+                if (!is_const_expr(mod->units[i]->if_attr)) {
+                    context.report_compiler_diagnostic(mod->units[i]->if_attr->loc, "Expression must be a compile time constant");
+                    break;
+                }
+
+                if (!mod->units[i]->if_attr->type->is_boolean()) {
+                    context.report_compiler_diagnostic(mod->units[i]->if_attr->loc, "Expression must be of type 'bool'");
+                    break;
+                }
+
+                bool result = eval_const_expr(mod->units[i]->if_attr)->const_.boolean;
+                if (!result) {
+                    mod->units.erase(mod->units.begin() + i);
+                    i--;
+                    continue;
+                }
+            }
+            
+            resolve_unit_type_decls(mod, mod->units[i]);
+        }
         }
 
         for (Module* mod : context.modules) {
-            resolve_module_decls(mod);
+            context.active_module = mod;
+
+            for (CompilationUnit* unit : mod->units) {
+                resolve_unit_decls(mod, unit);
+            }
         }
 
         if (!context.main_func) {
@@ -25,7 +54,21 @@ namespace ariac {
 
     void SemanticAnalyzer::pass_code() {
         for (Module* mod : context.modules) {
-            resolve_module_code(mod);
+            context.active_module = mod;
+
+            for (CompilationUnit* unit : mod->units) {
+                resolve_unit_code(mod, unit);
+            }
+        }
+    }
+
+    void SemanticAnalyzer::pass_generics() {
+        for (Module* mod : context.modules) {
+            context.active_module = mod;
+
+            for (CompilationUnit* unit : mod->units) {
+                resolve_unit_generics(mod, unit);
+            }
         }
     }
 
@@ -83,43 +126,6 @@ namespace ariac {
         }
 
         add_unit_to_module(module, unit);
-    }
-
-    void SemanticAnalyzer::resolve_module_type_decls(Module* module) {
-        context.active_module = module;
-
-        for (size_t i = 0; i < module->units.size(); i++) {
-            if (module->units[i]->if_attr) {
-                resolve_expr(module->units[i]->if_attr);
-
-                if (!is_const_expr(module->units[i]->if_attr)) {
-                    context.report_compiler_diagnostic(module->units[i]->if_attr->loc, "Expression must be a compile time constant");
-                    break;
-                }
-
-                if (!module->units[i]->if_attr->type->is_boolean()) {
-                    context.report_compiler_diagnostic(module->units[i]->if_attr->loc, "Expression must be of type 'bool'");
-                    break;
-                }
-
-                bool result = eval_const_expr(module->units[i]->if_attr)->const_.boolean;
-                if (!result) {
-                    module->units.erase(module->units.begin() + i);
-                    i--;
-                    continue;
-                }
-            }
-            
-            resolve_unit_type_decls(module, module->units[i]);
-        }
-    }
-
-    void SemanticAnalyzer::resolve_module_decls(Module* module) {
-        context.active_module = module;
-
-        for (CompilationUnit* unit : module->units) {
-            resolve_unit_decls(module, unit);
-        }
     }
 
     void SemanticAnalyzer::resolve_unit_type_decls(Module* module, CompilationUnit* unit) {
@@ -398,14 +404,6 @@ namespace ariac {
         }
     }
 
-    void SemanticAnalyzer::resolve_module_code(Module* module) {
-        context.active_module = module;
-
-        for (CompilationUnit* unit : module->units) {
-            resolve_unit_code(module, unit);
-        }
-    }
-
     void SemanticAnalyzer::resolve_unit_code(Module* module, CompilationUnit* unit) {
         context.active_comp_unit = unit;
 
@@ -434,6 +432,10 @@ namespace ariac {
                 resolve_function_body(func);
             }
         }
+    }
+
+    void SemanticAnalyzer::resolve_unit_generics(Module* module, CompilationUnit* unit) {
+        context.active_comp_unit = unit;
 
         for (Decl* gen : unit->generics) {
             ARIA_ASSERT(gen->kind == DeclKind::Generic, "Invalid generic decl");

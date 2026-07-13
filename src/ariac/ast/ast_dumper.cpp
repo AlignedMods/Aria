@@ -189,19 +189,6 @@ namespace ariac {
                 dump_expr(expr->to_slice.source, indentation + 4);
                 return;
 
-            case ExprKind::New: m_output += fmt::format("NewExpr {} {}'{}' {}\n",
-                source_loc_to_string(expr->loc), expr->new_.array ? "array " : "",
-                type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
-
-                dump_expr(expr->new_.initializer, indentation + 4);
-                return;
-
-            case ExprKind::Delete: m_output += fmt::format("DeleteExpr {} '{}' {}\n",
-                source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
-
-                dump_expr(expr->delete_.expression, indentation + 4);
-                return;
-
             case ExprKind::Paren: m_output += fmt::format("ParenExpr {} '{}' {}\n",
                 source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
