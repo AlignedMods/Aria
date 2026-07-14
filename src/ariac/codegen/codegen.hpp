@@ -59,28 +59,28 @@ namespace ariac {
             llvm::DIScope* scope = nullptr;
         };
 
+        enum class ABIParamKind {
+            Direct,
+            Pointer,
+            Integer
+        };
+
+        enum class ABIRetKind {
+            Direct,
+            Pointer,
+            Integer
+        };
+
         struct ABIParamTypeInfo {
             TypeInfo* type = nullptr;
-
             size_t int_bits = 0; // If we are passing a structure as an integer, how many bits does this integer have
-
-            struct {
-                bool pass_direct : 1 = false;
-                bool pass_by_ptr : 1 = false;
-                bool pass_by_integer : 1 = false; // Pass a structure as a single integer
-            };
+            ABIParamKind kind = ABIParamKind::Direct;
         };
 
         struct ABIRetTypeInfo {
             TypeInfo* type = nullptr;
-
             size_t int_bits = 0; // If we are returning a structure as an integer, how many bits does this integer have
-
-            struct {
-                bool ret_direct : 1 = false;
-                bool ret_by_ptr : 1 = false;
-                bool ret_by_integer : 1 = false; // Return a structure as a single integer
-            };
+            ABIRetKind kind = ABIRetKind::Direct;
         };
 
     public:
@@ -163,17 +163,19 @@ namespace ariac {
 
         llvm::Constant* get_sz(u64 i);
         llvm::Constant* get_i64(u64 i);
+        llvm::Constant* get_null();
         llvm::Constant* get_string(std::string_view s, std::string_view name = ".str");
         llvm::Constant* get_typeinfo(TypeInfo* t);
 
         // Returns nullptr if there is no assert function
         llvm::Function* get_assert_func();
-        void call_assert(llvm::Value* cond, std::string_view file, u64 line, const std::string& fmt, const std::vector<llvm::Value*>& args = {}, const std::vector<TypeInfo*>& types = {});
+        void call_assert(llvm::Value* cond, u64 line, const std::string& fmt, const std::vector<llvm::Value*>& args = {}, const std::vector<TypeInfo*>& types = {});
 
         ABIParamTypeInfo get_param_abi_type_info(TypeInfo* t);
         ABIRetTypeInfo get_ret_abi_type_info(TypeInfo* t);
         void gen_call_param(std::vector<llvm::Value*>* args, llvm::Value* arg, TypeInfo* type);
         void gen_call_variadic(std::vector<llvm::Value*>* args, const std::vector<llvm::Value*>& vals, const std::vector<TypeInfo*>& types);
+        llvm::Value* gen_call_raw(std::vector<llvm::Value*>& args, llvm::Function* func, TypeInfo* ret_type);
 
         void set_debug_loc(const SourceLoc& loc);
 

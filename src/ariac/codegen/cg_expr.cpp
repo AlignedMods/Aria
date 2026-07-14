@@ -75,7 +75,7 @@ namespace ariac {
         llvm::Value* val = m_active_module_context.named_values.at(dr.referenced_decl);
         ARIA_ASSERT(val, "Invalid DeclRef expression");
 
-        if (dr.referenced_decl->kind == DeclKind::Param && get_param_abi_type_info(expr->type).pass_by_ptr) {
+        if (dr.referenced_decl->kind == DeclKind::Param && get_param_abi_type_info(expr->type).kind == ABIParamKind::Pointer) {
             return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr()), val);
         }
 
@@ -120,7 +120,7 @@ namespace ariac {
                 }
 
                 ARIA_ASSERT(val, "Invalid value for MemberExpr");
-                llvm::Value* gep = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, static_cast<unsigned>(idx));
+                llvm::Value* gep = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, static_cast<unsigned>(idx), "ptradd");
 
                 return gep;
             }
@@ -157,15 +157,15 @@ namespace ariac {
         switch (type->kind) {
             case TypeKind::TypeInfo: {
                 if (mem.member == "name") {
-                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 0);
+                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 0, "ptradd");
                 } else if (mem.member == "kind") {
-                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 1);
+                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 1, "ptradd");
                 } else if (mem.member == "size") {
-                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 2);
+                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 2, "ptradd");
                 } else if (mem.member == "len") {
-                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 3);
+                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 3, "ptradd");
                 } else if (mem.member == "types") {
-                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 4);
+                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 4, "ptradd");
                 }
 
                 ARIA_UNREACHABLE("Should never be reached");
@@ -174,9 +174,9 @@ namespace ariac {
 
             case TypeKind::Any: {
                 if (mem.member == "type") {
-                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 0);
+                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 0, "ptradd");
                 } else if (mem.member == "value") {
-                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 1);
+                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 1, "ptradd");
                 }
 
                 ARIA_UNREACHABLE("Should never be reached");
@@ -196,9 +196,9 @@ namespace ariac {
 
             case TypeKind::Slice: {
                 if (mem.member == "mem") {
-                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 0);
+                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 0, "ptradd");
                 } else if (mem.member == "len") {
-                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 1);
+                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 1, "ptradd");
                 } 
 
                 ARIA_UNREACHABLE("Should never be reached");
@@ -219,98 +219,33 @@ namespace ariac {
         set_debug_loc(expr->loc);
         
         std::vector<llvm::Value*> args;
-        args.reserve(call.arguments.size);
-
-        size_t idx = -1;
 
         for (size_t i = 0; i < call.arguments.size; i++) {
-            idx++;
-            Expr* arg = call.arguments.items[i];
-            llvm::Value* val = gen_expr(arg);
-
-            // Check if we are in a named variadic parameter
+            // Check if we are handlng a named variadic parameter
             if (call.callee->type->function.variadic == VariadicKind::Named && i == call.callee->type->function.param_types.size - 1) {
                 break;
-            } else {
-                ABIParamTypeInfo info = get_param_abi_type_info(arg->type);
-                if (info.pass_direct) {
-                    args.push_back(val);
-                } else if (info.pass_by_ptr) {
-                    llvm::Value* copy = alloca_at_entry(m_active_module_context.function, "calltemp", arg->type);
-                    m_active_module_context.builder->CreateStore(val, copy);
-                    args.push_back(copy);
-                } else if (info.pass_by_integer) {
-                    llvm::Value* copy = alloca_at_entry(m_active_module_context.function, "calltemp", arg->type);
-                    m_active_module_context.builder->CreateStore(val, copy);
-                    llvm::Value* i = m_active_module_context.builder->CreateLoad(llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(info.int_bits)), copy);
-                    args.push_back(i);
-                } else {
-                    ARIA_UNREACHABLE("Invalid ABIParamTypeInfo");
-                }
             }
+
+            Expr* arg = call.arguments.items[i];
+            gen_call_param(&args, gen_expr(arg), arg->type);
         }
 
         if (call.callee->type->function.variadic == VariadicKind::Named) {
-            llvm::Type* slice_type = llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice");
-            llvm::Type* any_type = llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_any");
-            size_t var_num = call.arguments.size - call.callee->type->function.param_types.size + 1;
-            llvm::Type* arr_type = llvm::ArrayType::get(any_type, var_num);
-            llvm::Value* slots = alloca_at_entry(m_active_module_context.function, "varargslots", arr_type);
+            std::vector<llvm::Value*> vals;
+            std::vector<TypeInfo*> types;
 
-            size_t arg_idx = 0;
             for (size_t i = call.callee->type->function.param_types.size - 1; i < call.arguments.size; i++) {
-                Expr* arg = call.arguments.items[i];
-                llvm::Value* taddr = alloca_at_entry(m_active_module_context.function, "tempaddr", type_info_to_llvm_type(arg->type));
-
-                llvm::Value* val = gen_expr(arg);
-                llvm::Value* ti = get_typeinfo(arg->type);
-                m_active_module_context.builder->CreateStore(val, taddr);
-
-                llvm::Value* undef = llvm::UndefValue::get(any_type);
-                llvm::Value* any = m_active_module_context.builder->CreateInsertValue(undef, ti, 0);
-                any = m_active_module_context.builder->CreateInsertValue(any, taddr, 1);
-
-                llvm::Value* zero = m_active_module_context.builder->getInt32(0);
-                llvm::Value* idx = m_active_module_context.builder->getInt32(static_cast<i32>(arg_idx));
-                llvm::Value* curr_arg = m_active_module_context.builder->CreateGEP(arr_type, slots, { zero, idx });
-
-                m_active_module_context.builder->CreateStore(any, curr_arg);
-                arg_idx++;
+                vals.push_back(gen_expr(call.arguments.items[i]));
+                types.push_back(call.arguments.items[i]->type);
             }
 
-            llvm::Value* slice = alloca_at_entry(m_active_module_context.function, "arr_to_slice", slice_type);
-            
-            llvm::Value* mem = m_active_module_context.builder->CreateStructGEP(slice_type, slice, 0);
-            m_active_module_context.builder->CreateStore(slots, mem);
-
-            llvm::Value* len = m_active_module_context.builder->CreateStructGEP(slice_type, slice, 1);
-            m_active_module_context.builder->CreateStore(m_active_module_context.builder->getInt(llvm::APInt(TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), var_num)), len);
-
-            ABIParamTypeInfo abi_info = get_param_abi_type_info(TypeInfo::get_char_slice());
-
-            if (abi_info.pass_by_integer) {
-                args.push_back(m_active_module_context.builder->CreateLoad(llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(abi_info.int_bits)), slice));
-            } else if (abi_info.pass_by_ptr) {
-                args.push_back(slice);
-            } else {
-                ARIA_UNREACHABLE("Invalid ABIParamTypeInfo");
-            }
+            gen_call_variadic(&args, vals, types);
         }
 
         llvm::Value* callee = gen_expr(call.callee);
         ARIA_ASSERT(callee, "Invalid function callee");
 
-        ABIRetTypeInfo ret_info = get_ret_abi_type_info(call.callee->type->function.return_type);
-        if (ret_info.ret_by_ptr) {
-            llvm::Type* ret_type = type_info_to_llvm_type(ret_info.type);
-            llvm::Value* ret_val = alloca_at_entry(m_active_module_context.function, "ptrret", ret_type);
-            args.insert(args.begin(), ret_val);
-
-            m_active_module_context.builder->CreateCall(llvm::FunctionCallee(llvm::dyn_cast<llvm::Function>(callee)), args);
-            return m_active_module_context.builder->CreateLoad(ret_type, ret_val);
-        }
-
-        return m_active_module_context.builder->CreateCall(llvm::FunctionCallee(llvm::dyn_cast<llvm::Function>(callee)), args, expr->type->is_void() ? "" : "call");
+        return gen_call_raw(args, llvm::dyn_cast<llvm::Function>(callee), call.callee->type->function.return_type);
     }
 
     llvm::Value* Codegen::gen_builtin_call_expr(Expr* expr) {
@@ -378,7 +313,7 @@ namespace ariac {
 
             for (size_t i = 0; i < ct.arguments.size; i++) {
                 llvm::Value* arg = gen_expr(ct.arguments.items[i]);
-                llvm::Value* field = m_active_module_context.builder->CreateStructGEP(type, temp, static_cast<unsigned>(i));
+                llvm::Value* field = m_active_module_context.builder->CreateStructGEP(type, temp, static_cast<unsigned>(i), "ptradd");
 
                 m_active_module_context.builder->CreateStore(arg, field);
             }
@@ -410,7 +345,7 @@ namespace ariac {
                 llvm::Value* zero_val = m_active_module_context.builder->getInt64(0);
                 llvm::Value* i_val = m_active_module_context.builder->getInt64(i);
 
-                llvm::Value* field = m_active_module_context.builder->CreateGEP(type, temp, { zero_val, i_val });
+                llvm::Value* field = m_active_module_context.builder->CreateGEP(type, temp, { zero_val, i_val }, "ptradd");
                 m_active_module_context.builder->CreateStore(arg, field);
             }
 
@@ -423,45 +358,34 @@ namespace ariac {
         set_debug_loc(expr->loc);
 
         std::vector<llvm::Value*> args;
+        args.push_back(gen_expr(mc.callee->member.parent)); // push self
 
-        ABIRetTypeInfo ret_info = get_ret_abi_type_info(mc.callee->type->function.return_type);
-        ARIA_ASSERT(!ret_info.ret_by_ptr, "TODO");
-
-        args.push_back(gen_expr(mc.callee->member.parent)); // self
-
-        for (Expr* arg : mc.arguments) {
-            llvm::Value* val = gen_expr(arg);
-
-            ABIParamTypeInfo info = get_param_abi_type_info(arg->type);
-            if (info.pass_direct) {
-                args.push_back(val);
-            } else if (info.pass_by_ptr) {
-                llvm::Value* copy = alloca_at_entry(m_active_module_context.function, "", arg->type);
-                m_active_module_context.builder->CreateStore(val, copy);
-                args.push_back(copy);
-            } else if (info.pass_by_integer) {
-                llvm::Value* copy = alloca_at_entry(m_active_module_context.function, "", arg->type);
-                m_active_module_context.builder->CreateStore(val, copy);
-                llvm::Value* i = m_active_module_context.builder->CreateLoad(llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(info.int_bits)), copy);
-                args.push_back(i);
-            } else {
-                ARIA_UNREACHABLE("Invalid ABIParamTypeInfo");
+        for (size_t i = 0; i < mc.arguments.size; i++) {
+            // Check if we are handlng a named variadic parameter
+            if (mc.callee->type->function.variadic == VariadicKind::Named && i == mc.callee->type->function.param_types.size - 1) {
+                break;
             }
+
+            Expr* arg = mc.arguments.items[i];
+            gen_call_param(&args, gen_expr(arg), arg->type);
+        }
+
+        if (mc.callee->type->function.variadic == VariadicKind::Named) {
+            std::vector<llvm::Value*> vals;
+            std::vector<TypeInfo*> types;
+
+            for (size_t i = mc.callee->type->function.param_types.size - 1; i < mc.arguments.size; i++) {
+                vals.push_back(gen_expr(mc.arguments.items[i]));
+                types.push_back(mc.arguments.items[i]->type);
+            }
+
+            gen_call_variadic(&args, vals, types);
         }
 
         llvm::Value* callee = gen_expr(mc.callee);
-        llvm::Value* call = m_active_module_context.builder->CreateCall(llvm::FunctionCallee(llvm::dyn_cast<llvm::FunctionType>(type_info_to_llvm_type(mc.callee->type)), callee), args, expr->type->is_void() ? "" : "call");
-        
-        if (ret_info.ret_direct) {
-            return call;
-        } else if (ret_info.ret_by_integer) {
-            llvm::Type* ty = type_info_to_llvm_type(mc.callee->type->function.return_type);
-            llvm::Value* temp = alloca_at_entry(m_active_module_context.function, "", ty);
-            m_active_module_context.builder->CreateStore(call, temp);
-            return m_active_module_context.builder->CreateLoad(ty, temp);
-        } else {
-            ARIA_UNREACHABLE("Invalid ABIRetTypeInfo");
-        }
+        ARIA_ASSERT(callee, "Invalid function callee");
+
+        return gen_call_raw(args, llvm::dyn_cast<llvm::Function>(callee), mc.callee->type->function.return_type);
     }
 
     llvm::Value* Codegen::gen_array_subscript_expr(Expr* expr) {
@@ -473,14 +397,14 @@ namespace ariac {
 
         switch (arr.array->type->kind) {
             case TypeKind::Pointer:
-                return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type->pointer.base), array, index);
+                return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type->pointer.base), array, index, "ptradd");
 
             case TypeKind::Array: {
                 llvm::Value* cond = m_active_module_context.builder->CreateICmpULT(index, get_sz(arr.array->type->array.size), "lt");
-                call_assert(cond, m_active_debug_context.active_unit->getFilename(), expr->loc.line, "Array index out of bounds (len: %s, index: %s)",
+                call_assert(cond, expr->loc.line, "Array index out of bounds (len: %s, index: %s)",
                     { get_sz(arr.array->type->array.size), index }, { TypeInfo::get_sz(), TypeInfo::get_sz() });
 
-                return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type), array, { m_active_module_context.builder->getInt64(0), index });
+                return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type), array, { m_active_module_context.builder->getInt64(0), index }, "ptradd");
             }
 
             case TypeKind::Slice: {
@@ -492,7 +416,7 @@ namespace ariac {
 
                 llvm::Value* mem = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(arr.array->type), array, 0);
                 llvm::Value* loaded = m_active_module_context.builder->CreateLoad(llvm::PointerType::get(*m_active_module_context.context, 0), mem);
-                return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type->slice.base), loaded, index);
+                return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type->slice.base), loaded, index, "ptradd");
             }
 
             default: ARIA_UNREACHABLE("Invalid type kind");
@@ -506,11 +430,11 @@ namespace ariac {
         llvm::Type* type = type_info_to_llvm_type(expr->type);
         llvm::Value* slice = alloca_at_entry(m_active_module_context.function, "to_slice", type);
 
-        llvm::Value* mem = m_active_module_context.builder->CreateStructGEP(type, slice, 0);
+        llvm::Value* mem = m_active_module_context.builder->CreateStructGEP(type, slice, 0, "ptradd");
         llvm::Value* mem_val = gen_expr(t.source);
         m_active_module_context.builder->CreateStore(mem_val, mem);
 
-        llvm::Value* len = m_active_module_context.builder->CreateStructGEP(type, slice, 1);
+        llvm::Value* len = m_active_module_context.builder->CreateStructGEP(type, slice, 1, "ptradd");
         llvm::Value* len_val = nullptr;
         
         if (t.len) {
@@ -605,7 +529,7 @@ namespace ariac {
                     val = temp;
                 }
 
-                llvm::Value* gep = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(ic.expression->type), val, 0);
+                llvm::Value* gep = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(ic.expression->type), val, 0, "ptradd");
                 return m_active_module_context.builder->CreateLoad(llvm::PointerType::get(*m_active_module_context.context, 0), gep);
             }
 
@@ -617,10 +541,10 @@ namespace ariac {
 
                 llvm::Value* any_temp = alloca_at_entry(m_active_module_context.function, "ptrtoany", any_type);
 
-                llvm::Value* any_typeinfo = m_active_module_context.builder->CreateStructGEP(any_type, any_temp, 0);
+                llvm::Value* any_typeinfo = m_active_module_context.builder->CreateStructGEP(any_type, any_temp, 0, "ptradd");
                 m_active_module_context.builder->CreateStore(typeinfo, any_typeinfo);
 
-                llvm::Value* any_value = m_active_module_context.builder->CreateStructGEP(any_type, any_temp, 1);
+                llvm::Value* any_value = m_active_module_context.builder->CreateStructGEP(any_type, any_temp, 1, "ptradd");
                 m_active_module_context.builder->CreateStore(value, any_value);
 
                 return m_active_module_context.builder->CreateLoad(any_type, any_temp);
@@ -683,7 +607,11 @@ namespace ariac {
             }
 
             case UnaryOperatorKind::Dereference: {
-                return gen_expr(un.expression);
+                llvm::Value* val = gen_expr(un.expression);
+
+                llvm::Value* cond = m_active_module_context.builder->CreateICmpNE(val, get_null(), "ne");
+                call_assert(cond, expr->loc.line, "Dereference of null pointer");
+                return val;
             }
 
             case UnaryOperatorKind::Increment: {

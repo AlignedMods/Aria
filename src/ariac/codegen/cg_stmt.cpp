@@ -137,20 +137,29 @@ namespace ariac {
         if (ret.value) {
             llvm::Value* val = gen_expr(ret.value);
 
-            if (m_ret_type_abi.ret_direct) {  
-                m_active_module_context.builder->CreateRet(val);
-            } else if (m_ret_type_abi.ret_by_ptr) {
-                llvm::Value* ret_ptr = m_active_module_context.function->getArg(0);
-                m_active_module_context.builder->CreateStore(val, ret_ptr);
-                m_active_module_context.builder->CreateRetVoid();
-            } else if (m_ret_type_abi.ret_by_integer) {
-                llvm::Type* ty = llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(m_ret_type_abi.int_bits));
-                llvm::Value* ret_int = alloca_at_entry(m_active_module_context.function, "ret", ty);
-                m_active_module_context.builder->CreateStore(val, ret_int);
-                llvm::Value* load = m_active_module_context.builder->CreateLoad(ty, ret_int);
-                m_active_module_context.builder->CreateRet(load);
-            } else {
-                ARIA_UNREACHABLE("Invalid ret abi");
+            switch (m_ret_type_abi.kind) {
+                case ABIRetKind::Direct: {
+                    m_active_module_context.builder->CreateRet(val);
+                    break;
+                }
+
+                case ABIRetKind::Pointer: {
+                    llvm::Value* ret_ptr = m_active_module_context.function->getArg(0);
+                    m_active_module_context.builder->CreateStore(val, ret_ptr);
+                    m_active_module_context.builder->CreateRetVoid();
+                    break;
+                }
+
+                case ABIRetKind::Integer: {
+                    llvm::Type* ty = llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(m_ret_type_abi.int_bits));
+                    llvm::Value* ret_int = alloca_at_entry(m_active_module_context.function, "ret", ty);
+                    m_active_module_context.builder->CreateStore(val, ret_int);
+                    llvm::Value* load = m_active_module_context.builder->CreateLoad(ty, ret_int);
+                    m_active_module_context.builder->CreateRet(load);
+                    break;
+                }
+
+                default: ARIA_UNREACHABLE("Invalid ABIRetTypeInfo");
             }
         } else {
             m_active_module_context.builder->CreateRetVoid();

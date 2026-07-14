@@ -418,15 +418,23 @@ namespace ariac {
             {
                 ABIRetTypeInfo info = get_ret_abi_type_info(t->function.return_type);
 
-                if (info.ret_direct) {
-                    ret_type = type_info_to_llvm_type(info.type);
-                } else if (info.ret_by_ptr) {
-                    // Return via first parameter
-                    params.push_back(llvm::PointerType::get(*m_active_module_context.context, 0));
-                } else if (info.ret_by_integer) {
-                    ret_type = llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(info.int_bits));
-                } else {
-                    ARIA_UNREACHABLE("Invalid ABIRetTypeInfo");
+                switch (info.kind) {
+                    case ABIRetKind::Direct: {
+                        ret_type = type_info_to_llvm_type(info.type);
+                        break;
+                    }
+
+                    case ABIRetKind::Pointer: {
+                        params.push_back(llvm::PointerType::get(*m_active_module_context.context, 0));
+                        break;
+                    }
+
+                    case ABIRetKind::Integer: {
+                        ret_type = llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(info.int_bits));
+                        break;
+                    }
+
+                    default: ARIA_UNREACHABLE("Invalid ABIRetTypeInfo");
                 }
             }
             
@@ -442,26 +450,41 @@ namespace ariac {
                 TypeInfo* type = t->function.param_types.items[i];
                 ABIParamTypeInfo info = get_param_abi_type_info(type);
 
-                if (info.pass_direct) {
-                    params.push_back(type_info_to_llvm_type(type));
-                } else if (info.pass_by_ptr) {
-                    params.push_back(llvm::PointerType::get(*m_active_module_context.context, 0));
-                } else if (info.pass_by_integer) {
-                    params.push_back(llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(info.int_bits)));
-                } else {
-                    ARIA_UNREACHABLE("Invalid ABIRetTypeInfo");
+                switch (info.kind) {
+                    case ABIParamKind::Direct: {
+                        params.push_back(type_info_to_llvm_type(type));
+                        break;
+                    }
+
+                    case ABIParamKind::Pointer: {
+                        params.push_back(llvm::PointerType::get(*m_active_module_context.context, 0));
+                        break;
+                    }
+
+                    case ABIParamKind::Integer: {
+                        params.push_back(llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(info.int_bits)));
+                        break;
+                    }
+
+                    default: ARIA_UNREACHABLE("Invalid ABIParamTypeInfo");
                 }
             }
 
             if (t->function.variadic == VariadicKind::Named) {
                 ABIParamTypeInfo info = get_param_abi_type_info(TypeInfo::get_char_slice());
 
-                if (info.pass_by_ptr) {
-                    params.push_back(llvm::PointerType::get(*m_active_module_context.context, 0));
-                } else if (info.pass_by_integer) {
-                    params.push_back(llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(info.int_bits)));
-                } else {
-                    ARIA_UNREACHABLE("Invalid ABIRetTypeInfo");
+                switch (info.kind) {
+                    case ABIParamKind::Pointer: {
+                        params.push_back(llvm::PointerType::get(*m_active_module_context.context, 0));
+                        break;
+                    }
+
+                    case ABIParamKind::Integer: {
+                        params.push_back(llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(info.int_bits)));
+                        break;
+                    }
+
+                    default: ARIA_UNREACHABLE("Invalid ABIParamTypeInfo");
                 }
             }
 
@@ -719,6 +742,10 @@ namespace ariac {
         return m_active_module_context.builder->getInt64(i);
     }
 
+    llvm::Constant* Codegen::get_null() {
+        return llvm::Constant::getNullValue(llvm::PointerType::get(*m_active_module_context.context, 0));
+    }
+
     llvm::Constant* Codegen::get_string(std::string_view s, std::string_view name) {
         llvm::GlobalVariable* str = m_active_module_context.builder->CreateGlobalString(s, name, 0, nullptr);
         llvm::Constant* vals[2] = { str, m_active_module_context.builder->getInt64(s.length()) };
@@ -778,13 +805,13 @@ namespace ariac {
         return m_active_module_context.functions.at(context.assert_func);
     }
 
-    void Codegen::call_assert(llvm::Value* cond, std::string_view file, u64 line, const std::string& fmt, const std::vector<llvm::Value*>& args, const std::vector<TypeInfo*>& types) {
+    void Codegen::call_assert(llvm::Value* cond, u64 line, const std::string& fmt, const std::vector<llvm::Value*>& args, const std::vector<TypeInfo*>& types) {
         llvm::Function* fn = get_assert_func();
         if (!fn) { return; }
 
         std::vector<llvm::Value*> aargs;
         gen_call_param(&aargs, cond, TypeInfo::get_basic(TypeKind::Bool));
-        gen_call_param(&aargs, get_string(file, ".file"), TypeInfo::get_string());
+        gen_call_param(&aargs, get_string(m_active_debug_context.active_unit->getFilename(), ".file"), TypeInfo::get_string());
         gen_call_param(&aargs, get_i64(line), TypeInfo::get_basic(TypeKind::ULong));
         gen_call_param(&aargs, get_string(fmt, ".assert_msg"), TypeInfo::get_string());
         gen_call_variadic(&aargs, args, types);

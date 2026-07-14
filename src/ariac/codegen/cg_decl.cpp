@@ -71,7 +71,7 @@ namespace ariac {
             set_debug_loc({});
 
             m_ret_type_abi = get_ret_abi_type_info(fn->type->function.return_type);
-            unsigned idx = m_ret_type_abi.ret_by_ptr ? 1 : 0;
+            unsigned idx = m_ret_type_abi.kind == ABIRetKind::Pointer ? 1 : 0;
 
             if (m_ret_type_abi.type->is_boolean()) {
                 function->addRetAttr(llvm::Attribute::ZExt);
@@ -88,40 +88,49 @@ namespace ariac {
 
                 llvm::DILocalVariable* dil = nullptr;
 
-                if (info.pass_direct) {
-                    llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, param_type);
-                    m_active_module_context.named_values[param] = a;
+                switch (info.kind) {
+                    case ABIParamKind::Direct: {
+                        llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, param_type);
+                        m_active_module_context.named_values[param] = a;
 
-                    unsigned ui = static_cast<unsigned>(idx++);
+                        unsigned ui = static_cast<unsigned>(idx++);
 
-                    if (param_type->is_boolean()) {
-                        function->addParamAttr(ui, llvm::Attribute::ZExt);
-                        llvm::Value* zext = m_active_module_context.builder->CreateZExt(function->getArg(ui), llvm::Type::getInt8Ty(*m_active_module_context.context), "zext");
-                        m_active_module_context.builder->CreateStore(zext, a);
-                    } else {
-                        m_active_module_context.builder->CreateStore(function->getArg(ui), a);
+                        if (param_type->is_boolean()) {
+                            function->addParamAttr(ui, llvm::Attribute::ZExt);
+                            llvm::Value* zext = m_active_module_context.builder->CreateZExt(function->getArg(ui), llvm::Type::getInt8Ty(*m_active_module_context.context), "zext");
+                            m_active_module_context.builder->CreateStore(zext, a);
+                        } else {
+                            m_active_module_context.builder->CreateStore(function->getArg(ui), a);
+                        }
+
+                        dil = m_active_debug_context.active_builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
+                            decl->loc.line, type_info_to_debug_type(param_type));
+                        break;
                     }
 
-                    dil = m_active_debug_context.active_builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
-                        decl->loc.line, type_info_to_debug_type(param_type));
-                } else if (info.pass_by_ptr) {
-                    llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, llvm::PointerType::get(*m_active_module_context.context, 0));
-                    m_active_module_context.named_values[param] = a;
+                    case ABIParamKind::Pointer: {
+                        llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, llvm::PointerType::get(*m_active_module_context.context, 0));
+                        m_active_module_context.named_values[param] = a;
 
-                    m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
+                        m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
 
-                    dil = m_active_debug_context.active_builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
-                        decl->loc.line, type_info_to_debug_type(TypeInfo::create_pointer(param_type, false)));
-                } else if (info.pass_by_integer) {
-                    llvm::AllocaInst* a = alloca_at_entry(m_active_module_context.function, param->param.identifier, param_type);
-                    m_active_module_context.named_values[param] = a;
+                        dil = m_active_debug_context.active_builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
+                            decl->loc.line, type_info_to_debug_type(TypeInfo::create_pointer(param_type, false)));
+                        break;
+                    }
 
-                    m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
+                    case ABIParamKind::Integer: {
+                        llvm::AllocaInst* a = alloca_at_entry(m_active_module_context.function, param->param.identifier, param_type);
+                        m_active_module_context.named_values[param] = a;
 
-                    dil = m_active_debug_context.active_builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
-                        decl->loc.line, type_info_to_debug_type(param_type));
-                } else {
-                    ARIA_UNREACHABLE("Invalid ABIParamTypeInfo");
+                        m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
+
+                        dil = m_active_debug_context.active_builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
+                            decl->loc.line, type_info_to_debug_type(param_type));
+                        break;
+                    }
+
+                    default: ARIA_UNREACHABLE("Invalid ABIParamTypeInfo");
                 }
 
                 ARIA_ASSERT(dil, "Must set the debug local variable");
@@ -232,7 +241,7 @@ namespace ariac {
 
                     if (m.body) {
                         m_ret_type_abi = get_ret_abi_type_info(m.type->function.return_type);
-                        unsigned idx = m_ret_type_abi.ret_by_ptr ? 1 : 0;
+                        unsigned idx = m_ret_type_abi.kind == ABIRetKind::Pointer ? 1 : 0;
 
                         llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", function);
                         m_active_module_context.builder->SetInsertPoint(bb);
@@ -245,26 +254,60 @@ namespace ariac {
                         m_active_module_context.builder->CreateStore(function->getArg(idx++), s);
 
                         for (Decl* param : m.parameters) {
+                            TypeInfo* param_type = param->param.variadic ? TypeInfo::create_slice(param->param.type) : param->param.type;
                             ABIParamTypeInfo info = get_param_abi_type_info(param->param.type);
 
-                            if (info.pass_direct) {
-                                llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, param->param.type);
-                                m_active_module_context.named_values[param] = a;
+                            llvm::DILocalVariable* dil = nullptr;
 
-                                m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
-                            } else if (info.pass_by_ptr) {
-                                llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, llvm::PointerType::get(*m_active_module_context.context, 0));
-                                m_active_module_context.named_values[param] = a;
+                            switch (info.kind) {
+                                case ABIParamKind::Direct: {
+                                    llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, param_type);
+                                    m_active_module_context.named_values[param] = a;
 
-                                m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
-                            } else if (info.pass_by_integer) {
-                                llvm::AllocaInst* a = alloca_at_entry(m_active_module_context.function, param->param.identifier, param->param.type);
-                                m_active_module_context.named_values[param] = a;
+                                    unsigned ui = static_cast<unsigned>(idx++);
 
-                                m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
-                            } else {
-                                ARIA_UNREACHABLE("Invalid ABIParamTypeInfo");
+                                    if (param_type->is_boolean()) {
+                                        function->addParamAttr(ui, llvm::Attribute::ZExt);
+                                        llvm::Value* zext = m_active_module_context.builder->CreateZExt(function->getArg(ui), llvm::Type::getInt8Ty(*m_active_module_context.context), "zext");
+                                        m_active_module_context.builder->CreateStore(zext, a);
+                                    } else {
+                                        m_active_module_context.builder->CreateStore(function->getArg(ui), a);
+                                    }
+
+                                    dil = m_active_debug_context.active_builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
+                                        decl->loc.line, type_info_to_debug_type(param_type));
+                                    break;
+                                }
+
+                                case ABIParamKind::Pointer: {
+                                    llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, llvm::PointerType::get(*m_active_module_context.context, 0));
+                                    m_active_module_context.named_values[param] = a;
+
+                                    m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
+
+                                    dil = m_active_debug_context.active_builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
+                                        decl->loc.line, type_info_to_debug_type(TypeInfo::create_pointer(param_type, false)));
+                                    break;
+                                }
+
+                                case ABIParamKind::Integer: {
+                                    llvm::AllocaInst* a = alloca_at_entry(m_active_module_context.function, param->param.identifier, param_type);
+                                    m_active_module_context.named_values[param] = a;
+
+                                    m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
+
+                                    dil = m_active_debug_context.active_builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
+                                        decl->loc.line, type_info_to_debug_type(param_type));
+                                    break;
+                                }
+
+                                default: ARIA_UNREACHABLE("Invalid ABIParamTypeInfo");
                             }
+
+                            ARIA_ASSERT(dil, "Must set the debug local variable");
+                            m_active_debug_context.active_builder->insertDeclare(m_active_module_context.named_values.at(param),
+                                dil, m_active_debug_context.active_builder->createExpression(), 
+                                llvm::DILocation::get(*m_active_module_context.context, decl->loc.line, decl->loc.col, sp), m_active_module_context.builder->GetInsertBlock());
                         }
 
                         gen_stmt(m.body);
