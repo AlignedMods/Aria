@@ -250,6 +250,8 @@ namespace ariac {
         bool isDecimal = true;
         bool isUnsigned = false;
 
+        size_t startIndex = m_index;
+
         if (peek(1)) {
             if (peek() == '0' && std::tolower(peek(1)) == 'x') {
                 consume(2);
@@ -266,10 +268,8 @@ namespace ariac {
             }
         }
 
-        isDecimal = !(isHex || isOctal || isBinary);
-
-        size_t startIndex = m_index;
         size_t numberStartIndex = m_index;
+        isDecimal = !(isHex || isOctal || isBinary);
 
         bool errored = false;
 
@@ -357,13 +357,13 @@ namespace ariac {
                 auto [ptr, ec] = std::from_chars(buf.data(), buf.data() + buf.length(), number); 
 
                 if (ec == std::errc::result_out_of_range) {
-                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()), "Magnitude of floating-point literal is too large, maximum is 1.7976931348623157E+308");
+                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(startIndex), startIndex, buf.length()), "Magnitude of floating-point literal is too large, maximum is 1.7976931348623157E+308");
                     number = 0.0;
                 }
             }
 
             add_token_with_number(TokenKind::NumLit,
-                SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()),
+                SourceLoc(m_current_line, get_column(startIndex), startIndex, buf.length()),
                 number);
         } else {
             u64 integer = 0;
@@ -378,7 +378,7 @@ namespace ariac {
 
                 if (ec == std::errc::result_out_of_range) {
                     SourceLoc loc;
-                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()), "Integer literal is too large to fit into any integer type");
+                    context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(startIndex), startIndex, buf.length()), "Integer literal is too large to fit into any integer type");
                     integer = 0;
                 }
             }
@@ -386,21 +386,21 @@ namespace ariac {
             if (isUnsigned) {
                 if (integer <= UINT32_MAX) {
                     add_token_with_integer(TokenKind::UIntLit,
-                        SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()),
+                        SourceLoc(m_current_line, get_column(startIndex), startIndex, buf.length()),
                         integer);
                 } else {
                     add_token_with_integer(TokenKind::ULongLit,
-                        SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()),
+                        SourceLoc(m_current_line, get_column(startIndex), startIndex, buf.length()),
                         integer);
                 }
             } else {
                 if (integer <= INT32_MAX) {
                     add_token_with_integer(TokenKind::IntLit,
-                        SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()),
+                        SourceLoc(m_current_line, get_column(startIndex), startIndex, buf.length()),
                         integer);
                 } else {
                     add_token_with_integer(TokenKind::LongLit,
-                        SourceLoc(m_current_line, get_column(startIndex), m_index, buf.length()),
+                        SourceLoc(m_current_line, get_column(startIndex), startIndex, buf.length()),
                         integer);
                 }
             }
@@ -409,7 +409,7 @@ namespace ariac {
 
     void Lexer::parse_string_literal(bool c_style) {
         size_t start_index = m_index - ((c_style) ? 2 : 1);
-        SourceLoc loc = SourceLoc(m_current_line, get_column(start_index), m_index, (c_style) ? 2 : 1);
+        SourceLoc loc = SourceLoc(m_current_line, get_column(start_index), start_index, (c_style) ? 2 : 1);
 
         scratch_buffer_clear();
 

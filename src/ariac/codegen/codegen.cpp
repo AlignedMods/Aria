@@ -85,6 +85,8 @@ namespace ariac {
         gen_builtin_types();
 
         for (CompilationUnit* unit : mod->units) {
+            context.active_comp_unit = unit;
+
             if (!m_active_debug_context.builders.contains(unit->filename)) {
                 llvm::DIBuilder* b = new llvm::DIBuilder(*ctx.module);
                 m_active_debug_context.builders[unit->filename] = b;
@@ -119,6 +121,8 @@ namespace ariac {
         }
 
         for (CompilationUnit* unit : mod->units) {
+            context.active_comp_unit = unit;
+
             m_active_debug_context.active_builder = m_active_debug_context.builders.at(unit->filename);
             m_active_debug_context.active_unit = m_active_debug_context.units.at(unit->filename);
             m_active_debug_context.active_cached_types = &m_active_debug_context.cached_types[unit->filename];
@@ -129,6 +133,8 @@ namespace ariac {
         }
 
         for (CompilationUnit* unit : mod->units) {
+            context.active_comp_unit = unit;
+
             m_active_debug_context.active_builder = m_active_debug_context.builders.at(unit->filename);
             m_active_debug_context.active_unit = m_active_debug_context.units.at(unit->filename);
             m_active_debug_context.active_cached_types = &m_active_debug_context.cached_types[unit->filename];
@@ -811,7 +817,7 @@ namespace ariac {
 
         std::vector<llvm::Value*> aargs;
         gen_call_param(&aargs, cond, TypeInfo::get_basic(TypeKind::Bool));
-        gen_call_param(&aargs, get_string(m_active_debug_context.active_unit->getFilename(), ".file"), TypeInfo::get_string());
+        gen_call_param(&aargs, get_string(context.active_comp_unit->filename, ".file"), TypeInfo::get_string());
         gen_call_param(&aargs, get_i64(line), TypeInfo::get_basic(TypeKind::ULong));
         gen_call_param(&aargs, get_string(fmt, ".assert_msg"), TypeInfo::get_string());
         gen_call_variadic(&aargs, args, types);

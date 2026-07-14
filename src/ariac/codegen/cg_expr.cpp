@@ -408,13 +408,21 @@ namespace ariac {
             }
 
             case TypeKind::Slice: {
+                llvm::Type* slice_type = type_info_to_llvm_type(arr.array->type);
+
                 if (!array->getType()->isPointerTy()) {
                     llvm::Value* tempaddr = alloca_at_entry(m_active_module_context.function, "tempaddr", array->getType());
                     m_active_module_context.builder->CreateStore(array, tempaddr);
                     array = tempaddr;
                 }
 
-                llvm::Value* mem = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(arr.array->type), array, 0);
+                llvm::Value* len = m_active_module_context.builder->CreateStructGEP(slice_type, array, 1, "ptradd");
+                len = m_active_module_context.builder->CreateLoad(m_active_module_context.builder->getIntNTy(TypeInfo::get_sz()->get_bit_size()), len);
+                llvm::Value* cond = m_active_module_context.builder->CreateICmpULT(index, len, "lt");
+                call_assert(cond, expr->loc.line, "Array index out of bounds (len: %s, index: %s)",
+                    { len, index }, { TypeInfo::get_sz(), TypeInfo::get_sz() });
+
+                llvm::Value* mem = m_active_module_context.builder->CreateStructGEP(slice_type, array, 0);
                 llvm::Value* loaded = m_active_module_context.builder->CreateLoad(llvm::PointerType::get(*m_active_module_context.context, 0), mem);
                 return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type->slice.base), loaded, index, "ptradd");
             }
@@ -516,6 +524,11 @@ namespace ariac {
                 break;
             }
 
+            case CastKind::IntegerToPointer: {
+                llvm::Value* val = gen_expr(ic.expression);
+                return m_active_module_context.builder->CreateIntToPtr(val, llvm::PointerType::get(*m_active_module_context.context, 0), "inttoptr");
+            }
+
             case CastKind::BitCast: {
                 return gen_expr(ic.expression);
             }
@@ -609,8 +622,22 @@ namespace ariac {
             case UnaryOperatorKind::Dereference: {
                 llvm::Value* val = gen_expr(un.expression);
 
-                llvm::Value* cond = m_active_module_context.builder->CreateICmpNE(val, get_null(), "ne");
-                call_assert(cond, expr->loc.line, "Dereference of null pointer");
+                {
+                    llvm::Value* cond = m_active_module_context.builder->CreateICmpNE(val, get_null(), "ne");
+                    call_assert(cond, expr->loc.line, fmt::format("Dereference of null pointer ('{}' was null)",
+                        std::string_view(context.active_comp_unit->source.c_str() + un.expression->loc.offset, un.expression->loc.len)));
+                }
+
+                {
+                    llvm::Type* sz_type = type_info_to_llvm_type(TypeInfo::get_sz());
+                    llvm::Value* alignment = get_i64(expr->type->get_alignment());
+                    llvm::Value* ptrtoint = m_active_module_context.builder->CreatePtrToInt(val, sz_type);
+                    llvm::Value* rem = m_active_module_context.builder->CreateURem(ptrtoint, alignment, "rem");
+                    llvm::Value* cond = m_active_module_context.builder->CreateICmpEQ(rem, get_sz(0), "eq");
+                    call_assert(cond, expr->loc.line, "Unaligned access ptr %% %s = %s", 
+                        { alignment, rem }, { TypeInfo::get_sz(), TypeInfo::get_sz() });
+                }
+                
                 return val;
             }
 
@@ -667,6 +694,9 @@ namespace ariac {
                     return m_active_module_context.builder->CreateAdd(lhs, rhs, "add");
                 } else if (expr->type->is_floating_point()) {
                     return m_active_module_context.builder->CreateFAdd(lhs, rhs, "fadd");
+                } else if (expr->type->is_pointer()) {
+                    llvm::Type* base_type = expr->type->pointer.base->is_void() ? m_active_module_context.builder->getInt8Ty() : type_info_to_llvm_type(expr->type->pointer.base);
+                    return m_active_module_context.builder->CreateGEP(base_type, lhs, rhs, "ptradd");
                 }
 
                 ARIA_UNREACHABLE("Should be unreachable");

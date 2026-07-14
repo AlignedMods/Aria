@@ -1148,6 +1148,7 @@ namespace ariac {
             }
 
             case UnaryOperatorKind::Dereference: {
+                expr->value_kind = ExprValueKind::LValue;
                 if (type->is_error()) { expr->type = type; break; }
 
                 require_rvalue(unop.expression);
@@ -1158,11 +1159,11 @@ namespace ariac {
                     }
                 } else {
                     context.report_compiler_diagnostic(expr->loc, "Dereferencing requires a pointer type");
+                    expr->type = TypeInfo::get_error();
                     break;
                 }
 
                 expr->type = type->pointer.base;
-                expr->value_kind = ExprValueKind::LValue;
                 break;
             }
 
@@ -1229,29 +1230,12 @@ namespace ariac {
             case BinaryOperatorKind::Mul:
             case BinaryOperatorKind::Div:
             case BinaryOperatorKind::Mod: {
-                if (!LHS->type->is_error()) {
-                    if (!LHS->type->is_numeric()) {
-                        context.report_compiler_diagnostic(LHS->loc, fmt::format("Expression must be of a numeric type but is of type '{}'", type_info_to_string(LHS->type)));
-                        expr->type = TypeInfo::get_error();
-                        break;
-                    }
-
-                    if (!RHS->type->is_numeric()) {
-                        context.report_compiler_diagnostic(RHS->loc, fmt::format("Expression must be of a numeric type but is of type '{}'", type_info_to_string(RHS->type)));
-                        expr->type = TypeInfo::get_error();
-                        break;
-                    }
-                }
-
-                insert_arithmetic_promotion(LHS, RHS);
-
-                expr->type = LHS->type;
+                insert_arithmetic_promotion(LHS, RHS, binop.op, expr);
                 expr->value_kind = ExprValueKind::RValue;
 
                 if (expr->result_discarded) {
                     context.report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
                 }
-
                 return;
             }
 
@@ -1261,23 +1245,8 @@ namespace ariac {
             case BinaryOperatorKind::GreaterOrEq:
             case BinaryOperatorKind::IsEq: 
             case BinaryOperatorKind::IsNotEq: {
-                if (!LHS->type->is_error()) {
-                    if (!LHS->type->is_num_or_ptr()) {
-                        context.report_compiler_diagnostic(LHS->loc, fmt::format("Expression must be of a numeric or pointer type but is of type '{}'", type_info_to_string(LHS->type)));
-                        expr->type = TypeInfo::get_error();
-                        break;
-                    }
-
-                    if (!RHS->type->is_num_or_ptr()) {
-                        context.report_compiler_diagnostic(RHS->loc, fmt::format("Expression must be of a numeric or pointer type but is of type '{}'", type_info_to_string(RHS->type)));
-                        expr->type = TypeInfo::get_error();
-                        break;
-                    }
-                }
-
-                insert_arithmetic_promotion(LHS, RHS);
-
-                expr->type = TypeInfo::get_basic(TypeKind::Bool);
+                insert_arithmetic_promotion(LHS, RHS, binop.op, expr);
+                expr->type = TypeInfo::get_basic(TypeKind::Bool); // insert_arithmetic_promotion() will set the type but we want to override the type
                 expr->value_kind = ExprValueKind::RValue;
 
                 if (expr->result_discarded) {
@@ -1291,19 +1260,7 @@ namespace ariac {
             case BinaryOperatorKind::BitXor:
             case BinaryOperatorKind::Shl:
             case BinaryOperatorKind::Shr: {
-                if (!LHS->type->is_error()) {
-                    if (!LHS->type->is_integral()) {
-                        context.report_compiler_diagnostic(LHS->loc, fmt::format("Expression must be of a integral type but is of type '{}'", type_info_to_string(LHS->type)));
-                    }
-
-                    if (!LHS->type->is_integral()) {
-                        context.report_compiler_diagnostic(RHS->loc, fmt::format("Expression must be of a integral type but is of type '{}'", type_info_to_string(RHS->type)));
-                    }
-                }
-
-                insert_arithmetic_promotion(LHS, RHS);
-
-                expr->type = LHS->type;
+                insert_arithmetic_promotion(LHS, RHS, binop.op, expr);
                 expr->value_kind = ExprValueKind::RValue;
 
                 if (expr->result_discarded) {
@@ -1774,80 +1731,96 @@ namespace ariac {
         }
     }
 
-    void SemanticAnalyzer::insert_arithmetic_promotion(Expr* lhs, Expr* rhs) {
+    void SemanticAnalyzer::insert_arithmetic_promotion(Expr* lhs, Expr* rhs, BinaryOperatorKind op, Expr* e) {
         if (lhs->type->kind == TypeKind::Error || rhs->type->kind == TypeKind::Error) {
+            e->type = TypeInfo::get_error();
             return;
         }
 
         if (lhs->type->kind == TypeKind::Generic || rhs->type->kind == TypeKind::Generic) {
+            e->type = lhs->type;
             return;
         }
 
         require_rvalue(lhs);
         require_rvalue(rhs);
 
-        if (lhs->type->is_integral() && rhs->type->is_integral()) {
-            // We want to keep the original types for error messages
-            TypeInfo lhs_type = *lhs->type;
-            TypeInfo rhs_type = *rhs->type;
+        if (lhs->type->is_integral()) {
+            if (rhs->type->is_integral()) {
+                // We want to keep the original types for error messages
+                TypeInfo lhs_type = *lhs->type;
+                TypeInfo rhs_type = *rhs->type;
 
-            maybe_promote_to_int(lhs);
-            maybe_promote_to_int(rhs);
+                maybe_promote_to_int(lhs);
+                maybe_promote_to_int(rhs);
 
-            size_t l_size = lhs->type->get_bit_size();
-            size_t r_size = rhs->type->get_bit_size();
+                size_t l_size = lhs->type->get_bit_size();
+                size_t r_size = rhs->type->get_bit_size();
 
-            if (l_size > r_size) {
-                insert_implicit_cast(lhs->type, rhs->type, rhs, CastKind::Integral);
-            } else if (r_size > l_size) {
-                insert_implicit_cast(rhs->type, lhs->type, lhs, CastKind::Integral);
-            } else if (l_size == r_size) {
-                if (lhs->type->is_signed() != rhs->type->is_signed()) {
-                    context.report_compiler_diagnostic_with_notes(lhs->loc, 
-                        fmt::format("Mismatched types '{}' and '{}'", type_info_to_string(&lhs_type), type_info_to_string(&rhs_type)),
-                        { "implicit signedness conversions are not allowed here"} );
+                if (l_size > r_size) {
+                    insert_implicit_cast(lhs->type, rhs->type, rhs, CastKind::Integral);
+                } else if (r_size > l_size) {
+                    insert_implicit_cast(rhs->type, lhs->type, lhs, CastKind::Integral);
+                } else if (l_size == r_size) {
+                    if (lhs->type->is_signed() != rhs->type->is_signed()) {
+                        context.report_compiler_diagnostic_with_notes(lhs->loc, 
+                            fmt::format("Mismatched types '{}' and '{}'", type_info_to_string(&lhs_type), type_info_to_string(&rhs_type)),
+                            { "implicit signedness conversions are not allowed here"} );
+                    }
+                }
+
+                e->type = lhs->type;
+                return;
+            } else if (rhs->type->is_floating_point()) {
+                insert_implicit_cast(rhs->type, lhs->type, lhs, CastKind::IntegralToFloating);
+                e->type = rhs->type;
+                return;
+            }
+        } else if (lhs->type->is_floating_point() && !is_binary_operator_bit(op)) {
+            if (rhs->type->is_integral()) {
+                insert_implicit_cast(lhs->type, rhs->type, rhs, CastKind::IntegralToFloating);
+                e->type = lhs->type;
+                return;
+            } else if (rhs->type->is_floating_point()) {
+                size_t lSize = lhs->type->get_bit_size();
+                size_t rSize = rhs->type->get_bit_size();
+
+                if (lSize > rSize) {
+                    insert_implicit_cast(lhs->type, rhs->type, rhs, CastKind::Floating);
+                } else if (rSize > lSize) {
+                    insert_implicit_cast(rhs->type, lhs->type, lhs, CastKind::Floating);
+                }
+
+                e->type = lhs->type;
+                return;
+            }
+        } else if (lhs->type->is_pointer() && !is_binary_operator_bit(op)) {
+            if (op == BinaryOperatorKind::Add) {
+                if (rhs->type->is_integral()) {
+                    insert_implicit_cast(TypeInfo::get_sz(), rhs->type, rhs, CastKind::IntegerToPointer);
+                    e->type = lhs->type;
+                    return;
+                } else {
+                    context.report_compiler_diagnostic(rhs->loc, fmt::format("Expected an integer here but got '{}'", type_info_to_string(rhs->type)));
+                    e->type = lhs->type;
+                    return;
                 }
             }
 
-            return;
-        }
-
-        if (lhs->type->is_integral() && rhs->type->is_floating_point()) {
-            insert_implicit_cast(rhs->type, lhs->type, lhs, CastKind::IntegralToFloating);
-            return;
-        }
-
-        if (lhs->type->is_floating_point() && rhs->type->is_integral()) {
-            insert_implicit_cast(lhs->type, rhs->type, rhs, CastKind::IntegralToFloating);
-            return;
-        }
-
-        if (lhs->type->is_floating_point() && rhs->type->is_floating_point()) {
-            size_t lSize = lhs->type->get_bit_size();
-            size_t rSize = rhs->type->get_bit_size();
-
-            if (lSize > rSize) {
-                insert_implicit_cast(lhs->type, rhs->type, rhs, CastKind::Floating);
-            } else if (rSize > lSize) {
-                insert_implicit_cast(rhs->type, lhs->type, lhs, CastKind::Floating);
+            if (rhs->type->is_pointer()) {
+                if (op == BinaryOperatorKind::Eq || op == BinaryOperatorKind::IsNotEq) {
+                    insert_implicit_cast(TypeInfo::get_void_ptr(), lhs->type, lhs, CastKind::BitCast);
+                    insert_implicit_cast(TypeInfo::get_void_ptr(), rhs->type, rhs, CastKind::BitCast);
+                    e->type = lhs->type;
+                    return;
+                }
             }
-
-            return;
         }
 
-        if (lhs->type->is_pointer() && rhs->type->is_pointer()) {
-            insert_implicit_cast(TypeInfo::get_void_ptr(), lhs->type, lhs, CastKind::BitCast);
-            insert_implicit_cast(TypeInfo::get_void_ptr(), rhs->type, rhs, CastKind::BitCast);
-            return;
-        }
-
-        if (!type_is_equal(lhs->type, rhs->type)) {
-            context.report_compiler_diagnostic(lhs->loc,
-                fmt::format("Mismatched types '{}' and '{}'", type_info_to_string(lhs->type), type_info_to_string(rhs->type)));
-            return;
-        }
-
-        ARIA_UNREACHABLE("Should never be reached");
+        context.report_compiler_diagnostic(lhs->loc + rhs->loc, fmt::format("Invalid operands to binary operator '{}' (have '{}' and '{}')", binary_op_kind_to_string(op),
+            type_info_to_string(lhs->type), type_info_to_string(rhs->type)));
+        e->type = TypeInfo::get_error();
+        return;
     }
 
 } // namespace ariac

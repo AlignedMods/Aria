@@ -75,6 +75,7 @@ namespace ariac {
         Floating,
         IntegralToFloating,
         FloatingToIntegral,
+        IntegerToPointer,
         BitCast,
         SliceToPointer,
         PointerToAny,
@@ -88,6 +89,7 @@ namespace ariac {
             case CastKind::Floating: return "Floating";
             case CastKind::IntegralToFloating: return "IntegralToFloating";
             case CastKind::FloatingToIntegral: return "FloatingToIntegral";
+            case CastKind::IntegerToPointer: return "IntegerToPointer";
             case CastKind::BitCast: return "BitCast";
             case CastKind::SliceToPointer: return "SliceToPointer";
             case CastKind::PointerToAny: return "PointerToAny";
@@ -184,6 +186,23 @@ namespace ariac {
             case BinaryOperatorKind::IsNotEq: return "!=";
 
             default: ARIA_UNREACHABLE("Invalid binary operator");
+        }
+    }
+
+    inline bool is_binary_operator_bit(BinaryOperatorKind kind) {
+        switch (kind) {
+            case BinaryOperatorKind::BitAnd:
+            case BinaryOperatorKind::CompoundBitAnd:
+            case BinaryOperatorKind::BitOr:
+            case BinaryOperatorKind::CompoundBitOr:
+            case BinaryOperatorKind::BitXor:
+            case BinaryOperatorKind::CompoundBitXor:
+            case BinaryOperatorKind::Shl:
+            case BinaryOperatorKind::CompoundShl:
+            case BinaryOperatorKind::Shr:
+            case BinaryOperatorKind::CompoundShr: return true;
+
+            default: return false;
         }
     }
 

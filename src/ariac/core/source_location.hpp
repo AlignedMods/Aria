@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ariac/core.hpp"
+
 #include <cstddef>
 
 namespace ariac {
@@ -22,6 +24,10 @@ namespace ariac {
     };
 
     inline SourceLoc extend_source_loc(const SourceLoc& lhs, const SourceLoc& rhs) {
+        if (lhs.line == rhs.line) {
+            ARIA_ASSERT(rhs.col - lhs.col == rhs.offset - lhs.offset, "Invalid source locations");
+        }
+
         SourceLoc new_loc = lhs;
 	    new_loc.len = rhs.offset + rhs.len - lhs.offset;
 	    return new_loc;

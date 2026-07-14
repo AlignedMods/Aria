@@ -969,7 +969,7 @@ namespace ariac {
 
         try_consume(TokenKind::RightCurly, "}");
 
-        return Stmt::Create(l->loc + peek(-1)->loc, StmtKind::Block, BlockStmt(stmts, unsafe));
+        return Stmt::Create(l->loc, StmtKind::Block, BlockStmt(stmts, unsafe));
     }
 
     Stmt* Parser::parse_block_inline(bool unsafe) {
@@ -1017,6 +1017,7 @@ namespace ariac {
         Expr* condition = nullptr;
         Expr* step = nullptr;
         Stmt* body = nullptr;
+        SourceLoc end_loc;
 
         if (match(TokenKind::Semi)) {
             consume();
@@ -1035,21 +1036,25 @@ namespace ariac {
             consume();
         } else {
             condition = parse_expression();
-
             try_consume(TokenKind::Semi, "';'");
         }
         
         if (match(TokenKind::RightParen)) {
-            consume();
+            Token& rp = consume();
+            end_loc = rp.loc;
         } else {
             step = parse_expression();
             if (step) { step->result_discarded = true; }
-            try_consume(TokenKind::RightParen, "')'");
+            if (Token* rp = try_consume(TokenKind::RightParen, "')'")) {
+                end_loc = rp->loc;
+            } else {
+                end_loc = step->loc;
+            }
         }
         
         body = parse_block_inline();
         
-        return Stmt::Create(f.loc + peek(-1)->loc, StmtKind::For, ForStmt(prologue, condition, step, body));
+        return Stmt::Create(f.loc + end_loc, StmtKind::For, ForStmt(prologue, condition, step, body));
     }
 
     Stmt* Parser::parse_if() {
@@ -1674,31 +1679,35 @@ namespace ariac {
                 sync_local();
             } else if (match(TokenKind::Fn)) {
                 consume();
+                SourceLoc end_loc;
 
                 Token* name = try_consume(TokenKind::Identifier, "identifier");
                 if (!name) { sync_local(); continue; }
                 
                 VariadicKind variadic = VariadicKind::None;
                 auto[params, param_types] = parse_function_params(&variadic);
+                end_loc = peek(-1)->loc;
 
                 TypeInfo* ret_type = TypeInfo::get_void();
 
                 if (match(TokenKind::Arrow)) {
-                    consume();
+                    Token& a =consume();
 
                     if (!is_type()) {
                         context.report_compiler_diagnostic(peek()->loc, "Expected a type after '->'");
                         sync_local();
                         ret_type = TypeInfo::get_error();
+                        end_loc = a.loc;
                     } else {
                         ret_type = parse_type();
+                        end_loc = ret_type->loc;
                     }
                 }
 
                 Stmt* body = parse_block();
 
                 TypeInfo* final_type = TypeInfo::create_function(TypeKind::Method, ret_type, param_types, variadic);
-                impl->impl.fields.append(Decl::Create(loc + peek(-1)->loc, DeclKind::Method,
+                impl->impl.fields.append(Decl::Create(loc + end_loc, DeclKind::Method,
                     visibility, MethodDecl(impl, name->string, final_type, params, body)));
             } else if (match(TokenKind::HashPrivate)) {
                 context.report_compiler_diagnostic(loc + peek()->loc, "Impls do not support private fields");
