@@ -97,7 +97,6 @@ namespace ariac {
         m_expr_rules[TokenKind::ULongLit] =          { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
         m_expr_rules[TokenKind::NumLit] =            { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
         m_expr_rules[TokenKind::StrLit] =            { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::CStrLit] =           { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Null] =              { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Identifier] =        { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Self] =              { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
@@ -256,18 +255,9 @@ namespace ariac {
         Token* rp = try_consume(TokenKind::RightParen, ")");
         if (!rp) { return &error_expr; }
     
-        if (left->kind == ExprKind::DeclRef) {
-            return Expr::Create(left->loc + rp->loc, ExprKind::Call,
-                ExprValueKind::RValue, nullptr, 
-                CallExpr(left, args, generic_args));
-        } else if (left->kind == ExprKind::Member) {
-            return Expr::Create(left->loc + rp->loc, ExprKind::MethodCall,
-                ExprValueKind::RValue, nullptr, 
-                CallExpr(left, args, generic_args));
-        } else {
-            context.report_compiler_diagnostic(lp->loc + rp->loc, "Callee of call expression must be a reference to a declaration or method");
-            return &error_expr;
-        }
+        return Expr::Create(left->loc + rp->loc, ExprKind::Call,
+            ExprValueKind::RValue, nullptr, 
+            CallExpr(left, args, generic_args));
     }
 
     Expr* Parser::parse_construct(Expr* left) {
@@ -531,12 +521,6 @@ namespace ariac {
                 return Expr::Create(t.loc, ExprKind::StringLiteral,
                     ExprValueKind::RValue, nullptr, 
                     StringLiteralExpr(scratch_buffer_to_str()));
-            }
-
-            case TokenKind::CStrLit: {
-                return Expr::Create(t.loc, ExprKind::StringLiteral,
-                    ExprValueKind::RValue, TypeInfo::get_char_ptr(), 
-                    StringLiteralExpr(t.string));
             }
 
             case TokenKind::Null: {
@@ -1674,6 +1658,12 @@ namespace ariac {
         while (peek() && !match(TokenKind::RightCurly)) {
             SourceLoc loc = peek()->loc;
 
+            bool is_static = false;
+            if (match(TokenKind::Static)) {
+                is_static = true;
+                consume();
+            }
+
             if (match(TokenKind::Identifier)) {
                 context.report_compiler_diagnostic(loc, "Unexpected identifier found, did you mean to put 'fn' before it?");
                 sync_local();
@@ -1706,14 +1696,14 @@ namespace ariac {
 
                 Stmt* body = parse_block();
 
-                TypeInfo* final_type = TypeInfo::create_function(TypeKind::Method, ret_type, param_types, variadic);
+                TypeInfo* final_type = TypeInfo::create_function(is_static ? TypeKind::Function : TypeKind::Method, ret_type, param_types, variadic);
                 impl->impl.fields.append(Decl::Create(loc + end_loc, DeclKind::Method,
-                    visibility, MethodDecl(impl, name->string, final_type, params, body)));
+                    visibility, MethodDecl(impl, name->string, final_type, params, body, is_static)));
             } else if (match(TokenKind::HashPrivate)) {
                 context.report_compiler_diagnostic(loc + peek()->loc, "Impls do not support private fields");
                 consume();
             } else {
-                context.report_compiler_diagnostic(loc, "Expected 'fn'");
+                context.report_compiler_diagnostic(loc, "Expected 'fn' or 'static'");
                 sync_local();
                 if (match(TokenKind::Semi)) { consume(); }
             }

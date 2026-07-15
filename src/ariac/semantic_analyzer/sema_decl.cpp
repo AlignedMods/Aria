@@ -108,6 +108,8 @@ namespace ariac {
         for (Decl* field : i.fields) {
             switch (field->kind) {
                 case DeclKind::Method: {
+                    resolve_type(field->method.type);
+
                     if (s.field_lookup.contains(field->method.identifier)) {
                         Decl* prev = i.field_lookup.at(field->method.identifier);
 
@@ -250,7 +252,7 @@ namespace ariac {
 
         m_active_return_type = m.type->function.return_type;
         resolve_struct_decl(m.parent->impl.parent);
-        m_active_struct = TypeInfo::create_struct(m.parent->impl.parent);
+        if (!m.is_static) { m_active_struct = TypeInfo::create_struct(m.parent->impl.parent); }
         push_scope();
         
         for (Decl* p : m.parameters) {

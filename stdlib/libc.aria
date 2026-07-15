@@ -32,31 +32,31 @@ fn stderr() -> *FILE { return __acrt_iob_func(2); }
 
 module libc;
 
-extern fn fopen(filename: *char, mode: *char) -> *FILE;
-extern fn freopen(filename: *char, mode: *char, stream: *FILE) -> *FILE;
+extern fn fopen(filename: *const char, mode: *const char) -> *FILE;
+extern fn freopen(filename: *const char, mode: *const char, stream: *FILE) -> *FILE;
 extern fn fclose(stream: *FILE) -> int;
 extern fn fflush(stream: *FILE) -> int;
-extern fn setbuf(stream: *FILE, buffer: *char) -> void;
-extern fn setvbuf(stream: *FILE, buffer: *char, mode: int, size: sz) -> void;
+extern fn setbuf(stream: *FILE, buffer: *const char) -> void;
+extern fn setvbuf(stream: *FILE, buffer: *const char, mode: int, size: sz) -> void;
 extern fn fread(buffer: *void, size: sz, count: sz, stream: *FILE) -> sz;
 extern fn fwrite(buffer: *void, size: sz, count: sz, stream: *FILE) -> sz;
 extern fn fgetc(stream: *FILE) -> int;
 extern fn getc() -> int;
-extern fn fgets(str: *char, count: int, stream: *FILE) -> *char;
+extern fn fgets(str: *const char, count: int, stream: *FILE) -> *const char;
 extern fn fputc(ch: int, stream: *FILE) -> int;
 extern fn putc(ch: int, stream: *FILE) -> int;
-extern fn fputs(str: *char, stream: *FILE) -> int;
+extern fn fputs(str: *const char, stream: *FILE) -> int;
 extern fn getchar() -> int;
 extern fn putchar(ch: int) -> int;
-extern fn puts(str: *char) -> int;
+extern fn puts(str: *const char) -> int;
 extern fn ungetc(ch: int, stream: *FILE) -> int;
 
-extern fn scanf(format: *char, ...) -> int;
-extern fn fscanf(stream: *FILE, format: *char, ...) -> int;
+extern fn scanf(format: *const char, ...) -> int;
+extern fn fscanf(stream: *FILE, format: *const char, ...) -> int;
 
-extern fn printf(format: *char, ...) -> int;
-extern fn fprintf(stream: *FILE, format: *char, ...) -> int;
+extern fn printf(format: *const char, ...) -> int;
+extern fn fprintf(stream: *FILE, format: *const char, ...) -> int;
 
 // string.h
 
-extern fn strcmp(lhs: *char, rhs: *char) -> int;
+extern fn strcmp(lhs: *const char, rhs: *const char) -> int;

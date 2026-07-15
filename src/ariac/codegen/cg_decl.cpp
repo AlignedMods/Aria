@@ -248,10 +248,12 @@ namespace ariac {
 
                         m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
 
-                        // self
-                        llvm::AllocaInst* s = alloca_at_entry(function, "self", llvm::PointerType::get(*m_active_module_context.context, 0));
-                        m_self_value = s;
-                        m_active_module_context.builder->CreateStore(function->getArg(idx++), s);
+                        if (!m.is_static) {
+                            // self
+                            llvm::AllocaInst* s = alloca_at_entry(function, "self", llvm::PointerType::get(*m_active_module_context.context, 0));
+                            m_self_value = s;
+                            m_active_module_context.builder->CreateStore(function->getArg(idx++), s);
+                        }
 
                         for (Decl* param : m.parameters) {
                             TypeInfo* param_type = param->param.variadic ? TypeInfo::create_slice(param->param.type) : param->param.type;

@@ -244,7 +244,7 @@ namespace ariac {
 
     TypeInfo* TypeInfo::get_char_ptr() {
         if (char_ptr_type) { return char_ptr_type; }
-        char_ptr_type = create_pointer(get_basic(TypeKind::Char), false);
+        char_ptr_type = create_pointer(get_basic(TypeKind::Char), true);
         return char_ptr_type;
     }
 
@@ -490,7 +490,7 @@ namespace ariac {
         TypeInfo* t = const_cast<TypeInfo*>(this);
 
         while (true) {
-            if (t->is_primitive() || t->is_structure() || t->is_typedef() || t->is_enum() || t->is_generic()) {
+            if (t->is_primitive() || t->is_structure() || t->is_typedef() || t->is_enum() || t->is_generic() || t->is_unresolved()) {
                 break;
             }
 
@@ -508,28 +508,28 @@ namespace ariac {
         std::string str;
 
         switch (type->kind) {
-            case TypeKind::Error:   str += "<error_type>"; break;
-            case TypeKind::Void:    str += "void"; break;
+            case TypeKind::Error:   str = "<error_type>"; break;
+            case TypeKind::Void:    str = "void"; break;
 
-            case TypeKind::Bool:    str += "bool"; break;
+            case TypeKind::Bool:    str = "bool"; break;
 
-            case TypeKind::Char:    str += "char"; break;
-            case TypeKind::IChar:   str += "ichar"; break;
-            case TypeKind::Short:   str += "short"; break;
-            case TypeKind::UShort:  str += "ushort"; break;
-            case TypeKind::Int:     str += "int"; break;
-            case TypeKind::UInt:    str += "uint"; break;
-            case TypeKind::Long:    str += "long"; break;
-            case TypeKind::ULong:   str += "ulong"; break;
+            case TypeKind::Char:    str = "char"; break;
+            case TypeKind::IChar:   str = "ichar"; break;
+            case TypeKind::Short:   str = "short"; break;
+            case TypeKind::UShort:  str = "ushort"; break;
+            case TypeKind::Int:     str = "int"; break;
+            case TypeKind::UInt:    str = "uint"; break;
+            case TypeKind::Long:    str = "long"; break;
+            case TypeKind::ULong:   str = "ulong"; break;
 
-            case TypeKind::Sz:   str += "sz"; break;
-            case TypeKind::Isz:   str += "isz"; break;
+            case TypeKind::Sz:   str = "sz"; break;
+            case TypeKind::Isz:   str = "isz"; break;
 
-            case TypeKind::Float:   str += "float"; break;
-            case TypeKind::Double:  str += "double"; break;
+            case TypeKind::Float:   str = "float"; break;
+            case TypeKind::Double:  str = "double"; break;
 
-            case TypeKind::TypeInfo:  str += "typeinfo"; break;
-            case TypeKind::Any:  str += "any"; break;
+            case TypeKind::TypeInfo:  str = "typeinfo"; break;
+            case TypeKind::Any:  str = "any"; break;
 
             case TypeKind::Pointer: {
                 TypeInfo* t = type->pointer.base;
@@ -552,7 +552,7 @@ namespace ariac {
             case TypeKind::Function: {
                 FunctionType ty = type->function;
 
-                str += "(";
+                str = "(";
 
                 for (size_t i = 0; i < ty.param_types.size; i++) {
                     str += type_info_to_string(ty.param_types.items[i], pretty);
@@ -572,7 +572,7 @@ namespace ariac {
             case TypeKind::Method: {
                 FunctionType ty = type->function;
 
-                str += "(self";
+                str = "(self";
 
                 for (size_t i = 0; i < ty.param_types.size; i++) {
                     str += ", ";
@@ -589,38 +589,56 @@ namespace ariac {
 
             case TypeKind::Structure: {
                 StructType ty = type->struct_;
-
-                str += (ty.source_decl && ty.source_decl->parent_module) ? fmt::format("struct {}::{}", ty.source_decl->parent_module->name, ty.identifier) : fmt::format("struct {}", ty.identifier);
+                
+                if (pretty) {
+                    str = fmt::format("{}", ty.identifier);
+                } else {
+                    str = (ty.source_decl && ty.source_decl->parent_module) ? fmt::format("struct {}::{}", ty.source_decl->parent_module->name, ty.identifier) : fmt::format("struct {}", ty.identifier);
+                }
                 break;
             }
 
             case TypeKind::Typedef: {
                 TypedefType ty = type->typedef_;
-                str += (ty.source_decl && ty.source_decl->parent_module) ? fmt::format("typedef {}::{}", ty.source_decl->parent_module->name, ty.identifier) : fmt::format("typedef {}", ty.identifier);
+
+                if (pretty) {
+                    str = fmt::format("{}", ty.identifier);
+                } else {
+                    str = (ty.source_decl && ty.source_decl->parent_module) ? fmt::format("typedef {}::{}", ty.source_decl->parent_module->name, ty.identifier) : fmt::format("typedef {}", ty.identifier);
+                }
+
                 break;
             }
 
             case TypeKind::Enum: {
                 EnumType ty = type->enum_;
 
-                str += (ty.source_decl && ty.source_decl->parent_module) ? fmt::format("enum {}::{}", ty.source_decl->parent_module->name, ty.identifier) : fmt::format("enum {}", ty.identifier);
+                if (pretty) {
+                    str = fmt::format("{}", ty.identifier);
+                } else {
+                    str = (ty.source_decl && ty.source_decl->parent_module) ? fmt::format("enum {}::{}", ty.source_decl->parent_module->name, ty.identifier) : fmt::format("enum {}", ty.identifier);
+                }
                 break;
             }
 
             case TypeKind::Generic: {
-                str += type->generic.identifier;
+                str = type->generic.identifier;
                 break;
             }
 
             case TypeKind::GenericDecl: {
                 GenericDeclType ty = type->generic_decl;
 
-                str += (ty.generic && ty.generic->parent_module) ? fmt::format("{}::{}", ty.generic->parent_module->name, ty.identifier) : fmt::format("{}", ty.identifier);
+                if (pretty) {
+                    str = fmt::format("{}", ty.identifier);
+                } else {
+                    str = (ty.generic && ty.generic->parent_module) ? fmt::format("{}::{}", ty.generic->parent_module->name, ty.identifier) : fmt::format("{}", ty.identifier);
+                }
                 break;
             }
 
             case TypeKind::GenericInstantiation: {
-                str += fmt::format("{}<", type_info_to_string(type->generic_instantiation.base, pretty));
+                str = fmt::format("{}<", type_info_to_string(type->generic_instantiation.base, pretty));
 
                 for (size_t i = 0; i < type->generic_instantiation.arguments.size; i++) {
                     if (i > 0) { str += ", "; }

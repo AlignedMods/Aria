@@ -21,7 +21,7 @@ namespace ariac {
 
         void parse_char_literal();
         void parse_decimal_literal();
-        void parse_string_literal(bool c_style);
+        void parse_string_literal();
 
         void parse_dollar_symbol();
         void parse_hash_symbol();

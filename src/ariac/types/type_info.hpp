@@ -277,6 +277,10 @@ namespace ariac {
             return kind == TypeKind::Generic;
         }
 
+        bool is_unresolved() const {
+            return kind == TypeKind::Unresolved;
+        }
+
         bool is_string() const;
 
         bool is_signed() const {

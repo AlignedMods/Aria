@@ -7,7 +7,7 @@ fn any_has_type<T>(a: *any) -> bool {
 }
 
 fn any_is_array(a: *any) -> bool {
-    return libc::strcmp(a.type.kind.mem, c"array") == 0;
+    return libc::strcmp(a.type.kind.mem, "array") == 0;
 }
 
 fn any_cast<T>(a: *any) -> T {

@@ -55,7 +55,6 @@ namespace ariac {
         ULongLit,
         NumLit,
         StrLit,
-        CStrLit,
         Null,
         // ^^^ Literals and constants ^^^ //
 
@@ -185,7 +184,6 @@ namespace ariac {
             case TokenKind::ULongLit: return "ulong literal";
             case TokenKind::NumLit: return "number literal";
             case TokenKind::StrLit: return "string literal";
-            case TokenKind::CStrLit: return "cstring literal";
             case TokenKind::Null: return "null";
             // ^^^ Literals and constants ^^^ //
 

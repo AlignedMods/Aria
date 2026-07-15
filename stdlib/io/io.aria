@@ -6,8 +6,8 @@ struct File {
     handle: *void;
 }
 
-fn print(str: String) { libc::printf(c"%.*s", str.len, str.mem); }
-fn println(str: String) { libc::printf(c"%.*s\n", str.len, str.mem); }
+fn print(str: String) { libc::printf("%.*s", str.len, str.mem); }
+fn println(str: String) { libc::printf("%.*s\n", str.len, str.mem); }
 
 fn printf(fmt: String, args...) { internal_vprintf(libc::stdout(), fmt, args, false); }
 fn printfln(fmt: String, args...) { internal_vprintf(libc::stdout(), fmt, args, true); }

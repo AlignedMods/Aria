@@ -186,6 +186,15 @@ namespace ariac {
                 return m_active_module_context.builder->CreateLoad(ret_type, ret_val);
             }
 
+            case ABIRetKind::Integer: {
+                llvm::Type* ret_type = type_info_to_llvm_type(ret_info.type);
+                llvm::Value* temp = alloca_at_entry(m_active_module_context.function, "intret", ret_type);
+                llvm::Value* call = m_active_module_context.builder->CreateCall(func, args, "call");
+
+                m_active_module_context.builder->CreateStore(call, temp);
+                return m_active_module_context.builder->CreateLoad(ret_type, temp);
+            }
+
             default: ARIA_UNREACHABLE("Invalid ABIRetTypeInfo");
         }
     }

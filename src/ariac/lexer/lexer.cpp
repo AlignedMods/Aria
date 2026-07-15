@@ -154,21 +154,7 @@ namespace ariac {
                 }
 
                 case '"': {
-                    parse_string_literal(false);
-                    break;
-                }
-
-                case 'c': {
-                    if (peek() == '"') {
-                        consume();
-                        parse_string_literal(true);
-                        break;
-                    } else {
-                        backtrack();
-                        parse_identifier();
-                        break;
-                    }
-
+                    parse_string_literal();
                     break;
                 }
 
@@ -407,9 +393,9 @@ namespace ariac {
         }
     }
 
-    void Lexer::parse_string_literal(bool c_style) {
-        size_t start_index = m_index - ((c_style) ? 2 : 1);
-        SourceLoc loc = SourceLoc(m_current_line, get_column(start_index), start_index, (c_style) ? 2 : 1);
+    void Lexer::parse_string_literal() {
+        size_t start_index = m_index - 1;
+        SourceLoc loc = SourceLoc(m_current_line, get_column(start_index), start_index, 1);
 
         scratch_buffer_clear();
 
@@ -417,9 +403,9 @@ namespace ariac {
         while (loop) {
             switch (peek()) {
                 case '"': {
-                    consume();
                     loc += SourceLoc(m_current_line, get_column(m_index), m_index, 1);
                     loop = false;
+                    consume();
                     break;
                 }
 
@@ -437,7 +423,7 @@ namespace ariac {
             }
         }
 
-        add_token(c_style ? TokenKind::CStrLit : TokenKind::StrLit, loc, scratch_buffer_to_str());
+        add_token(TokenKind::StrLit, loc, scratch_buffer_to_str());
     }
 
     void Lexer::parse_dollar_symbol() {
