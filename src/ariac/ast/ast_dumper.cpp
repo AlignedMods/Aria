@@ -363,8 +363,8 @@ namespace ariac {
                 source_loc_to_string(decl->loc), decl->field.identifier, type_info_to_string(decl->field.type, false), decl_visibility_to_string(decl->visibility));
                 return;
 
-            case DeclKind::Method: m_output += fmt::format("MethodDecl {}{} '{}' '{}'\n",
-                source_loc_to_string(decl->loc), decl->method.is_static ? " static" : "", decl->method.identifier, type_info_to_string(decl->method.type, false));
+            case DeclKind::Method: m_output += fmt::format("MethodDecl {} '{}' '{}'\n",
+                source_loc_to_string(decl->loc), decl->method.identifier, type_info_to_string(decl->method.type, false));
 
                 for (Decl* param : decl->method.parameters) {
                     dump_decl(param, indentation + 4);

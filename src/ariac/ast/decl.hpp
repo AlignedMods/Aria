@@ -256,15 +256,14 @@ namespace ariac {
     };
 
     struct MethodDecl {
-        MethodDecl(Decl* parent, std::string_view identifier, TypeInfo* type, TinyVector<Decl*> parameters, Stmt* body, bool is_static)
-            : parent(parent), identifier(identifier), type(type), parameters(parameters), body(body), is_static(is_static) {}
+        MethodDecl(Decl* parent, std::string_view identifier, TypeInfo* type, TinyVector<Decl*> parameters, Stmt* body)
+            : parent(parent), identifier(identifier), type(type), parameters(parameters), body(body) {}
 
         Decl* parent = nullptr;
         std::string_view identifier;
         TypeInfo* type = nullptr;
         TinyVector<Decl*> parameters;
         Stmt* body = nullptr;
-        bool is_static;
     };
 
     struct GenericDecl {

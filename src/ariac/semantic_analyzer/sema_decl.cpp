@@ -252,7 +252,7 @@ namespace ariac {
 
         m_active_return_type = m.type->function.return_type;
         resolve_struct_decl(m.parent->impl.parent);
-        if (!m.is_static) { m_active_struct = TypeInfo::create_struct(m.parent->impl.parent); }
+        m_active_struct = TypeInfo::create_struct(m.parent->impl.parent);
         push_scope();
         
         for (Decl* p : m.parameters) {

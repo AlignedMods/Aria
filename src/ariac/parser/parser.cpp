@@ -1658,12 +1658,6 @@ namespace ariac {
         while (peek() && !match(TokenKind::RightCurly)) {
             SourceLoc loc = peek()->loc;
 
-            bool is_static = false;
-            if (match(TokenKind::Static)) {
-                is_static = true;
-                consume();
-            }
-
             if (match(TokenKind::Identifier)) {
                 context.report_compiler_diagnostic(loc, "Unexpected identifier found, did you mean to put 'fn' before it?");
                 sync_local();
@@ -1696,9 +1690,9 @@ namespace ariac {
 
                 Stmt* body = parse_block();
 
-                TypeInfo* final_type = TypeInfo::create_function(is_static ? TypeKind::Function : TypeKind::Method, ret_type, param_types, variadic);
+                TypeInfo* final_type = TypeInfo::create_function(TypeKind::Method, ret_type, param_types, variadic);
                 impl->impl.fields.append(Decl::Create(loc + end_loc, DeclKind::Method,
-                    visibility, MethodDecl(impl, name->string, final_type, params, body, is_static)));
+                    visibility, MethodDecl(impl, name->string, final_type, params, body)));
             } else if (match(TokenKind::HashPrivate)) {
                 context.report_compiler_diagnostic(loc + peek()->loc, "Impls do not support private fields");
                 consume();

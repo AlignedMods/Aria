@@ -35,6 +35,13 @@ namespace ariac {
 
     class Codegen {
     private:
+        struct DebugContext {
+            llvm::DICompileUnit* unit;
+            llvm::DIBuilder* builder;
+            std::unordered_map<std::string, llvm::DIType*> cached_types;
+            llvm::DIScope* scope = nullptr;
+        };
+
         struct ModuleContext {
             llvm::LLVMContext* context = nullptr;
             llvm::Module* module = nullptr;
@@ -46,17 +53,9 @@ namespace ariac {
             std::unordered_map<Decl*, llvm::Value*> named_values;
             std::unordered_map<Decl*, std::string> generic_structs;
             std::unordered_map<std::string, llvm::Constant*> typeinfos; // Runtime type information for types
-        };
 
-        struct DebugModuleContext {
-            std::unordered_map<std::string_view, llvm::DICompileUnit*> units;
-            std::unordered_map<std::string_view, llvm::DIBuilder*> builders;
-            std::unordered_map<std::string_view, std::unordered_map<std::string, llvm::DIType*>> cached_types;
-            llvm::DICompileUnit* active_unit = nullptr;
-            llvm::DIBuilder* active_builder = nullptr;
-            std::unordered_map<std::string, llvm::DIType*>* active_cached_types = nullptr;
-
-            llvm::DIScope* scope = nullptr;
+            // Debug info
+            std::unordered_map<std::string, DebugContext> debug_contexts;
         };
 
         enum class ABIParamKind {
@@ -181,7 +180,7 @@ namespace ariac {
 
     private:
         ModuleContext m_active_module_context;
-        DebugModuleContext m_active_debug_context;
+        DebugContext m_active_debug_context;
         std::unordered_map<Module*, ModuleContext> m_module_contexts;
         const llvm::Target* m_target = nullptr;
         llvm::TargetMachine* m_machine = nullptr;

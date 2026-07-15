@@ -335,38 +335,6 @@ namespace ariac {
                 case TypeKind::Error: {
                     if (mem.parent->kind == ExprKind::DeclRef) {
                         switch (mem.parent->decl_ref.referenced_decl->kind) {
-                            case DeclKind::Struct: {
-                                StructDecl& s = mem.parent->decl_ref.referenced_decl->struct_;
-
-                                if (s.field_lookup.contains(mem.member)) {
-                                    Decl* d = s.field_lookup.at(mem.member);
-
-                                    if (d->kind != DeclKind::Method) {
-                                        context.report_compiler_diagnostic(expr->loc, "Only static methods can be accessed");
-                                        expr->type = TypeInfo::get_error();
-                                        mem.referenced_member = &error_decl;
-                                        return;
-                                    }
-
-                                    if (!d->method.is_static) {
-                                        context.report_compiler_diagnostic(expr->loc, fmt::format("'{}' is not a static method", mem.member));
-                                        expr->type = TypeInfo::get_error();
-                                        mem.referenced_member = &error_decl;
-                                        return;
-                                    }
-
-                                    expr->type = d->method.type;
-                                    expr->value_kind = ExprValueKind::LValue;
-                                    mem.referenced_member = d;
-                                } else {
-                                    context.report_compiler_diagnostic(expr->loc, fmt::format("Struct '{}' has no field named '{}'", s.identifier, mem.member));
-                                    expr->type = TypeInfo::get_error();
-                                    mem.referenced_member = &error_decl;
-                                }
-
-                                return;
-                            }
-
                             case DeclKind::Enum: {
                                 EnumDecl& e = mem.parent->decl_ref.referenced_decl->enum_;
                                 
