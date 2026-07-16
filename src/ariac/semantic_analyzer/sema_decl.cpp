@@ -61,39 +61,44 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_struct_decl(Decl* decl) {
-        if (decl->resolve_status == ResolveStatus::Done) { return; }
-        decl->resolve_status = ResolveStatus::InProgress;
+        if (decl->resolve_status != ResolveStatus::Done) {
+            decl->resolve_status = ResolveStatus::InProgress;
 
-        StructDecl& s = decl->struct_;
-
-        if (s.fields.size == 0) {
-            context.report_compiler_diagnostic(decl->loc, "Empty structs are not allowed");
-        }
-
-        for (Decl* field : s.fields) {
-            field->parent_unit = decl->parent_unit;
-            field->parent_module = decl->parent_module;
-            resolve_type(field->field.type);
-
-            ARIA_ASSERT(field->kind == DeclKind::Field, "Invalid field");
-
-            if (s.field_lookup.contains(field->field.identifier)) {
-                Decl* prev = s.field_lookup.at(field->field.identifier);
-                context.report_compiler_diagnostic(field->loc, fmt::format("Redeclaring field '{}'", field->field.identifier));
-                context.report_compiler_diagnostic(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
+            StructDecl& s = decl->struct_;
+            
+            if (s.identifier == "File") {
+                ARIA_DEBUGBREAK();
             }
-
-            if (field->field.type->is_void()) {
-                context.report_compiler_diagnostic(field->loc, "Cannot declare field of 'void' type");
-                field->kind = DeclKind::Error;
-                continue;
+            
+            if (s.fields.size == 0) {
+                context.report_compiler_diagnostic(decl->loc, "Empty structs are not allowed");
             }
+            
+            for (Decl* field : s.fields) {
+                field->parent_unit = decl->parent_unit;
+                field->parent_module = decl->parent_module;
+                resolve_type(field->field.type);
+            
+                ARIA_ASSERT(field->kind == DeclKind::Field, "Invalid field");
+            
+                if (s.field_lookup.contains(field->field.identifier)) {
+                    Decl* prev = s.field_lookup.at(field->field.identifier);
+                    context.report_compiler_diagnostic(field->loc, fmt::format("Redeclaring field '{}'", field->field.identifier));
+                    context.report_compiler_diagnostic(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
+                }
+            
+                if (field->field.type->is_void()) {
+                    context.report_compiler_diagnostic(field->loc, "Cannot declare field of 'void' type");
+                    field->kind = DeclKind::Error;
+                    continue;
+                }
+            
+                s.field_lookup.insert(field->field.identifier, field);
+            }
+            decl->resolve_status = ResolveStatus::Done;
+        }        
 
-            s.field_lookup.insert(field->field.identifier, field);
-        }
-        decl->resolve_status = ResolveStatus::Done;
-
-        for (Decl* impl : s.impls) {
+        for (Decl* impl : decl->struct_.impls) {
             resolve_impl_decl(impl);
         }
     }

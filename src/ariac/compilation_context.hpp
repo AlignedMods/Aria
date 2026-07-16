@@ -36,6 +36,9 @@ namespace ariac {
         std::vector<CompilationUnit*> units;
         std::string_view name;
         CompilerReflectionData reflection_data;
+
+        Module* parent = nullptr;
+        std::vector<Module*> children;
     };
 
     // A compilation unit is a module section, so one compilation unit does not necessarily correspond to one file

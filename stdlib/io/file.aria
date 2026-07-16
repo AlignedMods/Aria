@@ -1,0 +1,37 @@
+module std::io;
+
+import libc;
+
+struct File {
+    handle: *FILE;
+}
+
+impl File {
+
+    fn close() {
+        libc::fclose(handle);
+    }
+
+}
+
+module std::io::File;
+
+import std::io;
+import libc;
+
+fn open(filename: String, mode: String) -> File {
+    let s1: StringStream;
+    let s2: StringStream;
+    defer s1.free();
+    defer s2.free();
+
+    s1.append_string(filename);
+    s2.append_string(mode);
+    
+    let handle = libc::fopen(s1.to_ptr(), s2.to_ptr());
+    return from_handle(handle);
+}
+
+fn from_handle(handle: *FILE) -> File {
+    return File(handle);
+}

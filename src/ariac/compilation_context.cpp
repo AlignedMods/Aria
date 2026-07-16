@@ -24,6 +24,7 @@ namespace ariac {
         "core/types.aria",
         "libc.aria",
         "io/io.aria",
+        "io/file.aria",
         "core/string_stream.aria",
         "core/mem.aria",
         "core/list.aria",

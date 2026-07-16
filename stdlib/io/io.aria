@@ -2,10 +2,6 @@ module std::io;
 
 import libc;
 
-struct File {
-    handle: *void;
-}
-
 fn print(str: String) { libc::printf("%.*s", str.len, str.mem); }
 fn println(str: String) { libc::printf("%.*s\n", str.len, str.mem); }
 

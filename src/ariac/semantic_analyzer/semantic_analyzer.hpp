@@ -41,10 +41,13 @@ namespace ariac {
         void sema_impl();
 
         // Passes
+        void pass_module_heirarchy();
         void pass_imports();
         void pass_decls();
         void pass_code();
         void pass_generics();
+
+        void resolve_module_heirarchy(Module* module);
 
         void add_unit_to_module(Module* module, CompilationUnit* unit);
         void resolve_unit_imports(Module* module, CompilationUnit* unit);
@@ -139,6 +142,7 @@ namespace ariac {
         void replace_decl(Decl* src, Decl* new_decl);
 
         bool compare_module_names(std::string_view specifier, std::string_view module_name);
+        std::string_view get_parent_path(std::string_view path);
 
         bool type_is_equal(TypeInfo* lhs, TypeInfo* rhs);
         bool type_is_trivial(TypeInfo* t);

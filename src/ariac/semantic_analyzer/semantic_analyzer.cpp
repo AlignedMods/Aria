@@ -9,6 +9,7 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::sema_impl() {
+        pass_module_heirarchy();
         pass_imports();
         pass_decls();
         pass_code();
@@ -52,6 +53,13 @@ namespace ariac {
         if (module_name.length() != specifier.length() && module_name[module_name.length() - specifier.length() - 1] != ':') { return false; }
 
         return specifier == module_name.substr(module_name.length() - specifier.length());
+    }
+
+    std::string_view SemanticAnalyzer::get_parent_path(std::string_view path) {
+        size_t i = path.rfind("::");
+        if (i == std::string_view::npos) { return {}; }
+
+        return path.substr(0, i);
     }
 
 } // namespace ariac

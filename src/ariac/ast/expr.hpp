@@ -22,6 +22,7 @@ namespace ariac {
         ArrayFiller,
         Null,
         DeclRef,
+        TypeInfo,
         Member,
         BuiltinMember,
         Self,
@@ -299,6 +300,18 @@ namespace ariac {
         Decl* referenced_decl = nullptr;
     };
 
+    // TypeInfoExpr
+    // Represents a reference to a type declaration
+    // eg. enum Foo { X }
+    // Foo.X -> Here 'Foo' is a TypeInfoExpr
+    struct TypeInfoExpr {
+        TypeInfoExpr(std::string_view ident, Decl* d)
+            : identifier(ident), referenced_decl(d) {}
+
+        std::string_view identifier;
+        Decl* referenced_decl;
+    };
+
     struct MemberExpr {
         MemberExpr(std::string_view member, Expr* parent)
             : member(member), parent(parent) {}
@@ -509,6 +522,7 @@ namespace ariac {
             StringLiteralExpr string_literal;
             ArrayFillerExpr array_filler;
             DeclRefExpr decl_ref;
+            TypeInfoExpr type_info;
             MemberExpr member;
             TemporaryExpr temporary;
             CallExpr call;
@@ -553,6 +567,9 @@ namespace ariac {
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, DeclRefExpr decl_ref)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), decl_ref(decl_ref) {}
+
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, TypeInfoExpr ti)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), type_info(ti) {}
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, MemberExpr member)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), member(member) {}

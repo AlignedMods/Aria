@@ -2,6 +2,13 @@
 
 namespace ariac {
 
+    void SemanticAnalyzer::pass_module_heirarchy() {
+        for (Module* mod : context.modules) {
+            if (mod->parent) { continue; }
+            resolve_module_heirarchy(mod);
+        }
+    }
+
     void SemanticAnalyzer::pass_imports() {
         for (CompilationUnit* unit : context.compilation_units) {
             if (!unit->parent) { continue; }
@@ -70,6 +77,28 @@ namespace ariac {
                 resolve_unit_generics(mod, unit);
             }
         }
+    }
+
+    void SemanticAnalyzer::resolve_module_heirarchy(Module* module) {
+        std::string_view parent = get_parent_path(module->name);
+
+        // No parent
+        if (parent.length() == 0) { return; }
+
+        for (Module* mod : context.modules) {
+            if (mod->name == parent) {
+                // We have found the parent
+                module->parent = mod;
+                mod->children.push_back(module);
+                return;
+            }
+        }
+
+        // No parent module exists so we create one
+        Module* mod = context.find_or_create_module(parent);
+        module->parent = mod;
+        mod->children.push_back(module);
+        resolve_module_heirarchy(mod);
     }
 
     void SemanticAnalyzer::add_unit_to_module(Module* module, CompilationUnit* unit) {

@@ -96,7 +96,11 @@ namespace ariac {
                     }
 
                     case DeclKind::Struct:
-                    case DeclKind::Typedef: expr->type = TypeInfo::get_error(); return;
+                    case DeclKind::Typedef:
+                    case DeclKind::Enum: {
+                        replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::LValue, TypeInfo::get_error(), TypeInfoExpr(dr.identifier, sym)));
+                        return;
+                    }
 
                     case DeclKind::Generic: {
                         switch (sym->generic.decl->kind) {
@@ -107,7 +111,7 @@ namespace ariac {
                             }
 
                             case DeclKind::Struct: {
-                                expr->type = TypeInfo::get_error();
+                                replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::LValue, TypeInfo::get_error(), TypeInfoExpr(dr.identifier, sym)));
                                 return;
                             }
 
@@ -165,8 +169,7 @@ namespace ariac {
                 ARIA_ASSERT(type->kind == DeclKind::GenericParameter, "Invalid generic parameter");
 
                 if (type->generic_parameter.identifier == dr.identifier) {
-                    dr.referenced_decl = type;
-                    expr->type = TypeInfo::get_error();
+                    replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::LValue, TypeInfo::get_error(), TypeInfoExpr(dr.identifier, type)));
                     return;
                 }
             }
@@ -214,7 +217,10 @@ namespace ariac {
 
                     case DeclKind::Struct:
                     case DeclKind::Typedef:
-                    case DeclKind::Enum: expr->type = TypeInfo::get_error(); return;
+                    case DeclKind::Enum: {
+                        replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::LValue, TypeInfo::get_error(), TypeInfoExpr(dr.identifier, sym)));
+                        return;
+                    }
 
                     case DeclKind::Generic: {
                         switch (sym->generic.decl->kind) {
@@ -234,7 +240,7 @@ namespace ariac {
                             }
 
                             case DeclKind::Struct: {
-                                expr->type = TypeInfo::get_error();
+                                replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::LValue, TypeInfo::get_error(), TypeInfoExpr(dr.identifier, sym)));
                                 return;
                             }
 
@@ -276,7 +282,10 @@ namespace ariac {
 
                             case DeclKind::Struct: 
                             case DeclKind::Typedef:
-                            case DeclKind::Enum: expr->type = TypeInfo::get_error(); return;
+                            case DeclKind::Enum: {
+                                replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::LValue, TypeInfo::get_error(), TypeInfoExpr(dr.identifier, sym)));
+                                return;
+                            }
 
                             case DeclKind::Generic: {
                                 if (sym->generic.decl->kind == DeclKind::Function) {
@@ -575,29 +584,37 @@ namespace ariac {
         if (call.callee->kind == ExprKind::Error) {
             expr->type = TypeInfo::get_error();
             return;
+        } else if (call.callee->kind == ExprKind::TypeInfo) {
+            expr->kind = ExprKind::Construct;
+            expr->type = TypeInfo::create_struct(call.callee->type_info.referenced_decl);
+            expr->construct.arguments = call.arguments;
+            resolve_construct_expr(expr);
+            return;
         }
 
         if (call.callee->type->is_method()) {
             expr->kind = ExprKind::MethodCall;
             resolve_method_call_expr(expr);
             return;
-        } else if (call.callee->decl_ref.referenced_decl->kind == DeclKind::Struct) {
-            expr->kind = ExprKind::Construct;
-            expr->type = TypeInfo::create_struct(call.callee->decl_ref.referenced_decl);
-            expr->construct.arguments = call.arguments;
-            resolve_construct_expr(expr);
-            return;
         }
 
-        TypeInfo* calleeType = call.callee->type;
+        TypeInfo* callee_type = call.callee->type;
 
-        if (calleeType->kind != TypeKind::Function && !calleeType->is_error()) {
+        if (callee_type->kind != TypeKind::Function && !callee_type->is_error()) {
             context.report_compiler_diagnostic(expr->loc, "Cannot call an object of non-function type");
             expr->type = TypeInfo::get_error();
             return;
         }
 
-        if (call.callee->decl_ref.referenced_decl->kind != DeclKind::Error) {
+        Decl* callee = nullptr;
+
+        switch (call.callee->kind) {
+            case ExprKind::DeclRef: callee = call.callee->decl_ref.referenced_decl; break;
+            case ExprKind::Member: callee = call.callee->member.referenced_member; break;
+            default: ARIA_UNREACHABLE("Invalid calleee"); break;
+        }
+
+        if (callee->kind != DeclKind::Error) {
             if (!call.callee->type->is_error()) {
                 if (call.generic_arguments.size > 0) {
                     Decl* g = call.callee->decl_ref.referenced_decl;
@@ -678,15 +695,15 @@ namespace ariac {
                                 specilization->parent_unit = g->parent_unit;
                                 g->generic.specilizations.append(specilization);
 
-                                calleeType = new_type;
+                                callee_type = new_type;
                                 call.callee->decl_ref.referenced_decl = specilization;
-                                call.callee->type = calleeType;
+                                call.callee->type = callee_type;
                             }
                         }
                     }
                 }
 
-                FunctionType& fn_type = calleeType->function;
+                FunctionType& fn_type = callee_type->function;
 
                 if (fn_type.param_types.size != call.arguments.size && !fn_type.is_variadic()) {
                     context.report_compiler_diagnostic(expr->loc, fmt::format("Mismatched argument count, function expects {} but got {}", fn_type.param_types.size, call.arguments.size));
@@ -769,34 +786,34 @@ namespace ariac {
         if (bc.expression) {
             resolve_expr(bc.expression);
 
-            if (bc.expression->kind == ExprKind::DeclRef) {
-                switch (bc.expression->decl_ref.referenced_decl->kind) {
+            if (bc.expression->kind == ExprKind::TypeInfo) {
+                switch (bc.expression->type_info.referenced_decl->kind) {
                     case DeclKind::Struct: {
-                        if (bc.expression->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
+                        if (bc.expression->type_info.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
                             CompilationUnit* old_unit = context.active_comp_unit;
-                            context.active_comp_unit = bc.expression->decl_ref.referenced_decl->parent_unit;
-                            resolve_struct_decl(bc.expression->decl_ref.referenced_decl);
+                            context.active_comp_unit = bc.expression->type_info.referenced_decl->parent_unit;
+                            resolve_struct_decl(bc.expression->type_info.referenced_decl);
                             context.active_comp_unit = old_unit;
                         }
 
-                        bc.type = TypeInfo::create_struct(bc.expression->decl_ref.referenced_decl);
+                        bc.type = TypeInfo::create_struct(bc.expression->type_info.referenced_decl);
                         break;
                     }
 
                     case DeclKind::Typedef: {
-                        if (bc.expression->decl_ref.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
+                        if (bc.expression->type_info.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
                             CompilationUnit* old_unit = context.active_comp_unit;
-                            context.active_comp_unit = bc.expression->decl_ref.referenced_decl->parent_unit;
-                            resolve_typedef_decl(bc.expression->decl_ref.referenced_decl);
+                            context.active_comp_unit = bc.expression->type_info.referenced_decl->parent_unit;
+                            resolve_typedef_decl(bc.expression->type_info.referenced_decl);
                             context.active_comp_unit = old_unit;
                         }
 
-                        bc.type = TypeInfo::create_typedef(bc.expression->decl_ref.referenced_decl);
+                        bc.type = TypeInfo::create_typedef(bc.expression->type_info.referenced_decl);
                         break;
                     }
 
                     case DeclKind::GenericParameter: {
-                        bc.type = TypeInfo::create_generic(bc.expression->decl_ref.identifier);
+                        bc.type = TypeInfo::create_generic(bc.expression->type_info.identifier);
                         break;
                     }
 
@@ -1359,6 +1376,7 @@ namespace ariac {
             case ExprKind::StringLiteral: resolve_string_literal_expr(expr); break;
             case ExprKind::Null: resolve_null_expr(expr); break;
             case ExprKind::DeclRef: resolve_decl_ref_expr(expr); break;
+            case ExprKind::TypeInfo: break;
             case ExprKind::Member: resolve_member_expr(expr); break;
             case ExprKind::BuiltinMember: resolve_builtin_member_expr(expr); break;
             case ExprKind::Self: resolve_self_expr(expr); break;
@@ -1383,7 +1401,6 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_name_specifier(Specifier* specifier) {
         NameSpecifier& name = specifier->name;
-        Module* mod = nullptr;
         
         // We may be referencing ourselves
         if (compare_module_names(name.identifier, context.active_comp_unit->parent->name)) {
@@ -1395,29 +1412,31 @@ namespace ariac {
             ARIA_ASSERT(import->kind == DeclKind::Import, "Invalid import stmt");
 
             if (compare_module_names(name.identifier, import->import.alias.empty() ? import->import.name : import->import.alias)) {
-                if (mod) {
-                    context.report_compiler_diagnostic(specifier->loc, fmt::format("Ambigous name specifier '{}'", name.identifier));
-                    return;
-                }
-
-                mod = import->import.resolved_module;
-                break;
+                name.referenced_module = import->import.resolved_module;
+                return;
             }
         }
 
-        if (!mod) {
+        if (!name.referenced_module) {
+            for (Decl* import : context.active_comp_unit->imports) {
+                for (Module* child : import->import.resolved_module->children) {
+                    if (compare_module_names(name.identifier, child->name)) {
+                        name.referenced_module = child;
+                        return;
+                    }
+                }
+            }
+
             for (Module* mod : context.modules) {
                 if (compare_module_names(name.identifier, mod->name)) {
                     context.report_compiler_diagnostic_with_notes(specifier->loc, fmt::format("Could not find module '{}'", name.identifier),
-                        { fmt::format("This error can be resolved by adding 'import {0}'", mod->name) });
+                        { fmt::format("This error can be resolved by adding 'import {}'", mod->name) });
                     return;
                 }
             }
 
             context.report_compiler_diagnostic(specifier->loc, fmt::format("Could not find module '{}'", name.identifier));
             return;
-        } else {
-            name.referenced_module = mod;
         }
     }
 

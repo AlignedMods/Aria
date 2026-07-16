@@ -48,6 +48,13 @@ namespace ariac {
                 break;
             }
 
+            case ExprKind::TypeInfo: {
+                TypeInfoExpr& t = e->type_info;
+                copy->type_info.identifier = t.identifier;
+                copy->type_info.referenced_decl = t.referenced_decl;
+                break;
+            }
+
             case ExprKind::Member:
             case ExprKind::BuiltinMember: {
                 MemberExpr& m = e->member;
