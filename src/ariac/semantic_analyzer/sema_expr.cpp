@@ -1419,11 +1419,9 @@ namespace ariac {
 
         if (!name.referenced_module) {
             for (Decl* import : context.active_comp_unit->imports) {
-                for (Module* child : import->import.resolved_module->children) {
-                    if (compare_module_names(name.identifier, child->name)) {
-                        name.referenced_module = child;
-                        return;
-                    }
+                if (Module* child = module_get_child(import->import.resolved_module, name.identifier)) {
+                    name.referenced_module = child;
+                    return;
                 }
             }
 

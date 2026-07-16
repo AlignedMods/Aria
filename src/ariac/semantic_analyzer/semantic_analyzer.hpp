@@ -143,6 +143,7 @@ namespace ariac {
 
         bool compare_module_names(std::string_view specifier, std::string_view module_name);
         std::string_view get_parent_path(std::string_view path);
+        Module* module_get_child(Module* mod, std::string_view child);
 
         bool type_is_equal(TypeInfo* lhs, TypeInfo* rhs);
         bool type_is_trivial(TypeInfo* t);

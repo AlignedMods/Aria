@@ -1,7 +1,7 @@
 module std::core;
 
 struct List<T> {
-    mem: *T;
-    len: ulong;
-    capacity: ulong ;
+    items: *T;
+    len: sz;
+    capacity: sz;
 }

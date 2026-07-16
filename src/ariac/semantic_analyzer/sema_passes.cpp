@@ -445,6 +445,11 @@ namespace ariac {
             resolve_var_decl(var);
         }
 
+        for (Decl* gen : unit->generics) {
+            ARIA_ASSERT(gen->kind == DeclKind::Generic, "Invalid generic decl");
+            resolve_generic_decl(gen);
+        }
+
         for (Decl* impl : unit->impls) {
             ARIA_ASSERT(impl->kind == DeclKind::Impl, "Invalid impl decl");
 

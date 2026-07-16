@@ -62,4 +62,20 @@ namespace ariac {
         return path.substr(0, i);
     }
 
+    Module* SemanticAnalyzer::module_get_child(Module* mod, std::string_view child) {
+        if (mod->children.empty()) { return nullptr; }
+
+        for (Module* c : mod->children) {
+            if (compare_module_names(child, c->name)) {
+                return c;
+            }
+
+            if (Module* cc = module_get_child(c, child)) {
+                return cc;
+            }
+        }
+
+        return nullptr;
+    }
+
 } // namespace ariac

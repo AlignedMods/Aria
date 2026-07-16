@@ -8,6 +8,20 @@ struct File {
 
 impl File {
 
+    fn read_entire_file(ss: *StringStream) {
+        let buf: [1024]char;
+
+        while libc::fgets(&buf, buf.len, handle) != null {
+            ss.append_string(buf[:libc::strlen(&buf)]);
+        }
+    }
+
+    fn write(s: String) {
+        libc::fwrite(s.mem, sizeof(*s.mem), s.len, handle);
+    }
+
+    fn is_open() -> bool { return handle != null; }
+
     fn close() {
         libc::fclose(handle);
     }

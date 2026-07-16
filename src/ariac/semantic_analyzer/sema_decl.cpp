@@ -66,10 +66,6 @@ namespace ariac {
 
             StructDecl& s = decl->struct_;
             
-            if (s.identifier == "File") {
-                ARIA_DEBUGBREAK();
-            }
-            
             if (s.fields.size == 0) {
                 context.report_compiler_diagnostic(decl->loc, "Empty structs are not allowed");
             }
@@ -256,8 +252,22 @@ namespace ariac {
         MethodDecl& m = decl->method;
 
         m_active_return_type = m.type->function.return_type;
-        resolve_struct_decl(m.parent->impl.parent);
-        m_active_struct = TypeInfo::create_struct(m.parent->impl.parent);
+
+        switch (m.parent->impl.parent->kind) {
+            case DeclKind::Struct: {
+                resolve_struct_decl(m.parent->impl.parent);
+                m_active_struct = TypeInfo::create_struct(m.parent->impl.parent);
+                break;
+            }
+            case DeclKind::Generic: {
+                resolve_struct_decl(m.parent->impl.parent->generic.decl);
+                m_active_struct = TypeInfo::create_struct(m.parent->impl.parent->generic.decl);
+                break;
+            }
+
+            default: ARIA_UNREACHABLE("Invalid impl parent");
+        }
+        
         push_scope();
         
         for (Decl* p : m.parameters) {

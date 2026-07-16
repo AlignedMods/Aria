@@ -60,3 +60,4 @@ extern fn fprintf(stream: *FILE, format: *const char, ...) -> int;
 // string.h
 
 extern fn strcmp(lhs: *const char, rhs: *const char) -> int;
+extern fn strlen(str: *const char) -> sz;

@@ -151,6 +151,8 @@ impl StringStream {
         }
     }
 
+    fn to_string() -> String { return to_slice(); }
+
     fn to_slice() -> []char {
         return mem[:len];
     }
@@ -177,4 +179,5 @@ impl StringStream {
         mem = newData;
         capacity = cap;
     }
+
 }
