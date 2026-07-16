@@ -164,8 +164,8 @@ namespace ariac {
             main->setDSOLocal(true);
 
             llvm::DISubprogram* sp = m_active_debug_context.builder->createFunction(m_active_debug_context.unit->getFile(),
-                "main", {}, m_active_debug_context.unit->getFile(), context.main_func->loc.line,
-                m_active_debug_context.builder->createSubroutineType({}), context.main_func->loc.line, llvm::DINode::FlagPrototyped, llvm::DISubprogram::SPFlagDefinition);
+                "main", {}, m_active_debug_context.unit->getFile(), (unsigned)context.main_func->loc.line,
+                m_active_debug_context.builder->createSubroutineType({}), (unsigned)context.main_func->loc.line, llvm::DINode::FlagPrototyped, llvm::DISubprogram::SPFlagDefinition);
 
             main->setSubprogram(sp);
             m_active_debug_context.scope = sp;
@@ -593,45 +593,45 @@ namespace ariac {
             //     type_info_to_debug_type(elem_type));
 
             dit = m_active_debug_context.builder->createStructType(m_active_debug_context.scope,
-                str_type, m_active_debug_context.scope->getFile(), 0, t->get_size() * 8, t->get_alignment() * 8,
+                str_type, m_active_debug_context.scope->getFile(), 0, (unsigned)t->get_size() * 8, (unsigned)t->get_alignment() * 8,
                 llvm::DINode::DIFlags::FlagExplicit, nullptr, m_active_debug_context.builder->getOrCreateArray(elems));
         } else if (t->is_any()) {
             std::array<llvm::Metadata*, 2> elems{};
 
             u64 offset_bits = 0;
             elems[0] = m_active_debug_context.builder->createMemberType(m_active_debug_context.scope, "type", 
-                m_active_debug_context.scope->getFile(), 0, TypeInfo::get_typeinfo_ptr()->get_bit_size(), TypeInfo::get_typeinfo_ptr()->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
+                m_active_debug_context.scope->getFile(), 0, TypeInfo::get_typeinfo_ptr()->get_bit_size(), (unsigned)TypeInfo::get_typeinfo_ptr()->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
                 type_info_to_debug_type(TypeInfo::get_typeinfo_ptr()));
 
             offset_bits += TypeInfo::get_typeinfo_ptr()->get_bit_size();
 
             elems[1] = m_active_debug_context.builder->createMemberType(m_active_debug_context.scope, "value", 
-                m_active_debug_context.scope->getFile(), 0, TypeInfo::get_void_ptr()->get_bit_size(), TypeInfo::get_void_ptr()->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
+                m_active_debug_context.scope->getFile(), 0, TypeInfo::get_void_ptr()->get_bit_size(), (unsigned)TypeInfo::get_void_ptr()->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
                 type_info_to_debug_type(TypeInfo::get_void_ptr()));
 
             dit = m_active_debug_context.builder->createStructType(m_active_debug_context.scope,
-                str_type, m_active_debug_context.scope->getFile(), 0, t->get_size() * 8, t->get_alignment() * 8,
+                str_type, m_active_debug_context.scope->getFile(), 0, (unsigned)t->get_size() * 8, (unsigned)t->get_alignment() * 8,
                 llvm::DINode::DIFlags::FlagExplicit, nullptr, m_active_debug_context.builder->getOrCreateArray(elems));
         } else if (t->is_pointer()) {
             dit = m_active_debug_context.builder->createPointerType(type_info_to_debug_type(t->pointer.base), t->get_bit_size());
         } else if (t->is_array()) {
-            dit = m_active_debug_context.builder->createArrayType(t->array.size, t->array.base->get_alignment() * 8, type_info_to_debug_type(t->array.base), {});
+            dit = m_active_debug_context.builder->createArrayType(t->array.size, (unsigned)t->array.base->get_alignment() * 8, type_info_to_debug_type(t->array.base), {});
         } else if (t->is_slice()) {
             std::array<llvm::Metadata*, 2> elems{};
 
             u64 offset_bits = 0;
             elems[0] = m_active_debug_context.builder->createMemberType(m_active_debug_context.scope, "mem", 
-                m_active_debug_context.scope->getFile(), 0, TypeInfo::get_void_ptr()->get_bit_size(), TypeInfo::get_void_ptr()->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
+                m_active_debug_context.scope->getFile(), 0, TypeInfo::get_void_ptr()->get_bit_size(), (unsigned)TypeInfo::get_void_ptr()->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
                 type_info_to_debug_type(TypeInfo::create_pointer(t->slice.base, false)));
 
             offset_bits += TypeInfo::get_void_ptr()->get_bit_size();
 
             elems[1] = m_active_debug_context.builder->createMemberType(m_active_debug_context.scope, "len", 
-                m_active_debug_context.scope->getFile(), 0, TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), TypeInfo::get_basic(TypeKind::Sz)->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
+                m_active_debug_context.scope->getFile(), 0, TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), (unsigned)TypeInfo::get_basic(TypeKind::Sz)->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
                 type_info_to_debug_type(TypeInfo::get_basic(TypeKind::Sz)));
 
             dit = m_active_debug_context.builder->createStructType(m_active_debug_context.scope,
-                str_type, m_active_debug_context.scope->getFile(), 0, t->get_size() * 8, t->get_alignment() * 8,
+                str_type, m_active_debug_context.scope->getFile(), 0, (unsigned)t->get_size() * 8, (unsigned)t->get_alignment() * 8,
                 llvm::DINode::DIFlags::FlagExplicit, nullptr, m_active_debug_context.builder->getOrCreateArray(elems));
         } else if (t->is_structure()) {
             std::vector<llvm::Metadata*> elems;
@@ -641,7 +641,7 @@ namespace ariac {
                 ARIA_ASSERT(d->kind == DeclKind::Field, "Invalid field");
 
                 llvm::DIType* mem = m_active_debug_context.builder->createMemberType(m_active_debug_context.scope, d->field.identifier, 
-                    m_active_debug_context.scope->getFile(), d->loc.line, d->field.type->get_bit_size(), d->field.type->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
+                    m_active_debug_context.scope->getFile(), (unsigned)d->loc.line, (unsigned)d->field.type->get_bit_size(), (unsigned)d->field.type->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
                     type_info_to_debug_type(d->field.type));
 
                 elems.push_back(mem);
@@ -649,11 +649,11 @@ namespace ariac {
             }
 
             dit = m_active_debug_context.builder->createStructType(m_active_debug_context.scope,
-                str_type, m_active_debug_context.scope->getFile(), t->struct_.source_decl->loc.line, t->get_size() * 8, t->get_alignment() * 8,
+                str_type, m_active_debug_context.scope->getFile(), (unsigned)t->struct_.source_decl->loc.line, (unsigned)t->get_size() * 8, (unsigned)t->get_alignment() * 8,
                 llvm::DINode::DIFlags::FlagExplicit, nullptr, m_active_debug_context.builder->getOrCreateArray(elems));
         } else if (t->is_typedef()) {
             dit = m_active_debug_context.builder->createTypedef(type_info_to_debug_type(t->typedef_.base), t->typedef_.identifier, 
-                m_active_debug_context.unit->getFile(), t->typedef_.source_decl->loc.line, m_active_debug_context.scope);
+                m_active_debug_context.unit->getFile(), (unsigned)t->typedef_.source_decl->loc.line, m_active_debug_context.scope);
         } else {
             ARIA_UNREACHABLE("Invalid type");
         }
@@ -734,7 +734,7 @@ namespace ariac {
     }
 
     llvm::Constant* Codegen::get_sz(u64 i) {
-        return m_active_module_context.builder->getInt(llvm::APInt(TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), i));
+        return m_active_module_context.builder->getInt(llvm::APInt((unsigned)TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), i));
     }
 
     llvm::Constant* Codegen::get_i64(u64 i) {
@@ -775,15 +775,15 @@ namespace ariac {
             types.push_back(get_typeinfo(type->array.base));
         }
 
-        std::array<llvm::Constant*, 4> args{};
+        std::array<llvm::Constant*, 5> args{};
         args[0] = get_string(name); // name
         args[1] = get_string(kind); // kind
-        args[2] = m_active_module_context.builder->getInt(llvm::APInt(TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), t->get_size())); // size
-        args[3] = m_active_module_context.builder->getInt(llvm::APInt(TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), len)); // len
+        args[2] = m_active_module_context.builder->getInt(llvm::APInt((unsigned)TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), t->get_size())); // size
+        args[3] = m_active_module_context.builder->getInt(llvm::APInt((unsigned)TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), len)); // len
         
         if (types.size() == 1) {
             args[4] = llvm::ConstantStruct::get(slice_type, { types[0], 
-                m_active_module_context.builder->getInt(llvm::APInt(TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), 1)) }); // types
+                m_active_module_context.builder->getInt(llvm::APInt((unsigned)TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), 1)) }); // types
         } else {
             ARIA_ASSERT(types.size() == 0, "Invalid amount of types");
             args[4] = llvm::Constant::getNullValue(slice_type); // types
@@ -824,7 +824,7 @@ namespace ariac {
             return;
         }
 
-        m_active_module_context.builder->SetCurrentDebugLocation(llvm::DILocation::get(*m_active_module_context.context, loc.line, loc.col, m_active_debug_context.scope));
+        m_active_module_context.builder->SetCurrentDebugLocation(llvm::DILocation::get(*m_active_module_context.context, (unsigned)loc.line, (unsigned)loc.col, m_active_debug_context.scope));
     }
 
 } // namespace ariac

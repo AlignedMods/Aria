@@ -36,8 +36,8 @@ namespace ariac {
     class Codegen {
     private:
         struct DebugContext {
-            llvm::DICompileUnit* unit;
-            llvm::DIBuilder* builder;
+            llvm::DICompileUnit* unit = nullptr;
+            llvm::DIBuilder* builder = nullptr;
             std::unordered_map<std::string, llvm::DIType*> cached_types;
             llvm::DIScope* scope = nullptr;
         };

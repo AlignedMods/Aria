@@ -151,7 +151,7 @@ namespace ariac {
         m_active_module_context.builder->CreateStore(slots, mem);
 
         llvm::Value* len = m_active_module_context.builder->CreateStructGEP(slice_type, slice, 1, "ptradd");
-        m_active_module_context.builder->CreateStore(m_active_module_context.builder->getInt(llvm::APInt(TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), arr_type->getArrayNumElements())), len);
+        m_active_module_context.builder->CreateStore(m_active_module_context.builder->getInt(llvm::APInt((unsigned)TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), arr_type->getArrayNumElements())), len);
 
         ABIParamTypeInfo abi_info = get_param_abi_type_info(TypeInfo::get_char_slice());
 

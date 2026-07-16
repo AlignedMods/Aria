@@ -255,9 +255,9 @@ namespace ariac {
         switch (bc.kind) {
             case BuiltinCallKind::Sizeof: {
                 if (bc.type) {
-                    return m_active_module_context.builder->getInt(llvm::APInt(expr->type->get_bit_size(), bc.type->get_size()));
+                    return m_active_module_context.builder->getInt(llvm::APInt((unsigned)expr->type->get_bit_size(), bc.type->get_size()));
                 } else {
-                    return m_active_module_context.builder->getInt(llvm::APInt(expr->type->get_bit_size(), bc.expression->type->get_size()));
+                    return m_active_module_context.builder->getInt(llvm::APInt((unsigned)expr->type->get_bit_size(), bc.expression->type->get_size()));
                 }
                 break;
             }
@@ -417,7 +417,7 @@ namespace ariac {
                 }
 
                 llvm::Value* len = m_active_module_context.builder->CreateStructGEP(slice_type, array, 1, "ptradd");
-                len = m_active_module_context.builder->CreateLoad(m_active_module_context.builder->getIntNTy(TypeInfo::get_sz()->get_bit_size()), len);
+                len = m_active_module_context.builder->CreateLoad(m_active_module_context.builder->getIntNTy((unsigned)TypeInfo::get_sz()->get_bit_size()), len);
                 llvm::Value* cond = m_active_module_context.builder->CreateICmpULT(index, len, "lt");
                 call_assert(cond, expr->loc.line, "Array index out of bounds (len: %s, index: %s)",
                     { len, index }, { TypeInfo::get_sz(), TypeInfo::get_sz() });
@@ -449,7 +449,7 @@ namespace ariac {
             len_val = gen_expr(t.len);
         } else {
             ARIA_ASSERT(t.source->type->is_array(), "Type must be an array");
-            len_val = m_active_module_context.builder->getInt(llvm::APInt(TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), t.source->type->array.size));
+            len_val = m_active_module_context.builder->getInt(llvm::APInt((unsigned)TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), t.source->type->array.size));
         }
 
         m_active_module_context.builder->CreateStore(len_val, len);
@@ -647,7 +647,7 @@ namespace ariac {
                 llvm::Value* inc = nullptr;
 
                 if (un.expression->type->is_integral()) {
-                    inc = m_active_module_context.builder->CreateAdd(load, m_active_module_context.builder->getIntN(un.expression->type->get_bit_size(), 1), "inc");
+                    inc = m_active_module_context.builder->CreateAdd(load, m_active_module_context.builder->getIntN((unsigned)un.expression->type->get_bit_size(), 1), "inc");
                     m_active_module_context.builder->CreateStore(inc, start_val);
                 } else {
                     ARIA_UNREACHABLE("Invalid expression type");
@@ -665,7 +665,7 @@ namespace ariac {
                 llvm::Value* dec = nullptr;
 
                 if (un.expression->type->is_integral()) {
-                    dec = m_active_module_context.builder->CreateSub(load, m_active_module_context.builder->getIntN(un.expression->type->get_bit_size(), 1), "dec");
+                    dec = m_active_module_context.builder->CreateSub(load, m_active_module_context.builder->getIntN((unsigned)un.expression->type->get_bit_size(), 1), "dec");
                     m_active_module_context.builder->CreateStore(dec, start_val);
                 } else {
                     ARIA_UNREACHABLE("Invalid expression type");
@@ -959,7 +959,7 @@ namespace ariac {
 
             case ConstExprKind::Integer: { return llvm::ConstantInt::getIntegerValue(
                 llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(expr->type->get_bit_size())),
-                llvm::APInt(expr->type->get_bit_size(), c.integer));
+                llvm::APInt((unsigned)expr->type->get_bit_size(), c.integer));
             }
 
             case ConstExprKind::Floating: {
