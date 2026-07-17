@@ -1401,40 +1401,69 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_name_specifier(Specifier* specifier) {
         NameSpecifier& name = specifier->name;
-        
-        // We may be referencing ourselves
-        if (compare_module_names(name.identifier, context.active_comp_unit->parent->name)) {
-            name.referenced_module = context.active_comp_unit->parent;
-            return;
+        Module* parent = nullptr;
+
+        auto find_child_in_module = [this, &name](Module* mod) -> bool {
+            for (Module* child : mod->children) {
+                std::string_view child_name = get_bottom_path(child->name);
+
+                if (child_name == name.identifier) {
+                    name.referenced_module = child;
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        if (name.parent) {
+            resolve_name_specifier(name.parent);
+            parent = name.parent->name.referenced_module;
         }
+        
+        if (!parent) {
+            // Try to find a submodule
+            if (find_child_in_module(context.active_module)) {
+                return;
+            }
 
-        for (Decl* import : context.active_comp_unit->imports) {
-            ARIA_ASSERT(import->kind == DeclKind::Import, "Invalid import stmt");
+            // Check our parents submodules too (siblings?)
+            Module* mod = context.active_module;
+            while (mod->parent) {
+                mod = mod->parent;
 
-            if (compare_module_names(name.identifier, import->import.alias.empty() ? import->import.name : import->import.alias)) {
-                name.referenced_module = import->import.resolved_module;
+                if (find_child_in_module(mod)) {
+                    return;
+                }
+            }
+
+            // Check if we are referencing ourselves
+            if (context.active_module->top_module->name == name.identifier) {
+                name.referenced_module = context.active_module->top_module;
+                return;
+            }
+
+            // Check for top level modules
+            for (Decl* import : context.active_comp_unit->imports) {
+                ARIA_ASSERT(import->kind == DeclKind::Import, "Invalid import decl");
+                if (!import->import.resolved_module) { continue; }
+                
+                if (import->import.resolved_module->top_module->name == name.identifier) {
+                    name.referenced_module = import->import.resolved_module->top_module;
+                    return;
+                }
+            }
+        } else {
+            // Try to find a submodule
+            if (find_child_in_module(parent)) {
                 return;
             }
         }
 
-        if (!name.referenced_module) {
-            for (Decl* import : context.active_comp_unit->imports) {
-                if (Module* child = module_get_child(import->import.resolved_module, name.identifier)) {
-                    name.referenced_module = child;
-                    return;
-                }
-            }
-
-            for (Module* mod : context.modules) {
-                if (compare_module_names(name.identifier, mod->name)) {
-                    context.report_compiler_diagnostic_with_notes(specifier->loc, fmt::format("Could not find module '{}'", name.identifier),
-                        { fmt::format("This error can be resolved by adding 'import {}'", mod->name) });
-                    return;
-                }
-            }
-
+        if (parent) {
+            context.report_compiler_diagnostic(specifier->loc, fmt::format("No member '{}' in module '{}'", name.identifier, name.parent->name.identifier));
+        } else {
             context.report_compiler_diagnostic(specifier->loc, fmt::format("Could not find module '{}'", name.identifier));
-            return;
         }
     }
 

@@ -47,14 +47,6 @@ namespace ariac {
         *src = *new_decl;
     }
 
-    bool SemanticAnalyzer::compare_module_names(std::string_view specifier, std::string_view module_name) {
-        if (specifier.length() > module_name.length()) { return false; }
-        if (specifier == module_name) { return true; }
-        if (module_name.length() != specifier.length() && module_name[module_name.length() - specifier.length() - 1] != ':') { return false; }
-
-        return specifier == module_name.substr(module_name.length() - specifier.length());
-    }
-
     std::string_view SemanticAnalyzer::get_parent_path(std::string_view path) {
         size_t i = path.rfind("::");
         if (i == std::string_view::npos) { return {}; }
@@ -62,20 +54,11 @@ namespace ariac {
         return path.substr(0, i);
     }
 
-    Module* SemanticAnalyzer::module_get_child(Module* mod, std::string_view child) {
-        if (mod->children.empty()) { return nullptr; }
+    std::string_view SemanticAnalyzer::get_bottom_path(std::string_view path) {
+        size_t i = path.rfind("::");
+        if (i == std::string_view::npos) { return path; }
 
-        for (Module* c : mod->children) {
-            if (compare_module_names(child, c->name)) {
-                return c;
-            }
-
-            if (Module* cc = module_get_child(c, child)) {
-                return cc;
-            }
-        }
-
-        return nullptr;
+        return path.substr(i + 2);
     }
 
 } // namespace ariac

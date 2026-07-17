@@ -37,6 +37,7 @@ namespace ariac {
         std::string_view name;
         CompilerReflectionData reflection_data;
 
+        Module* top_module = nullptr;
         Module* parent = nullptr;
         std::vector<Module*> children;
     };

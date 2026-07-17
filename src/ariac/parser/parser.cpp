@@ -542,38 +542,29 @@ namespace ariac {
 
     Expr* Parser::parse_identifier(Token t) {
         if (match(TokenKind::ColonColon)) {
-            scratch_buffer_clear();
-            scratch_buffer_append(t.string);
-            scratch_buffer_append("::");
-
-            Token& col = consume();
+            consume();
+            Specifier* spec = Specifier::Create(t.loc, SpecifierKind::Name, NameSpecifier(t.string));
             Token* var = nullptr;
 
             while (true) {
-                size_t mark = scratch_buffer_size();
-
                 Token* child = try_consume(TokenKind::Identifier, "identifier");
                 if (!child) { return &error_expr; }
 
-                scratch_buffer_append(child->string);
-
                 if (match(TokenKind::ColonColon)) {
                     consume();
-                    scratch_buffer_append("::");
+                    Specifier* cs = Specifier::Create(child->loc, SpecifierKind::Name, NameSpecifier(child->string));
+                    cs->name.parent = spec;
+                    spec = cs;
                     continue;
                 }
 
-                scratch_buffer_size(mark - 2);
                 var = child;
                 break;
             }
 
-            Specifier* specifier = Specifier::Create(t.loc, SpecifierKind::Name, 
-                NameSpecifier(scratch_buffer_to_str()));
-
             Expr* declRef = Expr::Create(t.loc + var->loc, ExprKind::DeclRef,
                                 ExprValueKind::LValue, nullptr,
-                                DeclRefExpr(var->string, specifier));
+                                DeclRefExpr(var->string, spec));
 
             return declRef;
         } else {

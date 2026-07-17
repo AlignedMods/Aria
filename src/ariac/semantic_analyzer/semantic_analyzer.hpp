@@ -141,9 +141,8 @@ namespace ariac {
         void replace_expr(Expr* src, Expr* new_expr);
         void replace_decl(Decl* src, Decl* new_decl);
 
-        bool compare_module_names(std::string_view specifier, std::string_view module_name);
         std::string_view get_parent_path(std::string_view path);
-        Module* module_get_child(Module* mod, std::string_view child);
+        std::string_view get_bottom_path(std::string_view path);
 
         bool type_is_equal(TypeInfo* lhs, TypeInfo* rhs);
         bool type_is_trivial(TypeInfo* t);

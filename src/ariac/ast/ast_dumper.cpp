@@ -99,8 +99,9 @@ namespace ariac {
                 source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind)); 
                 return;
 
-            case ExprKind::DeclRef: m_output += fmt::format("DeclRefExpr {} '{}' {} '{}' {}\n", 
-                source_loc_to_string(expr->loc), expr->decl_ref.identifier, decl_kind_to_string(expr->decl_ref.referenced_decl->kind),
+            case ExprKind::DeclRef: m_output += fmt::format("DeclRefExpr {} '{}' {} {} '{}' {}\n", 
+                source_loc_to_string(expr->loc), expr->decl_ref.identifier,
+                decl_kind_to_string(expr->decl_ref.referenced_decl->kind), reinterpret_cast<void*>(expr->decl_ref.referenced_decl),
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 if (expr->decl_ref.name_specifier) {
@@ -110,7 +111,8 @@ namespace ariac {
                 return;
 
             case ExprKind::Member: m_output += fmt::format("MemberExpr {} '{}'{} {} '{}' {}\n",
-                source_loc_to_string(expr->loc), expr->member.member, expr->member.implicit_deref ? " implicit_deref" : "", decl_kind_to_string(expr->member.referenced_member->kind),
+                source_loc_to_string(expr->loc), expr->member.member, expr->member.implicit_deref ? " implicit_deref" : "",
+                decl_kind_to_string(expr->member.referenced_member->kind), reinterpret_cast<void*>(expr->member.referenced_member),
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->member.parent, indentation + 4);
@@ -479,7 +481,8 @@ namespace ariac {
         m_output += ident;
 
         if (spec->kind == SpecifierKind::Name) {
-            m_output += fmt::format("NameSpecifier {} '{}'\n", source_loc_to_string(spec->loc), spec->name.identifier);
+            m_output += fmt::format("NameSpecifier {} {} '{}'\n", source_loc_to_string(spec->loc), reinterpret_cast<void*>(spec->name.referenced_module), spec->name.identifier);
+            if (spec->name.parent) { dump_specifier(spec->name.parent, indentation + 4); }
             return;
         }
 

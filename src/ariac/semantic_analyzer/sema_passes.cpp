@@ -83,13 +83,20 @@ namespace ariac {
         std::string_view parent = get_parent_path(module->name);
 
         // No parent
-        if (parent.length() == 0) { return; }
+        if (parent.length() == 0) { module->top_module = module; return; }
 
         for (Module* mod : context.modules) {
             if (mod->name == parent) {
                 // We have found the parent
                 module->parent = mod;
                 mod->children.push_back(module);
+
+                // Set top module
+                Module* top = mod;
+                while (top->parent) {
+                    top = top->parent;
+                }
+                module->top_module = top;
                 return;
             }
         }
@@ -98,6 +105,14 @@ namespace ariac {
         Module* mod = context.find_or_create_module(parent);
         module->parent = mod;
         mod->children.push_back(module);
+
+        // Set top module
+        Module* top = mod;
+        while (top->parent) {
+            top = top->parent;
+        }
+        module->top_module = top;
+
         resolve_module_heirarchy(mod);
     }
 

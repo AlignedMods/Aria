@@ -20,6 +20,7 @@ namespace ariac {
 
         std::string_view identifier;
         Module* referenced_module = nullptr;
+        Specifier* parent = nullptr;
     };
 
     struct Specifier {
