@@ -17,7 +17,6 @@ namespace ariac {
                     copy->block.stmts.append(Stmt::dup(st));
                 }
 
-                copy->block.unsafe = b.unsafe;
                 break;
             }
 

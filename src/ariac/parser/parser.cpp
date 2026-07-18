@@ -929,7 +929,7 @@ namespace ariac {
         return type;
     }
 
-    Stmt* Parser::parse_block(bool unsafe) {
+    Stmt* Parser::parse_block() {
         TinyVector<Stmt*> stmts;
         Token* l = try_consume(TokenKind::LeftCurly, "{");
         if (!l) { return &error_stmt; }
@@ -944,12 +944,12 @@ namespace ariac {
 
         try_consume(TokenKind::RightCurly, "}");
 
-        return Stmt::Create(l->loc, StmtKind::Block, BlockStmt(stmts, unsafe));
+        return Stmt::Create(l->loc, StmtKind::Block, BlockStmt(stmts));
     }
 
-    Stmt* Parser::parse_block_inline(bool unsafe) {
+    Stmt* Parser::parse_block_inline() {
         if (match(TokenKind::LeftCurly)) {
-            return parse_block(unsafe);
+            return parse_block();
         } else {
             Stmt* stmt = parse_statement();
             if (!stmt) { return &error_stmt; }
@@ -957,7 +957,7 @@ namespace ariac {
             TinyVector<Stmt*> stmts;
             stmts.append(stmt);
 
-            return Stmt::Create(stmt->loc, StmtKind::Block, BlockStmt(stmts, unsafe));
+            return Stmt::Create(stmt->loc, StmtKind::Block, BlockStmt(stmts));
         }
     }
 

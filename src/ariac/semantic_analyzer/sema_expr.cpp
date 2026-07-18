@@ -432,6 +432,11 @@ namespace ariac {
                         context.report_compiler_diagnostic(fd->loc, "Declared here", CompilerDiagKind::Note, fd->parent_unit);
                     }
 
+                    if (member_type->is_method() && !m_call_context) {
+                        context.report_compiler_diagnostic_with_notes(expr->loc, fmt::format("Reference to method must be called"),
+                            { "Did you mean to call it with no arguments?" });
+                    }
+
                     searching = false;
                     break;
                 }
@@ -579,7 +584,10 @@ namespace ariac {
     void SemanticAnalyzer::resolve_call_expr(Expr* expr) {
         CallExpr& call = expr->call;
 
+        bool prev_val = m_call_context;
+        m_call_context = true;
         resolve_expr(call.callee);
+        m_call_context = prev_val;
 
         if (call.callee->kind == ExprKind::Error) {
             expr->type = TypeInfo::get_error();
@@ -945,7 +953,11 @@ namespace ariac {
     void SemanticAnalyzer::resolve_method_call_expr(Expr* expr) {
         CallExpr& mc = expr->call;
 
+        bool prev_val = m_call_context;
+        m_call_context = true;
         resolve_expr(mc.callee);
+        m_call_context = prev_val;
+
         TypeInfo* callee_type = mc.callee->type;
 
         if (!callee_type->is_method() && !callee_type->is_error()) {
@@ -1441,6 +1453,21 @@ namespace ariac {
             if (context.active_module->top_module->name == name.identifier) {
                 name.referenced_module = context.active_module->top_module;
                 return;
+            }
+
+            // Check the imports submodules
+            for (Decl* import : context.active_comp_unit->imports) {
+                ARIA_ASSERT(import->kind == DeclKind::Import, "Invalid import decl");
+                if (!import->import.resolved_module) { continue; }
+
+                Module* mod = import->import.resolved_module;
+                while (mod->parent) {
+                    mod = mod->parent;
+
+                    if (find_child_in_module(mod)) {
+                        return;
+                    }
+                }
             }
 
             // Check for top level modules

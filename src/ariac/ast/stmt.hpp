@@ -39,11 +39,10 @@ namespace ariac {
 
     struct BlockStmt {
         BlockStmt() = default;
-        BlockStmt(const TinyVector<Stmt*>& stmts, bool unsafe)
-            : stmts(stmts), unsafe(unsafe) {}
+        BlockStmt(TinyVector<Stmt*> stmts)
+            : stmts(stmts) {}
 
         TinyVector<Stmt*> stmts;
-        bool unsafe = false;
         bool reaches_end = true;
     };
 
@@ -53,6 +52,7 @@ namespace ariac {
 
         Expr* condition = nullptr;
         Stmt* body = nullptr;
+        bool infinite = false;
     };
     
     struct DoWhileStmt {
@@ -61,6 +61,7 @@ namespace ariac {
 
         Expr* condition = nullptr;
         Stmt* body = nullptr;
+        bool infinite = false;
     };
     
     struct ForStmt {
@@ -71,6 +72,7 @@ namespace ariac {
         Expr* condition = nullptr; // i < 5;
         Expr* step = nullptr; // i += 1;
         Stmt* body = nullptr; // { ... }
+        bool infinite = false;
     };
     
     struct IfStmt {

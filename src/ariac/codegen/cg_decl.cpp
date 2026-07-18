@@ -79,6 +79,7 @@ namespace ariac {
 
             llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", function);
             m_active_module_context.builder->SetInsertPoint(bb);
+            push_scope();
 
             m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
 
@@ -144,7 +145,8 @@ namespace ariac {
                     llvm::DILocation::get(*m_active_module_context.context, (unsigned)decl->loc.line, (unsigned)decl->loc.col, sp), m_active_module_context.builder->GetInsertBlock());
             }
 
-            gen_stmt(fn->body);
+            gen_block_stmt(fn->body);
+            pop_scope();
             m_active_module_context.alloca_marker->eraseFromParent();
             m_active_module_context.alloca_marker = nullptr;
             if (llvm::verifyFunction(*function, &llvm::errs())) { throw std::exception(); }
@@ -250,6 +252,7 @@ namespace ariac {
 
                         llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", function);
                         m_active_module_context.builder->SetInsertPoint(bb);
+                        push_scope();
 
                         m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
 
@@ -320,7 +323,8 @@ namespace ariac {
                                 llvm::DILocation::get(*m_active_module_context.context, (unsigned)decl->loc.line, (unsigned)decl->loc.col, sp), m_active_module_context.builder->GetInsertBlock());
                         }
 
-                        gen_stmt(m.body);
+                        gen_block_stmt(m.body);
+                        pop_scope();
                         m_active_module_context.alloca_marker->eraseFromParent();
                         m_active_module_context.alloca_marker = nullptr;
                         if (llvm::verifyFunction(*function, &llvm::errs())) { throw std::exception(); }

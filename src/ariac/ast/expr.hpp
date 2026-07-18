@@ -26,7 +26,6 @@ namespace ariac {
         Member,
         BuiltinMember,
         Self,
-        Temporary,
         Call,
         BuiltinCall,
         IntrinsicCall,
@@ -322,18 +321,6 @@ namespace ariac {
         Decl* referenced_member = nullptr;
     };
 
-    // TemporaryExpr
-    // Represents a temporary expression
-    // eg. print("Hello world");
-    // Here "Hello world" will call a constructor that allocates memory and therefore its destructor needs to be called
-    struct TemporaryExpr {
-        TemporaryExpr(Expr* expr, Decl* destructor)
-            : expression(expr), destructor(destructor) {}
-
-        Expr* expression = nullptr;
-        Decl* destructor = nullptr;
-    };
-
     struct CallExpr {
         CallExpr(Expr* callee, TinyVector<Expr*> args, TinyVector<TypeInfo*> generic_args)
             : callee(callee), arguments(args), generic_arguments(generic_args) {}
@@ -524,7 +511,6 @@ namespace ariac {
             DeclRefExpr decl_ref;
             TypeInfoExpr type_info;
             MemberExpr member;
-            TemporaryExpr temporary;
             CallExpr call;
             BuiltinCallExpr builtin_call;
             IntrinsicCallExpr intrinsic_call;
@@ -573,9 +559,6 @@ namespace ariac {
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, MemberExpr member)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), member(member) {}
-
-        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, TemporaryExpr temporary)
-            : loc(loc), kind(kind), value_kind(value_kind), type(type), temporary(temporary) {}
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, CallExpr call)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), call(call) {}

@@ -827,4 +827,20 @@ namespace ariac {
         m_active_module_context.builder->SetCurrentDebugLocation(llvm::DILocation::get(*m_active_module_context.context, (unsigned)loc.line, (unsigned)loc.col, m_active_debug_context.scope));
     }
 
+    void Codegen::push_scope() {
+        m_scopes.emplace_back();
+    }
+
+    void Codegen::pop_scope() {
+        m_scopes.pop_back();
+    }
+
+    void Codegen::pop_defers(Scope& s) {
+        for (auto it = s.defers.rbegin(); it !=s.defers.rend(); it++) {
+            gen_stmt(*it);
+        }
+
+        s.defers.clear();
+    }
+
 } // namespace ariac

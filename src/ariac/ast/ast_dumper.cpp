@@ -129,12 +129,6 @@ namespace ariac {
                 source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind)); 
                 return;
 
-            case ExprKind::Temporary: m_output += fmt::format("TemporaryExpr {} '{}' {}\n", 
-                source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind)); 
-                
-                dump_expr(expr->temporary.expression, indentation + 4);
-                return;
-
             case ExprKind::Call: m_output += fmt::format("CallExpr {} '{}' {}\n",
                 source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
@@ -424,24 +418,27 @@ namespace ariac {
             case StmtKind::Nop: m_output += fmt::format("NopStmt {}\n", source_loc_to_string(stmt->loc));
                 return;
 
-            case StmtKind::Block: m_output += fmt::format("BlockStmt {} {}\n",
-                source_loc_to_string(stmt->loc), stmt->block.unsafe ? "unsafe" : "");
+            case StmtKind::Block: m_output += fmt::format("BlockStmt {}{}\n",
+                source_loc_to_string(stmt->loc), stmt->block.reaches_end ? " reaches_end" : "");
                 for (Stmt* stmt : stmt->block.stmts) {
                     dump_stmt(stmt, indentation + 4);
                 }
                 return;
 
-            case StmtKind::While: m_output += fmt::format("WhileStmt {}\n", source_loc_to_string(stmt->loc));
+            case StmtKind::While: m_output += fmt::format("WhileStmt {}{}\n",
+                source_loc_to_string(stmt->loc), stmt->while_.infinite ? " infinite" : "");
                 dump_expr(stmt->while_.condition, indentation + 4);
                 dump_stmt(stmt->while_.body, indentation + 4);
                 return;
 
-            case StmtKind::DoWhile: m_output += fmt::format("DoWhileStmt {}\n", source_loc_to_string(stmt->loc));
+            case StmtKind::DoWhile: m_output += fmt::format("DoWhileStmt {}{}\n",
+                source_loc_to_string(stmt->loc), stmt->do_while.infinite ? " infinite" : "");
                 dump_expr(stmt->do_while.condition, indentation + 4);
                 dump_stmt(stmt->do_while.body, indentation + 4);
                 return;
 
-            case StmtKind::For: m_output += fmt::format("ForStmt {}\n", source_loc_to_string(stmt->loc));
+            case StmtKind::For: m_output += fmt::format("ForStmt {}{}\n",
+                source_loc_to_string(stmt->loc), stmt->for_.infinite ? " infinite" : "");
                 dump_decl(stmt->for_.prologue, indentation + 4);
                 dump_expr(stmt->for_.condition, indentation + 4);
                 dump_expr(stmt->for_.step, indentation + 4);
