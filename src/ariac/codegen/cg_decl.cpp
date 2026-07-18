@@ -146,6 +146,11 @@ namespace ariac {
             }
 
             gen_block_stmt(fn->body);
+
+            if (fn->body->block.reaches_end && fn->type->function.return_type->is_void()) {
+                m_active_module_context.builder->CreateRetVoid();
+            }
+
             pop_scope();
             m_active_module_context.alloca_marker->eraseFromParent();
             m_active_module_context.alloca_marker = nullptr;
@@ -324,6 +329,11 @@ namespace ariac {
                         }
 
                         gen_block_stmt(m.body);
+
+                        if (m.body->block.reaches_end && m.type->function.return_type->is_void()) {
+                            m_active_module_context.builder->CreateRetVoid();
+                        }
+
                         pop_scope();
                         m_active_module_context.alloca_marker->eraseFromParent();
                         m_active_module_context.alloca_marker = nullptr;

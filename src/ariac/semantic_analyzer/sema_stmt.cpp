@@ -163,7 +163,7 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_stmt(Stmt* stmt) {
         if (m_scopes.size() > 0 && !m_scopes.back().reaches_end) {
-            context.report_compiler_diagnostic(stmt->loc, "This statement is never reached");
+            context.report_compiler_diagnostic(stmt->loc, "This statement is never reached", CompilerDiagKind::Warning);
             stmt->reached = false;
         }
 

@@ -490,7 +490,7 @@ namespace ariac {
         TypeInfo* t = const_cast<TypeInfo*>(this);
 
         while (true) {
-            if (t->is_primitive() || t->is_structure() || t->is_typedef() || t->is_enum() || t->is_generic() || t->is_unresolved()) {
+            if (t->is_primitive() || t->is_function() || t->is_structure() || t->is_typedef() || t->is_enum() || t->is_generic() || t->is_unresolved()) {
                 break;
             }
 
@@ -552,7 +552,7 @@ namespace ariac {
             case TypeKind::Function: {
                 FunctionType ty = type->function;
 
-                str = "(";
+                str = "fn (";
 
                 for (size_t i = 0; i < ty.param_types.size; i++) {
                     str += type_info_to_string(ty.param_types.items[i], pretty);

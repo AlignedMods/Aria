@@ -13,7 +13,7 @@ namespace ariac {
             resolve_type(varDecl.type);
 
             if (varDecl.type->is_void()) {
-                context.report_compiler_diagnostic(decl->loc, "Cannot declare variable of 'void' type");
+                context.report_compiler_diagnostic(decl->loc, "Cannot declare variable of type 'void'");
             }
         }
 
@@ -206,9 +206,7 @@ namespace ariac {
 
         if (m_scopes.back().reaches_end) {
             if (!fn.type->function.return_type->is_void()) {
-                context.report_compiler_diagnostic(decl->loc, "Control flow reaches end of function with a non void return type");
-            } else {
-                fn.body->block.stmts.append(Stmt::Create(decl->loc, StmtKind::Return, ReturnStmt(nullptr)));
+                context.report_compiler_diagnostic(decl->loc, "Missing return statement in function");
             }
         }
 
@@ -278,9 +276,7 @@ namespace ariac {
 
         if (m_scopes.back().reaches_end) {
             if (!m.type->function.return_type->is_void()) {
-                context.report_compiler_diagnostic(decl->loc, "Control flow reaches end of method with a non void return type");
-            } else {
-                m.body->block.stmts.append(Stmt::Create(decl->loc, StmtKind::Return, ReturnStmt(nullptr)));
+                context.report_compiler_diagnostic(decl->loc, "Missing return statement in method");
             }
         }
 
