@@ -89,7 +89,7 @@ namespace ariac {
         Decl* parse_typedef_decl();
         Decl* parse_enum_decl();
 
-        TinyVector<DeclAttribute> parse_decl_attributes();
+        TinyVector<DeclAttribute> parse_decl_attributes(DeclKind kind);
 
         std::string_view parse_module_path();
 

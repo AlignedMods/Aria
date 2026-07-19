@@ -535,6 +535,11 @@ namespace ariac {
                 return;
             }
 
+            case DeclAttributeKind::Noreturn: {
+                m_output += "NoreturnAttribute\n";
+                return;
+            }
+
             default: ARIA_UNREACHABLE("Invalid attribute kind");
         }
     }

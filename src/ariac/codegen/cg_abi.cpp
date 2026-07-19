@@ -199,4 +199,13 @@ namespace ariac {
         }
     }
 
+    void Codegen::gen_unrechable_if_noreturn(Decl* callee) {
+        for (auto& attr : callee->attributes) {
+            if (attr.kind == DeclAttributeKind::Noreturn) {
+                m_active_module_context.builder->CreateUnreachable();
+                break;
+            }
+        }
+    }
+
 } // namespace ariac

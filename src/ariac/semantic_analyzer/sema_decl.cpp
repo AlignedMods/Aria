@@ -350,6 +350,8 @@ namespace ariac {
                     break;
                 }
 
+                case DeclAttributeKind::Noreturn: break;
+
                 default: ARIA_UNREACHABLE("Invalid decl attribute");
             }
         }

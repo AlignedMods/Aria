@@ -1252,7 +1252,7 @@ namespace ariac {
         Token& mod = consume(); // consume "module"
         
         std::string_view path = parse_module_path();
-        TinyVector<DeclAttribute> attrs = parse_decl_attributes();
+        TinyVector<DeclAttribute> attrs = parse_decl_attributes(DeclKind::Module);
 
         try_consume(TokenKind::Semi, ";");
 
@@ -1384,7 +1384,7 @@ namespace ariac {
             }
         }
 
-        TinyVector<DeclAttribute> attrs = parse_decl_attributes();
+        TinyVector<DeclAttribute> attrs = parse_decl_attributes(DeclKind::Function);
         
         Stmt* body = nullptr;
 
@@ -1742,7 +1742,7 @@ namespace ariac {
                 return &error_decl;
             }
 
-            TinyVector<DeclAttribute> attrs = parse_decl_attributes();
+            TinyVector<DeclAttribute> attrs = parse_decl_attributes(DeclKind::Typedef);
 
             try_consume(TokenKind::Semi, ";");
 
@@ -1790,7 +1790,7 @@ namespace ariac {
         return d;
     }
 
-    TinyVector<DeclAttribute> Parser::parse_decl_attributes() {
+    TinyVector<DeclAttribute> Parser::parse_decl_attributes(DeclKind kind) {
         TinyVector<DeclAttribute> attrs;
 
         while (peek()) {
@@ -1817,6 +1817,16 @@ namespace ariac {
                     try_consume(TokenKind::RightParen, ")");
 
                     attrs.append(DeclAttribute(DeclAttributeKind::Builtin, arg));
+                    break;
+                }
+
+                case TokenKind::AtNoreturn: {
+                    if (kind != DeclKind::Function) {
+                        context.report_compiler_diagnostic(peek()->loc, "Cannot use '@noreturn' with this declaration");
+                    }
+
+                    consume();
+                    attrs.append(DeclAttribute(DeclAttributeKind::Noreturn));
                     break;
                 }
 

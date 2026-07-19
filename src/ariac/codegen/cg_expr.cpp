@@ -245,7 +245,9 @@ namespace ariac {
         llvm::Value* callee = gen_expr(call.callee);
         ARIA_ASSERT(callee, "Invalid function callee");
 
-        return gen_call_raw(args, llvm::dyn_cast<llvm::Function>(callee), call.callee->type->function.return_type);
+        llvm::Value* c = gen_call_raw(args, llvm::dyn_cast<llvm::Function>(callee), call.callee->type->function.return_type);
+        gen_unrechable_if_noreturn(call.callee->decl_ref.referenced_decl);
+        return c;
     }
 
     llvm::Value* Codegen::gen_builtin_call_expr(Expr* expr) {

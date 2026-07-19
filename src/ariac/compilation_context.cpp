@@ -116,6 +116,8 @@ namespace ariac {
                     fmt::println("Could not run executable after compilation: {}", err);
                 } else if (code == -2) {
                     fmt::println("Failed to run executable after compilation: {}", err);
+                } else {
+                    fmt::println("Program finished with exit code: {}", code);
                 }
             }
         }

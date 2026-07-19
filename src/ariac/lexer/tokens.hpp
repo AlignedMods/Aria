@@ -90,6 +90,7 @@ namespace ariac {
         HashPrivate, // #private
         AtIf, // @if
         AtBuiltin, // @builtin
+        AtNoreturn, // @noreturn
         AtIntegral, // @Integral
         AtFloatingPoint, // @FloatingPoint
         AtConvertibleTo, // @ConvertibleTo

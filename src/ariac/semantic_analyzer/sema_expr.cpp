@@ -608,11 +608,6 @@ namespace ariac {
 
         TypeInfo* callee_type = call.callee->type;
 
-        if (callee_type->is_pointer()) {
-            require_rvalue(call.callee);
-            callee_type = callee_type->pointer.base;
-        }
-
         if (callee_type->kind != TypeKind::Function && !callee_type->is_error()) {
             context.report_compiler_diagnostic(expr->loc, "Cannot call an object of non-function type");
             expr->type = TypeInfo::get_error();
@@ -620,7 +615,6 @@ namespace ariac {
             for (Expr* arg : call.arguments) {
                 resolve_expr(arg);
             }
-
             return;
         }
 
@@ -630,21 +624,18 @@ namespace ariac {
             case ExprKind::DeclRef: callee = call.callee->decl_ref.referenced_decl; break;
             case ExprKind::Member: callee = call.callee->member.referenced_member; break;
 
-            case ExprKind::ImplicitCast: {
-                switch (call.callee->implicit_cast.expression->kind) {
-                    case ExprKind::DeclRef: callee = call.callee->implicit_cast.expression->decl_ref.referenced_decl; break;
-                    case ExprKind::Member: callee = call.callee->implicit_cast.expression->member.referenced_member; break;
-
-                    default: ARIA_UNREACHABLE("Invalid calleee"); break;
-                }
-
-                break;
-            }
             default: ARIA_UNREACHABLE("Invalid calleee"); break;
         }
 
         if (callee->kind != DeclKind::Error) {
             if (!call.callee->type->is_error()) {
+                for (auto& attr : callee->attributes) {
+                    if (attr.kind == DeclAttributeKind::Noreturn) {
+                        m_scopes.back().reaches_end = false;
+                        break;
+                    }
+                }
+
                 if (call.generic_arguments.size > 0) {
                     Decl* g = call.callee->decl_ref.referenced_decl;
 
