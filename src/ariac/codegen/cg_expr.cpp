@@ -738,6 +738,10 @@ namespace ariac {
                 llvm::Value* rhs = gen_expr(bin.rhs);
 
                 if (expr->type->is_integral()) {
+                    llvm::Value* cond = m_active_module_context.builder->CreateICmpNE(rhs, get_int(0, bin.lhs->type));
+                    call_assert(cond, expr->loc.line, "Division by zero",
+                        { get_sz(6) }, { TypeInfo::get_sz() });
+
                     if (expr->type->is_signed()) {
                         return m_active_module_context.builder->CreateSDiv(lhs, rhs, "div");
                     } else {

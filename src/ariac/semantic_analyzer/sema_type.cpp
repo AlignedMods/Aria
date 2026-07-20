@@ -26,6 +26,7 @@ namespace ariac {
                             resolve_struct_decl(t.ident->type_info.referenced_decl);
                             context.active_comp_unit = old_unit;
                         }
+                        
 
                         type->kind = TypeKind::Structure;
                         type->struct_ = StructType(t.ident->type_info.identifier, t.ident->type_info.referenced_decl);
@@ -378,6 +379,40 @@ namespace ariac {
                 cost.cast_needed = false;
                 return cost;
             }
+        }
+
+        if (src->is_function() && dst->is_function()) {
+            if (src->function.variadic != dst->function.variadic) {
+                cost.implicit_cast_possible = false;
+                cost.explicit_cast_possible = false;
+                return cost;
+            }
+
+            if (src->function.param_types.size != dst->function.param_types.size) {
+                cost.implicit_cast_possible = false;
+                cost.explicit_cast_possible = false;
+                return cost;
+            }
+
+            for (size_t i = 0; i < src->function.param_types.size; i++) {
+                ConversionCost pcost = get_conversion_cost(dst->function.param_types.items[i], src->function.param_types.items[i]);
+
+                if (pcost.cast_needed) {
+                    cost.implicit_cast_possible = false;
+                    cost.explicit_cast_possible = false;
+                    return cost;
+                }
+            }
+
+            ConversionCost rcost = get_conversion_cost(dst->function.return_type, src->function.return_type);
+            if (rcost.cast_needed) {
+                cost.implicit_cast_possible = false;
+                cost.explicit_cast_possible = false;
+                return cost;
+            }
+
+            cost.cast_needed = false;
+            return cost;
         }
 
         if (src->is_structure() && dst->is_structure()) {

@@ -14,6 +14,8 @@ namespace ariac {
 
             if (varDecl.type->is_void()) {
                 context.report_compiler_diagnostic(decl->loc, "Cannot declare variable of type 'void'");
+            } else if (varDecl.type->is_function()) {
+                context.report_compiler_diagnostic(decl->loc, fmt::format("Cannot declare variable of function type '{}'", type_info_to_string(varDecl.type)));
             }
         }
 
@@ -33,6 +35,13 @@ namespace ariac {
     void SemanticAnalyzer::resolve_param_decl(Decl* decl) {
         ParamDecl& paramDecl = decl->param;
         resolve_type(paramDecl.type);
+
+        if (paramDecl.type->is_void()) {
+            context.report_compiler_diagnostic(decl->loc, "Cannot declare parameter of type 'void'");
+        } else if (paramDecl.type->is_function()) {
+            context.report_compiler_diagnostic(decl->loc, fmt::format("Cannot declare parameter of function type '{}'", type_info_to_string(paramDecl.type)));
+        }
+
         m_scopes.back().declarations[paramDecl.identifier] = { paramDecl.type, decl, DeclKind::Param };
     }
 

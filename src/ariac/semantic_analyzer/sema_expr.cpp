@@ -90,6 +90,11 @@ namespace ariac {
                             context.report_compiler_diagnostic(sym->loc, "Defined here", CompilerDiagKind::Note, sym->parent_unit);
                         }
 
+                        if (!m_call_context && !m_address_of_context) {
+                            context.report_compiler_diagnostic_with_notes(expr->loc, fmt::format("Cannot use function '{}' as a value", pretty_ident),
+                                { fmt::format("Did you mean to write '&{}'", pretty_ident) });
+                        }
+
                         resolve_function_decl(sym);
                         expr->type = sym->function.type;
                         return;
@@ -105,6 +110,11 @@ namespace ariac {
                     case DeclKind::Generic: {
                         switch (sym->generic.decl->kind) {
                             case DeclKind::Function: {
+                                if (!m_call_context && !m_address_of_context) {
+                                    context.report_compiler_diagnostic_with_notes(expr->loc, fmt::format("Cannot use function '{}' as a value", pretty_ident),
+                                        { fmt::format("Did you mean to write '&{}'", pretty_ident) });
+                                }
+
                                 resolve_function_decl(sym->generic.decl);
                                 expr->type = sym->generic.decl->function.type;
                                 return;
@@ -210,6 +220,11 @@ namespace ariac {
                     }
 
                     case DeclKind::Function: {
+                        if (!m_call_context && !m_address_of_context) {
+                            context.report_compiler_diagnostic_with_notes(expr->loc, fmt::format("Cannot use function '{}' as a value", pretty_ident),
+                                { fmt::format("Did you mean to write '&{}'", pretty_ident) });
+                        }
+
                         resolve_function_decl(sym);
                         expr->type = sym->function.type;
                         return;
@@ -229,6 +244,11 @@ namespace ariac {
                                 CompilationUnit* c = context.active_comp_unit;
                                 context.active_module = sym->parent_module;
                                 context.active_comp_unit = sym->parent_unit;
+
+                                if (!m_call_context && !m_address_of_context) {
+                                    context.report_compiler_diagnostic_with_notes(expr->loc, fmt::format("Cannot use function '{}' as a value", pretty_ident),
+                                        { fmt::format("Did you mean to write '&{}'", pretty_ident) });
+                                }
 
                                 resolve_function_decl(sym->generic.decl);
 
@@ -275,6 +295,11 @@ namespace ariac {
                                 context.report_compiler_diagnostic_with_notes(expr->loc, "Functions from other modules must be prefixed with the module name",
                                     { fmt::format("Did you mean to write '{}::{}'", import.resolved_module->name, dr.identifier)});
 
+                                if (!m_call_context && !m_address_of_context) {
+                                    context.report_compiler_diagnostic_with_notes(expr->loc, fmt::format("Cannot use function '{}' as a value", pretty_ident),
+                                        { fmt::format("Did you mean to write '&{}'", pretty_ident) });
+                                }
+
                                 resolve_function_decl(sym);
                                 expr->type = sym->function.type;
                                 return;
@@ -291,6 +316,11 @@ namespace ariac {
                                 if (sym->generic.decl->kind == DeclKind::Function) {
                                     context.report_compiler_diagnostic_with_notes(expr->loc, "Generic functions from other modules must be prefixed with the module name",
                                         { fmt::format("Did you mean to write '{}::{}'", import.resolved_module->name, dr.identifier)});
+
+                                    if (!m_call_context && !m_address_of_context) {
+                                        context.report_compiler_diagnostic_with_notes(expr->loc, fmt::format("Cannot use function '{}' as a value", pretty_ident),
+                                            { fmt::format("Did you mean to write '&{}'", pretty_ident) });
+                                    }
 
                                     resolve_function_decl(sym->generic.decl);
                                     expr->type = sym->generic.decl->function.type;
@@ -1138,7 +1168,15 @@ namespace ariac {
     void SemanticAnalyzer::resolve_unary_operator_expr(Expr* expr) {
         UnaryOperatorExpr& unop = expr->unary_operator;
         
-        resolve_expr(unop.expression);
+        if (unop.op == UnaryOperatorKind::AddressOf) {
+            bool prev_val = m_address_of_context;
+            m_address_of_context = true;
+            resolve_expr(unop.expression);
+            m_address_of_context = prev_val;
+        } else {
+            resolve_expr(unop.expression);
+        }
+
         TypeInfo* type = unop.expression->type;
         
         switch (unop.op) {
@@ -1199,7 +1237,9 @@ namespace ariac {
 
                 if (type->is_pointer()) {
                     if (type->pointer.base->is_void()) {
-                        context.report_compiler_diagnostic(expr->loc, "Cannot dereference a void*");
+                        context.report_compiler_diagnostic(expr->loc, "Cannot dereference a *void");
+                    } else if (type->pointer.base->is_function()) {
+                        context.report_compiler_diagnostic(expr->loc, fmt::format("Cannot dereference function pointer '{}'", type_info_to_string(type)));
                     }
                 } else {
                     context.report_compiler_diagnostic(expr->loc, "Dereferencing requires a pointer type");

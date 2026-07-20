@@ -633,6 +633,8 @@ namespace ariac {
             dit = m_active_debug_context.builder->createStructType(m_active_debug_context.scope,
                 str_type, m_active_debug_context.scope->getFile(), 0, (unsigned)t->get_size() * 8, (unsigned)t->get_alignment() * 8,
                 llvm::DINode::DIFlags::FlagExplicit, nullptr, m_active_debug_context.builder->getOrCreateArray(elems));
+        } else if (t->is_function()) {
+            return type_info_to_debug_type(TypeInfo::get_void());
         } else if (t->is_structure()) {
             std::vector<llvm::Metadata*> elems;
 
@@ -739,6 +741,10 @@ namespace ariac {
 
     llvm::Constant* Codegen::get_i64(u64 i) {
         return m_active_module_context.builder->getInt64(i);
+    }
+
+    llvm::Constant* Codegen::get_int(u64 i, TypeInfo* t) {
+        return m_active_module_context.builder->getInt(llvm::APInt(static_cast<unsigned>(t->get_bit_size()), i, t->is_signed()));
     }
 
     llvm::Constant* Codegen::get_null() {

@@ -773,7 +773,8 @@ namespace ariac {
             case TokenKind::Float:
             case TokenKind::Double:
             case TokenKind::TypeInfo:
-            case TokenKind::Any: return true;
+            case TokenKind::Any:
+            case TokenKind::Fn: return true;
             default: return false;
         }
 
@@ -856,6 +857,29 @@ namespace ariac {
 
             case TokenKind::TypeInfo:   consume(); type->kind = TypeKind::TypeInfo; break;
             case TokenKind::Any:        consume(); type->kind = TypeKind::Any; break;
+
+            case TokenKind::Fn: {
+                consume();
+
+                TypeInfo* ret_type = TypeInfo::get_void();
+
+                VariadicKind var = VariadicKind::None;
+                auto[_, param_types] = parse_function_params(&var);
+
+                if (match(TokenKind::Arrow)) {
+                    consume();
+
+                    if (!is_type()) {
+                        context.report_compiler_diagnostic(peek()->loc, "Expected a type after '->'");
+                    } else {
+                        ret_type = parse_type();
+                    }
+                }
+
+                type->kind = TypeKind::Function;
+                type->function = FunctionType(ret_type, param_types, var);
+                break;
+            }
         
             case TokenKind::Identifier: {
                 consume();

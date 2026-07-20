@@ -11,6 +11,6 @@ fn assert(cond: bool, file: String, line: ulong, fmt: String, args...) @builtin(
 
 fn assert_fail(file: String, line: ulong, fmt: String, args: []any) {
     io::eprintf("%s:%s: Assertion failed: ", file, line);
-    io::veprintf(fmt, args);
+    io::veprintfln(fmt, args);
     libc::abort();
 }

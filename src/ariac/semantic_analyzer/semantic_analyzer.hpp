@@ -148,6 +148,7 @@ namespace ariac {
         bool type_is_trivial(TypeInfo* t);
 
     private:
+        bool m_address_of_context = false;
         bool m_call_context = false;
 
         std::vector<Decl*> m_generic_types;

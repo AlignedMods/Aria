@@ -176,6 +176,7 @@ namespace ariac {
 
         llvm::Constant* get_sz(u64 i);
         llvm::Constant* get_i64(u64 i);
+        llvm::Constant* get_int(u64 i, TypeInfo* t);
         llvm::Constant* get_null();
         llvm::Constant* get_string(std::string_view s, std::string_view name = ".str");
         llvm::Constant* get_typeinfo(TypeInfo* t);
