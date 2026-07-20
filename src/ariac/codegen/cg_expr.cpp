@@ -251,48 +251,35 @@ namespace ariac {
     }
 
     llvm::Value* Codegen::gen_builtin_call_expr(Expr* expr) {
-        BuiltinCallExpr& bc = expr->builtin_call;
+        BuiltinCallExpr& b = expr->builtin_call;
         set_debug_loc(expr->loc);
 
-        switch (bc.kind) {
+        switch (b.kind) {
             case BuiltinCallKind::Sizeof: {
-                if (bc.type) {
-                    return m_active_module_context.builder->getInt(llvm::APInt((unsigned)expr->type->get_bit_size(), bc.type->get_size()));
-                } else {
-                    return m_active_module_context.builder->getInt(llvm::APInt((unsigned)expr->type->get_bit_size(), bc.expression->type->get_size()));
-                }
-                break;
+                return m_active_module_context.builder->getInt(llvm::APInt((unsigned)expr->type->get_bit_size(), b.arguments.items[0]->type->get_size()));
             }
-
+            
             case BuiltinCallKind::Typeid: {
-                return get_typeinfo(bc.type ? bc.type : bc.expression->type);
+                return get_typeinfo(b.arguments.items[0]->type);
             }
 
-            default: ARIA_UNREACHABLE("Invalid builtin call kind");
-        }
-    }
-
-    llvm::Value* Codegen::gen_intrinsic_call_expr(Expr* expr) {
-        IntrinsicCallExpr& i = expr->intrinsic_call;
-
-        switch (i.kind) {
-            case IntrinsicCallKind::Memcpy: {
-                llvm::Value* dst = gen_expr(i.arguments.items[0]);
-                llvm::Value* src = gen_expr(i.arguments.items[1]);
-                llvm::Value* len = gen_expr(i.arguments.items[2]);
+            case BuiltinCallKind::Memcpy: {
+                llvm::Value* dst = gen_expr(b.arguments.items[0]);
+                llvm::Value* src = gen_expr(b.arguments.items[1]);
+                llvm::Value* len = gen_expr(b.arguments.items[2]);
                 
                 return m_active_module_context.builder->CreateMemCpy(dst, llvm::MaybeAlign(), src, llvm::MaybeAlign(), len);
             }
 
-            case IntrinsicCallKind::Memset: {
-                llvm::Value* ptr = gen_expr(i.arguments.items[0]);
-                llvm::Value* val = gen_expr(i.arguments.items[1]);
-                llvm::Value* len = gen_expr(i.arguments.items[2]);
+            case BuiltinCallKind::Memset: {
+                llvm::Value* ptr = gen_expr(b.arguments.items[0]);
+                llvm::Value* val = gen_expr(b.arguments.items[1]);
+                llvm::Value* len = gen_expr(b.arguments.items[2]);
                 
                 return m_active_module_context.builder->CreateMemSet(ptr, val, len, llvm::MaybeAlign());
             }
 
-            default: ARIA_UNREACHABLE("Invalid intrinsic call kind");
+            default: ARIA_UNREACHABLE("Invalid builtin call kind");
         }
     }
 
@@ -1011,7 +998,6 @@ namespace ariac {
             case ExprKind::Self: return gen_self_expr(expr);
             case ExprKind::Call: return gen_call_expr(expr);
             case ExprKind::BuiltinCall: return gen_builtin_call_expr(expr);
-            case ExprKind::IntrinsicCall: return gen_intrinsic_call_expr(expr);
             case ExprKind::Construct: return gen_construct_expr(expr);
             case ExprKind::ArrayLiteral: return gen_array_literal_expr(expr);
             case ExprKind::MethodCall: return gen_method_call_expr(expr);

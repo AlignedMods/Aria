@@ -36,7 +36,7 @@ namespace ariac {
 
         // PREC_CALL
         m_expr_rules[TokenKind::LeftParen] =         { BIND_PARSE_RULE(parse_grouping), BIND_PARSE_RULE(parse_call), PREC_CALL };
-        m_expr_rules[TokenKind::LeftBracket] =       { BIND_PARSE_RULE(parse_array_literal), BIND_PARSE_RULE(parse_array_subscript), PREC_CALL };
+        m_expr_rules[TokenKind::LeftBracket] =       { BIND_PARSE_RULE(parse_type_expr), BIND_PARSE_RULE(parse_array_subscript), PREC_CALL };
         m_expr_rules[TokenKind::Dot] =               { nullptr, BIND_PARSE_RULE(parse_member), PREC_CALL };
         m_expr_rules[TokenKind::Bang] =              { BIND_PARSE_RULE(parse_unary), nullptr, PREC_CALL };
         m_expr_rules[TokenKind::PlusPlus] =          { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_infix_unary), PREC_CALL };
@@ -101,14 +101,29 @@ namespace ariac {
         m_expr_rules[TokenKind::Identifier] =        { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Self] =              { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Env] =               { BIND_PARSE_RULE(parse_env),           nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Sizeof] =            { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Typeid] =            { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Cast] =              { BIND_PARSE_RULE(parse_cast),          nullptr, PREC_NONE };
 
-        m_expr_rules[TokenKind::DollarMemcpy] =      { BIND_PARSE_RULE(parse_intrinsic_call), nullptr, PREC_NONE};
-        m_expr_rules[TokenKind::DollarMemset] =      { BIND_PARSE_RULE(parse_intrinsic_call), nullptr, PREC_NONE};
+        m_expr_rules[TokenKind::AtSizeof] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::AtTypeid] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::AtMemcpy] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE};
+        m_expr_rules[TokenKind::AtMemset] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE};
 
-        m_expr_rules[TokenKind::Any] = { BIND_PARSE_RULE(parse_construct), nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Void] =        { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Bool] =        { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Char] =        { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::IChar] =       { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Short] =       { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::UShort] =      { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Int] =         { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::UInt] =        { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Long] =        { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::ULong] =       { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Sz] =          { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Isz] =         { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Float] =       { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Double] =      { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::TypeInfo] =    { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Any] =         { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
     }
 
     void Parser::parse_impl() {
@@ -231,7 +246,12 @@ namespace ariac {
             }
 
             try_consume(TokenKind::Greater, ">");
-            try_consume(TokenKind::Comma, ",");
+
+            if (match(TokenKind::Comma)) {
+                consume();
+            } else if (!match(TokenKind::RightParen)) {
+                context.report_compiler_diagnostic(peek()->loc, "Expected either ',' or ')'");
+            }
         }
 
         while (!match(TokenKind::RightParen)) {
@@ -260,53 +280,14 @@ namespace ariac {
             CallExpr(left, args, generic_args));
     }
 
-    Expr* Parser::parse_construct(Expr* left) {
-        ARIA_ASSERT(left == nullptr, "Parser::parse_construct() should not have a left side");
-
-        TypeInfo* t = parse_type();
-
-        Token* lp = try_consume(TokenKind::LeftParen, "(");
-        TinyVector<Expr*> args;
-
-        while (!match(TokenKind::RightParen)) {
-            Expr* val = parse_expression();
-
-            if (!expr_ok(val)) {
-                sync_local();
-                break;
-            }
-
-            args.append(val);
-    
-            if (match(TokenKind::Comma)) {
-                consume();
-                continue;
-            }
-
-            break;
-        }
-    
-        Token* rp = try_consume(TokenKind::RightParen, ")");
-        if (!rp) { return &error_expr; }
-
-        return Expr::Create(t->loc + rp->loc, ExprKind::Construct, ExprValueKind::RValue, t, ConstructExpr(args));
-    }
-
     BuiltinCallKind Parser::get_builtin_call_from_token(Token* token) {
         switch (token->kind) {
-            case TokenKind::Sizeof: return BuiltinCallKind::Sizeof;
-            case TokenKind::Typeid: return BuiltinCallKind::Typeid;
+            case TokenKind::AtSizeof: return BuiltinCallKind::Sizeof;
+            case TokenKind::AtTypeid: return BuiltinCallKind::Typeid;
+            case TokenKind::AtMemcpy: return BuiltinCallKind::Memcpy;
+            case TokenKind::AtMemset: return BuiltinCallKind::Memset;
 
             default: ARIA_UNREACHABLE("Invalid builtin call kind");
-        }
-    }
-
-    IntrinsicCallKind Parser::get_intrinsic_call_from_token(Token* token) {
-        switch (token->kind) {
-            case TokenKind::DollarMemcpy: return IntrinsicCallKind::Memcpy;
-            case TokenKind::DollarMemset: return IntrinsicCallKind::Memset;
-
-            default: ARIA_UNREACHABLE("Invalid intrinsic call kind");
         }
     }
 
@@ -362,6 +343,21 @@ namespace ariac {
         ARIA_ASSERT(left == nullptr, "Parser::parse_unary() should not have a left side");
 
         Token op = consume();
+
+        // Check for *const, this is very likely a const pointer type
+        if (op.kind == TokenKind::Star && match(TokenKind::Const)) {
+            consume();
+            if (!is_type()) {
+                context.report_compiler_diagnostic(peek()->loc, "Expected a type");
+            } else {
+                TypeInfo* base = parse_type();
+
+                return Expr::Create(op.loc + base->loc, ExprKind::TypeInfo,
+                    ExprValueKind::RValue, TypeInfo::create_pointer(base, true, op.loc + base->loc),
+                    ErrorExpr());
+            }
+        }
+
         Expr* expr = parse_term();
         if (!expr_ok(expr)) { return &error_expr; }
 
@@ -540,6 +536,13 @@ namespace ariac {
         }
     }
 
+    Expr* Parser::parse_type_expr(Expr* left) {
+        ARIA_ASSERT(left == nullptr, "Parser::parse_type_expr() should not have a left side");
+
+        TypeInfo* t = parse_type();
+        return Expr::Create(t->loc, ExprKind::TypeInfo, ExprValueKind::RValue, t, ErrorExpr());
+    }
+
     Expr* Parser::parse_identifier(Token t) {
         if (match(TokenKind::ColonColon)) {
             consume();
@@ -634,34 +637,8 @@ namespace ariac {
     Expr* Parser::parse_builtin_call(Expr* left) {
         ARIA_ASSERT(left == nullptr, "Parser::parse_builtin_call() should not have a left side");
 
-        TypeInfo* type = nullptr;
-        Expr* expr = nullptr;
-
         Token& op = consume(); // consume op
-        try_consume(TokenKind::LeftParen, "(");
-
-        if (is_primitive_type()) { type = parse_type(); }
-        else { expr = parse_expression(); }
-
-        try_consume(TokenKind::RightParen, ")");
-
-        if (!expr_ok(expr)) {
-            return &error_expr;
-        }
-
-        BuiltinCallKind kind = get_builtin_call_from_token(&op);
-
-        return Expr::Create(op.loc + peek(-1)->loc, ExprKind::BuiltinCall,
-            ExprValueKind::RValue, nullptr,
-            expr ? BuiltinCallExpr(expr, kind) : BuiltinCallExpr(type, kind));
-    }
-
-    Expr* Parser::parse_intrinsic_call(Expr* left) {
-        ARIA_ASSERT(left == nullptr, "Parser::parse_intrinsic_call() should not have a left side");
-
-        Token i = consume(); // consume intrinsic
         TinyVector<Expr*> args;
-
         try_consume(TokenKind::LeftParen, "(");
 
         while (!match(TokenKind::RightParen)) {
@@ -681,13 +658,14 @@ namespace ariac {
 
             break;
         }
-    
-        Token* rp = try_consume(TokenKind::RightParen, ")");
-        if (!rp) { return &error_expr; }
 
-        return Expr::Create(i.loc + rp->loc, ExprKind::IntrinsicCall, 
+        try_consume(TokenKind::RightParen, ")");
+
+        BuiltinCallKind kind = get_builtin_call_from_token(&op);
+
+        return Expr::Create(op.loc + peek(-1)->loc, ExprKind::BuiltinCall,
             ExprValueKind::RValue, nullptr,
-            IntrinsicCallExpr(args, get_intrinsic_call_from_token(&i)));
+            BuiltinCallExpr(kind, args));
     }
 
     Expr* Parser::parse_precedence_with_left(Expr* left, size_t precedence) {
@@ -1139,12 +1117,12 @@ namespace ariac {
             case TokenKind::NumLit:
             case TokenKind::StrLit:
             case TokenKind::Identifier:
-            case TokenKind::Sizeof:
-            case TokenKind::Typeid:
             case TokenKind::Cast:
             case TokenKind::Self:
-            case TokenKind::DollarMemcpy:
-            case TokenKind::DollarMemset:
+            case TokenKind::AtSizeof:
+            case TokenKind::AtTypeid:
+            case TokenKind::AtMemcpy:
+            case TokenKind::AtMemset:
                 return parse_expression_statement();
 
             case TokenKind::LeftCurly:
@@ -1527,39 +1505,6 @@ namespace ariac {
             return params;
         }
 
-        auto add_req = [this](TinyVector<GenericRequirement>* reqs) {
-            switch (peek()->kind) {
-                case TokenKind::AtIntegral: {
-                    consume();
-                    reqs->append(GenericRequirement(GenericRequirementKind::Integral));
-                    break;
-                }
-
-                case TokenKind::AtFloatingPoint: {
-                    consume();
-                    reqs->append(GenericRequirement(GenericRequirementKind::FloatingPoint));
-                    break;
-                }
-
-                case TokenKind::AtConvertibleTo: {
-                    consume();
-                    TypeInfo* type = TypeInfo::get_error();
-                    try_consume(TokenKind::LeftParen, "(");
-
-                    if (!is_type()) {
-                        context.report_compiler_diagnostic(peek()->loc, "Expected a type");
-                    } else {
-                        type = parse_type();
-                    }
-                    try_consume(TokenKind::RightParen, ")");
-                    reqs->append(GenericRequirement(GenericRequirementKind::ConvertibleTo, type));
-                    break;
-                }
-
-                default: context.report_compiler_diagnostic(peek()->loc, "Expected either '@Integral', '@FloatingPoint' or '@ConvertibleTo'"); break;
-            }
-        };
-
         bool variadic = false;
         while (peek() && !match(TokenKind::Greater)) {
             Token* ident = try_consume(TokenKind::Identifier, "identifier");
@@ -1572,18 +1517,7 @@ namespace ariac {
                 loc += t.loc;
             }
 
-            TinyVector<GenericRequirement> reqs;
-            if (match(TokenKind::Colon)) {
-                consume();
-                add_req(&reqs);
-
-                while (match(TokenKind::DoubleAmpersand)) {
-                    consume();
-                    add_req(&reqs);
-                }
-            }
-
-            params.append(Decl::Create(ident->loc, DeclKind::GenericParameter, DeclVisibility::Public, GenericParameterDecl(ident->string, reqs, variadic)));
+            params.append(Decl::Create(ident->loc, DeclKind::GenericParameter, DeclVisibility::Public, GenericParameterDecl(ident->string, variadic)));
 
             if (match(TokenKind::Comma)) {
                 Token& c = consume();

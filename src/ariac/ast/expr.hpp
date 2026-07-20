@@ -28,7 +28,6 @@ namespace ariac {
         Self,
         Call,
         BuiltinCall,
-        IntrinsicCall,
         Construct,
         ArrayLiteral,
         MethodCall,
@@ -45,27 +44,18 @@ namespace ariac {
 
     enum class BuiltinCallKind {
         Sizeof,
-        Typeid
+        Typeid,
+        Memcpy,
+        Memset,
     };
     inline const char* builtin_call_kind_to_string(BuiltinCallKind kind) {
         switch (kind) {
             case BuiltinCallKind::Sizeof: return "sizeof";
             case BuiltinCallKind::Typeid: return "typeid";
+            case BuiltinCallKind::Memcpy: return "memcpy";
+            case BuiltinCallKind::Memset: return "memset";
 
             default: ARIA_UNREACHABLE("Invalid built in call");
-        }
-    }
-
-    enum class IntrinsicCallKind {
-        Memcpy,
-        Memset
-    };
-    inline const char* intrinsic_call_kind_to_string(IntrinsicCallKind kind) {
-        switch (kind) {
-            case IntrinsicCallKind::Memcpy: return "$memcpy";
-            case IntrinsicCallKind::Memset: return "$memset";
-
-            default: ARIA_UNREACHABLE("Invalid intrinsic call");
         }
     }
 
@@ -294,21 +284,12 @@ namespace ariac {
         DeclRefExpr(std::string_view identifier, Specifier* specifier)
             : identifier(identifier), name_specifier(specifier) {}
 
+        DeclRefExpr(std::string_view identifier, Specifier* specifier, Decl* rd)
+            : identifier(identifier), name_specifier(specifier), referenced_decl(rd) {}
+
         std::string_view identifier;
         Specifier* name_specifier = nullptr;
         Decl* referenced_decl = nullptr;
-    };
-
-    // TypeInfoExpr
-    // Represents a reference to a type declaration
-    // eg. enum Foo { X }
-    // Foo.X -> Here 'Foo' is a TypeInfoExpr
-    struct TypeInfoExpr {
-        TypeInfoExpr(std::string_view ident, Decl* d)
-            : identifier(ident), referenced_decl(d) {}
-
-        std::string_view identifier;
-        Decl* referenced_decl;
     };
 
     struct MemberExpr {
@@ -331,23 +312,11 @@ namespace ariac {
     };
 
     struct BuiltinCallExpr {
-        BuiltinCallExpr(Expr* expr, BuiltinCallKind kind)
-            : type(nullptr), expression(expr), kind(kind) {}
-
-        BuiltinCallExpr(TypeInfo* t, BuiltinCallKind kind)
-            : type(t), expression(nullptr), kind(kind) {}
+        BuiltinCallExpr(BuiltinCallKind kind, TinyVector<Expr*> args)
+            : kind(kind), arguments(args) {}
 
         BuiltinCallKind kind;
-        TypeInfo* type;
-        Expr* expression;
-    };
-
-    struct IntrinsicCallExpr {
-        IntrinsicCallExpr(TinyVector<Expr*> args, IntrinsicCallKind kind)
-            : arguments(args), kind(kind) {}
-
         TinyVector<Expr*> arguments;
-        IntrinsicCallKind kind;
     };
 
     struct ConstructExpr {
@@ -509,11 +478,9 @@ namespace ariac {
             StringLiteralExpr string_literal;
             ArrayFillerExpr array_filler;
             DeclRefExpr decl_ref;
-            TypeInfoExpr type_info;
             MemberExpr member;
             CallExpr call;
             BuiltinCallExpr builtin_call;
-            IntrinsicCallExpr intrinsic_call;
             ConstructExpr construct;
             ArrayLiteralExpr array_literal;
             ArraySubscriptExpr array_subscript;
@@ -554,9 +521,6 @@ namespace ariac {
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, DeclRefExpr decl_ref)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), decl_ref(decl_ref) {}
 
-        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, TypeInfoExpr ti)
-            : loc(loc), kind(kind), value_kind(value_kind), type(type), type_info(ti) {}
-
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, MemberExpr member)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), member(member) {}
 
@@ -565,9 +529,6 @@ namespace ariac {
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, BuiltinCallExpr call)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), builtin_call(call) {}
-
-        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, IntrinsicCallExpr call)
-            : loc(loc), kind(kind), value_kind(value_kind), type(type), intrinsic_call(call) {}
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ConstructExpr construct)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), construct(construct) {}

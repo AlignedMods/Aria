@@ -110,6 +110,11 @@ namespace ariac {
 
                 return;
 
+            case ExprKind::TypeInfo: m_output += fmt::format("TypeInfoExpr {} '{}' {}\n", 
+                source_loc_to_string(expr->loc),
+                type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
+                return;
+
             case ExprKind::Member: m_output += fmt::format("MemberExpr {} '{}'{} {} '{}' {}\n",
                 source_loc_to_string(expr->loc), expr->member.member, expr->member.implicit_deref ? " implicit_deref" : "",
                 decl_kind_to_string(expr->member.referenced_member->kind), reinterpret_cast<void*>(expr->member.referenced_member),
@@ -138,19 +143,11 @@ namespace ariac {
                 }
                 return;
 
-            case ExprKind::BuiltinCall: m_output += fmt::format("BuiltinCallExpr {} {} '{}' '{}' {}\n",
-                source_loc_to_string(expr->loc), builtin_call_kind_to_string(expr->builtin_call.kind), 
-                type_info_to_string(expr->builtin_call.type ? expr->builtin_call.type : expr->builtin_call.expression->type, false), 
+            case ExprKind::BuiltinCall: m_output += fmt::format("BuiltinCallExpr {} {} '{}' {}\n",
+                source_loc_to_string(expr->loc), builtin_call_kind_to_string(expr->builtin_call.kind),
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
-                if (expr->builtin_call.expression && !expr->builtin_call.type) { dump_expr(expr->builtin_call.expression, indentation + 4); }
-                return;
-
-            case ExprKind::IntrinsicCall: m_output += fmt::format("IntrinsicCallExpr {} {} '{}' {}\n",
-                source_loc_to_string(expr->loc), intrinsic_call_kind_to_string(expr->intrinsic_call.kind),
-                type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
-
-                for (Expr* arg : expr->intrinsic_call.arguments) {
+                for (Expr* arg : expr->builtin_call.arguments) {
                     dump_expr(arg, indentation + 4);
                 }
                 return;
@@ -382,14 +379,8 @@ namespace ariac {
 
                 return;
 
-            case DeclKind::GenericParameter: m_output += fmt::format("GenericParameterDecl {} '{}'{} ", source_loc_to_string(decl->loc), decl->generic_parameter.identifier,
-                decl->generic_parameter.variadic ? " variadic" : "");
-                for (size_t i = 0; i < decl->generic_parameter.requirements.size; i++) {
-                     if (i < 0) { m_output += ", "; }
-                     m_output += generic_requirement_kind_to_string(decl->generic_parameter.requirements.items[i].kind);
-                }
-                m_output += '\n';
-
+            case DeclKind::GenericParameter: m_output += fmt::format("GenericParameterDecl {} '{}'\n", 
+                source_loc_to_string(decl->loc), decl->generic_parameter.identifier);
                 return;
 
             default: ARIA_UNREACHABLE("Invalid decl kind");

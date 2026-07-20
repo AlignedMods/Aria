@@ -77,23 +77,20 @@ namespace ariac {
         Defer,
         Extern,
         Static,
-        Sizeof,
-        Typeid,
         Typedef,
         Enum,
         As,
         Const,
         Cast,
         Self,
-        DollarMemcpy, // $memcpy
-        DollarMemset, // $memset
         HashPrivate, // #private
         AtIf, // @if
         AtBuiltin, // @builtin
         AtNoreturn, // @noreturn
-        AtIntegral, // @Integral
-        AtFloatingPoint, // @FloatingPoint
-        AtConvertibleTo, // @ConvertibleTo
+        AtMemcpy, // @memcpy
+        AtMemset, // @memset
+        AtSizeof, // @sizeof
+        AtTypeid, // @typeid
         // ^^^ Keywords ^^^ //
 
         // VVV Types VVV //
@@ -207,18 +204,20 @@ namespace ariac {
             case TokenKind::Defer: return "defer";
             case TokenKind::Extern: return "extern";
             case TokenKind::Static: return "static";
-            case TokenKind::Sizeof: return "sizeof";
             case TokenKind::Typedef: return "typedef";
             case TokenKind::Enum: return "enum";
             case TokenKind::As: return "as";
             case TokenKind::Const: return "const";
             case TokenKind::Cast: return "cast";
             case TokenKind::Self: return "self";
-            case TokenKind::DollarMemcpy: return "$memcpy";
-            case TokenKind::DollarMemset: return "$memset";
             case TokenKind::HashPrivate: return "#private";
             case TokenKind::AtIf: return "@if";
             case TokenKind::AtBuiltin: return "@builtin";
+            case TokenKind::AtNoreturn: return "@noreturn";
+            case TokenKind::AtSizeof: return "@sizeof";
+            case TokenKind::AtTypeid: return "@typeid";
+            case TokenKind::AtMemcpy: return "@memcpy";
+            case TokenKind::AtMemset: return "@memset";
             // ^^^ Keywords ^^^ //
             
             // VVV Types VVV //

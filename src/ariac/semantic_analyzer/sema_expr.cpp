@@ -103,7 +103,7 @@ namespace ariac {
                     case DeclKind::Struct:
                     case DeclKind::Typedef:
                     case DeclKind::Enum: {
-                        replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::LValue, TypeInfo::get_error(), TypeInfoExpr(dr.identifier, sym)));
+                        replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, type_from_decl(sym), ErrorExpr()));
                         return;
                     }
 
@@ -121,7 +121,7 @@ namespace ariac {
                             }
 
                             case DeclKind::Struct: {
-                                replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::LValue, TypeInfo::get_error(), TypeInfoExpr(dr.identifier, sym)));
+                                replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, type_from_decl(sym), ErrorExpr()));
                                 return;
                             }
 
@@ -179,7 +179,7 @@ namespace ariac {
                 ARIA_ASSERT(type->kind == DeclKind::GenericParameter, "Invalid generic parameter");
 
                 if (type->generic_parameter.identifier == dr.identifier) {
-                    replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::LValue, TypeInfo::get_error(), TypeInfoExpr(dr.identifier, type)));
+                    replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, type_from_decl(type), ErrorExpr()));
                     return;
                 }
             }
@@ -233,7 +233,7 @@ namespace ariac {
                     case DeclKind::Struct:
                     case DeclKind::Typedef:
                     case DeclKind::Enum: {
-                        replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::LValue, TypeInfo::get_error(), TypeInfoExpr(dr.identifier, sym)));
+                        replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, type_from_decl(sym), ErrorExpr()));
                         return;
                     }
 
@@ -260,7 +260,7 @@ namespace ariac {
                             }
 
                             case DeclKind::Struct: {
-                                replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::LValue, TypeInfo::get_error(), TypeInfoExpr(dr.identifier, sym)));
+                                replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, type_from_decl(sym), ErrorExpr()));
                                 return;
                             }
 
@@ -308,7 +308,7 @@ namespace ariac {
                             case DeclKind::Struct: 
                             case DeclKind::Typedef:
                             case DeclKind::Enum: {
-                                replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::LValue, TypeInfo::get_error(), TypeInfoExpr(dr.identifier, sym)));
+                                replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, type_from_decl(sym), ErrorExpr()));
                                 return;
                             }
 
@@ -358,6 +358,10 @@ namespace ariac {
         }
 
         resolve_without_specifier();
+    }
+
+    void SemanticAnalyzer::resolve_typeinfo_expr(Expr* expr) {
+        resolve_type(expr->type);
     }
 
     void SemanticAnalyzer::resolve_member_expr(Expr* expr) {
@@ -624,7 +628,7 @@ namespace ariac {
             return;
         } else if (call.callee->kind == ExprKind::TypeInfo) {
             expr->kind = ExprKind::Construct;
-            expr->type = TypeInfo::create_struct(call.callee->type_info.referenced_decl);
+            expr->type = call.callee->type;
             expr->construct.arguments = call.arguments;
             resolve_construct_expr(expr);
             return;
@@ -696,39 +700,6 @@ namespace ariac {
                                     Decl* gen_param = g->generic.parameters.items[i];
                                     TypeInfo* gen_arg = call.generic_arguments.items[i];
                                     ARIA_ASSERT(gen_param->kind == DeclKind::GenericParameter, "Invalid generic parameter");
-                                    
-                                    for (auto& req : gen_param->generic_parameter.requirements) {
-                                        bool is_satifised = false;
-
-                                        switch (req.kind) {
-                                            case GenericRequirementKind::Integral: {
-                                                is_satifised = gen_arg->is_integral();
-                                                break;
-                                            }
-
-                                            case GenericRequirementKind::FloatingPoint: {
-                                                is_satifised = gen_arg->is_floating_point();
-                                                break;
-                                            }
-
-                                            case GenericRequirementKind::ConvertibleTo: {
-                                                ConversionCost cost = get_conversion_cost(req.arg, gen_arg);
-                                                if (cost.cast_needed && !cost.explicit_cast_possible) {
-                                                    is_satifised = false;
-                                                } else {
-                                                    is_satifised = true;
-                                                }
-                                                break;
-                                            }
-
-                                            default: ARIA_UNREACHABLE("Invalid generic requirement");
-                                        }
-
-                                        if (!is_satifised && !gen_arg->is_error()) {
-                                            context.report_compiler_diagnostic(gen_arg->loc, fmt::format("Argument '{}' does not satisfy generic requirement '{}'", i, generic_requirement_kind_to_string(req.kind)));
-                                            gen_arg = TypeInfo::get_error();
-                                        }
-                                    }
 
                                     m_specialized_generic_types[gen_param->generic_parameter.identifier] = gen_arg;
                                 }
@@ -813,105 +784,72 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_builtin_call_expr(Expr* expr) {
-        BuiltinCallExpr& bc = expr->builtin_call;
+        BuiltinCallExpr& b = expr->builtin_call;
 
-        if (!expr->type) {
-            switch (bc.kind) {
-                case BuiltinCallKind::Sizeof: {
-                    expr->type = TypeInfo::get_basic(TypeKind::Sz);
+        switch (b.kind) {
+            case BuiltinCallKind::Sizeof: {
+                expr->type = TypeInfo::get_basic(TypeKind::Sz);
+
+                if (b.arguments.size != 1) {
+                    context.report_compiler_diagnostic(expr->loc, "Call to builtin function '@sizeof' must have 1 argument");
                     break;
                 }
 
-                case BuiltinCallKind::Typeid: {
-                    expr->type = TypeInfo::get_typeinfo_ptr();
-                    break;
-                }
-
-                default: ARIA_UNREACHABLE("Invalid builtin call kind");
-            }
-        }
-
-        if (bc.type) { resolve_type(bc.type); return; }
-
-        if (bc.expression) {
-            resolve_expr(bc.expression);
-
-            if (bc.expression->kind == ExprKind::TypeInfo) {
-                switch (bc.expression->type_info.referenced_decl->kind) {
-                    case DeclKind::Struct: {
-                        if (bc.expression->type_info.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
-                            CompilationUnit* old_unit = context.active_comp_unit;
-                            context.active_comp_unit = bc.expression->type_info.referenced_decl->parent_unit;
-                            resolve_struct_decl(bc.expression->type_info.referenced_decl);
-                            context.active_comp_unit = old_unit;
-                        }
-
-                        bc.type = TypeInfo::create_struct(bc.expression->type_info.referenced_decl);
-                        break;
-                    }
-
-                    case DeclKind::Typedef: {
-                        if (bc.expression->type_info.referenced_decl->resolve_status == ResolveStatus::NotStarted) {
-                            CompilationUnit* old_unit = context.active_comp_unit;
-                            context.active_comp_unit = bc.expression->type_info.referenced_decl->parent_unit;
-                            resolve_typedef_decl(bc.expression->type_info.referenced_decl);
-                            context.active_comp_unit = old_unit;
-                        }
-
-                        bc.type = TypeInfo::create_typedef(bc.expression->type_info.referenced_decl);
-                        break;
-                    }
-
-                    case DeclKind::GenericParameter: {
-                        bc.type = TypeInfo::create_generic(bc.expression->type_info.identifier);
-                        break;
-                    }
-
-                    default: break;
-                }
-            }
-        }
-    }
-
-    void SemanticAnalyzer::resolve_intrinsic_call_expr(Expr* expr) {
-        IntrinsicCallExpr& i = expr->intrinsic_call;
-
-        for (Expr* arg : i.arguments) {
-            resolve_expr(arg);
-        }
-
-        switch (i.kind) {
-            case IntrinsicCallKind::Memcpy: {
-                expr->type = TypeInfo::get_void();
-
-                if (i.arguments.size != 4) {
-                    context.report_compiler_diagnostic(expr->loc, "Call to intrinsic function '$memcpy' must have 4 arguments");
-                    break;
-                }
-
-                try_insert_implicit_cast(TypeInfo::get_void_ptr(), i.arguments.items[0]); require_rvalue(i.arguments.items[0]);
-                try_insert_implicit_cast(TypeInfo::get_void_ptr(), i.arguments.items[1]); require_rvalue(i.arguments.items[1]);
-                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Sz), i.arguments.items[2]); require_rvalue(i.arguments.items[2]);
-                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Bool), i.arguments.items[3]); require_rvalue(i.arguments.items[3]);
+                resolve_expr(b.arguments.items[0]);
                 break;
             }
 
-            case IntrinsicCallKind::Memset: {
-                expr->type = TypeInfo::get_void();
+            case BuiltinCallKind::Typeid: {
+                expr->type = TypeInfo::get_typeinfo_ptr();
 
-                if (i.arguments.size != 4) {
-                    context.report_compiler_diagnostic(expr->loc, "Call to intrinsic function '$memset' must have 4 arguments");
+                if (b.arguments.size != 1) {
+                    context.report_compiler_diagnostic(expr->loc, "Call to builtin function '@typeid' must have 1 argument");
                     break;
                 }
 
-                try_insert_implicit_cast(TypeInfo::get_void_ptr(), i.arguments.items[0]); require_rvalue(i.arguments.items[0]);
-                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Char), i.arguments.items[1]); require_rvalue(i.arguments.items[1]);
-                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Sz), i.arguments.items[2]); require_rvalue(i.arguments.items[2]);
-                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Bool), i.arguments.items[3]); require_rvalue(i.arguments.items[3]);
+                resolve_expr(b.arguments.items[0]);
                 break;
             }
 
-            default: ARIA_UNREACHABLE("Invalid intrinsic call kind");
+            case BuiltinCallKind::Memcpy: {
+                expr->type = TypeInfo::get_void();
+
+                if (b.arguments.size != 4) {
+                    context.report_compiler_diagnostic(expr->loc, "Call to builtin function '@memcpy' must have 4 arguments");
+                    break;
+                }
+
+                for (Expr* arg : b.arguments) {
+                    resolve_expr(arg);
+                }
+
+                try_insert_implicit_cast(TypeInfo::get_void_ptr(), b.arguments.items[0]); require_rvalue(b.arguments.items[0]);
+                try_insert_implicit_cast(TypeInfo::get_void_ptr(), b.arguments.items[1]); require_rvalue(b.arguments.items[1]);
+                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Sz), b.arguments.items[2]); require_rvalue(b.arguments.items[2]);
+                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Bool), b.arguments.items[3]); require_rvalue(b.arguments.items[3]);
+                break;
+            }
+
+            case BuiltinCallKind::Memset: {
+                expr->type = TypeInfo::get_void();
+
+                if (b.arguments.size != 4) {
+                    context.report_compiler_diagnostic(expr->loc, "Call to builtin function '@memset' must have 4 arguments");
+                    break;
+                }
+
+                for (Expr* arg : b.arguments) {
+                    resolve_expr(arg);
+                }
+
+                try_insert_implicit_cast(TypeInfo::get_void_ptr(), b.arguments.items[0]); require_rvalue(b.arguments.items[0]);
+                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Char), b.arguments.items[1]); require_rvalue(b.arguments.items[1]);
+                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Sz), b.arguments.items[2]); require_rvalue(b.arguments.items[2]);
+                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Bool), b.arguments.items[3]); require_rvalue(b.arguments.items[3]);
+                break;
+            }
+
+            default: ARIA_UNREACHABLE("Invalid builtin call kind");
         }
     }
 
@@ -1230,6 +1168,11 @@ namespace ariac {
             }
 
             case UnaryOperatorKind::Dereference: {
+                if (unop.expression->kind == ExprKind::TypeInfo) {
+                    replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, TypeInfo::create_pointer(unop.expression->type, false), ErrorExpr()));
+                    break;
+                }
+
                 expr->value_kind = ExprValueKind::LValue;
                 if (type->is_error()) { expr->type = type; break; }
 
@@ -1440,13 +1383,12 @@ namespace ariac {
             case ExprKind::StringLiteral: resolve_string_literal_expr(expr); break;
             case ExprKind::Null: resolve_null_expr(expr); break;
             case ExprKind::DeclRef: resolve_decl_ref_expr(expr); break;
-            case ExprKind::TypeInfo: break;
+            case ExprKind::TypeInfo: resolve_typeinfo_expr(expr); break;
             case ExprKind::Member: resolve_member_expr(expr); break;
             case ExprKind::BuiltinMember: resolve_builtin_member_expr(expr); break;
             case ExprKind::Self: resolve_self_expr(expr); break;
             case ExprKind::Call: resolve_call_expr(expr); break;
             case ExprKind::BuiltinCall: resolve_builtin_call_expr(expr); break;
-            case ExprKind::IntrinsicCall: resolve_intrinsic_call_expr(expr); break;
             case ExprKind::Construct: resolve_construct_expr(expr); break;
             case ExprKind::ArrayLiteral: resolve_array_literal_expr(expr); break;
             case ExprKind::MethodCall: resolve_method_call_expr(expr); break;

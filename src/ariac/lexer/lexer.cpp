@@ -129,12 +129,6 @@ namespace ariac {
                     else { add_token(TokenKind::Greater, SourceLoc(m_current_line, get_column(m_index - 1), m_index - 1, 1), ">"); break; }
                 }
 
-                case '$': {
-                    backtrack();
-                    parse_dollar_symbol();
-                    break;
-                }
-
                 case '#': {
                     backtrack();
                     parse_hash_symbol();
@@ -171,6 +165,7 @@ namespace ariac {
                         break;
                     }
 
+                    backtrack();
                     context.report_compiler_diagnostic(SourceLoc(m_current_line, get_column(m_index), m_index, 1), fmt::format("Unknown character '{}' ({:x})", c, c));
                     consume();
                     break;
@@ -319,7 +314,7 @@ namespace ariac {
             }
         }
 
-        std::string_view buf(m_source.data() + startIndex, m_index - startIndex);
+        std::string_view buf(m_source.data() + numberStartIndex, m_index - numberStartIndex);
         
         // Check for suffix
         if (peek()) {
@@ -426,29 +421,6 @@ namespace ariac {
         add_token(TokenKind::StrLit, loc, scratch_buffer_to_str());
     }
 
-    void Lexer::parse_dollar_symbol() {
-        SourceLoc loc = SourceLoc(m_current_line, get_column(m_index), m_index, 1);
-        scratch_buffer_clear();
-
-        scratch_buffer_append('$');
-        consume();
-
-        while (true) {
-            if (std::isalpha(peek())) {
-                loc.len++;
-                scratch_buffer_append(peek());
-                consume();
-            } else {
-                break;
-            }
-        }
-
-        if (scratch_buffer_cmp("$memcpy")) { add_token(TokenKind::DollarMemcpy, loc, "$memcpy"); return; }
-        if (scratch_buffer_cmp("$memset")) { add_token(TokenKind::DollarMemset, loc, "$memset"); return; }
-
-        context.report_compiler_diagnostic(loc, "Unknown identifier following '$'");
-    }
-
     void Lexer::parse_hash_symbol() {
         SourceLoc loc = SourceLoc(m_current_line, get_column(m_index), m_index, 1);
         scratch_buffer_clear();
@@ -488,13 +460,22 @@ namespace ariac {
             }
         }
 
-        if (scratch_buffer_cmp("@if"))            { add_token(TokenKind::AtIf, loc, "@if"); return; }
-        if (scratch_buffer_cmp("@builtin"))       { add_token(TokenKind::AtBuiltin, loc, "@builtin"); return; }
-        if (scratch_buffer_cmp("@noreturn"))      { add_token(TokenKind::AtNoreturn, loc, "@noreturn"); return; }
-        if (scratch_buffer_cmp("@Integral"))      { add_token(TokenKind::AtIntegral, loc, "@Integral"); return; }
-        if (scratch_buffer_cmp("@FloatingPoint")) { add_token(TokenKind::AtFloatingPoint, loc, "@FloatingPoint"); return; }
-        if (scratch_buffer_cmp("@ConvertibleTo")) { add_token(TokenKind::AtConvertibleTo, loc, "@ConvertibleTo"); return; }
+        static std::unordered_map<std::string_view, TokenKind> kws = {
+            { "@if", TokenKind::AtIf },
+            { "@builtin", TokenKind::AtBuiltin },
+            { "@noreturn", TokenKind::AtNoreturn },
+            { "@sizeof", TokenKind::AtSizeof },
+            { "@typeid", TokenKind::AtTypeid },
+            { "@memcpy", TokenKind::AtMemcpy },
+            { "@memset", TokenKind::AtMemset }
+        };
 
+        std::string_view str = scratch_buffer_to_str();
+        if (kws.contains(str)) {
+            add_token(kws.at(str), loc, str);
+            return;
+        }
+        
         context.report_compiler_diagnostic(loc, "Unknown identifier following '@'");
     }
 
@@ -512,55 +493,61 @@ namespace ariac {
             }
         }
 
-        if (scratch_buffer_cmp("true"))     { add_token(TokenKind::True,     loc, "true");     return; }
-        if (scratch_buffer_cmp("false"))    { add_token(TokenKind::False,    loc, "false");    return; }
-        if (scratch_buffer_cmp("null"))     { add_token(TokenKind::Null,     loc, "null");     return; }
+        static std::unordered_map<std::string_view, TokenKind> kws = {
+            { "true", TokenKind::True },
+            { "false", TokenKind::False },
+            { "null", TokenKind::Null },
 
-        if (scratch_buffer_cmp("module"))   { add_token(TokenKind::Module,   loc, "module");   return; }
-        if (scratch_buffer_cmp("import"))   { add_token(TokenKind::Import,   loc, "import");   return; }
-        if (scratch_buffer_cmp("env"))      { add_token(TokenKind::Env,      loc, "env");      return; }
-        if (scratch_buffer_cmp("let"))      { add_token(TokenKind::Let,      loc, "let");      return; }
-        if (scratch_buffer_cmp("if"))       { add_token(TokenKind::If,       loc, "if");       return; }
-        if (scratch_buffer_cmp("else"))     { add_token(TokenKind::Else,     loc, "else");     return; }
-        if (scratch_buffer_cmp("while"))    { add_token(TokenKind::While,    loc, "while");    return; }
-        if (scratch_buffer_cmp("do"))       { add_token(TokenKind::Do,       loc, "do");       return; }
-        if (scratch_buffer_cmp("for"))      { add_token(TokenKind::For,      loc, "for");      return; }
-        if (scratch_buffer_cmp("break"))    { add_token(TokenKind::Break,    loc, "break");    return; }
-        if (scratch_buffer_cmp("continue")) { add_token(TokenKind::Continue, loc, "continue"); return; }
-        if (scratch_buffer_cmp("return"))   { add_token(TokenKind::Return,   loc, "return");   return; }
-        if (scratch_buffer_cmp("fn"))       { add_token(TokenKind::Fn,       loc, "fn");       return; }
-        if (scratch_buffer_cmp("struct"))   { add_token(TokenKind::Struct,   loc, "struct");   return; }
-        if (scratch_buffer_cmp("impl"))     { add_token(TokenKind::Impl,     loc, "impl");     return; }
-        if (scratch_buffer_cmp("defer"))    { add_token(TokenKind::Defer,    loc, "defer");    return; }
-        if (scratch_buffer_cmp("extern"))   { add_token(TokenKind::Extern,   loc, "extern");   return; }
-        if (scratch_buffer_cmp("static"))   { add_token(TokenKind::Static,   loc, "static");   return; }
-        if (scratch_buffer_cmp("sizeof"))   { add_token(TokenKind::Sizeof,   loc, "sizeof");   return; }
-        if (scratch_buffer_cmp("typeid"))   { add_token(TokenKind::Typeid,   loc, "typeid");   return; }
-        if (scratch_buffer_cmp("typedef"))  { add_token(TokenKind::Typedef,  loc, "typedef");  return; }
-        if (scratch_buffer_cmp("enum"))     { add_token(TokenKind::Enum,     loc, "enum");     return; }
-        if (scratch_buffer_cmp("as"))       { add_token(TokenKind::As,       loc, "as");       return; }
-        if (scratch_buffer_cmp("const"))    { add_token(TokenKind::Const,    loc, "const");    return; }
-        if (scratch_buffer_cmp("cast"))     { add_token(TokenKind::Cast,     loc, "cast");     return; }
-        if (scratch_buffer_cmp("self"))     { add_token(TokenKind::Self,     loc, "self");     return; }
+            { "module", TokenKind::Module },
+            { "import", TokenKind::Import },
+            { "env", TokenKind::Env },
+            { "let", TokenKind::Let },
+            { "if", TokenKind::If },
+            { "else", TokenKind::Else },
+            { "while", TokenKind::While },
+            { "do", TokenKind::Do },
+            { "for", TokenKind::For },
+            { "break", TokenKind::Break },
+            { "continue", TokenKind::Continue },
+            { "return", TokenKind::Return },
+            { "fn", TokenKind::Fn },
+            { "struct", TokenKind::Struct },
+            { "impl", TokenKind::Impl },
+            { "defer", TokenKind::Defer },
+            { "extern", TokenKind::Extern },
+            { "static", TokenKind::Static },
+            { "typedef", TokenKind::Typedef },
+            { "enum", TokenKind::Enum },
+            { "as", TokenKind::As },
+            { "const", TokenKind::Const },
+            { "cast", TokenKind::Cast },
+            { "self", TokenKind::Self },
 
-        if (scratch_buffer_cmp("void"))     { add_token(TokenKind::Void,     loc, "void");     return; }
-        if (scratch_buffer_cmp("bool"))     { add_token(TokenKind::Bool,     loc, "bool");     return; }
-        if (scratch_buffer_cmp("char"))     { add_token(TokenKind::Char,     loc, "char");     return; }
-        if (scratch_buffer_cmp("ichar"))    { add_token(TokenKind::IChar,    loc, "ichar");    return; }
-        if (scratch_buffer_cmp("short"))    { add_token(TokenKind::Short,    loc, "short");    return; }
-        if (scratch_buffer_cmp("ushort"))   { add_token(TokenKind::UShort,   loc, "ushort");   return; }
-        if (scratch_buffer_cmp("int"))      { add_token(TokenKind::Int,      loc, "int");      return; }
-        if (scratch_buffer_cmp("uint"))     { add_token(TokenKind::UInt,     loc, "uint");     return; }
-        if (scratch_buffer_cmp("long"))     { add_token(TokenKind::Long,     loc, "long");     return; }
-        if (scratch_buffer_cmp("ulong"))    { add_token(TokenKind::ULong,    loc, "ulong");    return; }
-        if (scratch_buffer_cmp("sz"))       { add_token(TokenKind::Sz,       loc, "sz");       return; }
-        if (scratch_buffer_cmp("isz"))      { add_token(TokenKind::Isz,      loc, "isz");      return; }
-        if (scratch_buffer_cmp("float"))    { add_token(TokenKind::Float,    loc, "float");    return; }
-        if (scratch_buffer_cmp("double"))   { add_token(TokenKind::Double,   loc, "double");   return; }
-        if (scratch_buffer_cmp("typeinfo")) { add_token(TokenKind::TypeInfo, loc, "typeinfo"); return; }
-        if (scratch_buffer_cmp("any"))      { add_token(TokenKind::Any,      loc, "any");      return; }
+            { "void", TokenKind::Void },
+            { "bool", TokenKind::Bool },
+            { "char", TokenKind::Char },
+            { "ichar", TokenKind::IChar },
+            { "short", TokenKind::Short },
+            { "ushort", TokenKind::UShort },
+            { "int", TokenKind::Int },
+            { "uint", TokenKind::UInt },
+            { "long", TokenKind::Long },
+            { "ulong", TokenKind::ULong },
+            { "sz", TokenKind::Sz },
+            { "isz", TokenKind::Isz },
+            { "float", TokenKind::Float },
+            { "double", TokenKind::Double },
+            { "typeinfo", TokenKind::TypeInfo },
+            { "any", TokenKind::Any }
+        };
 
-        add_token(TokenKind::Identifier, loc, scratch_buffer_to_str());
+        std::string_view str = scratch_buffer_to_str();
+        if (kws.contains(str)) {
+            add_token(kws.at(str), loc, str);
+            return;
+        }
+
+        add_token(TokenKind::Identifier, loc, str);
     }
 
     void Lexer::parse_single_line_comment() {

@@ -3,31 +3,31 @@ module std::core::mem;
 import libc;
 
 fn copy(dst: *void, src: *void, len: sz) {
-    $memcpy(dst, src, len, false);
+    @memcpy(dst, src, len, false);
 }
 
 fn set(ptr: *void, val: char, len: sz) {
-    $memset(ptr, val, len, false);
+    @memset(ptr, val, len, false);
 }
 
 fn alloc<T>() -> *T {
-    return libc::calloc(1, sizeof(T));
+    return libc::calloc(1, @sizeof(T));
 }
 
 fn new<T>(init: T) -> *T {
-    let ptr = libc::malloc(sizeof(T));
+    let ptr = libc::malloc(@sizeof(T));
     *cast(*T, ptr) = init;
     return ptr;
 }
 
 // Allocates a new array on the heap of size 'len' and does NOT zero initialize it
 fn alloc_array<T>(len: sz) -> []T {
-    return cast(*T, libc::malloc(len * sizeof(T)))[:len];
+    return cast(*T, libc::malloc(len * @sizeof(T)))[:len];
 }
 
 // Allocates a new array on the heap of size 'len' and zero initializes it
 fn new_array<T>(len: sz) -> []T {
-    return cast(*T, libc::calloc(len, sizeof(T)))[:len];
+    return cast(*T, libc::calloc(len, @sizeof(T)))[:len];
 }
 
 fn free(ptr: *void) {

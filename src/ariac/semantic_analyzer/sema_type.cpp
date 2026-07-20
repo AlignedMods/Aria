@@ -14,85 +14,7 @@ namespace ariac {
                     break;
                 }
 
-                switch (t.ident->type_info.referenced_decl->kind) {
-                    case DeclKind::Struct: {
-                        if (t.ident->type_info.referenced_decl->resolve_status == ResolveStatus::InProgress) {
-                            context.report_compiler_diagnostic(type->loc, "Recursive definition of struct");
-                            type->kind = TypeKind::Error;
-                            break;
-                        } else {
-                            CompilationUnit* old_unit = context.active_comp_unit;
-                            context.active_comp_unit = t.ident->type_info.referenced_decl->parent_unit;
-                            resolve_struct_decl(t.ident->type_info.referenced_decl);
-                            context.active_comp_unit = old_unit;
-                        }
-                        
-
-                        type->kind = TypeKind::Structure;
-                        type->struct_ = StructType(t.ident->type_info.identifier, t.ident->type_info.referenced_decl);
-                        break;
-                    }
-
-                    case DeclKind::Typedef: {
-                        if (t.ident->type_info.referenced_decl->resolve_status == ResolveStatus::InProgress) {
-                            context.report_compiler_diagnostic(type->loc, "Recursive definition of typedef");
-                            type->kind = TypeKind::Error;
-                            break;
-                        } else {
-                            CompilationUnit* old_unit = context.active_comp_unit;
-                            context.active_comp_unit = t.ident->type_info.referenced_decl->parent_unit;
-                            resolve_typedef_decl(t.ident->type_info.referenced_decl);
-                            context.active_comp_unit = old_unit;
-                        }
-
-                        type->kind = TypeKind::Typedef;
-                        type->typedef_ = TypedefType(t.ident->type_info.identifier, t.ident->type_info.referenced_decl->typedef_.type, t.ident->type_info.referenced_decl);
-                        break;
-                    }
-
-                    case DeclKind::Enum: {
-                        if (t.ident->type_info.referenced_decl->resolve_status == ResolveStatus::InProgress) {
-                            context.report_compiler_diagnostic(type->loc, "Recursive definition of enum");
-                            type->kind = TypeKind::Error;
-                            break;
-                        } else {
-                            CompilationUnit* old_unit = context.active_comp_unit;
-                            context.active_comp_unit = t.ident->type_info.referenced_decl->parent_unit;
-                            resolve_enum_decl(t.ident->type_info.referenced_decl);
-                            context.active_comp_unit = old_unit;
-                        }
-
-                        type->kind = TypeKind::Enum;
-                        type->enum_ = EnumType(t.ident->type_info.identifier, t.ident->type_info.referenced_decl);
-                        break;
-                    }
-
-                    case DeclKind::GenericParameter: {
-                        type->kind = TypeKind::Generic;
-                        type->generic = GenericType(t.ident->type_info.identifier, t.ident->type_info.referenced_decl);
-                        break;
-                    }
-
-                    case DeclKind::Generic: {
-                        ARIA_ASSERT(t.ident->type_info.referenced_decl->kind == DeclKind::Generic, "Invalid generic");
-
-                        if (t.ident->type_info.referenced_decl->generic.decl->kind == DeclKind::Struct) {
-                            if (!m_search_generics) {
-                                context.report_compiler_diagnostic(type->loc, "Cannot reference generic type without an instantiation");
-                            }
-
-                            type->kind = TypeKind::GenericDecl;
-                            type->generic_decl = GenericDeclType(t.ident->type_info.identifier, t.ident->type_info.referenced_decl);
-                        } else {
-                            context.report_compiler_diagnostic(type->loc, fmt::format("'{}' is not a type", t.ident->type_info.identifier));
-                        }
-
-                        break;
-                    }
-
-                    default: ARIA_UNREACHABLE("Invalid type decl"); break;
-                }
-
+                *type = *t.ident->type;
                 break;
             }
 
@@ -501,6 +423,44 @@ namespace ariac {
             case CastKind::LValueToRValue: return false;
 
             default: return true;
+        }
+    }
+
+    TypeInfo* SemanticAnalyzer::type_from_decl(Decl* decl) {
+        switch (decl->kind) {
+            case DeclKind::Struct: {
+                if (decl->resolve_status == ResolveStatus::InProgress) {
+                    context.report_compiler_diagnostic(decl->loc, "Recursive definition of struct");
+                    return TypeInfo::get_error();
+                } else {
+                    CompilationUnit* old_unit = context.active_comp_unit;
+                    context.active_comp_unit = decl->parent_unit;
+                    resolve_struct_decl(decl);
+                    context.active_comp_unit = old_unit;
+                }
+
+                return TypeInfo::create_struct(decl);
+            }
+
+            case DeclKind::Typedef: {
+                if (decl->resolve_status == ResolveStatus::InProgress) {
+                    context.report_compiler_diagnostic(decl->loc, "Recursive definition of typedef");
+                    return TypeInfo::get_error();
+                } else {
+                    CompilationUnit* old_unit = context.active_comp_unit;
+                    context.active_comp_unit = decl->parent_unit;
+                    resolve_typedef_decl(decl);
+                    context.active_comp_unit = old_unit;
+                }
+
+                return TypeInfo::create_typedef(decl);
+            }
+
+            case DeclKind::GenericParameter: {
+                return TypeInfo::create_generic(decl->generic_parameter.identifier);
+            }
+
+            default: ARIA_UNREACHABLE("Invalid decl");
         }
     }
 

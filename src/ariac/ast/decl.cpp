@@ -15,7 +15,7 @@ namespace ariac {
                 VarDecl& v = d->var;
                 copy->var.identifier = v.identifier;
                 copy->var.type = TypeInfo::dup(v.type);
-                copy->var.initializer = Expr::dup(v.initializer);
+                if (v.initializer) { copy->var.initializer = Expr::dup(v.initializer); }
                 copy->var.global_var = v.global_var;
                 copy->var.const_var = v.const_var;
                 copy->var.linkage_kind = v.linkage_kind;

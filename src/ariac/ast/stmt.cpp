@@ -8,7 +8,8 @@ namespace ariac {
         Stmt* copy = Stmt::Create(s->loc, s->kind, ErrorStmt());
 
         switch (s->kind) {
-            case StmtKind::Error: break;
+            case StmtKind::Error:
+            case StmtKind::Nop: break;
 
             case StmtKind::Block: {
                 BlockStmt& b = s->block;

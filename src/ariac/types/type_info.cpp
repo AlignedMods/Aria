@@ -283,32 +283,6 @@ namespace ariac {
         }
     }
 
-    bool TypeInfo::has_generic_integral_requirement() const {
-        if (kind != TypeKind::Generic) { return false; }
-        if (!generic.resolved_decl) { return false; }
-
-        ARIA_ASSERT(generic.resolved_decl->kind == DeclKind::GenericParameter, "Invalid generic parameter");
-
-        for (auto& req : generic.resolved_decl->generic_parameter.requirements) {
-            if (req.kind == GenericRequirementKind::Integral) { return true; }
-        }
-
-        return false;
-    }
-
-    bool TypeInfo::has_generic_floating_requirement() const {
-        if (kind != TypeKind::Generic) { return false; }
-        if (!generic.resolved_decl) { return false; }
-
-        ARIA_ASSERT(generic.resolved_decl->kind == DeclKind::GenericParameter, "Invalid generic parameter");
-
-        for (auto& req : generic.resolved_decl->generic_parameter.requirements) {
-            if (req.kind == GenericRequirementKind::FloatingPoint) { return true; }
-        }
-
-        return false;
-    }
-
     u64 TypeInfo::get_size() const {
         switch (kind) {
             case TypeKind::Bool: return 1;

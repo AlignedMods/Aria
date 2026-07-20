@@ -3,7 +3,7 @@ module std::core;
 import libc;
 
 fn any_has_type<T>(a: *any) -> bool {
-    return libc::strcmp(a.type.name.mem, typeid(T).name.mem) == 0;
+    return libc::strcmp(a.type.name.mem, @typeid(T).name.mem) == 0;
 }
 
 fn any_is_array(a: *any) -> bool {

@@ -64,12 +64,12 @@ namespace ariac {
         void resolve_string_literal_expr(Expr* expr);
         void resolve_null_expr(Expr* expr);
         void resolve_decl_ref_expr(Expr* expr);
+        void resolve_typeinfo_expr(Expr* expr);
         void resolve_member_expr(Expr* expr);
         void resolve_builtin_member_expr(Expr* expr);
         void resolve_self_expr(Expr* expr);
         void resolve_call_expr(Expr* expr);
         void resolve_builtin_call_expr(Expr* expr);
-        void resolve_intrinsic_call_expr(Expr* expr);
         void resolve_construct_expr(Expr* expr);
         void resolve_array_literal_expr(Expr* expr);
         void resolve_method_call_expr(Expr* expr);
@@ -137,6 +137,7 @@ namespace ariac {
         void maybe_promote_to_int(Expr* expr);
         void insert_arithmetic_promotion(Expr* lhs, Expr* rhs, BinaryOperatorKind op, Expr* e);
         bool cast_needs_rvalue(CastKind kind);
+        TypeInfo* type_from_decl(Decl* decl);
 
         void replace_expr(Expr* src, Expr* new_expr);
         void replace_decl(Decl* src, Decl* new_decl);

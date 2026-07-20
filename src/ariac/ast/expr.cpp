@@ -48,12 +48,7 @@ namespace ariac {
                 break;
             }
 
-            case ExprKind::TypeInfo: {
-                TypeInfoExpr& t = e->type_info;
-                copy->type_info.identifier = t.identifier;
-                copy->type_info.referenced_decl = t.referenced_decl;
-                break;
-            }
+            case ExprKind::TypeInfo: break;
 
             case ExprKind::Member:
             case ExprKind::BuiltinMember: {
@@ -69,7 +64,8 @@ namespace ariac {
 
             case ExprKind::Call: {
                 CallExpr& c = e->call;
-                
+                copy->call.callee = Expr::dup(c.callee);
+
                 for (Expr* arg : c.arguments) {
                     copy->call.arguments.append(Expr::dup(arg));
                 }
@@ -77,8 +73,16 @@ namespace ariac {
                 for (TypeInfo* arg : c.generic_arguments) {
                     copy->call.generic_arguments.append(TypeInfo::dup(arg));
                 }
+                break;
+            }
 
-                copy->call.callee = Expr::dup(c.callee);
+            case ExprKind::BuiltinCall: {
+                BuiltinCallExpr& b = e->builtin_call;
+                copy->builtin_call.kind = b.kind;
+
+                for (Expr* arg : b.arguments) {
+                    copy->builtin_call.arguments.append(Expr::dup(arg));
+                }
                 break;
             }
 
@@ -120,14 +124,6 @@ namespace ariac {
                 ToSliceExpr& t = e->to_slice;
                 if (t.len) copy->to_slice.len = Expr::dup(t.len);
                 copy->to_slice.source = Expr::dup(t.source);
-                break;
-            }
-
-            case ExprKind::BuiltinCall: {
-                BuiltinCallExpr& b = e->builtin_call;
-                copy->builtin_call.kind = b.kind;
-                if (b.expression) { copy->builtin_call.expression = Expr::dup(b.expression); }
-                if (b.type) { copy->builtin_call.type = TypeInfo::dup(b.type); }
                 break;
             }
 

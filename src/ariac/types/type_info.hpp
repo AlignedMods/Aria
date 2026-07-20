@@ -219,12 +219,11 @@ namespace ariac {
                    kind == TypeKind::Short || kind == TypeKind::UShort ||
                    kind == TypeKind::Int   || kind == TypeKind::UInt   ||
                    kind == TypeKind::Long  || kind == TypeKind::ULong  ||
-                   kind == TypeKind::Sz    || kind == TypeKind::Isz    ||
-                   has_generic_integral_requirement();
+                   kind == TypeKind::Sz    || kind == TypeKind::Isz;
         }
 
         bool is_floating_point() const {
-            return kind == TypeKind::Float || kind == TypeKind::Double || has_generic_floating_requirement();
+            return kind == TypeKind::Float || kind == TypeKind::Double;
         }
 
         bool is_numeric() const {
@@ -292,9 +291,6 @@ namespace ariac {
             ARIA_ASSERT(is_integral(), "is_unsigned() cannot operate on a non-integral type");
             return kind == TypeKind::Char || kind == TypeKind::UShort || kind == TypeKind::UInt || kind == TypeKind::ULong;
         }
-
-        bool has_generic_integral_requirement() const;
-        bool has_generic_floating_requirement() const;
 
         u64 get_size() const;
         u64 get_bit_size() const;
