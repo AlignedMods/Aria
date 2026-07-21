@@ -466,6 +466,7 @@ namespace ariac {
             { "@noreturn", TokenKind::AtNoreturn },
             { "@sizeof", TokenKind::AtSizeof },
             { "@typeid", TokenKind::AtTypeid },
+            { "@typeof", TokenKind::AtTypeof },
             { "@memcpy", TokenKind::AtMemcpy },
             { "@memset", TokenKind::AtMemset }
         };

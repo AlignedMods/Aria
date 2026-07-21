@@ -18,6 +18,13 @@ namespace ariac {
                 break;
             }
 
+            case TypeKind::Typeof: {
+                TypeofType& t = type->typeof;
+                resolve_expr(t.expr);
+                *type = *t.expr->type;
+                break;
+            }
+
             case TypeKind::Pointer: resolve_type(type->pointer.base); break;
             case TypeKind::Slice: resolve_type(type->slice.base); break;
             

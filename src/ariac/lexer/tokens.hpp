@@ -87,10 +87,11 @@ namespace ariac {
         AtIf, // @if
         AtBuiltin, // @builtin
         AtNoreturn, // @noreturn
-        AtMemcpy, // @memcpy
-        AtMemset, // @memset
         AtSizeof, // @sizeof
         AtTypeid, // @typeid
+        AtTypeof, // @typeof
+        AtMemcpy, // @memcpy
+        AtMemset, // @memset
         // ^^^ Keywords ^^^ //
 
         // VVV Types VVV //
@@ -216,6 +217,7 @@ namespace ariac {
             case TokenKind::AtNoreturn: return "@noreturn";
             case TokenKind::AtSizeof: return "@sizeof";
             case TokenKind::AtTypeid: return "@typeid";
+            case TokenKind::AtTypeof: return "@typeof";
             case TokenKind::AtMemcpy: return "@memcpy";
             case TokenKind::AtMemset: return "@memset";
             // ^^^ Keywords ^^^ //

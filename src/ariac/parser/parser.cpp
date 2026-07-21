@@ -632,6 +632,7 @@ namespace ariac {
         }
 
         context.report_compiler_diagnostic(ident->loc, fmt::format("Unknown environment '{}'", ident->string));
+        return &error_expr;
     }
 
     Expr* Parser::parse_builtin_call(Expr* left) {
@@ -752,7 +753,8 @@ namespace ariac {
             case TokenKind::Double:
             case TokenKind::TypeInfo:
             case TokenKind::Any:
-            case TokenKind::Fn: return true;
+            case TokenKind::Fn:
+            case TokenKind::AtTypeof: return true;
             default: return false;
         }
 
@@ -856,6 +858,19 @@ namespace ariac {
 
                 type->kind = TypeKind::Function;
                 type->function = FunctionType(ret_type, param_types, var);
+                break;
+            }
+
+            case TokenKind::AtTypeof: {
+                consume();
+
+                try_consume(TokenKind::LeftParen, "(");
+                Expr* expr = parse_expression();
+                try_consume(TokenKind::RightParen, ")");
+
+                type->loc += peek(-1)->loc;
+                type->kind = TypeKind::Typeof;
+                type->typeof = TypeofType(expr);
                 break;
             }
         

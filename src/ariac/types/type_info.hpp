@@ -55,7 +55,8 @@ namespace ariac {
         GenericDecl,
         GenericInstantiation,
 
-        Unresolved
+        Unresolved,
+        Typeof
     };
 
     enum class VariadicKind {
@@ -156,6 +157,10 @@ namespace ariac {
         Expr* ident = nullptr;
     };
 
+    struct TypeofType {
+        Expr* expr = nullptr;
+    };
+
     struct TypeInfo {
         TypeKind kind = TypeKind::Error;
         SourceLoc loc;
@@ -171,6 +176,7 @@ namespace ariac {
             GenericDeclType generic_decl;
             GenericInstantiationType generic_instantiation;
             UnresolvedType unresolved;
+            TypeofType typeof;
 
             u64 _initializer = 0; // Hack so the compiler doesn't complain about 'no default constructor'
         };
