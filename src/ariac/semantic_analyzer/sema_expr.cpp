@@ -50,6 +50,88 @@ namespace ariac {
             context.report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
         }
 
+        auto resolve_symbol = [&](Decl* sym) {
+            switch (sym->kind) {
+                case DeclKind::Var: {
+                    if (sym->var.linkage_kind == LinkageKind::Static) {
+                        context.report_compiler_diagnostic(expr->loc, fmt::format("{} has static linkage and cannot be accessed", pretty_ident));
+                        context.report_compiler_diagnostic(sym->loc, "Defined here", CompilerDiagKind::Note, sym->parent_unit);
+                    }
+
+                    Module* m = context.active_module;
+                    CompilationUnit* c = context.active_comp_unit;
+
+                    context.active_module = sym->parent_module;
+                    context.active_comp_unit = sym->parent_unit;
+
+                    resolve_var_decl(sym);
+
+                    context.active_module = m;
+                    context.active_comp_unit = c;
+
+                    expr->type = sym->var.type;
+                    return;
+                }
+
+                case DeclKind::Param: {
+                    if (sym->param.variadic) {
+                        expr->type = TypeInfo::create_slice(sym->param.type);
+                    } else {
+                        expr->type = sym->param.type;
+                    }
+                
+                    return;
+                }
+
+                case DeclKind::Function: {
+                    if (sym->function.linkage_kind == LinkageKind::Static) {
+                        context.report_compiler_diagnostic(expr->loc, fmt::format("{} has static linkage and cannot be accessed", pretty_ident));
+                        context.report_compiler_diagnostic(sym->loc, "Defined here", CompilerDiagKind::Note, sym->parent_unit);
+                    }
+
+                    if (!m_sema_context.call && !m_sema_context.address_of) {
+                        context.report_compiler_diagnostic_with_notes(expr->loc, fmt::format("Cannot use function '{}' as a value", pretty_ident),
+                            { fmt::format("Did you mean to write '&{}'", pretty_ident) });
+                    }
+
+                    resolve_function_decl(sym);
+                    expr->type = sym->function.type;
+                    return;
+                }
+
+                case DeclKind::Struct:
+                case DeclKind::Typedef:
+                case DeclKind::Enum: {
+                    replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::CValue, type_from_decl(sym), ErrorExpr()));
+                    return;
+                }
+
+                case DeclKind::Generic: {
+                    switch (sym->generic.decl->kind) {
+                        case DeclKind::Function: {
+                            if (!m_sema_context.call && !m_sema_context.address_of) {
+                                context.report_compiler_diagnostic_with_notes(expr->loc, fmt::format("Cannot use function '{}' as a value", pretty_ident),
+                                    { fmt::format("Did you mean to write '&{}'", pretty_ident) });
+                            }
+
+                            resolve_function_decl(sym->generic.decl);
+                            expr->type = sym->generic.decl->function.type;
+                            return;
+                        }
+
+                        case DeclKind::Struct: {
+                            replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::CValue, type_from_decl(sym), ErrorExpr()));
+                            return;
+                        }
+
+                        default: ARIA_UNREACHABLE("Invalid generic decl");
+                    }
+                }
+
+                default: ARIA_UNREACHABLE("Invalid symbol kind");
+            }
+        };
+
         auto resolve_with_specifier = [&]() {
             Module* mod = dr.name_specifier->name.referenced_module;
 
@@ -62,75 +144,7 @@ namespace ariac {
                     context.report_compiler_diagnostic(sym->loc, "Defined here", CompilerDiagKind::Note, sym->parent_unit);
                 }
 
-                switch (sym->kind) {
-                    case DeclKind::Var: {
-                        if (sym->var.linkage_kind == LinkageKind::Static) {
-                            context.report_compiler_diagnostic(expr->loc, fmt::format("{} has static linkage and cannot be accessed", pretty_ident));
-                            context.report_compiler_diagnostic(sym->loc, "Defined here", CompilerDiagKind::Note, sym->parent_unit);
-                        }
-
-                        Module* m = context.active_module;
-                        CompilationUnit* c = context.active_comp_unit;
-
-                        context.active_module = sym->parent_module;
-                        context.active_comp_unit = sym->parent_unit;
-
-                        resolve_var_decl(sym);
-
-                        context.active_module = m;
-                        context.active_comp_unit = c;
-
-                        expr->type = sym->var.type;
-                        return;
-                    }
-
-                    case DeclKind::Function: {
-                        if (sym->function.linkage_kind == LinkageKind::Static) {
-                            context.report_compiler_diagnostic(expr->loc, fmt::format("{} has static linkage and cannot be accessed", pretty_ident));
-                            context.report_compiler_diagnostic(sym->loc, "Defined here", CompilerDiagKind::Note, sym->parent_unit);
-                        }
-
-                        if (!m_call_context && !m_address_of_context) {
-                            context.report_compiler_diagnostic_with_notes(expr->loc, fmt::format("Cannot use function '{}' as a value", pretty_ident),
-                                { fmt::format("Did you mean to write '&{}'", pretty_ident) });
-                        }
-
-                        resolve_function_decl(sym);
-                        expr->type = sym->function.type;
-                        return;
-                    }
-
-                    case DeclKind::Struct:
-                    case DeclKind::Typedef:
-                    case DeclKind::Enum: {
-                        replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, type_from_decl(sym), ErrorExpr()));
-                        return;
-                    }
-
-                    case DeclKind::Generic: {
-                        switch (sym->generic.decl->kind) {
-                            case DeclKind::Function: {
-                                if (!m_call_context && !m_address_of_context) {
-                                    context.report_compiler_diagnostic_with_notes(expr->loc, fmt::format("Cannot use function '{}' as a value", pretty_ident),
-                                        { fmt::format("Did you mean to write '&{}'", pretty_ident) });
-                                }
-
-                                resolve_function_decl(sym->generic.decl);
-                                expr->type = sym->generic.decl->function.type;
-                                return;
-                            }
-
-                            case DeclKind::Struct: {
-                                replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, type_from_decl(sym), ErrorExpr()));
-                                return;
-                            }
-
-                            default: ARIA_UNREACHABLE("Invalid generic decl");
-                        }
-                    }
-
-                    default: ARIA_UNREACHABLE("Invalid symbol kind");
-                }
+                resolve_symbol(sym);
             } else {
                 dr.referenced_decl = &error_decl;
                 context.report_compiler_diagnostic(expr->loc, fmt::format("Undeclared identifier '{}'", pretty_ident));
@@ -179,7 +193,7 @@ namespace ariac {
                 ARIA_ASSERT(type->kind == DeclKind::GenericParameter, "Invalid generic parameter");
 
                 if (type->generic_parameter.identifier == dr.identifier) {
-                    replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, type_from_decl(type), ErrorExpr()));
+                    replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::CValue, type_from_decl(type), ErrorExpr()));
                     return;
                 }
             }
@@ -192,85 +206,11 @@ namespace ariac {
             }
 
             if (sym) {
-                switch (sym->kind) {
-                    case DeclKind::Var: {
-                        Module* m = context.active_module;
-                        CompilationUnit* c = context.active_comp_unit;
-
-                        context.active_module = sym->parent_module;
-                        context.active_comp_unit = sym->parent_unit;
-
-                        resolve_var_decl(sym);
-
-                        context.active_module = m;
-                        context.active_comp_unit = c;
-
-                        expr->type = sym->var.type;
-                        return;
-                    }
-
-                    case DeclKind::Param: {
-                        if (sym->param.variadic) {
-                            expr->type = TypeInfo::create_slice(sym->param.type);
-                        } else {
-                            expr->type = sym->param.type;
-                        }
-
-                        return;
-                    }
-
-                    case DeclKind::Function: {
-                        if (!m_call_context && !m_address_of_context) {
-                            context.report_compiler_diagnostic_with_notes(expr->loc, fmt::format("Cannot use function '{}' as a value", pretty_ident),
-                                { fmt::format("Did you mean to write '&{}'", pretty_ident) });
-                        }
-
-                        resolve_function_decl(sym);
-                        expr->type = sym->function.type;
-                        return;
-                    }
-
-                    case DeclKind::Struct:
-                    case DeclKind::Typedef:
-                    case DeclKind::Enum: {
-                        replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, type_from_decl(sym), ErrorExpr()));
-                        return;
-                    }
-
-                    case DeclKind::Generic: {
-                        switch (sym->generic.decl->kind) {
-                            case DeclKind::Function: {
-                                Module* m = context.active_module;
-                                CompilationUnit* c = context.active_comp_unit;
-                                context.active_module = sym->parent_module;
-                                context.active_comp_unit = sym->parent_unit;
-
-                                if (!m_call_context && !m_address_of_context) {
-                                    context.report_compiler_diagnostic_with_notes(expr->loc, fmt::format("Cannot use function '{}' as a value", pretty_ident),
-                                        { fmt::format("Did you mean to write '&{}'", pretty_ident) });
-                                }
-
-                                resolve_function_decl(sym->generic.decl);
-
-                                context.active_module = m;
-                                context.active_comp_unit = c;
-
-                                expr->type = sym->generic.decl->function.type;
-                                return;
-                            }
-
-                            case DeclKind::Struct: {
-                                replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, type_from_decl(sym), ErrorExpr()));
-                                return;
-                            }
-
-                            default: ARIA_UNREACHABLE("Invalid generic decl");
-                        }
-                    }
-
-                    default: ARIA_UNREACHABLE("Invalid symbol kind");
-                }
+                resolve_symbol(sym);
             } else {
+                expr->type = TypeInfo::get_error();
+                expr->kind = ExprKind::Error;
+
                 for (Decl* im : context.active_comp_unit->imports) {
                     ARIA_ASSERT(im->kind == DeclKind::Import, "Invalid import");
                     ImportDecl& import = im->import;
@@ -285,9 +225,6 @@ namespace ariac {
                             case DeclKind::Var: {
                                 context.report_compiler_diagnostic_with_notes(expr->loc, "Variables from other modules must be prefixed with the module name",
                                     { fmt::format("Did you mean to write '{}::{}'", import.resolved_module->name, dr.identifier)});
-
-                                resolve_var_decl(sym);
-                                expr->type = sym->var.type;
                                 return;
                             }
 
@@ -295,20 +232,17 @@ namespace ariac {
                                 context.report_compiler_diagnostic_with_notes(expr->loc, "Functions from other modules must be prefixed with the module name",
                                     { fmt::format("Did you mean to write '{}::{}'", import.resolved_module->name, dr.identifier)});
 
-                                if (!m_call_context && !m_address_of_context) {
+                                if (!m_sema_context.call && !m_sema_context.address_of) {
                                     context.report_compiler_diagnostic_with_notes(expr->loc, fmt::format("Cannot use function '{}' as a value", pretty_ident),
                                         { fmt::format("Did you mean to write '&{}'", pretty_ident) });
                                 }
-
-                                resolve_function_decl(sym);
-                                expr->type = sym->function.type;
                                 return;
                             }
 
                             case DeclKind::Struct: 
                             case DeclKind::Typedef:
                             case DeclKind::Enum: {
-                                replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, type_from_decl(sym), ErrorExpr()));
+                                replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::CValue, type_from_decl(sym), ErrorExpr()));
                                 return;
                             }
 
@@ -317,13 +251,10 @@ namespace ariac {
                                     context.report_compiler_diagnostic_with_notes(expr->loc, "Generic functions from other modules must be prefixed with the module name",
                                         { fmt::format("Did you mean to write '{}::{}'", import.resolved_module->name, dr.identifier)});
 
-                                    if (!m_call_context && !m_address_of_context) {
+                                    if (!m_sema_context.call && !m_sema_context.address_of) {
                                         context.report_compiler_diagnostic_with_notes(expr->loc, fmt::format("Cannot use function '{}' as a value", pretty_ident),
                                             { fmt::format("Did you mean to write '&{}'", pretty_ident) });
                                     }
-
-                                    resolve_function_decl(sym->generic.decl);
-                                    expr->type = sym->generic.decl->function.type;
                                 } else {
                                     expr->type = TypeInfo::get_error();
                                 }
@@ -335,11 +266,9 @@ namespace ariac {
                         }
                     }
                 }
-            }
 
-            dr.referenced_decl = &error_decl;
-            context.report_compiler_diagnostic(expr->loc, fmt::format("Undeclared identifier '{}'", pretty_ident));
-            expr->type = TypeInfo::get_error();
+                context.report_compiler_diagnostic(expr->loc, fmt::format("Undeclared identifier '{}'", pretty_ident));
+            }
         };
 
         if (dr.name_specifier) {
@@ -466,7 +395,7 @@ namespace ariac {
                         context.report_compiler_diagnostic(fd->loc, "Declared here", CompilerDiagKind::Note, fd->parent_unit);
                     }
 
-                    if (member_type->is_method() && !m_call_context) {
+                    if (member_type->is_method() && !m_sema_context.call) {
                         context.report_compiler_diagnostic_with_notes(expr->loc, fmt::format("Reference to method must be called"),
                             { "Did you mean to call it with no arguments?" });
                     }
@@ -618,10 +547,10 @@ namespace ariac {
     void SemanticAnalyzer::resolve_call_expr(Expr* expr) {
         CallExpr& call = expr->call;
 
-        bool prev_val = m_call_context;
-        m_call_context = true;
+        bool prev_val = m_sema_context.call;
+        m_sema_context.call = true;
         resolve_expr(call.callee);
-        m_call_context = prev_val;
+        m_sema_context.call = prev_val;
 
         if (call.callee->kind == ExprKind::Error) {
             expr->type = TypeInfo::get_error();
@@ -670,16 +599,18 @@ namespace ariac {
                     }
                 }
 
-                if (call.generic_arguments.size > 0) {
+                TinyVector<TypeInfo*> generic_args = call.callee->decl_ref.generic_arguments;
+
+                if (generic_args.size > 0) {
                     Decl* g = call.callee->decl_ref.referenced_decl;
 
                     if (call.callee->decl_ref.referenced_decl->kind != DeclKind::Generic) {
                         context.report_compiler_diagnostic(expr->loc, "Cannot provide generic arguments to a non generic function");
                     } else {
-                        if (call.generic_arguments.size != g->generic.parameters.size) {
-                            context.report_compiler_diagnostic(expr->loc, fmt::format("Mismatched generic instantiation, generic expects {} arguments but got {}", g->generic.parameters.size, call.generic_arguments.size));
+                        if (generic_args.size != g->generic.parameters.size) {
+                            context.report_compiler_diagnostic(expr->loc, fmt::format("Mismatched generic instantiation, generic expects {} arguments but got {}", g->generic.parameters.size, generic_args.size));
                         } else {
-                            for (TypeInfo* t : call.generic_arguments) {
+                            for (TypeInfo* t : generic_args) {
                                 resolve_type(t);
                             }
 
@@ -688,17 +619,17 @@ namespace ariac {
                                 ARIA_ASSERT(i->kind == DeclKind::FunctionSpecilization, "Invalid generic specilization");
 
                                 bool failed = false;
-                                for (size_t idx = 0; idx < call.generic_arguments.size; idx++) {
-                                    if (!type_is_equal(call.generic_arguments.items[idx], i->function_specilization.types.items[idx])) { failed = true; break; }
+                                for (size_t idx = 0; idx < generic_args.size; idx++) {
+                                    if (!type_is_equal(generic_args.items[idx], i->function_specilization.types.items[idx])) { failed = true; break; }
                                 }
 
                                 if (!failed) { specilization = i; }
                             }
 
                             if (!specilization) {
-                                for (size_t i = 0; i < call.generic_arguments.size; i++) {
+                                for (size_t i = 0; i < generic_args.size; i++) {
                                     Decl* gen_param = g->generic.parameters.items[i];
-                                    TypeInfo* gen_arg = call.generic_arguments.items[i];
+                                    TypeInfo* gen_arg = generic_args.items[i];
                                     ARIA_ASSERT(gen_param->kind == DeclKind::GenericParameter, "Invalid generic parameter");
 
                                     m_specialized_generic_types[gen_param->generic_parameter.identifier] = gen_arg;
@@ -711,7 +642,7 @@ namespace ariac {
                                 resolve_type(new_type);
                                 m_replace_generic_types = false;
 
-                                specilization = Decl::Create(g->loc, DeclKind::FunctionSpecilization, g->visibility, FunctionSpecilizationDecl(call.generic_arguments, new_type));
+                                specilization = Decl::Create(g->loc, DeclKind::FunctionSpecilization, g->visibility, FunctionSpecilizationDecl(generic_args, new_type));
                                 specilization->parent_module = g->parent_module;
                                 specilization->parent_unit = g->parent_unit;
                                 g->generic.specilizations.append(specilization);
@@ -933,10 +864,10 @@ namespace ariac {
     void SemanticAnalyzer::resolve_method_call_expr(Expr* expr) {
         CallExpr& mc = expr->call;
 
-        bool prev_val = m_call_context;
-        m_call_context = true;
+        bool prev_val = m_sema_context.call;
+        m_sema_context.call = true;
         resolve_expr(mc.callee);
-        m_call_context = prev_val;
+        m_sema_context.call = prev_val;
 
         TypeInfo* callee_type = mc.callee->type;
 
@@ -1107,10 +1038,10 @@ namespace ariac {
         UnaryOperatorExpr& unop = expr->unary_operator;
         
         if (unop.op == UnaryOperatorKind::AddressOf) {
-            bool prev_val = m_address_of_context;
-            m_address_of_context = true;
+            bool prev_val = m_sema_context.address_of;
+            m_sema_context.address_of = true;
             resolve_expr(unop.expression);
-            m_address_of_context = prev_val;
+            m_sema_context.address_of = prev_val;
         } else {
             resolve_expr(unop.expression);
         }
@@ -1169,7 +1100,7 @@ namespace ariac {
 
             case UnaryOperatorKind::Dereference: {
                 if (unop.expression->kind == ExprKind::TypeInfo) {
-                    replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, TypeInfo::create_pointer(unop.expression->type, false), ErrorExpr()));
+                    replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::CValue, TypeInfo::create_pointer(unop.expression->type, false), ErrorExpr()));
                     break;
                 }
 
@@ -1782,6 +1713,8 @@ namespace ariac {
     void SemanticAnalyzer::require_rvalue(Expr* expr) {
         if (expr->value_kind == ExprValueKind::LValue) {
             insert_implicit_cast(expr->type, expr->type, expr, CastKind::LValueToRValue);
+        } else if (expr->value_kind == ExprValueKind::CValue) {
+            context.report_compiler_diagnostic(expr->loc, "Cannot use compile time expressions here");
         }
     }
 

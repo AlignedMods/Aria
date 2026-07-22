@@ -149,8 +149,10 @@ namespace ariac {
         bool type_is_trivial(TypeInfo* t);
 
     private:
-        bool m_address_of_context = false;
-        bool m_call_context = false;
+        struct {
+            bool call : 1;
+            bool address_of : 1;
+        } m_sema_context;
 
         std::vector<Decl*> m_generic_types;
         std::unordered_map<std::string_view, TypeInfo*> m_specialized_generic_types;

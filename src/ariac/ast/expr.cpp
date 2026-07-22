@@ -45,6 +45,10 @@ namespace ariac {
                 copy->decl_ref.identifier = d.identifier;
                 copy->decl_ref.name_specifier = d.name_specifier;
                 copy->decl_ref.referenced_decl = d.referenced_decl;
+
+                for (TypeInfo* arg : d.generic_arguments) {
+                    copy->decl_ref.generic_arguments.append(arg);
+                }
                 break;
             }
 
@@ -68,10 +72,6 @@ namespace ariac {
 
                 for (Expr* arg : c.arguments) {
                     copy->call.arguments.append(Expr::dup(arg));
-                }
-
-                for (TypeInfo* arg : c.generic_arguments) {
-                    copy->call.generic_arguments.append(TypeInfo::dup(arg));
                 }
                 break;
             }
@@ -103,10 +103,6 @@ namespace ariac {
                 
                 for (Expr* arg : m.arguments) {
                     copy->call.arguments.append(Expr::dup(arg));
-                }
-
-                for (TypeInfo* arg : m.generic_arguments) {
-                    copy->call.generic_arguments.append(TypeInfo::dup(arg));
                 }
 
                 copy->call.callee = Expr::dup(m.callee);

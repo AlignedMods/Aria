@@ -226,34 +226,7 @@ namespace ariac {
 
         Token* lp = try_consume(TokenKind::LeftParen, "(");
         TinyVector<Expr*> args;
-        TinyVector<TypeInfo*> generic_args;
-
-        if (match(TokenKind::Less)) {
-            consume();
-
-            while (!match(TokenKind::Greater)) {
-                if (is_type()) {
-                    generic_args.append(parse_type());
-                } else {
-                    context.report_compiler_diagnostic(peek()->loc, "Expected a type");
-                }
-
-                if (match(TokenKind::Comma)) { consume(); continue; }
-                else if (match(TokenKind::Greater)) { break; }
-
-                context.report_compiler_diagnostic(peek()->loc, "Expected ',' or '>'");
-                consume();
-            }
-
-            try_consume(TokenKind::Greater, ">");
-
-            if (match(TokenKind::Comma)) {
-                consume();
-            } else if (!match(TokenKind::RightParen)) {
-                context.report_compiler_diagnostic(peek()->loc, "Expected either ',' or ')'");
-            }
-        }
-
+        
         while (!match(TokenKind::RightParen)) {
             Expr* val = parse_expression();
 
@@ -277,7 +250,7 @@ namespace ariac {
     
         return Expr::Create(left->loc + rp->loc, ExprKind::Call,
             ExprValueKind::RValue, nullptr, 
-            CallExpr(left, args, generic_args));
+            CallExpr(left, args));
     }
 
     BuiltinCallKind Parser::get_builtin_call_from_token(Token* token) {
@@ -540,43 +513,61 @@ namespace ariac {
         ARIA_ASSERT(left == nullptr, "Parser::parse_type_expr() should not have a left side");
 
         TypeInfo* t = parse_type();
-        return Expr::Create(t->loc, ExprKind::TypeInfo, ExprValueKind::RValue, t, ErrorExpr());
+        return Expr::Create(t->loc, ExprKind::TypeInfo, ExprValueKind::CValue, t, ErrorExpr());
     }
 
     Expr* Parser::parse_identifier(Token t) {
-        if (match(TokenKind::ColonColon)) {
+        Specifier* specifier = nullptr;
+        TinyVector<TypeInfo*> generic_args;
+        Token ident = t;
+
+        while (match(TokenKind::ColonColon)) {
             consume();
-            Specifier* spec = Specifier::Create(t.loc, SpecifierKind::Name, NameSpecifier(t.string));
-            Token* var = nullptr;
 
-            while (true) {
-                Token* child = try_consume(TokenKind::Identifier, "identifier");
-                if (!child) { return &error_expr; }
-
-                if (match(TokenKind::ColonColon)) {
+            if (match(TokenKind::Less)) {
+                consume();
+            
+                while (!match(TokenKind::Greater)) {
+                    if (is_type()) {
+                        generic_args.append(parse_type());
+                    } else {
+                        context.report_compiler_diagnostic(peek()->loc, "Expected a type");
+                    }
+            
+                    if (match(TokenKind::Comma)) { consume(); continue; }
+                    else if (match(TokenKind::Greater)) { break; }
+            
+                    context.report_compiler_diagnostic(peek()->loc, "Expected ',' or '>'");
                     consume();
-                    Specifier* cs = Specifier::Create(child->loc, SpecifierKind::Name, NameSpecifier(child->string));
-                    cs->name.parent = spec;
-                    spec = cs;
-                    continue;
                 }
-
-                var = child;
+            
+                try_consume(TokenKind::Greater, ">");
                 break;
             }
 
-            Expr* declRef = Expr::Create(t.loc + var->loc, ExprKind::DeclRef,
-                                ExprValueKind::LValue, nullptr,
-                                DeclRefExpr(var->string, spec));
+            Token* c = try_consume(TokenKind::Identifier, "identifier");
+            if (!c) { return &error_expr; }
 
-            return declRef;
-        } else {
-            return Expr::Create(t.loc, ExprKind::DeclRef,
-                       ExprValueKind::LValue, nullptr, 
-                       DeclRefExpr(t.string, nullptr));
+            if (specifier) {
+                Specifier* child = Specifier::Create(ident.loc, SpecifierKind::Name, NameSpecifier(ident.string));
+                child->name.parent = specifier;
+                specifier = child;
+                ident = *c;
+            } else {
+                specifier = Specifier::Create(t.loc, SpecifierKind::Name, NameSpecifier(t.string));
+                ident = *c;
+            }
+
+            if (match(TokenKind::ColonColon)) {
+                continue;
+            } else {
+                break;
+            }
         }
 
-        ARIA_UNREACHABLE("Should never be reached");
+        return Expr::Create(ident.loc, ExprKind::DeclRef,
+                       ExprValueKind::LValue, nullptr, 
+                       DeclRefExpr(ident.string, specifier, generic_args));
     }
 
     Expr* Parser::parse_array_literal(Expr* left) {
@@ -1134,6 +1125,22 @@ namespace ariac {
             case TokenKind::Identifier:
             case TokenKind::Cast:
             case TokenKind::Self:
+            case TokenKind::Void:
+            case TokenKind::Bool:
+            case TokenKind::Char:
+            case TokenKind::IChar:
+            case TokenKind::Short:
+            case TokenKind::UShort:
+            case TokenKind::Int:
+            case TokenKind::UInt:
+            case TokenKind::Long:
+            case TokenKind::ULong:
+            case TokenKind::Sz:
+            case TokenKind::Isz:
+            case TokenKind::Float:
+            case TokenKind::Double:
+            case TokenKind::TypeInfo:
+            case TokenKind::Any:
             case TokenKind::AtSizeof:
             case TokenKind::AtTypeid:
             case TokenKind::AtMemcpy:
@@ -1220,25 +1227,6 @@ namespace ariac {
                 context.report_compiler_diagnostic(tok.loc, fmt::format("Unexpected binary operator '{}' while looking for statement", token_kind_to_string(tok.kind)));
                 return &error_stmt;
             }
-
-            case TokenKind::Void:
-            case TokenKind::Bool:
-            case TokenKind::Char:
-            case TokenKind::IChar:
-            case TokenKind::Short:
-            case TokenKind::UShort:
-            case TokenKind::Int:
-            case TokenKind::UInt:
-            case TokenKind::Long:
-            case TokenKind::ULong:
-            case TokenKind::Float:
-            case TokenKind::Double:
-            case TokenKind::TypeInfo: {
-                Token& tok = consume();
-                context.report_compiler_diagnostic(tok.loc, fmt::format("Unexpected type '{}', did you mean to declare a variable? (let <name>: <type>)", token_kind_to_string(tok.kind)));
-                return &error_stmt;
-            }
-
             case TokenKind::Module:
             case TokenKind::Import:
             case TokenKind::Else:

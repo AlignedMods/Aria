@@ -219,12 +219,17 @@ namespace ariac {
 
     enum class ExprValueKind {
         LValue,
-        RValue
+        RValue,
+        CValue // A 'cvalue' expression is an expression with no value associated with it
+               // eg. int -> int is a type and has no value, but is a valid expression
+               // They are called cvalues because they are only available during compile time,
+               // And the name stands for comp (compilation) value
     };
     inline const char* expr_value_kind_to_string(ExprValueKind type) {
         switch (type) {
             case ExprValueKind::LValue: return "lvalue";
             case ExprValueKind::RValue: return "rvalue";
+            case ExprValueKind::CValue: return "cvalue";
 
             default: ARIA_UNREACHABLE("Invalid expr value kind");
         }
@@ -281,8 +286,8 @@ namespace ariac {
     };
 
     struct DeclRefExpr {
-        DeclRefExpr(std::string_view identifier, Specifier* specifier)
-            : identifier(identifier), name_specifier(specifier) {}
+        DeclRefExpr(std::string_view identifier, Specifier* specifier, TinyVector<TypeInfo*> generic_args)
+            : identifier(identifier), name_specifier(specifier), generic_arguments(generic_args) {}
 
         DeclRefExpr(std::string_view identifier, Specifier* specifier, Decl* rd)
             : identifier(identifier), name_specifier(specifier), referenced_decl(rd) {}
@@ -290,6 +295,7 @@ namespace ariac {
         std::string_view identifier;
         Specifier* name_specifier = nullptr;
         Decl* referenced_decl = nullptr;
+        TinyVector<TypeInfo*> generic_arguments;
     };
 
     struct MemberExpr {
@@ -303,12 +309,11 @@ namespace ariac {
     };
 
     struct CallExpr {
-        CallExpr(Expr* callee, TinyVector<Expr*> args, TinyVector<TypeInfo*> generic_args)
-            : callee(callee), arguments(args), generic_arguments(generic_args) {}
+        CallExpr(Expr* callee, TinyVector<Expr*> args)
+            : callee(callee), arguments(args) {}
 
         Expr* callee;
         TinyVector<Expr*> arguments;
-        TinyVector<TypeInfo*> generic_arguments;
     };
 
     struct BuiltinCallExpr {
