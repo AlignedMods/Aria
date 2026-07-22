@@ -110,12 +110,64 @@ namespace ariac {
                     switch (sym->generic.decl->kind) {
                         case DeclKind::Function: {
                             if (!m_sema_context.call && !m_sema_context.address_of) {
-                                context.report_compiler_diagnostic_with_notes(expr->loc, fmt::format("Cannot use function '{}' as a value", pretty_ident),
+                                context.report_compiler_diagnostic_with_notes(expr->loc, fmt::format("Cannot use generic function '{}' as a value", pretty_ident),
                                     { fmt::format("Did you mean to write '&{}'", pretty_ident) });
                             }
 
-                            resolve_function_decl(sym->generic.decl);
-                            expr->type = sym->generic.decl->function.type;
+                            if (!dr.provides_generic_args) {
+                                context.report_compiler_diagnostic(expr->loc, fmt::format("Missing generic arguments for generic function '{}'", pretty_ident));
+                                replace_expr(expr, &error_expr);
+                                return;
+                            }
+
+                            if (dr.generic_arguments.size != sym->generic.parameters.size) {
+                                context.report_compiler_diagnostic(expr->loc, fmt::format("Incorrect amount of generic argments, expected {} but got {}", 
+                                    sym->generic.parameters.size, dr.generic_arguments.size));
+
+                                replace_expr(expr, &error_expr);
+                                return;
+                            }
+
+                            for (TypeInfo* t : dr.generic_arguments) {
+                                resolve_type(t);
+                            }
+
+                            Decl* specilization = nullptr;
+                            for (Decl* i : sym->generic.specilizations) {
+                                ARIA_ASSERT(i->kind == DeclKind::FunctionSpecilization, "Invalid generic specilization");
+
+                                bool failed = false;
+                                for (size_t idx = 0; idx < dr.generic_arguments.size; idx++) {
+                                    if (!type_is_equal(dr.generic_arguments.items[idx], i->function_specilization.types.items[idx])) { failed = true; break; }
+                                }
+
+                                if (!failed) { specilization = i; }
+                            }
+
+                            if (!specilization) {
+                                for (size_t i = 0; i < dr.generic_arguments.size; i++) {
+                                    Decl* gen_param = sym->generic.parameters.items[i];
+                                    TypeInfo* gen_arg = dr.generic_arguments.items[i];
+                                    ARIA_ASSERT(gen_param->kind == DeclKind::GenericParameter, "Invalid generic parameter");
+
+                                    m_specialized_generic_types[gen_param->generic_parameter.identifier] = gen_arg;
+                                }
+
+                                TypeInfo* new_type = TypeInfo::dup(sym->generic.decl->function.type);
+
+                                bool prev_val = m_replace_generic_types;
+                                m_replace_generic_types = true;
+                                resolve_type(new_type);
+                                m_replace_generic_types = false;
+
+                                specilization = Decl::Create(sym->loc, DeclKind::FunctionSpecilization, sym->visibility, FunctionSpecilizationDecl(dr.generic_arguments, new_type));
+                                specilization->parent_module = sym->parent_module;
+                                specilization->parent_unit = sym->parent_unit;
+                                sym->generic.specilizations.append(specilization);
+                            }
+
+                            dr.referenced_decl = specilization;
+                            expr->type = specilization->function_specilization.type;
                             return;
                         }
 
@@ -596,62 +648,6 @@ namespace ariac {
                     if (attr.kind == DeclAttributeKind::Noreturn) {
                         m_scopes.back().reaches_end = false;
                         break;
-                    }
-                }
-
-                TinyVector<TypeInfo*> generic_args = call.callee->decl_ref.generic_arguments;
-
-                if (generic_args.size > 0) {
-                    Decl* g = call.callee->decl_ref.referenced_decl;
-
-                    if (call.callee->decl_ref.referenced_decl->kind != DeclKind::Generic) {
-                        context.report_compiler_diagnostic(expr->loc, "Cannot provide generic arguments to a non generic function");
-                    } else {
-                        if (generic_args.size != g->generic.parameters.size) {
-                            context.report_compiler_diagnostic(expr->loc, fmt::format("Mismatched generic instantiation, generic expects {} arguments but got {}", g->generic.parameters.size, generic_args.size));
-                        } else {
-                            for (TypeInfo* t : generic_args) {
-                                resolve_type(t);
-                            }
-
-                            Decl* specilization = nullptr;
-                            for (Decl* i : g->generic.specilizations) {
-                                ARIA_ASSERT(i->kind == DeclKind::FunctionSpecilization, "Invalid generic specilization");
-
-                                bool failed = false;
-                                for (size_t idx = 0; idx < generic_args.size; idx++) {
-                                    if (!type_is_equal(generic_args.items[idx], i->function_specilization.types.items[idx])) { failed = true; break; }
-                                }
-
-                                if (!failed) { specilization = i; }
-                            }
-
-                            if (!specilization) {
-                                for (size_t i = 0; i < generic_args.size; i++) {
-                                    Decl* gen_param = g->generic.parameters.items[i];
-                                    TypeInfo* gen_arg = generic_args.items[i];
-                                    ARIA_ASSERT(gen_param->kind == DeclKind::GenericParameter, "Invalid generic parameter");
-
-                                    m_specialized_generic_types[gen_param->generic_parameter.identifier] = gen_arg;
-                                }
-
-                                TypeInfo* new_type = TypeInfo::dup(g->generic.decl->function.type);
-
-                                bool prev_val = m_replace_generic_types;
-                                m_replace_generic_types = true;
-                                resolve_type(new_type);
-                                m_replace_generic_types = false;
-
-                                specilization = Decl::Create(g->loc, DeclKind::FunctionSpecilization, g->visibility, FunctionSpecilizationDecl(generic_args, new_type));
-                                specilization->parent_module = g->parent_module;
-                                specilization->parent_unit = g->parent_unit;
-                                g->generic.specilizations.append(specilization);
-
-                                callee_type = new_type;
-                                call.callee->decl_ref.referenced_decl = specilization;
-                                call.callee->type = callee_type;
-                            }
-                        }
                     }
                 }
 

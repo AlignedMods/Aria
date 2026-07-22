@@ -62,63 +62,63 @@ impl StringStream {
     }
 
     fn append_any(arg: *any) {
-        if core::any_has_type(<char>, arg) {
-            append_char(core::any_cast(<char>, arg));
+        if core::any_has_type::<char>(arg) {
+            append_char(core::any_cast::<char>(arg));
             return;
         }
 
-        if core::any_has_type(<ichar>, arg) {
-            append_char(core::any_cast(<ichar>, arg));
+        if core::any_has_type::<ichar>(arg) {
+            append_char(core::any_cast::<ichar>(arg));
             return;
         }
 
-        if core::any_has_type(<bool>, arg) {
-            append_bool(core::any_cast(<bool>, arg));
+        if core::any_has_type::<bool>(arg) {
+            append_bool(core::any_cast::<bool>(arg));
             return;
         }
 
-        if core::any_has_type(<short>, arg) {
-            append_int(core::any_cast(<short>, arg));
+        if core::any_has_type::<short>(arg) {
+            append_int(core::any_cast::<short>(arg));
             return;
         }
 
-        if core::any_has_type(<ushort>, arg) {
-            append_uint(core::any_cast(<ushort>, arg));
+        if core::any_has_type::<ushort>(arg) {
+            append_uint(core::any_cast::<ushort>(arg));
             return;
         }
 
-        if core::any_has_type(<int>, arg) {
-            append_int(core::any_cast(<int>, arg));
+        if core::any_has_type::<int>(arg) {
+            append_int(core::any_cast::<int>(arg));
             return;
         }
 
-        if core::any_has_type(<uint>, arg) {
-            append_uint(core::any_cast(<uint>, arg));
+        if core::any_has_type::<uint>(arg) {
+            append_uint(core::any_cast::<uint>(arg));
             return;
         }
 
-        if core::any_has_type(<long>, arg) {
-            append_int(core::any_cast(<long>, arg));
+        if core::any_has_type::<long>(arg) {
+            append_int(core::any_cast::<long>(arg));
             return;
         }
 
-        if core::any_has_type(<ulong>, arg) {
-            append_uint(core::any_cast(<ulong>, arg));
+        if core::any_has_type::<ulong>(arg) {
+            append_uint(core::any_cast::<ulong>(arg));
             return;
         }
 
-        if core::any_has_type(<sz>, arg) {
-            append_uint(core::any_cast(<sz>, arg));
+        if core::any_has_type::<sz>(arg) {
+            append_uint(core::any_cast::<sz>(arg));
             return;
         }
 
-        if core::any_has_type(<isz>, arg) {
-            append_int(core::any_cast(<isz>, arg));
+        if core::any_has_type::<isz>(arg) {
+            append_int(core::any_cast::<isz>(arg));
             return;
         }
 
-        if core::any_has_type(<String>, arg) {
-            append_string(core::any_cast(<String>, arg));
+        if core::any_has_type::<String>(arg) {
+            append_string(core::any_cast::<String>(arg));
             return;
         }
 
@@ -169,7 +169,7 @@ impl StringStream {
     }
 
     fn increase_capacity(cap: ulong) -> void {
-        let newData = mem::new_array(<char>, cap);
+        let newData = mem::new_array::<char>(cap);
         
         if (mem != null) {
             mem::copy(newData, mem, len);

@@ -519,12 +519,14 @@ namespace ariac {
     Expr* Parser::parse_identifier(Token t) {
         Specifier* specifier = nullptr;
         TinyVector<TypeInfo*> generic_args;
+        bool provides_generic_args = false;
         Token ident = t;
 
         while (match(TokenKind::ColonColon)) {
             consume();
 
             if (match(TokenKind::Less)) {
+                provides_generic_args = true;
                 consume();
             
                 while (!match(TokenKind::Greater)) {
@@ -567,7 +569,7 @@ namespace ariac {
 
         return Expr::Create(ident.loc, ExprKind::DeclRef,
                        ExprValueKind::LValue, nullptr, 
-                       DeclRefExpr(ident.string, specifier, generic_args));
+                       DeclRefExpr(ident.string, specifier, generic_args, provides_generic_args));
     }
 
     Expr* Parser::parse_array_literal(Expr* left) {

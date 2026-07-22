@@ -286,8 +286,8 @@ namespace ariac {
     };
 
     struct DeclRefExpr {
-        DeclRefExpr(std::string_view identifier, Specifier* specifier, TinyVector<TypeInfo*> generic_args)
-            : identifier(identifier), name_specifier(specifier), generic_arguments(generic_args) {}
+        DeclRefExpr(std::string_view identifier, Specifier* specifier, TinyVector<TypeInfo*> generic_args, bool provides_generic_args)
+            : identifier(identifier), name_specifier(specifier), generic_arguments(generic_args), provides_generic_args(provides_generic_args) {}
 
         DeclRefExpr(std::string_view identifier, Specifier* specifier, Decl* rd)
             : identifier(identifier), name_specifier(specifier), referenced_decl(rd) {}
@@ -296,6 +296,7 @@ namespace ariac {
         Specifier* name_specifier = nullptr;
         Decl* referenced_decl = nullptr;
         TinyVector<TypeInfo*> generic_arguments;
+        bool provides_generic_args = false;
     };
 
     struct MemberExpr {
