@@ -86,7 +86,6 @@ namespace ariac {
         HashPrivate, // #private
         AtIf, // @if
         AtBuiltin, // @builtin
-        AtNoreturn, // @noreturn
         AtSizeof, // @sizeof
         AtTypeid, // @typeid
         AtTypeof, // @typeof
@@ -214,7 +213,6 @@ namespace ariac {
             case TokenKind::HashPrivate: return "#private";
             case TokenKind::AtIf: return "@if";
             case TokenKind::AtBuiltin: return "@builtin";
-            case TokenKind::AtNoreturn: return "@noreturn";
             case TokenKind::AtSizeof: return "@sizeof";
             case TokenKind::AtTypeid: return "@typeid";
             case TokenKind::AtTypeof: return "@typeof";

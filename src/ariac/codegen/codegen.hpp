@@ -67,7 +67,8 @@ namespace ariac {
         enum class ABIRetKind {
             Direct,
             Pointer,
-            Integer
+            Integer,
+            Noreturn
         };
 
         struct ABIParamTypeInfo {
@@ -188,8 +189,7 @@ namespace ariac {
         ABIRetTypeInfo get_ret_abi_type_info(TypeInfo* t);
         void gen_call_param(std::vector<llvm::Value*>* args, llvm::Value* arg, TypeInfo* type);
         void gen_call_variadic(std::vector<llvm::Value*>* args, const std::vector<llvm::Value*>& vals, const std::vector<TypeInfo*>& types);
-        llvm::Value* gen_call_raw(std::vector<llvm::Value*>& args, llvm::Function* func, TypeInfo* ret_type);
-        void gen_unrechable_if_noreturn(Decl* callee);
+        llvm::Value* gen_call_raw(std::vector<llvm::Value*>& args, llvm::Value* func, TypeInfo* type);
 
         void set_debug_loc(const SourceLoc& loc);
 

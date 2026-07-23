@@ -126,7 +126,8 @@ namespace ariac {
             case TypeKind::Float:
             case TypeKind::Double:
             case TypeKind::TypeInfo:
-            case TypeKind::Any: break;
+            case TypeKind::Any:
+            case TypeKind::Never: break;
 
             case TypeKind::Pointer: {
                 t->pointer.base = TypeInfo::dup(type->pointer.base);
@@ -464,7 +465,7 @@ namespace ariac {
         TypeInfo* t = const_cast<TypeInfo*>(this);
 
         while (true) {
-            if (t->is_primitive() || t->is_function() || t->is_structure() || t->is_typedef() || t->is_enum() || t->is_generic() || t->is_unresolved()) {
+            if (t->is_primitive() || t->is_function() || t->is_structure() || t->is_typedef() || t->is_enum() || t->is_generic() || t->is_unresolved() || t->is_never()) {
                 break;
             }
 
@@ -625,6 +626,11 @@ namespace ariac {
 
             case TypeKind::Unresolved: {
                 str = "unresolved";
+                break;
+            }
+
+            case TypeKind::Never: {
+                str = "!";
                 break;
             }
 

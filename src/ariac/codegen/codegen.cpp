@@ -414,7 +414,7 @@ namespace ariac {
 
             // Return type
             llvm::Type* ret_type = llvm::Type::getVoidTy(*m_active_module_context.context);
-            {
+            if (!t->function.return_type->is_never()) {
                 ABIRetTypeInfo info = get_ret_abi_type_info(t->function.return_type);
 
                 switch (info.kind) {

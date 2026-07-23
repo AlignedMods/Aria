@@ -51,9 +51,9 @@ namespace ariac {
         Expr* parse_term();
         bool is_expression();
 
-        bool is_primitive_type();
-        bool is_type();
-        TypeInfo* parse_type();
+        bool is_primitive_type(bool allow_never = false);
+        bool is_type(bool allow_never = false);
+        TypeInfo* parse_type(bool allow_never = false);
 
         Stmt* parse_block();
         Stmt* parse_block_inline();

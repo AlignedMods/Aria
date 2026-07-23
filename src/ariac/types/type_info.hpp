@@ -56,7 +56,12 @@ namespace ariac {
         GenericInstantiation,
 
         Unresolved,
-        Typeof
+        Typeof,
+
+        // Never is a special type which is only available for function return types
+        // In code it is represented as: -> !
+        // The underlying type for Never is void
+        Never
     };
 
     enum class VariadicKind {
@@ -284,6 +289,10 @@ namespace ariac {
 
         bool is_unresolved() const {
             return kind == TypeKind::Unresolved;
+        }
+
+        bool is_never() const {
+            return kind == TypeKind::Never;
         }
 
         bool is_string() const;

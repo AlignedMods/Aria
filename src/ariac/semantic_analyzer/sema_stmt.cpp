@@ -133,6 +133,10 @@ namespace ariac {
             ret.value->type = TypeInfo::get_error();
             return;
         }
+
+        if (m_active_return_type->is_never()) {
+            context.report_compiler_diagnostic(stmt->loc, "Function with return type '!' should not have any return statement");
+        }
         
         m_scopes.back().reaches_end = false;
 
@@ -145,6 +149,10 @@ namespace ariac {
             }
 
             try_insert_implicit_cast(m_active_return_type, ret.value);
+        } else {
+            if (!m_active_return_type->is_void() && !m_active_return_type->is_never()) {
+                context.report_compiler_diagnostic(stmt->loc, "Missing value for return statement");
+            }
         }
     }
 

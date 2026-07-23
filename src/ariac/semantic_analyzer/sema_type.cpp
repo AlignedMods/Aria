@@ -149,7 +149,12 @@ namespace ariac {
             return cost;
         }
 
-        if (dst->is_void() && src->is_void()) {
+        if (dst->is_void() && (src->is_void() || src->is_never())) {
+            cost.cast_needed = false;
+            return cost;
+        }
+
+        if (dst->is_never() && src->is_never()) {
             cost.cast_needed = false;
             return cost;
         }

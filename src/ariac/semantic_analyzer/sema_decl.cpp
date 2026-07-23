@@ -214,7 +214,9 @@ namespace ariac {
         resolve_block_stmt(fn.body);
 
         if (m_scopes.back().reaches_end) {
-            if (!fn.type->function.return_type->is_void()) {
+            if (fn.type->function.return_type->is_never()) {
+                context.report_compiler_diagnostic(decl->loc, "Function with return type '!' should not return");
+            } else if (!fn.type->function.return_type->is_void()) {
                 context.report_compiler_diagnostic(decl->loc, "Missing return statement in function");
             }
         }
@@ -358,8 +360,6 @@ namespace ariac {
                     }
                     break;
                 }
-
-                case DeclAttributeKind::Noreturn: break;
 
                 default: ARIA_UNREACHABLE("Invalid decl attribute");
             }

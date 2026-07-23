@@ -76,8 +76,7 @@ namespace ariac {
     enum class DeclAttributeKind {
         None,
         If,
-        Builtin,
-        Noreturn
+        Builtin
     };
 
     struct DeclAttribute {

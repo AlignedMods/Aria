@@ -724,12 +724,20 @@ namespace ariac {
         return true;
     }
 
-    bool Parser::is_primitive_type() {
+    bool Parser::is_primitive_type(bool allow_never) {
         if (!peek()) { return false; }
 
         Token type = *peek();
 
         switch (type.kind) {
+            case TokenKind::Bang: {
+                if (allow_never) {
+                    return true;
+                }
+
+                return false;
+            }
+
             case TokenKind::Void:
             case TokenKind::Bool:
             case TokenKind::Char:
@@ -754,16 +762,16 @@ namespace ariac {
         return false;
     }
 
-    bool Parser::is_type() {
+    bool Parser::is_type(bool allow_never) {
         if (!peek()) { return false; }
-        if (is_primitive_type() || match(TokenKind::Identifier)) { return true; }
+        if (is_primitive_type(allow_never) || match(TokenKind::Identifier)) { return true; }
 
         if (match(TokenKind::Star) || match(TokenKind::LeftBracket)) { return true; }
         return false;
     }
 
-    TypeInfo* Parser::parse_type() {
-        ARIA_ASSERT(is_type(), "Cannot parse a type out of a non type");
+    TypeInfo* Parser::parse_type(bool allow_never) {
+        ARIA_ASSERT(is_type(allow_never), "Cannot parse a type out of a non type");
 
         TypeInfo* type = TypeInfo::create_basic(TypeKind::Error);
         type->loc = peek()->loc;
@@ -808,6 +816,8 @@ namespace ariac {
         
                 break;
             }
+
+            case TokenKind::Bang:       consume(); type->kind = TypeKind::Never; break;
         
             case TokenKind::Void:       consume(); type->kind = TypeKind::Void; break;
         
@@ -842,10 +852,10 @@ namespace ariac {
                 if (match(TokenKind::Arrow)) {
                     consume();
 
-                    if (!is_type()) {
+                    if (!is_type(true)) {
                         context.report_compiler_diagnostic(peek()->loc, "Expected a type after '->'");
                     } else {
-                        ret_type = parse_type();
+                        ret_type = parse_type(true);
                     }
                 }
 
@@ -1383,11 +1393,11 @@ namespace ariac {
         if (match(TokenKind::Arrow)) {
             consume();
 
-            if (!is_type()) {
+            if (!is_type(true)) {
                 context.report_compiler_diagnostic(peek()->loc, "Expected a type after '->'");
                 sync_local();
             } else {
-                ret_type = parse_type();
+                ret_type = parse_type(true);
             }
         }
 
@@ -1780,16 +1790,6 @@ namespace ariac {
                     try_consume(TokenKind::RightParen, ")");
 
                     attrs.append(DeclAttribute(DeclAttributeKind::Builtin, arg));
-                    break;
-                }
-
-                case TokenKind::AtNoreturn: {
-                    if (kind != DeclKind::Function) {
-                        context.report_compiler_diagnostic(peek()->loc, "Cannot use '@noreturn' with this declaration");
-                    }
-
-                    consume();
-                    attrs.append(DeclAttribute(DeclAttributeKind::Noreturn));
                     break;
                 }
 

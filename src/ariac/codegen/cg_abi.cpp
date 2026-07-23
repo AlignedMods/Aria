@@ -71,6 +71,8 @@ namespace ariac {
                                     info.kind = ABIRetKind::Pointer;
                                 }
                             }
+                        } else if (t->is_never()) {
+                            info.kind = ABIRetKind::Noreturn;
                         } else {
                             info.kind = ABIRetKind::Direct;
                         }
@@ -170,11 +172,13 @@ namespace ariac {
         }
     }
 
-    llvm::Value* Codegen::gen_call_raw(std::vector<llvm::Value*>& args, llvm::Function* func, TypeInfo* ret_type) {
+    llvm::Value* Codegen::gen_call_raw(std::vector<llvm::Value*>& args, llvm::Value* func, TypeInfo* type) {
+        TypeInfo* ret_type = type->function.return_type;
+        llvm::FunctionType* llvm_ty = llvm::dyn_cast<llvm::FunctionType>(type_info_to_llvm_type(type));
         ABIRetTypeInfo ret_info = get_ret_abi_type_info(ret_type);
         switch (ret_info.kind) {
             case ABIRetKind::Direct: {
-                return m_active_module_context.builder->CreateCall(func, args, ret_type->is_void() ? "" : "call");
+                return m_active_module_context.builder->CreateCall(llvm_ty, func, args, ret_type->is_void() ? "" : "call");
             }
 
             case ABIRetKind::Pointer: {
@@ -182,29 +186,26 @@ namespace ariac {
                 llvm::Value* ret_val = alloca_at_entry(m_active_module_context.function, "ptrret", ret_type);
                 args.insert(args.begin(), ret_val);
 
-                m_active_module_context.builder->CreateCall(func, args);
+                m_active_module_context.builder->CreateCall(llvm_ty, func, args);
                 return m_active_module_context.builder->CreateLoad(ret_type, ret_val);
             }
 
             case ABIRetKind::Integer: {
                 llvm::Type* ret_type = type_info_to_llvm_type(ret_info.type);
                 llvm::Value* temp = alloca_at_entry(m_active_module_context.function, "intret", ret_type);
-                llvm::Value* call = m_active_module_context.builder->CreateCall(func, args, "call");
+                llvm::Value* call = m_active_module_context.builder->CreateCall(llvm_ty, func, args, "call");
 
                 m_active_module_context.builder->CreateStore(call, temp);
                 return m_active_module_context.builder->CreateLoad(ret_type, temp);
             }
 
-            default: ARIA_UNREACHABLE("Invalid ABIRetTypeInfo");
-        }
-    }
-
-    void Codegen::gen_unrechable_if_noreturn(Decl* callee) {
-        for (auto& attr : callee->attributes) {
-            if (attr.kind == DeclAttributeKind::Noreturn) {
+            case ABIRetKind::Noreturn: {
+                llvm::Value* call = m_active_module_context.builder->CreateCall(llvm_ty, func, args);
                 m_active_module_context.builder->CreateUnreachable();
-                break;
+                return call;
             }
+
+            default: ARIA_UNREACHABLE("Invalid ABIRetTypeInfo");
         }
     }
 

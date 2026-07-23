@@ -621,93 +621,101 @@ namespace ariac {
             return;
         }
 
-        TypeInfo* callee_type = call.callee->type;
-
-        if (callee_type->kind != TypeKind::Function && !callee_type->is_error()) {
-            context.report_compiler_diagnostic(expr->loc, "Cannot call an object of non-function type");
-            expr->type = TypeInfo::get_error();
-
-            for (Expr* arg : call.arguments) {
-                resolve_expr(arg);
+        FunctionType* fn_type = nullptr;
+        
+        switch (call.callee->type->kind) {
+            case TypeKind::Function: {
+                fn_type = &call.callee->type->function;
+                break;
             }
-            return;
-        }
 
-        Decl* callee = nullptr;
-
-        switch (call.callee->kind) {
-            case ExprKind::DeclRef: callee = call.callee->decl_ref.referenced_decl; break;
-            case ExprKind::Member: callee = call.callee->member.referenced_member; break;
-
-            default: ARIA_UNREACHABLE("Invalid calleee"); break;
-        }
-
-        if (callee->kind != DeclKind::Error) {
-            if (!call.callee->type->is_error()) {
-                for (auto& attr : callee->attributes) {
-                    if (attr.kind == DeclAttributeKind::Noreturn) {
-                        m_scopes.back().reaches_end = false;
-                        break;
+            case TypeKind::Pointer: {
+                if (!call.callee->type->pointer.base->is_function()) {
+                    context.report_compiler_diagnostic(call.callee->loc, fmt::format("Only function pointers may be called"));
+                    expr->type = TypeInfo::get_error();
+                    for (Expr* arg : call.arguments) {
+                        resolve_expr(arg);
                     }
+                    return;
                 }
 
-                FunctionType& fn_type = callee_type->function;
+                require_rvalue(call.callee);
+                fn_type = &call.callee->type->pointer.base->function;
+                break;
+            }
 
-                if (fn_type.param_types.size != call.arguments.size && !fn_type.is_variadic()) {
-                    context.report_compiler_diagnostic(expr->loc, fmt::format("Mismatched argument count, function expects {} but got {}", fn_type.param_types.size, call.arguments.size));
-                    for (size_t i = 0; i < call.arguments.size; i++) {
-                        resolve_expr(call.arguments.items[i]);
-                    }
-                } else {
-                    for (size_t i = 0; i < fn_type.param_types.size; i++) {
-                        if (fn_type.variadic == VariadicKind::Named && i == fn_type.param_types.size - 1) { break; }
-                        resolve_param_initializer(fn_type.param_types.items[i], call.arguments.items[i]);
-                    }
-
-                    if (fn_type.variadic == VariadicKind::Unnamed) {
-                        for (size_t i = fn_type.param_types.size; i < call.arguments.size; i++) {
-                            Expr* arg = call.arguments.items[i];
-                            resolve_expr(arg);
-
-                            if (arg->type->is_integral()) {
-                                require_rvalue(arg);
-
-                                if (arg->type->get_bit_size() < 32) { // Promote to int
-                                    insert_implicit_cast(TypeInfo::get_basic(TypeKind::Int), arg->type, arg, CastKind::Integral);
-                                }
-                            } else if (arg->type->is_floating_point()) {
-                                require_rvalue(arg);
-
-                                if (arg->type->kind == TypeKind::Float) { // Promote to double
-                                    insert_implicit_cast(TypeInfo::get_basic(TypeKind::Double), arg->type, arg, CastKind::Floating);
-                                }
-                            } else if (arg->type->is_pointer()) {
-                                require_rvalue(arg);
-                            } else if (!arg->type->is_error()) {
-                                context.report_compiler_diagnostic(arg->loc, fmt::format("Passing argument of non-trivial type ('{}') is not allowed", type_info_to_string(arg->type)));
-                            }
-                        }
-                    } else if (fn_type.variadic == VariadicKind::Named) {
-                        for (size_t i = fn_type.param_types.size - 1; i < call.arguments.size; i++) {
-                            Expr* arg = call.arguments.items[i];
-                            resolve_expr(arg);
-                            require_rvalue(arg);
-                        }
-                    }
+            case TypeKind::Error: {
+                expr->type = TypeInfo::get_error();
+                for (Expr* arg : call.arguments) {
+                    resolve_expr(arg);
                 }
-
-                expr->type = fn_type.return_type;
-                expr->value_kind = ExprValueKind::RValue;
                 return;
             }
-        } else {
-            for (Expr* arg : call.arguments) {
-                resolve_expr(arg);
+
+            default: {
+                context.report_compiler_diagnostic(call.callee->loc, "Only functions or function pointers may be called");
+                expr->type = TypeInfo::get_error();
+                for (Expr* arg : call.arguments) {
+                    resolve_expr(arg);
+                }
+                return;
             }
         }
 
-        expr->type = TypeInfo::get_error();
-        call.callee->kind = ExprKind::Error;
+        if (fn_type->return_type->is_never()) {
+            m_scopes.back().reaches_end = false;
+        }
+
+        if (fn_type->param_types.size != call.arguments.size && !fn_type->is_variadic()) {
+            context.report_compiler_diagnostic(expr->loc, fmt::format("Mismatched argument count, function expects {} but got {}", fn_type->param_types.size, call.arguments.size));
+            for (size_t i = 0; i < call.arguments.size; i++) {
+                resolve_expr(call.arguments.items[i]);
+            }
+        } else {
+            for (size_t i = 0; i < fn_type->param_types.size; i++) {
+                if (fn_type->variadic == VariadicKind::Named && i == fn_type->param_types.size - 1) { break; }
+                resolve_param_initializer(fn_type->param_types.items[i], call.arguments.items[i]);
+            }
+
+            if (fn_type->variadic == VariadicKind::Unnamed) {
+                for (size_t i = fn_type->param_types.size; i < call.arguments.size; i++) {
+                    Expr* arg = call.arguments.items[i];
+                    resolve_expr(arg);
+
+                    if (arg->type->is_integral()) {
+                        require_rvalue(arg);
+
+                        if (arg->type->get_bit_size() < 32) { // Promote to int
+                            insert_implicit_cast(TypeInfo::get_basic(TypeKind::Int), arg->type, arg, CastKind::Integral);
+                        }
+                    } else if (arg->type->is_floating_point()) {
+                        require_rvalue(arg);
+
+                        if (arg->type->kind == TypeKind::Float) { // Promote to double
+                            insert_implicit_cast(TypeInfo::get_basic(TypeKind::Double), arg->type, arg, CastKind::Floating);
+                        }
+                    } else if (arg->type->is_pointer()) {
+                        require_rvalue(arg);
+                    } else if (!arg->type->is_error()) {
+                        context.report_compiler_diagnostic(arg->loc, fmt::format("Passing argument of non-trivial type ('{}') is not allowed", type_info_to_string(arg->type)));
+                    }
+                }
+            } else if (fn_type->variadic == VariadicKind::Named) {
+                for (size_t i = fn_type->param_types.size - 1; i < call.arguments.size; i++) {
+                    Expr* arg = call.arguments.items[i];
+                    resolve_expr(arg);
+                    require_rvalue(arg);
+                }
+            }
+        }
+
+        if (fn_type->return_type->is_never()) {
+            expr->type = TypeInfo::get_void();
+        } else {
+            expr->type = fn_type->return_type;
+        }
+
+        expr->value_kind = ExprValueKind::RValue;
     }
 
     void SemanticAnalyzer::resolve_builtin_call_expr(Expr* expr) {

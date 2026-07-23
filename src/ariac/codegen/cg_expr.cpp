@@ -245,8 +245,7 @@ namespace ariac {
         llvm::Value* callee = gen_expr(call.callee);
         ARIA_ASSERT(callee, "Invalid function callee");
 
-        llvm::Value* c = gen_call_raw(args, llvm::dyn_cast<llvm::Function>(callee), call.callee->type->function.return_type);
-        gen_unrechable_if_noreturn(call.callee->decl_ref.referenced_decl);
+        llvm::Value* c = gen_call_raw(args, callee, call.callee->type->is_pointer() ? call.callee->type->pointer.base : call.callee->type);
         return c;
     }
 
@@ -374,7 +373,7 @@ namespace ariac {
         llvm::Value* callee = gen_expr(mc.callee);
         ARIA_ASSERT(callee, "Invalid function callee");
 
-        return gen_call_raw(args, llvm::dyn_cast<llvm::Function>(callee), mc.callee->type->function.return_type);
+        return gen_call_raw(args, callee, mc.callee->type);
     }
 
     llvm::Value* Codegen::gen_array_subscript_expr(Expr* expr) {
