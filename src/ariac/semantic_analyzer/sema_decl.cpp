@@ -361,6 +361,23 @@ namespace ariac {
                     break;
                 }
 
+                case DeclAttributeKind::Init: {
+                    if (decl->kind != DeclKind::Function) {
+                        context.report_compiler_diagnostic(decl->loc, "Only functions may have '@init'");
+                        break;
+                    }
+
+                    FunctionDecl& fn = decl->function;
+                    TypeInfo* fn_ty = TypeInfo::create_function(TypeKind::Function, TypeInfo::get_void(), {}, VariadicKind::None);
+
+                    if (!type_is_equal(fn_ty, fn.type)) {
+                        context.report_compiler_diagnostic(decl->loc, fmt::format("Function marked '@init' must have signature '{}'", type_info_to_string(fn_ty)));
+                        break;
+                    }
+
+                    break;
+                }
+
                 default: ARIA_UNREACHABLE("Invalid decl attribute");
             }
         }

@@ -31,6 +31,8 @@ namespace ariac {
         "core/any.aria",
         "core/assert.aria",
         "process/process.aria",
+        "os/win32/win32.aria",
+        "os/win32/exception.aria",
     };
 
     inline static std::string get_line(const std::string& str, size_t line) {

@@ -276,6 +276,40 @@ namespace ariac {
         }
     }
 
+    TypeInfo* TypeInfo::get_flattened(TypeInfo* t) {
+        switch (t->kind) {
+            case TypeKind::Error:
+            case TypeKind::Void:
+            case TypeKind::Bool:
+            case TypeKind::Char:
+            case TypeKind::IChar:
+            case TypeKind::Short:
+            case TypeKind::UShort:
+            case TypeKind::Int:
+            case TypeKind::UInt:
+            case TypeKind::Long:
+            case TypeKind::ULong:
+            case TypeKind::Sz:
+            case TypeKind::Isz:
+            case TypeKind::Float:
+            case TypeKind::Double:
+            case TypeKind::TypeInfo:
+            case TypeKind::Any:
+            case TypeKind::Pointer:
+            case TypeKind::Array:
+            case TypeKind::Slice:
+            case TypeKind::Function:
+            case TypeKind::Method:
+            case TypeKind::Structure:
+            case TypeKind::Enum:
+                return t;
+
+            case TypeKind::Typedef: return t->typedef_.base;
+
+            default: ARIA_UNREACHABLE("Invalid type kind");
+        }
+    }
+
     bool TypeInfo::is_string() const {
         if (std_core_string_type) {
             return is_typedef() && typedef_.source_decl == std_core_string_type->typedef_.source_decl;

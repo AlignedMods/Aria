@@ -526,6 +526,11 @@ namespace ariac {
                 return;
             }
 
+            case DeclAttributeKind::Init: {
+                m_output += fmt::format("InitAttribute\n");
+                return;
+            }
+
             default: ARIA_UNREACHABLE("Invalid attribute kind");
         }
     }

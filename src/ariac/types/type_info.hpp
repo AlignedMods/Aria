@@ -208,6 +208,7 @@ namespace ariac {
         static TypeInfo* get_typeinfo_ptr();
         static TypeInfo* get_char_slice();
         static TypeInfo* get_string();
+        static TypeInfo* get_flattened(TypeInfo* t);
 
         static TypeInfo* dup(TypeInfo* type);
 

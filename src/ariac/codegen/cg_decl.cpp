@@ -160,6 +160,7 @@ namespace ariac {
 
     void Codegen::gen_function_prototype(Decl* decl) {
         std::string sig;
+        llvm::Function* function = nullptr;
 
         if (decl->kind == DeclKind::Function) {
             FunctionDecl& fn = decl->function;
@@ -170,23 +171,25 @@ namespace ariac {
             }
 
             llvm::Type* fn_ty = type_info_to_llvm_type(fn.type);
-            llvm::Function* function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), linkage_kind_to_llvm(fn.linkage_kind), 0, sig, m_active_module_context.module);
-            m_active_module_context.functions[decl] = function;
-
-            return;
+            function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), linkage_kind_to_llvm(fn.linkage_kind), 0, sig, m_active_module_context.module);
         } else if (decl->kind == DeclKind::FunctionSpecilization) {
             FunctionSpecilizationDecl& fn = decl->function_specilization;
             sig = fmt::format("{}.{}__G{}", valid_module_name(decl->parent_module->name), fn.source->function.identifier, fn.types.size);
             for (TypeInfo* t : fn.types) { sig += mangle_type(t); }
 
             llvm::Type* fn_ty = type_info_to_llvm_type(fn.source->function.type);
-            llvm::Function* function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), linkage_kind_to_llvm(fn.source->function.linkage_kind), 0, sig, m_active_module_context.module);
-            m_active_module_context.functions[decl] = function;
-
-            return;
+            function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), linkage_kind_to_llvm(fn.source->function.linkage_kind), 0, sig, m_active_module_context.module);
+        } else {
+            ARIA_UNREACHABLE("Invalid function prototype");
         }
 
-        ARIA_UNREACHABLE("Invalid function prototype");
+        m_active_module_context.functions[decl] = function;
+
+        for (auto& attr : decl->attributes) {
+            if (attr.kind == DeclAttributeKind::Init) {
+                llvm::appendToGlobalCtors(*m_active_module_context.module, function, 65535);
+            }
+        }
     }
 
     void Codegen::gen_method_prototype(Decl* decl) {

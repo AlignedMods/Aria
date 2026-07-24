@@ -1,0 +1,42 @@
+module std::os::win32 @if(env::WIN32);
+
+import std::io;
+
+struct ExceptionRecord {
+    exception_code: uint;
+    exception_flags: uint;
+    exception_record: *void;
+    exception_address: *void;
+}
+
+struct ExceptionPointers {
+    exception_record: *ExceptionRecord;
+    context_record: *void;
+}
+
+typedef *fn (exception_info: *ExceptionPointers) -> int as UnhandledExceptionFilter;
+
+extern fn SetUnhandledExceptionFilter(filter: UnhandledExceptionFilter) -> UnhandledExceptionFilter;
+
+fn exception_filter(exception_info: *ExceptionPointers) -> int {
+    let code = exception_info.exception_record.exception_code;
+    let addr = exception_info.exception_record.exception_address;
+
+    if code == 3221225477 {
+        io::eprintfn("Access violation at %s\n", addr);
+    } else {
+        io::eprintfn("Unhandled exception 0x%X at %p\n", code, addr);
+    }
+
+    if (prev_filter != null) {
+        return prev_filter(exception_info);
+    }
+
+    return 1;
+}
+
+prev_filter: UnhandledExceptionFilter;
+
+fn set_exception_filter() @init {
+    prev_filter = SetUnhandledExceptionFilter(&exception_filter);
+}

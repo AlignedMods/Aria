@@ -1793,6 +1793,12 @@ namespace ariac {
                     break;
                 }
 
+                case TokenKind::AtInit: {
+                    consume();
+                    attrs.append(DeclAttribute(DeclAttributeKind::Init));
+                    break;
+                }
+
                 default: return attrs;
             }
         }
@@ -1832,7 +1838,7 @@ namespace ariac {
                 return parse_const_decl(true);
 
             case TokenKind::Let: {
-                context.report_compiler_diagnostic(peek()->loc, "'let' cannot be used for global variables, try using 'const' or 'static' instead"); 
+                context.report_compiler_diagnostic(peek()->loc, "'let' cannot be used for global variables, try using 'const' instead"); 
                 consume(); 
                 return &error_decl;
             }
@@ -1870,6 +1876,9 @@ namespace ariac {
                 return &error_decl;
             }
 
+            case TokenKind::Identifier:
+                return parse_variable_decl(true, false);
+
             case TokenKind::Void:
             case TokenKind::Bool:
             case TokenKind::Char:
@@ -1883,7 +1892,7 @@ namespace ariac {
             case TokenKind::Float:
             case TokenKind::Double: {
                 Token& t = consume();
-                context.report_compiler_diagnostic(t.loc, fmt::format("Unexpected type '{}', did you mean to declare a global variable? (let <name>: <type>)", token_kind_to_string(t.kind)));
+                context.report_compiler_diagnostic(t.loc, fmt::format("Unexpected type '{}', did you mean to declare a global variable? (name: type)", token_kind_to_string(t.kind)));
                 return &error_decl;
             }
 

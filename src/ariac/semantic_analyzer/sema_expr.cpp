@@ -622,15 +622,16 @@ namespace ariac {
         }
 
         FunctionType* fn_type = nullptr;
-        
-        switch (call.callee->type->kind) {
+        TypeInfo* searching_type = TypeInfo::get_flattened(call.callee->type);
+
+        switch (searching_type->kind) {
             case TypeKind::Function: {
-                fn_type = &call.callee->type->function;
+                fn_type = &searching_type->function;
                 break;
             }
 
             case TypeKind::Pointer: {
-                if (!call.callee->type->pointer.base->is_function()) {
+                if (!searching_type->pointer.base->is_function()) {
                     context.report_compiler_diagnostic(call.callee->loc, fmt::format("Only function pointers may be called"));
                     expr->type = TypeInfo::get_error();
                     for (Expr* arg : call.arguments) {
@@ -640,7 +641,7 @@ namespace ariac {
                 }
 
                 require_rvalue(call.callee);
-                fn_type = &call.callee->type->pointer.base->function;
+                fn_type = &TypeInfo::get_flattened(searching_type->pointer.base)->function;
                 break;
             }
 
@@ -1739,93 +1740,99 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::insert_arithmetic_promotion(Expr* lhs, Expr* rhs, BinaryOperatorKind op, Expr* e) {
-        if (lhs->type->kind == TypeKind::Error || rhs->type->kind == TypeKind::Error) {
+        TypeInfo* lty = lhs->type;
+        TypeInfo* rty = rhs->type;
+
+        if (lty->kind == TypeKind::Error || rty->kind == TypeKind::Error) {
             e->type = TypeInfo::get_error();
             return;
         }
 
-        if (lhs->type->kind == TypeKind::Generic || rhs->type->kind == TypeKind::Generic) {
+        if (lty->kind == TypeKind::Generic || rty->kind == TypeKind::Generic) {
             e->type = lhs->type;
             return;
         }
 
+        if (lty->is_typedef()) { lty = lty->typedef_.base; }
+        if (rty->is_typedef()) { rty = rty->typedef_.base; }
+
         require_rvalue(lhs);
         require_rvalue(rhs);
 
-        if (lhs->type->is_integral()) {
-            if (rhs->type->is_integral()) {
+        if (lty->is_integral()) {
+            if (rty->is_integral()) {
                 // We want to keep the original types for error messages
-                TypeInfo lhs_type = *lhs->type;
-                TypeInfo rhs_type = *rhs->type;
+                TypeInfo lhs_type = *lty;
+                TypeInfo rhs_type = *rty;
 
                 maybe_promote_to_int(lhs);
                 maybe_promote_to_int(rhs);
 
-                size_t l_size = lhs->type->get_bit_size();
-                size_t r_size = rhs->type->get_bit_size();
+                size_t l_size = lty->get_bit_size();
+                size_t r_size = rty->get_bit_size();
 
                 if (l_size > r_size) {
-                    insert_implicit_cast(lhs->type, rhs->type, rhs, CastKind::Integral);
+                    insert_implicit_cast(lty, rty, rhs, CastKind::Integral);
                 } else if (r_size > l_size) {
-                    insert_implicit_cast(rhs->type, lhs->type, lhs, CastKind::Integral);
+                    insert_implicit_cast(rty, lty, lhs, CastKind::Integral);
                 } else if (l_size == r_size) {
-                    if (lhs->type->is_signed() != rhs->type->is_signed()) {
+                    if (lty->is_signed() != rty->is_signed()) {
                         context.report_compiler_diagnostic_with_notes(lhs->loc, 
                             fmt::format("Mismatched types '{}' and '{}'", type_info_to_string(&lhs_type), type_info_to_string(&rhs_type)),
                             { "implicit signedness conversions are not allowed here"} );
                     }
                 }
 
-                e->type = lhs->type;
+                e->type = lty;
                 return;
-            } else if (rhs->type->is_floating_point()) {
-                insert_implicit_cast(rhs->type, lhs->type, lhs, CastKind::IntegralToFloating);
-                e->type = rhs->type;
+            } else if (rty->is_floating_point()) {
+                insert_implicit_cast(rty, lty, lhs, CastKind::IntegralToFloating);
+                e->type = rty;
                 return;
             }
-        } else if (lhs->type->is_floating_point() && !is_binary_operator_bit(op)) {
-            if (rhs->type->is_integral()) {
-                insert_implicit_cast(lhs->type, rhs->type, rhs, CastKind::IntegralToFloating);
-                e->type = lhs->type;
+        } else if (lty->is_floating_point() && !is_binary_operator_bit(op)) {
+            if (rty->is_integral()) {
+                insert_implicit_cast(lty, rty, rhs, CastKind::IntegralToFloating);
+                e->type = lty;
                 return;
-            } else if (rhs->type->is_floating_point()) {
-                size_t lSize = lhs->type->get_bit_size();
-                size_t rSize = rhs->type->get_bit_size();
+            } else if (rty->is_floating_point()) {
+                size_t lSize = lty->get_bit_size();
+                size_t rSize = rty->get_bit_size();
 
                 if (lSize > rSize) {
-                    insert_implicit_cast(lhs->type, rhs->type, rhs, CastKind::Floating);
+                    insert_implicit_cast(lty, rty, rhs, CastKind::Floating);
                 } else if (rSize > lSize) {
-                    insert_implicit_cast(rhs->type, lhs->type, lhs, CastKind::Floating);
+                    insert_implicit_cast(rty, lty, lhs, CastKind::Floating);
                 }
 
-                e->type = lhs->type;
+                e->type = lty;
                 return;
             }
-        } else if (lhs->type->is_pointer() && !is_binary_operator_bit(op)) {
+        } else if (lty->is_pointer() && !is_binary_operator_bit(op)) {
             if (op == BinaryOperatorKind::Add) {
-                if (rhs->type->is_integral()) {
-                    insert_implicit_cast(TypeInfo::get_sz(), rhs->type, rhs, CastKind::IntegerToPointer);
-                    e->type = lhs->type;
+                if (rty->is_integral()) {
+                    insert_implicit_cast(TypeInfo::get_sz(), rty, rhs, CastKind::IntegerToPointer);
+                    e->type = lty;
                     return;
                 } else {
-                    context.report_compiler_diagnostic(rhs->loc, fmt::format("Expected an integer here but got '{}'", type_info_to_string(rhs->type)));
-                    e->type = lhs->type;
+                    context.report_compiler_diagnostic(rhs->loc, fmt::format("Expected an integer here but got '{}'", type_info_to_string(rty)));
+                    e->type = lty;
                     return;
                 }
             }
 
-            if (rhs->type->is_pointer()) {
+            if (rty->is_pointer()) {
                 if (op == BinaryOperatorKind::Eq || op == BinaryOperatorKind::IsNotEq) {
-                    insert_implicit_cast(TypeInfo::get_void_ptr(), lhs->type, lhs, CastKind::BitCast);
-                    insert_implicit_cast(TypeInfo::get_void_ptr(), rhs->type, rhs, CastKind::BitCast);
-                    e->type = lhs->type;
+                    insert_implicit_cast(TypeInfo::get_void_ptr(), lty, lhs, CastKind::BitCast);
+                    insert_implicit_cast(TypeInfo::get_void_ptr(), rty, rhs, CastKind::BitCast);
+                    e->type = lty;
                     return;
                 }
             }
         }
 
         context.report_compiler_diagnostic(lhs->loc + rhs->loc, fmt::format("Invalid operands to binary operator '{}' (have '{}' and '{}')", binary_op_kind_to_string(op),
-            type_info_to_string(lhs->type), type_info_to_string(rhs->type)));
+            type_info_to_string(lty), type_info_to_string(rty)));
         e->type = TypeInfo::get_error();
         return;
     }

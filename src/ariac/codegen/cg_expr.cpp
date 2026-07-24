@@ -245,7 +245,8 @@ namespace ariac {
         llvm::Value* callee = gen_expr(call.callee);
         ARIA_ASSERT(callee, "Invalid function callee");
 
-        llvm::Value* c = gen_call_raw(args, callee, call.callee->type->is_pointer() ? call.callee->type->pointer.base : call.callee->type);
+        TypeInfo* callee_type = TypeInfo::get_flattened(call.callee->type);
+        llvm::Value* c = gen_call_raw(args, callee, callee_type->is_pointer() ? callee_type->pointer.base : callee_type);
         return c;
     }
 

@@ -463,6 +463,7 @@ namespace ariac {
         static std::unordered_map<std::string_view, TokenKind> kws = {
             { "@if", TokenKind::AtIf },
             { "@builtin", TokenKind::AtBuiltin },
+            { "@init", TokenKind::AtInit },
             { "@sizeof", TokenKind::AtSizeof },
             { "@typeid", TokenKind::AtTypeid },
             { "@typeof", TokenKind::AtTypeof },
