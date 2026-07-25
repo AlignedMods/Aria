@@ -4,6 +4,7 @@
 #include "ariac/core/vector.hpp"
 #include "ariac/core/source_location.hpp"
 #include "ariac/types.hpp"
+#include "ariac/enums.hpp"
 
 #include <string_view>
 
@@ -11,68 +12,6 @@ namespace ariac {
 
     struct Expr;
     struct Decl;
-
-    enum class TypeKind {
-        Error = 0,
-        Void,
-
-        Bool,
-
-        Char, IChar,
-        Short, UShort,
-        Int, UInt,
-        Long, ULong,
-        Sz, Isz,
-
-        Float,
-        Double,
-
-        // TypeInfo is a built in type that has the following runtime layout:
-        // name: String;
-        // kind: String;
-        // size: sz;
-        // len: sz;
-        // types: []*typeinfo;
-        TypeInfo,
-
-        // Any is a built in type that has the following runtime layout:
-        // type: *typeinfo;
-        // value: *void;
-        Any,
-
-        Pointer,
-        Array,
-        Slice,
-
-        Function,
-        Method,
-
-        Structure,
-        Typedef,
-        Enum,
-
-        Generic,
-        GenericDecl,
-        GenericInstantiation,
-
-        Unresolved,
-        Typeof,
-
-        // Never is a special type which is only available for function return types
-        // In code it is represented as: -> !
-        // The underlying type for Never is void
-        Never
-    };
-
-    enum class VariadicKind {
-        None,
-
-        Unnamed, // foo(int a, int b, ...);
-                 // Supported only on functions marked 'extern'
-
-        Named // foo(int a, int b, args...);
-              // Supported on all functions
-    };
 
     struct TypeInfo;
 

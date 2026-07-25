@@ -503,7 +503,7 @@ namespace ariac {
         } else if (t->kind == TypeKind::Typedef) {
             return type_info_to_llvm_type(t->typedef_.base);
         } else if (t->kind == TypeKind::Enum) {
-            return llvm::IntegerType::getInt32Ty(*m_active_module_context.context);
+            return type_info_to_llvm_type(t->enum_.source_decl->enum_.backing_type);
         } else if (t->kind == TypeKind::GenericInstantiation) {
             Decl* struc = t->generic_instantiation.resolved_decl->struct_specilization.source;
             std::string name = fmt::format("{}.{}<", valid_module_name(struc->parent_module->name), struc->struct_.identifier);
@@ -656,6 +656,8 @@ namespace ariac {
         } else if (t->is_typedef()) {
             dit = m_active_debug_context.builder->createTypedef(type_info_to_debug_type(t->typedef_.base), t->typedef_.identifier, 
                 m_active_debug_context.unit->getFile(), (unsigned)t->typedef_.source_decl->loc.line, m_active_debug_context.scope);
+        } else if (t->is_enum()) {
+            dit = type_info_to_debug_type(t->enum_.source_decl->enum_.backing_type);
         } else {
             ARIA_UNREACHABLE("Invalid type");
         }

@@ -115,7 +115,7 @@ namespace ariac {
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
                 return;
 
-            case ExprKind::Member: m_output += fmt::format("MemberExpr {} '{}'{} {} '{}' {}\n",
+            case ExprKind::Member: m_output += fmt::format("MemberExpr {} '{}'{} {} {} '{}' {}\n",
                 source_loc_to_string(expr->loc), expr->member.member, expr->member.implicit_deref ? " implicit_deref" : "",
                 decl_kind_to_string(expr->member.referenced_member->kind), reinterpret_cast<void*>(expr->member.referenced_member),
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
@@ -336,8 +336,8 @@ namespace ariac {
                 dump_attributes(decl->attributes, indentation + 4);
                 return;
 
-            case DeclKind::Enum: m_output += fmt::format("EnumDecl {} '{}'\n",
-                source_loc_to_string(decl->loc), decl->enum_.identifier);
+            case DeclKind::Enum: m_output += fmt::format("EnumDecl {} '{}' '{}'\n",
+                source_loc_to_string(decl->loc), decl->enum_.identifier, type_info_to_string(decl->enum_.backing_type, false));
 
                 for (Decl* field : decl->enum_.fields) {
                     dump_decl(field, indentation + 4);

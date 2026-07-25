@@ -349,41 +349,19 @@ namespace ariac {
         MemberExpr& mem = expr->member;
 
         resolve_expr(mem.parent);
-        TypeInfo* parent_type = mem.parent->type;
+
+        if (mem.parent->kind == ExprKind::TypeInfo) {
+            return resolve_type_member_expr(expr);
+        }
+
+        TypeInfo* parent_type = TypeInfo::get_flattened(mem.parent->type);
         TypeInfo* member_type = nullptr;
 
-        bool implicit_deref = false;
         bool searching = true;
+        bool implicit_deref = false;
         while (searching) {
             switch (parent_type->kind) {
                 case TypeKind::Error: {
-                    if (mem.parent->kind == ExprKind::DeclRef) {
-                        switch (mem.parent->decl_ref.referenced_decl->kind) {
-                            case DeclKind::Enum: {
-                                EnumDecl& e = mem.parent->decl_ref.referenced_decl->enum_;
-                                
-                                if (e.field_lookup.contains(mem.member)) {
-                                    Decl* d = e.field_lookup.at(mem.member);
-                                    expr->type = TypeInfo::create_enum(mem.parent->decl_ref.referenced_decl);
-                                    expr->value_kind = ExprValueKind::RValue;
-                                    mem.referenced_member = d;
-                                } else {
-                                    context.report_compiler_diagnostic(expr->loc, fmt::format("Enum '{}' has no field named '{}'", e.identifier, mem.member));
-                                    expr->type = TypeInfo::get_error();
-                                    mem.referenced_member = &error_decl;
-                                }
-
-                                return;
-                            }
-
-                            case DeclKind::Error:
-                            case DeclKind::Var:
-                            case DeclKind::Param: break;
-
-                            default: ARIA_UNREACHABLE("Invalid decl kind");
-                        }
-                    }
-
                     expr->type = TypeInfo::get_error();
                     mem.referenced_member = &error_decl;
                     return;
@@ -574,6 +552,38 @@ namespace ariac {
 
         if (expr->result_discarded) {
             context.report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
+        }
+    }
+
+    void SemanticAnalyzer::resolve_type_member_expr(Expr* expr) {
+        MemberExpr& mem = expr->member;
+        ARIA_ASSERT(mem.parent->kind == ExprKind::TypeInfo, "Parent expression must be a TypeInfo");
+        TypeInfo* parent_type = mem.parent->type;
+
+        switch (parent_type->kind) {
+            case TypeKind::Enum: {
+                EnumDecl& e = parent_type->enum_.source_decl->enum_;
+
+                if (e.field_lookup.contains(mem.member)) {
+                    Decl* d = e.field_lookup.at(mem.member);
+                    expr->type = TypeInfo::create_enum(parent_type->enum_.source_decl);
+                    expr->value_kind = ExprValueKind::RValue;
+                    mem.referenced_member = d;
+                } else {
+                    context.report_compiler_diagnostic(expr->loc, fmt::format("Enum '{}' has no field named '{}'", e.identifier, mem.member));
+                    expr->type = TypeInfo::get_error();
+                    mem.referenced_member = &error_decl;
+                }
+
+                return;
+            }
+
+            default: {
+                context.report_compiler_diagnostic(expr->loc, fmt::format("No such member '{}' in type '{}'", mem.member, type_info_to_string(parent_type)));
+                expr->type = TypeInfo::get_error();
+                mem.referenced_member = &error_decl;
+                return;
+            }
         }
     }
 

@@ -134,7 +134,8 @@ namespace ariac {
             }
 
             case DeclKind::EnumConstant: {
-                return m_active_module_context.builder->getInt32(static_cast<u32>(mem.referenced_member->enum_constant.resolved_value));
+                return m_active_module_context.builder->getIntN(expr->type->enum_.source_decl->enum_.backing_type->get_bit_size(), 
+                    mem.referenced_member->enum_constant.resolved_value);
             }
 
             default: ARIA_UNREACHABLE("Invalid decl kind");

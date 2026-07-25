@@ -4,6 +4,7 @@
 #include "ariac/core/vector.hpp"
 #include "ariac/compilation_context.hpp"
 #include "ariac/ast/generic.hpp"
+#include "ariac/enums.hpp"
 
 #include <string_view>
 
@@ -14,71 +15,6 @@ namespace ariac {
 
     struct Stmt;
     struct TypeInfo;
-
-    enum class DeclKind {
-        Invalid = 0,
-
-        Error,
-        Module,
-        Import,
-        Var,
-        Param,
-        Function,
-        FunctionSpecilization,
-        Struct,
-        StructSpecilization,
-        Impl,
-        Typedef,
-        Enum,
-        EnumConstant,
-        Field,
-        Method,
-        Generic,
-        GenericParameter
-    };
-
-    inline const char* decl_kind_to_string(DeclKind kind) {
-        switch (kind) {
-            case DeclKind::Error: return "Error";
-
-            case DeclKind::Var: return "Var";
-            case DeclKind::Param: return "Param";
-            case DeclKind::Function: return "Function";
-            case DeclKind::FunctionSpecilization: return "FunctionSpecilization";
-            case DeclKind::Struct: return "Struct";
-            case DeclKind::Typedef: return "Typedef";
-            case DeclKind::Enum: return "Enum";
-            case DeclKind::EnumConstant: return "EnumConstant";
-            case DeclKind::Field: return "Field";
-            case DeclKind::Method: return "Method";
-            case DeclKind::Generic: return "Generic";
-
-            case DeclKind::GenericParameter: return "GenericParameter";
-
-            default: ARIA_UNREACHABLE("Invalid decl kind");
-        }
-    }
-
-    enum class DeclVisibility {
-        Public,
-        Private
-    };
-
-    inline const char* decl_visibility_to_string(DeclVisibility visibility) {
-        switch (visibility) {
-            case DeclVisibility::Public: return "public";
-            case DeclVisibility::Private: return "private";
-
-            default: ARIA_UNREACHABLE("Invalid decl visibility");
-        }
-    }
-
-    enum class DeclAttributeKind {
-        None,
-        If,
-        Builtin,
-        Init
-    };
 
     struct DeclAttribute {
         DeclAttribute(DeclAttributeKind kind)
@@ -228,12 +164,13 @@ namespace ariac {
     };
 
     struct EnumDecl {
-        EnumDecl(TinyVector<Decl*> fields, std::string_view identifier)
-            : fields(fields), identifier(identifier) {}
+        EnumDecl(TinyVector<Decl*> fields, std::string_view identifier, TypeInfo* backing_ty)
+            : fields(fields), identifier(identifier), backing_type(backing_ty) {}
 
         TinyVector<Decl*> fields;
         HTable<Decl*> field_lookup;
         std::string_view identifier;
+        TypeInfo* backing_type;
     };
 
     struct EnumConstantDecl {

@@ -4,28 +4,11 @@
 #include "ariac/types/type_info.hpp"
 #include "ariac/core/source_location.hpp"
 #include "ariac/compilation_context.hpp"
+#include "ariac/enums.hpp"
 
 #include <string_view>
 
 namespace ariac {
-
-    enum class StmtKind {
-        Invalid = 0,
-
-        Error,
-        Nop,
-        Block,
-        While,
-        DoWhile,
-        For,
-        If,
-        Break,
-        Continue,
-        Return,
-        Defer,
-        Expr,
-        Decl
-    };
 
     struct Expr;
     struct Decl;

@@ -4,7 +4,7 @@
 #include "ariac/build.hpp"
 #include "ariac/core/source_location.hpp"
 #include "ariac/lexer/tokens.hpp"
-#include "ariac/reflection/compiler_reflection.hpp"
+#include "ariac/enums.hpp"
 
 namespace ariac {
 
@@ -12,12 +12,6 @@ namespace ariac {
     struct Stmt;
     struct Decl;
     struct CompilationUnit;
-
-    enum class CompilerDiagKind {
-        Note,
-        Warning,
-        Error
-    };
 
     struct CompilerDiagnostic {
         CompilerDiagKind kind = CompilerDiagKind::Warning;
@@ -35,7 +29,6 @@ namespace ariac {
         std::unordered_map<std::string_view, Decl*> private_symbols;
         std::vector<CompilationUnit*> units;
         std::string_view name;
-        CompilerReflectionData reflection_data;
 
         Module* top_module = nullptr;
         Module* parent = nullptr;
@@ -156,7 +149,6 @@ namespace ariac {
         Decl* string_type = nullptr;
         Decl* assert_func = nullptr;
 
-        CompilerReflectionData reflection_data;
         bool has_errors = false;
 
         std::vector<CompilerDiagnostic> diagnostics;

@@ -1,18 +1,13 @@
 #pragma once
 
 #include "ariac/compilation_context.hpp"
+#include "ariac/enums.hpp"
 
 #include <string_view>
 
 namespace ariac {
 
     struct Decl;
-
-    enum class SpecifierKind {
-        Invalid = 0,
-
-        Name
-    };
 
     struct NameSpecifier {
         NameSpecifier(std::string_view identifier)

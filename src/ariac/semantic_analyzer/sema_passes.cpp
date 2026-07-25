@@ -456,6 +456,11 @@ namespace ariac {
             resolve_struct_decl(struc);
         }
 
+        for (Decl* struc : unit->enums) {
+            ARIA_ASSERT(struc->kind == DeclKind::Enum, "Invalid enum decl");
+            resolve_enum_decl(struc);
+        }
+
         for (Decl* var : unit->globals) {
             resolve_var_decl(var);
         }

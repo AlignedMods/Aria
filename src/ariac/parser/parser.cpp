@@ -1735,6 +1735,18 @@ namespace ariac {
         Token* ident = try_consume(TokenKind::Identifier, "identifier");
         if (!ident) { return &error_decl; }
 
+        TypeInfo* backing_type = TypeInfo::get_basic(TypeKind::UInt);
+
+        if (match(TokenKind::Colon)) {
+            consume();
+
+            if (is_type()) {
+                backing_type = parse_type();
+            } else {
+                context.report_compiler_diagnostic(peek()->loc, "Expected a type here");
+            }
+        }
+
         TinyVector<Decl*> fields;
         try_consume(TokenKind::LeftCurly, "{");
         while (peek() && !match(TokenKind::RightCurly)) {
@@ -1758,7 +1770,7 @@ namespace ariac {
 
         try_consume(TokenKind::RightCurly, "}");
 
-        Decl* d = Decl::Create(enu.loc + ident->loc, DeclKind::Enum, m_current_visibility, EnumDecl(fields, ident->string));
+        Decl* d = Decl::Create(enu.loc + ident->loc, DeclKind::Enum, m_current_visibility, EnumDecl(fields, ident->string, backing_type));
         context.active_comp_unit->enums.push_back(d);
         return d;
     }

@@ -360,6 +360,19 @@ namespace ariac {
             return cost;
         }
 
+        if (src->is_enum()) {
+            if (dst->is_enum()) {
+                if (src->enum_.source_decl != dst->enum_.source_decl) {
+                    cost.explicit_cast_possible = false;
+                    cost.implicit_cast_possible = false;
+                    return cost;
+                }
+
+                cost.cast_needed = false;
+                return cost;
+            }
+        }
+
         cost.explicit_cast_possible = false;
         cost.implicit_cast_possible = false;
         return cost;
@@ -466,6 +479,20 @@ namespace ariac {
                 }
 
                 return TypeInfo::create_typedef(decl);
+            }
+
+            case DeclKind::Enum: {
+                if (decl->resolve_status == ResolveStatus::InProgress) {
+                    context.report_compiler_diagnostic(decl->loc, "Recursive definition of enum");
+                    return TypeInfo::get_error();
+                } else {
+                    CompilationUnit* old_unit = context.active_comp_unit;
+                    context.active_comp_unit = decl->parent_unit;
+                    resolve_enum_decl(decl);
+                    context.active_comp_unit = old_unit;
+                }
+
+                return TypeInfo::create_enum(decl);
             }
 
             case DeclKind::GenericParameter: {

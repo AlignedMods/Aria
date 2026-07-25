@@ -159,7 +159,13 @@ namespace ariac {
         decl->resolve_status = ResolveStatus::InProgress;
 
         EnumDecl& e = decl->enum_;
-        u64 val = 0;
+        resolve_type(e.backing_type);
+
+        if (!TypeInfo::get_flattened(e.backing_type)->is_integral()) {
+            context.report_compiler_diagnostic(decl->loc, fmt::format("Backing type for enum must be an integral type but is '{}'", type_info_to_string(e.backing_type)));
+        }
+
+        u64 val = -1;
 
         for (Decl* field : e.fields) {
             ARIA_ASSERT(field->kind == DeclKind::EnumConstant, "Invalid enum constant");
