@@ -132,7 +132,7 @@ namespace ariac {
         for (llvm::Value* val : vals) {
             llvm::Value* taddr = alloca_at_entry(m_active_module_context.function, "tempaddr", val->getType());
 
-            llvm::Value* ti = get_typeinfo(types[arg_idx]);
+            llvm::Value* ti = get_typeid(types[arg_idx]);
             m_active_module_context.builder->CreateStore(val, taddr);
 
             llvm::Value* undef = llvm::UndefValue::get(any_type);

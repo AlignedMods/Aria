@@ -82,6 +82,11 @@ namespace ariac {
         return val;
     }
 
+    llvm::Value* Codegen::gen_typeinfo_expr(Expr* expr) {
+        TypeInfoExpr& ti = expr->type_info;
+        return get_typeid(ti.type);
+    }
+
     llvm::Value* Codegen::gen_member_expr(Expr* expr) {
         MemberExpr& mem = expr->member;
         set_debug_loc(expr->loc);
@@ -156,17 +161,20 @@ namespace ariac {
         while (type->kind == TypeKind::Typedef) { type = type->typedef_.base; }
 
         switch (type->kind) {
-            case TypeKind::TypeInfo: {
+            case TypeKind::Typeid: {
+                val = m_active_module_context.builder->CreateLoad(llvm::PointerType::get(*m_active_module_context.context, 0), val);
+                llvm::Type* ty = llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_typeid");
+
                 if (mem.member == "name") {
-                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 0, "ptradd");
+                    return m_active_module_context.builder->CreateStructGEP(ty, val, 0, "ptradd");
                 } else if (mem.member == "kind") {
-                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 1, "ptradd");
+                    return m_active_module_context.builder->CreateStructGEP(ty, val, 1, "ptradd");
                 } else if (mem.member == "size") {
-                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 2, "ptradd");
+                    return m_active_module_context.builder->CreateStructGEP(ty, val, 2, "ptradd");
                 } else if (mem.member == "len") {
-                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 3, "ptradd");
+                    return m_active_module_context.builder->CreateStructGEP(ty, val, 3, "ptradd");
                 } else if (mem.member == "types") {
-                    return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 4, "ptradd");
+                    return m_active_module_context.builder->CreateStructGEP(ty, val, 4, "ptradd");
                 }
 
                 ARIA_UNREACHABLE("Should never be reached");
@@ -258,10 +266,6 @@ namespace ariac {
         switch (b.kind) {
             case BuiltinCallKind::Sizeof: {
                 return m_active_module_context.builder->getInt(llvm::APInt((unsigned)expr->type->get_bit_size(), b.arguments.items[0]->type->get_size()));
-            }
-            
-            case BuiltinCallKind::Typeid: {
-                return get_typeinfo(b.arguments.items[0]->type);
             }
 
             case BuiltinCallKind::Memcpy: {
@@ -539,13 +543,13 @@ namespace ariac {
             case CastKind::PointerToAny: {
                 llvm::Type* any_type = llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_any");
 
-                llvm::Value* typeinfo = get_typeinfo(ic.expression->type->pointer.base);
+                llvm::Value* typei = get_typeid(ic.expression->type->pointer.base);
                 llvm::Value* value = gen_expr(ic.expression);
 
                 llvm::Value* any_temp = alloca_at_entry(m_active_module_context.function, "ptrtoany", any_type);
 
-                llvm::Value* any_typeinfo = m_active_module_context.builder->CreateStructGEP(any_type, any_temp, 0, "ptradd");
-                m_active_module_context.builder->CreateStore(typeinfo, any_typeinfo);
+                llvm::Value* any_typeid = m_active_module_context.builder->CreateStructGEP(any_type, any_temp, 0, "ptradd");
+                m_active_module_context.builder->CreateStore(typei, any_typeid);
 
                 llvm::Value* any_value = m_active_module_context.builder->CreateStructGEP(any_type, any_temp, 1, "ptradd");
                 m_active_module_context.builder->CreateStore(value, any_value);
@@ -978,6 +982,10 @@ namespace ariac {
                 return llvm::ConstantStruct::get(llvm::dyn_cast<llvm::StructType>(type_info_to_llvm_type(expr->type)), vals);
             }
 
+            case ConstExprKind::Typeid: {
+                return get_typeid(c.type);
+            }
+
             default: ARIA_UNREACHABLE("Invalid const expr kind");
         }
 
@@ -994,6 +1002,7 @@ namespace ariac {
             case ExprKind::ArrayFiller: return gen_array_filler_expr(expr);
             case ExprKind::Null: return gen_null_expr(expr);
             case ExprKind::DeclRef: return gen_decl_ref_expr(expr);
+            case ExprKind::TypeInfo: return gen_typeinfo_expr(expr);
             case ExprKind::Member: return gen_member_expr(expr);
             case ExprKind::BuiltinMember: return gen_builtin_member_expr(expr);
             case ExprKind::Self: return gen_self_expr(expr);

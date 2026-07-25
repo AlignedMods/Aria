@@ -68,6 +68,8 @@ namespace ariac {
         While,
         Do,
         For,
+        Switch,
+        Case,
         Break,
         Continue,
         Return,
@@ -88,7 +90,6 @@ namespace ariac {
         AtBuiltin, // @builtin
         AtInit,
         AtSizeof, // @sizeof
-        AtTypeid, // @typeid
         AtTypeof, // @typeof
         AtMemcpy, // @memcpy
         AtMemset, // @memset
@@ -109,7 +110,7 @@ namespace ariac {
         Isz,
         Float,
         Double,
-        TypeInfo,
+        Typeid,
         Any,
         // ^^^ Types ^^^ //
 
@@ -196,6 +197,7 @@ namespace ariac {
             case TokenKind::While: return "while";
             case TokenKind::Do: return "do";
             case TokenKind::For: return "for";
+            case TokenKind::Switch: return "switch";
             case TokenKind::Break: return "break";
             case TokenKind::Continue: return "continue";
             case TokenKind::Return: return "return";
@@ -216,7 +218,6 @@ namespace ariac {
             case TokenKind::AtBuiltin: return "@builtin";
             case TokenKind::AtInit: return "@init";
             case TokenKind::AtSizeof: return "@sizeof";
-            case TokenKind::AtTypeid: return "@typeid";
             case TokenKind::AtTypeof: return "@typeof";
             case TokenKind::AtMemcpy: return "@memcpy";
             case TokenKind::AtMemset: return "@memset";
@@ -237,7 +238,7 @@ namespace ariac {
             case TokenKind::Isz: return "isz";
             case TokenKind::Float: return "float";
             case TokenKind::Double: return "double";
-            case TokenKind::TypeInfo: return "typeinfo";
+            case TokenKind::Typeid: return "typeid";
             case TokenKind::Any: return "any";
             // ^^^ Types ^^^ //
 

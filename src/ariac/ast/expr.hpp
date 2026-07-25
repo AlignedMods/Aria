@@ -75,6 +75,13 @@ namespace ariac {
         bool provides_generic_args = false;
     };
 
+    struct TypeInfoExpr {
+        TypeInfoExpr(TypeInfo* t)
+            : type(t) {}
+
+        TypeInfo* type;
+    };
+
     struct MemberExpr {
         MemberExpr(std::string_view member, Expr* parent)
             : member(member), parent(parent) {}
@@ -223,6 +230,9 @@ namespace ariac {
         ConstExpr(ConstExprKind kind, Expr* e)
             : kind(kind), value(e) {}
 
+        ConstExpr(ConstExprKind kind, TypeInfo* ty)
+            : kind(kind), type(ty) {}
+
         ConstExprKind kind = ConstExprKind::Error;
         union {
             bool boolean;
@@ -231,6 +241,7 @@ namespace ariac {
             std::string_view string;
             TinyVector<Expr*> values;
             Expr* value;
+            TypeInfo* type;
         };
     };
 
@@ -260,6 +271,7 @@ namespace ariac {
             StringLiteralExpr string_literal;
             ArrayFillerExpr array_filler;
             DeclRefExpr decl_ref;
+            TypeInfoExpr type_info;
             MemberExpr member;
             CallExpr call;
             BuiltinCallExpr builtin_call;
@@ -302,6 +314,9 @@ namespace ariac {
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, DeclRefExpr decl_ref)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), decl_ref(decl_ref) {}
+
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, TypeInfoExpr t)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), type_info(t) {}
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, MemberExpr member)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), member(member) {}

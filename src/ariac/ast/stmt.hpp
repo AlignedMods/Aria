@@ -66,6 +66,22 @@ namespace ariac {
         Stmt* body = nullptr;
         Stmt* else_body = nullptr;
     };
+
+    struct SwitchStmt {
+        SwitchStmt(Expr* e, TinyVector<Stmt*> cases)
+            : expression(e), cases(cases) {}
+
+        Expr* expression;
+        TinyVector<Stmt*> cases;
+    };
+
+    struct CaseStmt {
+        CaseStmt(Expr* cond, Stmt* body)
+            : condition(cond), body(body) {}
+
+        Expr* condition;
+        Stmt* body;
+    };
     
     struct ReturnStmt {
         ReturnStmt(Expr* value)
@@ -99,6 +115,8 @@ namespace ariac {
             DoWhileStmt do_while;
             ForStmt for_;
             IfStmt if_;
+            SwitchStmt switch_;
+            CaseStmt case_;
             ReturnStmt return_;
             DeferStmt defer;
             Expr* expr;
@@ -122,6 +140,12 @@ namespace ariac {
 
         Stmt(StmtKind kind, SourceLoc loc, IfStmt i)
             : kind(kind), loc(loc), if_(i) {}
+
+        Stmt(StmtKind kind, SourceLoc loc, SwitchStmt s)
+            : kind(kind), loc(loc), switch_(s) {}
+
+        Stmt(StmtKind kind, SourceLoc loc, CaseStmt c)
+            : kind(kind), loc(loc), case_(c) {}
 
         Stmt(StmtKind kind, SourceLoc loc, ReturnStmt ret)
             : kind(kind), loc(loc), return_(ret) {}

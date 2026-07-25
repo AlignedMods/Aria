@@ -102,7 +102,7 @@ namespace ariac {
                 case DeclKind::Struct:
                 case DeclKind::Typedef:
                 case DeclKind::Enum: {
-                    replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::CValue, type_from_decl(sym), ErrorExpr()));
+                    replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, TypeInfo::get_typeid(), TypeInfoExpr(type_from_decl(sym))));
                     return;
                 }
 
@@ -172,7 +172,7 @@ namespace ariac {
                         }
 
                         case DeclKind::Struct: {
-                            replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::CValue, type_from_decl(sym), ErrorExpr()));
+                            replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, TypeInfo::get_typeid(), TypeInfoExpr(type_from_decl(sym))));
                             return;
                         }
 
@@ -245,7 +245,7 @@ namespace ariac {
                 ARIA_ASSERT(type->kind == DeclKind::GenericParameter, "Invalid generic parameter");
 
                 if (type->generic_parameter.identifier == dr.identifier) {
-                    replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::CValue, type_from_decl(type), ErrorExpr()));
+                    replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, TypeInfo::get_typeid(), TypeInfoExpr(type_from_decl(type))));
                     return;
                 }
             }
@@ -294,7 +294,7 @@ namespace ariac {
                             case DeclKind::Struct: 
                             case DeclKind::Typedef:
                             case DeclKind::Enum: {
-                                replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::CValue, type_from_decl(sym), ErrorExpr()));
+                                replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, TypeInfo::get_typeid(), TypeInfoExpr(type_from_decl(sym))));
                                 return;
                             }
 
@@ -351,6 +351,7 @@ namespace ariac {
         resolve_expr(mem.parent);
 
         if (mem.parent->kind == ExprKind::TypeInfo) {
+            mem.parent->type = mem.parent->type_info.type;
             return resolve_type_member_expr(expr);
         }
 
@@ -367,7 +368,7 @@ namespace ariac {
                     return;
                 }
 
-                case TypeKind::TypeInfo: {
+                case TypeKind::Typeid: {
                     if (mem.member == "name") {
                         member_type = TypeInfo::get_string();
                         expr->kind = ExprKind::BuiltinMember;
@@ -381,8 +382,7 @@ namespace ariac {
                         member_type = TypeInfo::get_basic(TypeKind::Sz);
                         expr->kind = ExprKind::BuiltinMember;
                     } else if (mem.member == "types") {
-                        TypeInfo* ti_ptr = TypeInfo::create_pointer(TypeInfo::get_basic(TypeKind::TypeInfo), false);
-                        member_type = TypeInfo::create_slice(ti_ptr);
+                        member_type = TypeInfo::create_slice(TypeInfo::get_typeid());
                         expr->kind = ExprKind::BuiltinMember;
                     }
 
@@ -392,7 +392,7 @@ namespace ariac {
 
                 case TypeKind::Any: {
                     if (mem.member == "type") {
-                        member_type = TypeInfo::get_typeinfo_ptr();
+                        member_type = TypeInfo::get_typeid();
                         expr->kind = ExprKind::BuiltinMember;
                     } else if (mem.member == "value") {
                         member_type = TypeInfo::get_void_ptr();
@@ -619,7 +619,7 @@ namespace ariac {
             return;
         } else if (call.callee->kind == ExprKind::TypeInfo) {
             expr->kind = ExprKind::Construct;
-            expr->type = call.callee->type;
+            expr->type = call.callee->type_info.type;
             expr->construct.arguments = call.arguments;
             resolve_construct_expr(expr);
             return;
@@ -745,18 +745,6 @@ namespace ariac {
                 break;
             }
 
-            case BuiltinCallKind::Typeid: {
-                expr->type = TypeInfo::get_typeinfo_ptr();
-
-                if (b.arguments.size != 1) {
-                    context.report_compiler_diagnostic(expr->loc, "Call to builtin function '@typeid' must have 1 argument");
-                    break;
-                }
-
-                resolve_expr(b.arguments.items[0]);
-                break;
-            }
-
             case BuiltinCallKind::Memcpy: {
                 expr->type = TypeInfo::get_void();
 
@@ -852,7 +840,7 @@ namespace ariac {
                 resolve_expr(arg);
                 require_rvalue(arg);
 
-                if (i == 0) { try_insert_implicit_cast(TypeInfo::get_typeinfo_ptr(), arg); }
+                if (i == 0) { try_insert_implicit_cast(TypeInfo::get_typeid(), arg); }
                 if (i == 1) { try_insert_implicit_cast(TypeInfo::get_void_ptr(), arg); }
             }
         }
@@ -1115,7 +1103,7 @@ namespace ariac {
 
             case UnaryOperatorKind::Dereference: {
                 if (unop.expression->kind == ExprKind::TypeInfo) {
-                    replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::CValue, TypeInfo::create_pointer(unop.expression->type, false), ErrorExpr()));
+                    replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, TypeInfo::get_typeid(), TypeInfoExpr(TypeInfo::create_pointer(unop.expression->type, false))));
                     break;
                 }
 
@@ -1443,6 +1431,7 @@ namespace ariac {
             case ExprKind::FloatingLiteral:
             case ExprKind::StringLiteral:
             case ExprKind::Null:
+            case ExprKind::TypeInfo:
                 return true;
 
             case ExprKind::DeclRef:
@@ -1494,6 +1483,9 @@ namespace ariac {
 
                 return expr->decl_ref.referenced_decl->var.initializer;
 
+            case ExprKind::TypeInfo:
+                return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Typeid, expr->type_info.type));
+
             case ExprKind::Construct:
                 for (Expr*& arg : expr->construct.arguments) {
                     arg = eval_const_expr(arg);
@@ -1535,6 +1527,7 @@ namespace ariac {
             case ExprKind::ImplicitCast: {
                 #define CAST(t, e) static_cast<t>(e)
                 #define INT(x) Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Integer, x))
+                #define FLOAT(x) Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Floating, x))
 
                 switch (expr->implicit_cast.kind) {
                     case CastKind::Integral: {
@@ -1565,6 +1558,31 @@ namespace ariac {
                                 case TypeKind::UInt: return INT(CAST(u64, CAST(u32, val)));
                                 case TypeKind::Long: return INT(CAST(i64, val));
                                 case TypeKind::ULong: return INT(CAST(u64, val));
+
+                                default: ARIA_UNREACHABLE("Invalid type kind");
+                            }
+                        }
+
+                        ARIA_UNREACHABLE("Should never be reached");
+                        return nullptr;
+                    }
+
+                    case CastKind::IntegralToFloating: {
+                        if (expr->implicit_cast.expression->type->is_signed()) {
+                            i64 val = eval_const_expr(expr->implicit_cast.expression)->const_.integer;
+
+                            switch (expr->type->kind) {
+                                case TypeKind::Float: return FLOAT(CAST(double, CAST(float, val)));
+                                case TypeKind::Double: return FLOAT(CAST(double, val));
+
+                                default: ARIA_UNREACHABLE("Invalid type kind");
+                            }
+                        } else {
+                            u64 val = eval_const_expr(expr->implicit_cast.expression)->const_.integer;
+
+                            switch (expr->type->kind) {
+                                case TypeKind::Float: return FLOAT(CAST(double, CAST(float, val)));
+                                case TypeKind::Double: return FLOAT(CAST(double, val));
 
                                 default: ARIA_UNREACHABLE("Invalid type kind");
                             }
@@ -1728,8 +1746,6 @@ namespace ariac {
     void SemanticAnalyzer::require_rvalue(Expr* expr) {
         if (expr->value_kind == ExprValueKind::LValue) {
             insert_implicit_cast(expr->type, expr->type, expr, CastKind::LValueToRValue);
-        } else if (expr->value_kind == ExprValueKind::CValue) {
-            context.report_compiler_diagnostic(expr->loc, "Cannot use compile time expressions here");
         }
     }
 
@@ -1832,12 +1848,17 @@ namespace ariac {
             }
 
             if (rty->is_pointer()) {
-                if (op == BinaryOperatorKind::Eq || op == BinaryOperatorKind::IsNotEq) {
+                if (op == BinaryOperatorKind::IsEq || op == BinaryOperatorKind::IsNotEq) {
                     insert_implicit_cast(TypeInfo::get_void_ptr(), lty, lhs, CastKind::BitCast);
                     insert_implicit_cast(TypeInfo::get_void_ptr(), rty, rhs, CastKind::BitCast);
                     e->type = lty;
                     return;
                 }
+            }
+        } else if (lty->is_typeid() && rty->is_typeid()) {
+            if (op == BinaryOperatorKind::IsEq || op == BinaryOperatorKind::IsNotEq) {
+               e->type = lty;
+               return;
             }
         }
 

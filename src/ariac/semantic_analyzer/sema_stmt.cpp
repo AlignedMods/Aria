@@ -109,6 +109,37 @@ namespace ariac {
         }
     }
 
+    void SemanticAnalyzer::resolve_switch_stmt(Stmt* stmt) {
+        SwitchStmt& s = stmt->switch_;
+
+        resolve_expr(s.expression);
+        require_rvalue(s.expression);
+
+        if (!s.expression->type->is_integral()) {
+            context.report_compiler_diagnostic(s.expression->loc, fmt::format("Expression must be of an integral type but is '{}'", type_info_to_string(s.expression->type)));
+        }
+
+        for (Stmt* case_ : s.cases) {
+            ARIA_ASSERT(case_->kind == StmtKind::Case, "Invalid case stmt");
+            CaseStmt& c = case_->case_;
+
+            resolve_expr(c.condition);
+            try_insert_implicit_cast(s.expression->type, c.condition);
+            require_rvalue(c.condition);
+
+            if (!is_const_expr(c.condition)) {
+                context.report_compiler_diagnostic(c.condition->loc, "Expression must be a compile time constant");
+                c.condition->kind = ExprKind::Error;
+            }
+
+            c.condition = eval_const_expr(c.condition);
+
+            push_scope();
+            resolve_block_stmt(c.body);
+            pop_scope();
+        }
+    }
+
     void SemanticAnalyzer::resolve_break_stmt(Stmt* stmt) {
         if (!m_scopes.back().allow_break_stmt) {
             context.report_compiler_diagnostic(stmt->loc, "Cannot use 'break' here");
@@ -194,6 +225,7 @@ namespace ariac {
             case StmtKind::DoWhile: return resolve_do_while_stmt(stmt);
             case StmtKind::For: return resolve_for_stmt(stmt);
             case StmtKind::If: return resolve_if_stmt(stmt);
+            case StmtKind::Switch: return resolve_switch_stmt(stmt);
             case StmtKind::Break: return resolve_break_stmt(stmt);
             case StmtKind::Continue: return resolve_continue_stmt(stmt);
             case StmtKind::Return: return resolve_return_stmt(stmt);

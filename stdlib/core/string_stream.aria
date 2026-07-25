@@ -62,62 +62,62 @@ impl StringStream {
     }
 
     fn append_any(arg: *any) {
-        if core::any_has_type::<char>(arg) {
+        if arg.type == char {
             append_char(core::any_cast::<char>(arg));
             return;
         }
 
-        if core::any_has_type::<ichar>(arg) {
+        if arg.type == ichar {
             append_char(core::any_cast::<ichar>(arg));
             return;
         }
 
-        if core::any_has_type::<bool>(arg) {
+        if arg.type == bool {
             append_bool(core::any_cast::<bool>(arg));
             return;
         }
 
-        if core::any_has_type::<short>(arg) {
+        if arg.type == short {
             append_int(core::any_cast::<short>(arg));
             return;
         }
 
-        if core::any_has_type::<ushort>(arg) {
+        if arg.type == ushort {
             append_uint(core::any_cast::<ushort>(arg));
             return;
         }
 
-        if core::any_has_type::<int>(arg) {
+        if arg.type == int {
             append_int(core::any_cast::<int>(arg));
             return;
         }
 
-        if core::any_has_type::<uint>(arg) {
+        if arg.type == uint {
             append_uint(core::any_cast::<uint>(arg));
             return;
         }
 
-        if core::any_has_type::<long>(arg) {
+        if arg.type == long {
             append_int(core::any_cast::<long>(arg));
             return;
         }
 
-        if core::any_has_type::<ulong>(arg) {
+        if arg.type == ulong {
             append_uint(core::any_cast::<ulong>(arg));
             return;
         }
 
-        if core::any_has_type::<sz>(arg) {
+        if arg.type == sz {
             append_uint(core::any_cast::<sz>(arg));
             return;
         }
 
-        if core::any_has_type::<isz>(arg) {
+        if arg.type == isz {
             append_int(core::any_cast::<isz>(arg));
             return;
         }
 
-        if core::any_has_type::<String>(arg) {
+        if arg.type == String {
             append_string(core::any_cast::<String>(arg));
             return;
         }

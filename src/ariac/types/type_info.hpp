@@ -141,10 +141,10 @@ namespace ariac {
         static TypeInfo* get_error();
         static TypeInfo* get_void();
         static TypeInfo* get_sz();
+        static TypeInfo* get_typeid();
         static TypeInfo* get_basic(TypeKind kind);
         static TypeInfo* get_void_ptr();
         static TypeInfo* get_char_ptr();
-        static TypeInfo* get_typeinfo_ptr();
         static TypeInfo* get_char_slice();
         static TypeInfo* get_string();
         static TypeInfo* get_flattened(TypeInfo* t);
@@ -154,7 +154,7 @@ namespace ariac {
         bool is_error() const { return kind == TypeKind::Error; }
 
         bool is_primitive() const {
-            return is_error() || is_void() || is_boolean() || is_numeric() || is_typeinfo() || is_any();
+            return is_error() || is_void() || is_boolean() || is_numeric() || is_typeid() || is_any();
         }
 
         bool is_void() const {
@@ -181,8 +181,8 @@ namespace ariac {
             return is_integral() || is_floating_point();
         }
 
-        bool is_typeinfo() const {
-            return kind == TypeKind::TypeInfo;
+        bool is_typeid() const {
+            return kind == TypeKind::Typeid;
         }
 
         bool is_any() const {

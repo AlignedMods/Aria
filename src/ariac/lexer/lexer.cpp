@@ -465,7 +465,6 @@ namespace ariac {
             { "@builtin", TokenKind::AtBuiltin },
             { "@init", TokenKind::AtInit },
             { "@sizeof", TokenKind::AtSizeof },
-            { "@typeid", TokenKind::AtTypeid },
             { "@typeof", TokenKind::AtTypeof },
             { "@memcpy", TokenKind::AtMemcpy },
             { "@memset", TokenKind::AtMemset }
@@ -508,6 +507,8 @@ namespace ariac {
             { "while", TokenKind::While },
             { "do", TokenKind::Do },
             { "for", TokenKind::For },
+            { "switch", TokenKind::Switch },
+            { "case", TokenKind::Case },
             { "break", TokenKind::Break },
             { "continue", TokenKind::Continue },
             { "return", TokenKind::Return },
@@ -538,7 +539,7 @@ namespace ariac {
             { "isz", TokenKind::Isz },
             { "float", TokenKind::Float },
             { "double", TokenKind::Double },
-            { "typeinfo", TokenKind::TypeInfo },
+            { "typeid", TokenKind::Typeid },
             { "any", TokenKind::Any }
         };
 

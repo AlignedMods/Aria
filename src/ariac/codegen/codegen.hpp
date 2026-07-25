@@ -119,6 +119,7 @@ namespace ariac {
         llvm::Value* gen_array_filler_expr(Expr* expr);
         llvm::Value* gen_null_expr(Expr* expr);
         llvm::Value* gen_decl_ref_expr(Expr* expr);
+        llvm::Value* gen_typeinfo_expr(Expr* expr);
         llvm::Value* gen_member_expr(Expr* expr);
         llvm::Value* gen_builtin_member_expr(Expr* expr);
         llvm::Value* gen_self_expr(Expr* expr);
@@ -154,6 +155,7 @@ namespace ariac {
         void gen_do_while_stmt(Stmt* stmt);
         void gen_for_stmt(Stmt* stmt);
         void gen_if_stmt(Stmt* stmt);
+        void gen_switch_stmt(Stmt* stmt);
         void gen_break_stmt(Stmt* stmt);
         void gen_continue_stmt(Stmt* stmt);
         void gen_return_stmt(Stmt* stmt);
@@ -180,7 +182,7 @@ namespace ariac {
         llvm::Constant* get_int(u64 i, TypeInfo* t);
         llvm::Constant* get_null();
         llvm::Constant* get_string(std::string_view s, std::string_view name = ".str");
-        llvm::Constant* get_typeinfo(TypeInfo* t);
+        llvm::Constant* get_typeid(TypeInfo* t);
 
         // Returns nullptr if there is no assert function
         llvm::Function* get_assert_func();

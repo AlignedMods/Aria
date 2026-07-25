@@ -211,6 +211,33 @@ namespace ariac {
         m_active_module_context.builder->SetInsertPoint(if_end);
     }
 
+    void Codegen::gen_switch_stmt(Stmt* stmt) {
+        SwitchStmt& s = stmt->switch_;
+
+        llvm::BasicBlock* switch_end = llvm::BasicBlock::Create(*m_active_module_context.context, "switch.end", m_active_module_context.function);
+        llvm::Value* val = gen_expr(s.expression);
+
+        llvm::SwitchInst* i = m_active_module_context.builder->CreateSwitch(val, switch_end, s.cases.size);
+
+        for (Stmt* case_ : s.cases) {
+            ARIA_ASSERT(case_->kind == StmtKind::Case, "Invalid case stmt");
+            CaseStmt& c = case_->case_;
+
+            llvm::BasicBlock* switch_case = llvm::BasicBlock::Create(*m_active_module_context.context, "switch.case", m_active_module_context.function);
+            m_active_module_context.builder->SetInsertPoint(switch_case);
+            gen_block_stmt(c.body);
+            if (c.body->block.reaches_end) {
+                m_active_module_context.builder->CreateBr(switch_end);
+            }
+
+            llvm::ConstantInt* cond = llvm::dyn_cast<llvm::ConstantInt>(gen_expr(c.condition));
+
+            i->addCase(cond, switch_case);
+        }
+
+        m_active_module_context.builder->SetInsertPoint(switch_end);
+    }
+
     void Codegen::gen_break_stmt(Stmt* stmt) {
         for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); it++) {
             if (it->loop_end_block) {
@@ -297,6 +324,7 @@ namespace ariac {
             case StmtKind::DoWhile: return gen_do_while_stmt(stmt);
             case StmtKind::For: return gen_for_stmt(stmt);
             case StmtKind::If: return gen_if_stmt(stmt);
+            case StmtKind::Switch: return gen_switch_stmt(stmt);
             case StmtKind::Break: return gen_break_stmt(stmt);
             case StmtKind::Continue: return gen_continue_stmt(stmt);
             case StmtKind::Return: return gen_return_stmt(stmt);

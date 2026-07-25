@@ -14,7 +14,7 @@ namespace ariac {
                     break;
                 }
 
-                *type = *t.ident->type;
+                *type = *t.ident->type_info.type;
                 break;
             }
 
@@ -203,7 +203,7 @@ namespace ariac {
             return cost;
         }
 
-        if (dst->is_typeinfo() && src->is_typeinfo()) {
+        if (dst->is_typeid() && src->is_typeid()) {
             cost.cast_needed = false;
             return cost;
         }

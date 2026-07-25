@@ -339,6 +339,8 @@ namespace ariac {
             case DeclKind::Enum: m_output += fmt::format("EnumDecl {} '{}' '{}'\n",
                 source_loc_to_string(decl->loc), decl->enum_.identifier, type_info_to_string(decl->enum_.backing_type, false));
 
+                dump_attributes(decl->attributes, indentation + 4);
+
                 for (Decl* field : decl->enum_.fields) {
                     dump_decl(field, indentation + 4);
                 }
@@ -443,6 +445,19 @@ namespace ariac {
                 if (stmt->if_.else_body) { dump_stmt(stmt->if_.else_body, indentation + 4); }
                 return;
 
+            case StmtKind::Switch: m_output += fmt::format("SwitchStmt {}\n", source_loc_to_string(stmt->loc));
+                dump_expr(stmt->switch_.expression, indentation + 4);
+
+                for (Stmt* c : stmt->switch_.cases) {
+                    dump_stmt(c, indentation + 4);
+                }
+                return;
+
+            case StmtKind::Case: m_output += fmt::format("CaseStmt {}\n", source_loc_to_string(stmt->loc));
+                dump_expr(stmt->case_.condition, indentation + 4);
+                dump_stmt(stmt->case_.body, indentation + 4);
+                return;
+
             case StmtKind::Break: m_output += fmt::format("BreakStmt {}\n", source_loc_to_string(stmt->loc));
                 return;
 
@@ -498,6 +513,8 @@ namespace ariac {
 
                 break;
             }
+
+            case ConstExprKind::Typeid: m_output += fmt::format("value: Typeid '{}'", type_info_to_string(val->type, false)); break;
 
             default: ARIA_ASSERT(false, static_cast<u64>(val->kind));
         }

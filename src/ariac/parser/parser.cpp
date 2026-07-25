@@ -104,7 +104,6 @@ namespace ariac {
         m_expr_rules[TokenKind::Cast] =              { BIND_PARSE_RULE(parse_cast),          nullptr, PREC_NONE };
 
         m_expr_rules[TokenKind::AtSizeof] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::AtTypeid] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE };
         m_expr_rules[TokenKind::AtMemcpy] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE};
         m_expr_rules[TokenKind::AtMemset] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE};
 
@@ -122,7 +121,7 @@ namespace ariac {
         m_expr_rules[TokenKind::Isz] =         { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Float] =       { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Double] =      { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::TypeInfo] =    { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::Typeid] =      { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Any] =         { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
     }
 
@@ -256,7 +255,6 @@ namespace ariac {
     BuiltinCallKind Parser::get_builtin_call_from_token(Token* token) {
         switch (token->kind) {
             case TokenKind::AtSizeof: return BuiltinCallKind::Sizeof;
-            case TokenKind::AtTypeid: return BuiltinCallKind::Typeid;
             case TokenKind::AtMemcpy: return BuiltinCallKind::Memcpy;
             case TokenKind::AtMemset: return BuiltinCallKind::Memset;
 
@@ -513,7 +511,7 @@ namespace ariac {
         ARIA_ASSERT(left == nullptr, "Parser::parse_type_expr() should not have a left side");
 
         TypeInfo* t = parse_type();
-        return Expr::Create(t->loc, ExprKind::TypeInfo, ExprValueKind::CValue, t, ErrorExpr());
+        return Expr::Create(t->loc, ExprKind::TypeInfo, ExprValueKind::RValue, TypeInfo::get_typeid(), TypeInfoExpr(t));
     }
 
     Expr* Parser::parse_identifier(Token t) {
@@ -752,7 +750,7 @@ namespace ariac {
             case TokenKind::Isz:
             case TokenKind::Float:
             case TokenKind::Double:
-            case TokenKind::TypeInfo:
+            case TokenKind::Typeid:
             case TokenKind::Any:
             case TokenKind::Fn:
             case TokenKind::AtTypeof: return true;
@@ -838,7 +836,7 @@ namespace ariac {
             case TokenKind::Float:      consume(); type->kind = TypeKind::Float; break;
             case TokenKind::Double:     consume(); type->kind = TypeKind::Double; break;
 
-            case TokenKind::TypeInfo:   consume(); type->kind = TypeKind::TypeInfo; break;
+            case TokenKind::Typeid:     consume(); type->kind = TypeKind::Typeid; break;
             case TokenKind::Any:        consume(); type->kind = TypeKind::Any; break;
 
             case TokenKind::Fn: {
@@ -1067,6 +1065,30 @@ namespace ariac {
         return Stmt::Create(i.loc + condition->loc, StmtKind::If, IfStmt(condition, body, else_body));
     }
 
+    Stmt* Parser::parse_switch() {
+        Token s = consume(); // consume "switch"
+
+        Expr* expr = parse_expression();
+        TinyVector<Stmt*> cases;
+
+        try_consume(TokenKind::LeftCurly, "{");
+        while (peek() && !match(TokenKind::RightCurly)) {
+            Token* c = try_consume(TokenKind::Case, "case");
+            if (!c) { sync_local(); continue; }
+
+            Expr* cond = parse_expression();
+            try_consume(TokenKind::Colon, ":");
+
+            Stmt* body = parse_block_inline();
+
+            cases.append(Stmt::Create(c->loc + cond->loc, StmtKind::Case, CaseStmt(cond, body)));
+        }
+
+        try_consume(TokenKind::RightCurly, "}");
+
+        return Stmt::Create(s.loc + expr->loc, StmtKind::Switch, SwitchStmt(expr, cases));
+    }
+
     Stmt* Parser::parse_break() {
         Token& b = consume(); // consume "break"
         try_consume(TokenKind::Semi, ";");
@@ -1151,10 +1173,9 @@ namespace ariac {
             case TokenKind::Isz:
             case TokenKind::Float:
             case TokenKind::Double:
-            case TokenKind::TypeInfo:
+            case TokenKind::Typeid:
             case TokenKind::Any:
             case TokenKind::AtSizeof:
-            case TokenKind::AtTypeid:
             case TokenKind::AtMemcpy:
             case TokenKind::AtMemset:
                 return parse_expression_statement();
@@ -1173,6 +1194,9 @@ namespace ariac {
 
             case TokenKind::For:
                 return parse_for();
+
+            case TokenKind::Switch:
+                return parse_switch();
 
             case TokenKind::Break:
                 return parse_break();
@@ -1747,10 +1771,13 @@ namespace ariac {
             }
         }
 
+        TinyVector<DeclAttribute> attrs = parse_decl_attributes(DeclKind::Enum);
+
         TinyVector<Decl*> fields;
         try_consume(TokenKind::LeftCurly, "{");
         while (peek() && !match(TokenKind::RightCurly)) {
             Token* fd_ident = try_consume(TokenKind::Identifier, "identifier");
+            if (!fd_ident) { consume(); continue; }
             Expr* value = nullptr;
 
             if (match(TokenKind::Eq)) {
@@ -1771,6 +1798,7 @@ namespace ariac {
         try_consume(TokenKind::RightCurly, "}");
 
         Decl* d = Decl::Create(enu.loc + ident->loc, DeclKind::Enum, m_current_visibility, EnumDecl(fields, ident->string, backing_type));
+        d->attributes = attrs;
         context.active_comp_unit->enums.push_back(d);
         return d;
     }

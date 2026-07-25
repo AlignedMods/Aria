@@ -42,7 +42,6 @@ namespace ariac {
 
     enum class BuiltinCallKind {
         Sizeof,
-        Typeid,
         Memcpy,
         Memset,
     };
@@ -50,7 +49,6 @@ namespace ariac {
     inline const char* builtin_call_kind_to_string(BuiltinCallKind kind) {
         switch (kind) {
             case BuiltinCallKind::Sizeof: return "sizeof";
-            case BuiltinCallKind::Typeid: return "typeid";
             case BuiltinCallKind::Memcpy: return "memcpy";
             case BuiltinCallKind::Memset: return "memset";
 
@@ -204,7 +202,8 @@ namespace ariac {
         Integer,
         Floating,
         String,
-        Struct
+        Struct,
+        Typeid
     };
 
     inline const char* const_expr_kind_to_string(ConstExprKind kind) {
@@ -215,6 +214,7 @@ namespace ariac {
             case ConstExprKind::Floating: return "Floating";
             case ConstExprKind::String: return "String";
             case ConstExprKind::Struct: return "Struct";
+            case ConstExprKind::Typeid: return "Typeid";
 
             default: ARIA_UNREACHABLE("Invalid const expr kind");
         }
@@ -222,18 +222,13 @@ namespace ariac {
 
     enum class ExprValueKind {
         LValue,
-        RValue,
-        CValue // A 'cvalue' expression is an expression with no value associated with it
-               // eg. int -> int is a type and has no value, but is a valid expression
-               // They are called cvalues because they are only available during compile time,
-               // And the name stands for comp (compilation) value
+        RValue
     };
 
     inline const char* expr_value_kind_to_string(ExprValueKind type) {
         switch (type) {
             case ExprValueKind::LValue: return "lvalue";
             case ExprValueKind::RValue: return "rvalue";
-            case ExprValueKind::CValue: return "cvalue";
 
             default: ARIA_UNREACHABLE("Invalid expr value kind");
         }
@@ -314,6 +309,8 @@ namespace ariac {
         DoWhile,
         For,
         If,
+        Switch,
+        Case,
         Break,
         Continue,
         Return,
@@ -343,16 +340,17 @@ namespace ariac {
         Float,
         Double,
 
-        // TypeInfo is a built in type that has the following runtime layout:
+        // Typeid is a built in type that is the same size as a 'sz'
+        // Internally it is a pointer pointing to a struct of the following runtime layout:
         // name: String;
-        // kind: String;
+        // kind: TypeKind ('char' if TypeKind is not available);
         // size: sz;
         // len: sz;
-        // types: []*typeinfo;
-        TypeInfo,
+        // types: []typeid;
+        Typeid,
 
         // Any is a built in type that has the following runtime layout:
-        // type: *typeinfo;
+        // type: typeid;
         // value: *void;
         Any,
 
@@ -388,6 +386,24 @@ namespace ariac {
 
         Named // foo(int a, int b, args...);
               // Supported on all functions
+    };
+
+    // WARNING: This enum must match exactly with TypeKind
+    enum class RuntimeTypeKind : u8 {
+        Void = 0,
+        Bool,
+        SignedInt,
+        UnsignedInt,
+        Float,
+        Typeid,
+        Any,
+        Pointer,
+        Array,
+        Slice,
+        Function,
+        Struct,
+        Typedef,
+        Enum
     };
 
 } // namespace ariac

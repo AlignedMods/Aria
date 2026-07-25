@@ -20,11 +20,10 @@ namespace ariac {
     static TypeInfo* isz_type;
     static TypeInfo* float_type;
     static TypeInfo* double_type;
-    static TypeInfo* typeinfo_type;
+    static TypeInfo* typeid_type;
     static TypeInfo* any_type;
     static TypeInfo* void_ptr_type;
     static TypeInfo* char_ptr_type;
-    static TypeInfo* typeinfo_ptr_type;
     static TypeInfo* char_slice_type;
     static TypeInfo* std_core_string_type;
 
@@ -125,7 +124,7 @@ namespace ariac {
             case TypeKind::Isz:
             case TypeKind::Float:
             case TypeKind::Double:
-            case TypeKind::TypeInfo:
+            case TypeKind::Typeid:
             case TypeKind::Any:
             case TypeKind::Never: break;
 
@@ -206,6 +205,10 @@ namespace ariac {
         return get_basic(TypeKind::Sz);
     }
 
+    TypeInfo* TypeInfo::get_typeid() {
+        return get_basic(TypeKind::Typeid);
+    }
+
     TypeInfo* TypeInfo::get_basic(TypeKind kind) {
         #define TYPE(ki, var) \
             case TypeKind::ki: { \
@@ -230,7 +233,7 @@ namespace ariac {
             TYPE(Isz, isz_type)
             TYPE(Float, float_type)
             TYPE(Double, double_type)
-            TYPE(TypeInfo, typeinfo_type)
+            TYPE(Typeid, typeid_type)
             TYPE(Any, any_type)
 
             default: ARIA_UNREACHABLE("Invalid type kind");
@@ -247,12 +250,6 @@ namespace ariac {
         if (char_ptr_type) { return char_ptr_type; }
         char_ptr_type = create_pointer(get_basic(TypeKind::Char), true);
         return char_ptr_type;
-    }
-
-    TypeInfo* TypeInfo::get_typeinfo_ptr() {
-        if (typeinfo_ptr_type) { return typeinfo_ptr_type; }
-        typeinfo_ptr_type = create_pointer(get_basic(TypeKind::TypeInfo), true);
-        return typeinfo_ptr_type;
     }
 
     TypeInfo* TypeInfo::get_char_slice() {
@@ -293,7 +290,7 @@ namespace ariac {
             case TypeKind::Isz:
             case TypeKind::Float:
             case TypeKind::Double:
-            case TypeKind::TypeInfo:
+            case TypeKind::Typeid:
             case TypeKind::Any:
             case TypeKind::Pointer:
             case TypeKind::Array:
@@ -347,8 +344,8 @@ namespace ariac {
             case TypeKind::Float: return 4;
             case TypeKind::Double: return 8;
 
-            case TypeKind::TypeInfo: {
-                return (get_string()->get_size() * 2) + (get_basic(TypeKind::Sz)->get_size() * 2) + get_char_slice()->get_size();
+            case TypeKind::Typeid: {
+                return get_sz()->get_size();
             }
 
             case TypeKind::Any: {
@@ -404,7 +401,8 @@ namespace ariac {
             case TypeKind::ULong: return 64;
 
             case TypeKind::Sz:
-            case TypeKind::Isz: {
+            case TypeKind::Isz:
+            case TypeKind::Typeid: {
                 switch (context.opts->triple.getArch()) {
                     case llvm::Triple::x86: return 32;
                     case llvm::Triple::x86_64: return 64;
@@ -459,7 +457,7 @@ namespace ariac {
                 return 0;
             }
 
-            case TypeKind::TypeInfo: return TypeInfo::get_string()->get_alignment();
+            case TypeKind::Typeid: return TypeInfo::get_sz()->get_alignment();
             case TypeKind::Any: return TypeInfo::get_void_ptr()->get_alignment();
 
             case TypeKind::Pointer: {
@@ -537,7 +535,7 @@ namespace ariac {
             case TypeKind::Float:   str = "float"; break;
             case TypeKind::Double:  str = "double"; break;
 
-            case TypeKind::TypeInfo:  str = "typeinfo"; break;
+            case TypeKind::Typeid:  str = "typeid"; break;
             case TypeKind::Any:  str = "any"; break;
 
             case TypeKind::Pointer: {

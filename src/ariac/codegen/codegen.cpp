@@ -49,7 +49,7 @@ namespace ariac {
             sz_type
         }, "$builtin_slice");
 
-        llvm::StructType::create({ slice_type, slice_type, sz_type, sz_type, slice_type }, "$builtin_typeinfo");
+        llvm::StructType::create({ slice_type, slice_type, sz_type, sz_type, slice_type }, "$builtin_typeid");
         llvm::StructType::create({ ptr_type, ptr_type }, "$builtin_any");
     }
 
@@ -399,8 +399,8 @@ namespace ariac {
             return llvm::Type::getFloatTy(*m_active_module_context.context);
         } else if (t->kind == TypeKind::Double) {
             return llvm::Type::getDoubleTy(*m_active_module_context.context);
-        } else if (t->kind == TypeKind::TypeInfo) {
-            return llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_typeinfo");
+        } else if (t->kind == TypeKind::Typeid) {
+            return type_info_to_llvm_type(TypeInfo::get_sz());
         } else if (t->kind == TypeKind::Any) {
             return llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_any");
         } else if (t->kind == TypeKind::Array) {
@@ -558,7 +558,7 @@ namespace ariac {
             dit = m_active_debug_context.builder->createBasicType(str_type, t->get_bit_size(), encoding);
         } else if (t->is_floating_point()) {
             dit = m_active_debug_context.builder->createBasicType(str_type, t->get_bit_size(), llvm::dwarf::DW_ATE_float);
-        } else if (t->is_typeinfo()) {
+        } else if (t->is_typeid()) {
             std::array<llvm::Metadata*, 5> elems{};
 
             // u64 offset_bits = 0;
@@ -600,10 +600,10 @@ namespace ariac {
 
             u64 offset_bits = 0;
             elems[0] = m_active_debug_context.builder->createMemberType(m_active_debug_context.scope, "type", 
-                m_active_debug_context.scope->getFile(), 0, TypeInfo::get_typeinfo_ptr()->get_bit_size(), (unsigned)TypeInfo::get_typeinfo_ptr()->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
-                type_info_to_debug_type(TypeInfo::get_typeinfo_ptr()));
+                m_active_debug_context.scope->getFile(), 0, TypeInfo::get_typeid()->get_bit_size(), (unsigned)TypeInfo::get_typeid()->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
+                type_info_to_debug_type(TypeInfo::get_typeid()));
 
-            offset_bits += TypeInfo::get_typeinfo_ptr()->get_bit_size();
+            offset_bits += TypeInfo::get_typeid()->get_bit_size();
 
             elems[1] = m_active_debug_context.builder->createMemberType(m_active_debug_context.scope, "value", 
                 m_active_debug_context.scope->getFile(), 0, TypeInfo::get_void_ptr()->get_bit_size(), (unsigned)TypeInfo::get_void_ptr()->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
@@ -685,7 +685,7 @@ namespace ariac {
             case TypeKind::Float: return "f";
             case TypeKind::Double: return "d";
 
-            case TypeKind::TypeInfo: return "ti";
+            case TypeKind::Typeid: return "ti";
             case TypeKind::Any: return "a";
 
             case TypeKind::Pointer: return fmt::format("P{}", mangle_type(t->pointer.base));
@@ -759,14 +759,16 @@ namespace ariac {
         return llvm::ConstantStruct::get(llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice"), llvm::ArrayRef(vals));
     }
 
-    llvm::Constant* Codegen::get_typeinfo(TypeInfo* t) {
-        llvm::StructType* typeinfo_type = llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_typeinfo");
+    llvm::Constant* Codegen::get_typeid(TypeInfo* t) {
+        llvm::StructType* typeid_type = llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_typeid");
         llvm::StructType* slice_type = llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice");
         TypeInfo* type = t->is_typedef() ? t->typedef_.base : t;
         std::string name = type_info_to_string(type);
 
         if (m_active_module_context.typeinfos.contains(name)) {
-            return m_active_module_context.typeinfos.at(name);
+            llvm::Constant* ti = m_active_module_context.typeinfos.at(name);
+            llvm::Value* inttoptr = m_active_module_context.builder->CreatePtrToInt(ti, type_info_to_llvm_type(TypeInfo::get_sz()), "ptrtoint");
+            return llvm::dyn_cast<llvm::Constant>(inttoptr);
         }
 
         std::string_view kind;
@@ -780,7 +782,7 @@ namespace ariac {
         } else if (type->is_array()) {
             kind = "array";
             len = type->array.size;
-            types.push_back(get_typeinfo(type->array.base));
+            types.push_back(get_typeid(type->array.base));
         }
 
         std::array<llvm::Constant*, 5> args{};
@@ -797,12 +799,14 @@ namespace ariac {
             args[4] = llvm::Constant::getNullValue(slice_type); // types
         }
 
-        llvm::Constant* initializer = llvm::ConstantStruct::get(typeinfo_type, args);
+        llvm::Constant* initializer = llvm::ConstantStruct::get(typeid_type, args);
 
-        std::string ti_name = fmt::format("type_infoZ{}", mangle_type(t));
-        llvm::GlobalVariable* ti = new llvm::GlobalVariable(*m_active_module_context.module, typeinfo_type, true, llvm::GlobalValue::LinkageTypes::InternalLinkage, initializer, ti_name);
+        std::string ti_name = fmt::format("$typeid.{}", mangle_type(t));
+        llvm::GlobalVariable* ti = new llvm::GlobalVariable(*m_active_module_context.module, typeid_type, true, llvm::GlobalValue::LinkageTypes::LinkOnceAnyLinkage, initializer, ti_name);
         m_active_module_context.typeinfos[name] = ti;
-        return ti;
+
+        llvm::Value* inttoptr = m_active_module_context.builder->CreatePtrToInt(ti, type_info_to_llvm_type(TypeInfo::get_sz()), "ptrtoint");
+        return llvm::dyn_cast<llvm::Constant>(inttoptr);
     }
 
     llvm::Function* Codegen::get_assert_func() {
