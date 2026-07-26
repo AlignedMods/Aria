@@ -20,12 +20,12 @@ namespace ariac {
     static TypeInfo* isz_type;
     static TypeInfo* float_type;
     static TypeInfo* double_type;
+    static TypeInfo* string_type;
     static TypeInfo* typeid_type;
     static TypeInfo* any_type;
     static TypeInfo* void_ptr_type;
     static TypeInfo* char_ptr_type;
     static TypeInfo* char_slice_type;
-    static TypeInfo* std_core_string_type;
 
     TypeInfo* TypeInfo::create_basic(TypeKind kind, SourceLoc loc) {
         TypeInfo* t = context.allocate<TypeInfo>();
@@ -124,6 +124,7 @@ namespace ariac {
             case TypeKind::Isz:
             case TypeKind::Float:
             case TypeKind::Double:
+            case TypeKind::String:
             case TypeKind::Typeid:
             case TypeKind::Any:
             case TypeKind::Never: break;
@@ -205,6 +206,10 @@ namespace ariac {
         return get_basic(TypeKind::Sz);
     }
 
+    TypeInfo* TypeInfo::get_string() {
+        return get_basic(TypeKind::String);
+    }
+
     TypeInfo* TypeInfo::get_typeid() {
         return get_basic(TypeKind::Typeid);
     }
@@ -233,6 +238,7 @@ namespace ariac {
             TYPE(Isz, isz_type)
             TYPE(Float, float_type)
             TYPE(Double, double_type)
+            TYPE(String, string_type)
             TYPE(Typeid, typeid_type)
             TYPE(Any, any_type)
 
@@ -258,21 +264,6 @@ namespace ariac {
         return char_slice_type;
     }
 
-    TypeInfo* TypeInfo::get_string() {
-        if (!context.string_type) {
-            return get_char_slice();
-        } else {
-            if (std_core_string_type) { return std_core_string_type; }
-            Decl* sym = context.string_type;
-            
-            ARIA_ASSERT(sym->kind == DeclKind::Typedef, "string type must be a typedef");
-            ARIA_ASSERT(sym->typedef_.type->kind == TypeKind::Slice && sym->typedef_.type->slice.base->kind == TypeKind::Char, "string type must be a typedef to []char");
-
-            std_core_string_type = create_typedef(sym);
-            return std_core_string_type;
-        }
-    }
-
     TypeInfo* TypeInfo::get_flattened(TypeInfo* t) {
         switch (t->kind) {
             case TypeKind::Error:
@@ -290,6 +281,7 @@ namespace ariac {
             case TypeKind::Isz:
             case TypeKind::Float:
             case TypeKind::Double:
+            case TypeKind::String:
             case TypeKind::Typeid:
             case TypeKind::Any:
             case TypeKind::Pointer:
@@ -304,14 +296,6 @@ namespace ariac {
             case TypeKind::Typedef: return t->typedef_.base;
 
             default: ARIA_UNREACHABLE("Invalid type kind");
-        }
-    }
-
-    bool TypeInfo::is_string() const {
-        if (std_core_string_type) {
-            return is_typedef() && typedef_.source_decl == std_core_string_type->typedef_.source_decl;
-        } else {
-            return is_slice() && slice.base->kind == TypeKind::Char;
         }
     }
 
@@ -363,6 +347,7 @@ namespace ariac {
 
             case TypeKind::Array: return array.base->get_size() * array.size;
 
+            case TypeKind::String:
             case TypeKind::Slice: {
                 return get_void_ptr()->get_size() + get_basic(TypeKind::Sz)->get_size();
             }
@@ -468,6 +453,7 @@ namespace ariac {
                 return 0;
             }
 
+            case TypeKind::String:
             case TypeKind::Slice: {
                 if (context.opts->triple.getArch() == llvm::Triple::x86_64) { return 8; }
                 else if (context.opts->triple.getArch() == llvm::Triple::x86) { return 4; }
@@ -534,6 +520,8 @@ namespace ariac {
 
             case TypeKind::Float:   str = "float"; break;
             case TypeKind::Double:  str = "double"; break;
+
+            case TypeKind::String:  str = "string"; break;
 
             case TypeKind::Typeid:  str = "typeid"; break;
             case TypeKind::Any:  str = "any"; break;

@@ -58,15 +58,9 @@ namespace ariac {
                         context.report_compiler_diagnostic(sym->loc, "Defined here", CompilerDiagKind::Note, sym->parent_unit);
                     }
 
-                    Module* m = context.active_module;
                     CompilationUnit* c = context.active_comp_unit;
-
-                    context.active_module = sym->parent_module;
                     context.active_comp_unit = sym->parent_unit;
-
                     resolve_var_decl(sym);
-
-                    context.active_module = m;
                     context.active_comp_unit = c;
 
                     expr->type = sym->var.type;
@@ -205,11 +199,17 @@ namespace ariac {
         };
 
         auto resolve_without_specifier = [&]() {
-            Module* mod = context.active_module;
             Decl* sym = nullptr;
 
-            if (mod->symbols.contains(dr.identifier)) {
-                sym = mod->symbols.at(dr.identifier);
+            for (auto& [_, m] : context.active_comp_unit->imported_modules) {
+                if (m->symbols.contains(dr.identifier)) {
+                    sym = m->symbols.at(dr.identifier);
+                    dr.referenced_decl = sym;
+                }
+            }
+
+            if (context.active_comp_unit->parent->symbols.contains(dr.identifier)) {
+                sym = context.active_comp_unit->parent->symbols.at(dr.identifier);
                 dr.referenced_decl = sym;
             }
 
@@ -263,62 +263,6 @@ namespace ariac {
                 expr->type = TypeInfo::get_error();
                 expr->kind = ExprKind::Error;
 
-                for (Decl* im : context.active_comp_unit->imports) {
-                    ARIA_ASSERT(im->kind == DeclKind::Import, "Invalid import");
-                    ImportDecl& import = im->import;
-
-                    if (!import.resolved_module) { continue; }
-
-                    if (import.resolved_module->symbols.contains(dr.identifier)) {
-                        sym = import.resolved_module->symbols.at(dr.identifier);
-                        dr.referenced_decl = sym;
-
-                        switch (sym->kind) {
-                            case DeclKind::Var: {
-                                context.report_compiler_diagnostic_with_notes(expr->loc, "Variables from other modules must be prefixed with the module name",
-                                    { fmt::format("Did you mean to write '{}::{}'", import.resolved_module->name, dr.identifier)});
-                                return;
-                            }
-
-                            case DeclKind::Function: {
-                                context.report_compiler_diagnostic_with_notes(expr->loc, "Functions from other modules must be prefixed with the module name",
-                                    { fmt::format("Did you mean to write '{}::{}'", import.resolved_module->name, dr.identifier)});
-
-                                if (!m_sema_context.call && !m_sema_context.address_of) {
-                                    context.report_compiler_diagnostic_with_notes(expr->loc, fmt::format("Cannot use function '{}' as a value", pretty_ident),
-                                        { fmt::format("Did you mean to write '&{}'", pretty_ident) });
-                                }
-                                return;
-                            }
-
-                            case DeclKind::Struct: 
-                            case DeclKind::Typedef:
-                            case DeclKind::Enum: {
-                                replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, TypeInfo::get_typeid(), TypeInfoExpr(type_from_decl(sym))));
-                                return;
-                            }
-
-                            case DeclKind::Generic: {
-                                if (sym->generic.decl->kind == DeclKind::Function) {
-                                    context.report_compiler_diagnostic_with_notes(expr->loc, "Generic functions from other modules must be prefixed with the module name",
-                                        { fmt::format("Did you mean to write '{}::{}'", import.resolved_module->name, dr.identifier)});
-
-                                    if (!m_sema_context.call && !m_sema_context.address_of) {
-                                        context.report_compiler_diagnostic_with_notes(expr->loc, fmt::format("Cannot use function '{}' as a value", pretty_ident),
-                                            { fmt::format("Did you mean to write '&{}'", pretty_ident) });
-                                    }
-                                } else {
-                                    expr->type = TypeInfo::get_error();
-                                }
-
-                                return;
-                            }
-
-                            default: ARIA_UNREACHABLE("Invalid symbol kind");
-                        }
-                    }
-                }
-
                 context.report_compiler_diagnostic(expr->loc, fmt::format("Undeclared identifier '{}'", pretty_ident));
             }
         };
@@ -334,8 +278,7 @@ namespace ariac {
                 return;
             }
 
-            if (mod == context.active_module) { return resolve_without_specifier(); }
-            else { return resolve_with_specifier(); }
+            return resolve_with_specifier();
         }
 
         resolve_without_specifier();
@@ -496,6 +439,19 @@ namespace ariac {
                     } else if (mem.member == "len") {
                         member_type = TypeInfo::get_basic(TypeKind::Sz);
                         expr->value_kind = ExprValueKind::RValue;
+                        expr->kind = ExprKind::BuiltinMember;
+                    }
+
+                    searching = false;
+                    break;
+                }
+
+                case TypeKind::String: {
+                    if (mem.member == "mem") {
+                        member_type = TypeInfo::get_char_ptr();
+                        expr->kind = ExprKind::BuiltinMember;
+                    } else if (mem.member == "len") {
+                        member_type = TypeInfo::get_basic(TypeKind::Sz);
                         expr->kind = ExprKind::BuiltinMember;
                     }
 
@@ -921,6 +877,11 @@ namespace ariac {
         try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Sz), subs.index);
 
         switch (subs.array->type->kind) {
+            case TypeKind::String: {
+                expr->type = TypeInfo::get_basic(TypeKind::Char);
+                break;
+            }
+
             case TypeKind::Pointer: {
                 require_rvalue(subs.array);
 
@@ -944,7 +905,11 @@ namespace ariac {
                 break;
             }
 
-            default: context.report_compiler_diagnostic(subs.array->loc, "'[' operator can only be used with a pointer/slice/array"); expr->type = TypeInfo::get_error(); break;
+            default: {
+                context.report_compiler_diagnostic(subs.array->loc, fmt::format("Invalid type '{}' for array subscript", type_info_to_string(subs.array->type)));
+                expr->type = TypeInfo::get_error();
+                break;
+            }
         }
     }
 
@@ -1341,84 +1306,35 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_name_specifier(Specifier* specifier) {
         NameSpecifier& name = specifier->name;
+
         Module* parent = nullptr;
-
-        auto find_child_in_module = [this, &name](Module* mod) -> bool {
-            for (Module* child : mod->children) {
-                std::string_view child_name = get_bottom_path(child->name);
-
-                if (child_name == name.identifier) {
-                    name.referenced_module = child;
-                    return true;
-                }
-            }
-
-            return false;
-        };
 
         if (name.parent) {
             resolve_name_specifier(name.parent);
             parent = name.parent->name.referenced_module;
         }
-        
+
         if (!parent) {
-            // Try to find a submodule
-            if (find_child_in_module(context.active_module)) {
+            if (context.active_comp_unit->local_modules.contains(name.identifier)) {
+                name.referenced_module = context.active_comp_unit->local_modules.at(name.identifier);
                 return;
             }
 
-            // Check our parents submodules too (siblings?)
-            Module* mod = context.active_module;
-            while (mod->parent) {
-                mod = mod->parent;
-
-                if (find_child_in_module(mod)) {
-                    return;
-                }
-            }
-
-            // Check if we are referencing ourselves
-            if (context.active_module->top_module->name == name.identifier) {
-                name.referenced_module = context.active_module->top_module;
+            if (context.active_comp_unit->imported_modules.contains(name.identifier)) {
+                name.referenced_module = context.active_comp_unit->imported_modules.at(name.identifier);
                 return;
             }
 
-            // Check the imports submodules
-            for (Decl* import : context.active_comp_unit->imports) {
-                ARIA_ASSERT(import->kind == DeclKind::Import, "Invalid import decl");
-                if (!import->import.resolved_module) { continue; }
-
-                Module* mod = import->import.resolved_module;
-                while (mod->parent) {
-                    mod = mod->parent;
-
-                    if (find_child_in_module(mod)) {
-                        return;
-                    }
-                }
-            }
-
-            // Check for top level modules
-            for (Decl* import : context.active_comp_unit->imports) {
-                ARIA_ASSERT(import->kind == DeclKind::Import, "Invalid import decl");
-                if (!import->import.resolved_module) { continue; }
-                
-                if (import->import.resolved_module->top_module->name == name.identifier) {
-                    name.referenced_module = import->import.resolved_module->top_module;
-                    return;
-                }
-            }
+            context.report_compiler_diagnostic(specifier->loc, fmt::format("No such module '{}' in scope", name.identifier));
+            return;
         } else {
-            // Try to find a submodule
-            if (find_child_in_module(parent)) {
+            if (parent->child_lookup.contains(name.identifier)) {
+                name.referenced_module = parent->child_lookup.at(name.identifier);
                 return;
             }
-        }
 
-        if (parent) {
-            context.report_compiler_diagnostic(specifier->loc, fmt::format("No member '{}' in module '{}'", name.identifier, name.parent->name.identifier));
-        } else {
-            context.report_compiler_diagnostic(specifier->loc, fmt::format("Could not find module '{}'", name.identifier));
+            context.report_compiler_diagnostic(specifier->loc, fmt::format("No such module '{}' in '{}'", name.identifier, parent->name));
+            return;
         }
     }
 

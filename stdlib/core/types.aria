@@ -1,3 +1,0 @@
-module std::core;
-
-typedef []char as String @builtin("string");

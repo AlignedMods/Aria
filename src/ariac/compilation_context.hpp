@@ -33,6 +33,7 @@ namespace ariac {
         Module* top_module = nullptr;
         Module* parent = nullptr;
         std::vector<Module*> children;
+        std::unordered_map<std::string_view, Module*> child_lookup;
     };
 
     // A compilation unit is a module section, so one compilation unit does not necessarily correspond to one file
@@ -57,7 +58,8 @@ namespace ariac {
 
         Expr* if_attr = nullptr;
 
-        std::unordered_map<std::string_view, Decl*> local_symbols;
+        std::unordered_map<std::string_view, Module*> local_modules;
+        std::unordered_map<std::string_view, Module*> imported_modules;
 
         Module* parent = nullptr;
     };
@@ -139,14 +141,11 @@ namespace ariac {
 
         std::vector<CompilationUnit*> compilation_units;
         CompilationUnit* active_comp_unit = nullptr;
-        Module* active_module = nullptr;
         BuildOptions* opts = nullptr;
 
         std::vector<Module*> modules;
         Module* std_core_module = nullptr;
         Decl* main_func = nullptr;
-
-        Decl* string_type = nullptr;
         Decl* assert_func = nullptr;
 
         bool has_errors = false;

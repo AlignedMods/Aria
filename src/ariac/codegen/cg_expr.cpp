@@ -203,6 +203,7 @@ namespace ariac {
                 break;
             }
 
+            case TypeKind::String:
             case TypeKind::Slice: {
                 if (mem.member == "mem") {
                     return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(type), val, 0, "ptradd");
@@ -399,6 +400,26 @@ namespace ariac {
                     { get_sz(arr.array->type->array.size), index }, { TypeInfo::get_sz(), TypeInfo::get_sz() });
 
                 return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type), array, { m_active_module_context.builder->getInt64(0), index }, "ptradd");
+            }
+
+            case TypeKind::String: {
+                llvm::Type* slice_type = type_info_to_llvm_type(arr.array->type);
+
+                if (!array->getType()->isPointerTy()) {
+                    llvm::Value* tempaddr = alloca_at_entry(m_active_module_context.function, "tempaddr", array->getType());
+                    m_active_module_context.builder->CreateStore(array, tempaddr);
+                    array = tempaddr;
+                }
+
+                llvm::Value* len = m_active_module_context.builder->CreateStructGEP(slice_type, array, 1, "ptradd");
+                len = m_active_module_context.builder->CreateLoad(m_active_module_context.builder->getIntNTy((unsigned)TypeInfo::get_sz()->get_bit_size()), len);
+                llvm::Value* cond = m_active_module_context.builder->CreateICmpULT(index, len, "lt");
+                call_assert(cond, expr->loc.line, "String index out of bounds (len: %s, index: %s)",
+                    { len, index }, { TypeInfo::get_sz(), TypeInfo::get_sz() });
+
+                llvm::Value* mem = m_active_module_context.builder->CreateStructGEP(slice_type, array, 0);
+                llvm::Value* loaded = m_active_module_context.builder->CreateLoad(llvm::PointerType::get(*m_active_module_context.context, 0), mem);
+                return m_active_module_context.builder->CreateGEP(m_active_module_context.builder->getInt8Ty(), loaded, index, "ptradd");
             }
 
             case TypeKind::Slice: {

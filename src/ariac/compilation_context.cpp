@@ -21,7 +21,6 @@ namespace ariac {
     CompilationContext context;
 
     static const char* stdlib_files[] = {
-        "core/types.aria",
         "libc.aria",
         "io/io.aria",
         "io/file.aria",
@@ -31,7 +30,6 @@ namespace ariac {
         "core/any.aria",
         "core/assert.aria",
         "process/process.aria",
-        "os/win32/win32.aria",
         "os/win32/exception.aria",
     };
 

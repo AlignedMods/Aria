@@ -121,6 +121,7 @@ namespace ariac {
         m_expr_rules[TokenKind::Isz] =         { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Float] =       { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Double] =      { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
+        m_expr_rules[TokenKind::String] =      { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Typeid] =      { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Any] =         { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
     }
@@ -750,6 +751,7 @@ namespace ariac {
             case TokenKind::Isz:
             case TokenKind::Float:
             case TokenKind::Double:
+            case TokenKind::String:
             case TokenKind::Typeid:
             case TokenKind::Any:
             case TokenKind::Fn:
@@ -835,6 +837,8 @@ namespace ariac {
         
             case TokenKind::Float:      consume(); type->kind = TypeKind::Float; break;
             case TokenKind::Double:     consume(); type->kind = TypeKind::Double; break;
+
+            case TokenKind::String:     consume(); type->kind = TypeKind::String; break;
 
             case TokenKind::Typeid:     consume(); type->kind = TypeKind::Typeid; break;
             case TokenKind::Any:        consume(); type->kind = TypeKind::Any; break;

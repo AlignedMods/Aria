@@ -203,6 +203,22 @@ namespace ariac {
             return cost;
         }
 
+        if (src->is_string()) {
+            if (dst->is_string()) {
+                cost.cast_needed = false;
+                return cost;
+            }
+
+            if (dst->is_pointer()) {
+                if (dst->pointer.base->kind == TypeKind::Char) {
+                    cost.kind = CastKind::SliceToPointer;
+                    cost.implicit_cast_possible = true;
+                    cost.explicit_cast_possible = true;
+                    return cost;
+                }
+            }
+        }
+
         if (dst->is_typeid() && src->is_typeid()) {
             cost.cast_needed = false;
             return cost;
@@ -312,6 +328,13 @@ namespace ariac {
                 
                 cost.cast_needed = false;
                 return cost;
+            }
+
+            if (dst->is_string()) {
+                if (src->slice.base->kind == TypeKind::Char) {
+                    cost.cast_needed = false;
+                    return cost;
+                }
             }
         }
 

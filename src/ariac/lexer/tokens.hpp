@@ -110,6 +110,7 @@ namespace ariac {
         Isz,
         Float,
         Double,
+        String,
         Typeid,
         Any,
         // ^^^ Types ^^^ //
@@ -238,6 +239,7 @@ namespace ariac {
             case TokenKind::Isz: return "isz";
             case TokenKind::Float: return "float";
             case TokenKind::Double: return "double";
+            case TokenKind::String: return "string";
             case TokenKind::Typeid: return "typeid";
             case TokenKind::Any: return "any";
             // ^^^ Types ^^^ //

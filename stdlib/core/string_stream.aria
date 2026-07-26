@@ -1,7 +1,5 @@
 module std::core;
 
-import std::core::mem;
-
 struct StringStream {
     mem: *char;
     len: sz;
@@ -9,7 +7,7 @@ struct StringStream {
 }
 
 impl StringStream {
-    fn append_string(s: String) -> void {
+    fn append_string(s: string) -> void {
         for (i: sz = 0; i < s.len; i++) {
             append_char(s[i]);
         }
@@ -117,8 +115,8 @@ impl StringStream {
             return;
         }
 
-        if arg.type == String {
-            append_string(core::any_cast::<String>(arg));
+        if arg.type == string {
+            append_string(core::any_cast::<string>(arg));
             return;
         }
 
@@ -127,11 +125,11 @@ impl StringStream {
         }
     }
 
-    fn appendf(fmt: String, args...) -> void {
+    fn appendf(fmt: string, args...) -> void {
         vappendf(fmt, args);
     }
 
-    fn vappendf(fmt: String, args: []any) -> void {
+    fn vappendf(fmt: string, args: []any) -> void {
         let var_idx = 0;
 
         for (i: sz = 0; i < fmt.len; i++) {
@@ -151,7 +149,7 @@ impl StringStream {
         }
     }
 
-    fn to_string() -> String { return to_slice(); }
+    fn to_string() -> string { return to_slice(); }
 
     fn to_slice() -> []char {
         return mem[:len];

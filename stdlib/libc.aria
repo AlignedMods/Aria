@@ -39,7 +39,7 @@ extern fn fflush(stream: *FILE) -> int;
 extern fn setbuf(stream: *FILE, buffer: *const char) -> void;
 extern fn setvbuf(stream: *FILE, buffer: *const char, mode: int, size: sz) -> void;
 extern fn fread(buffer: *void, size: sz, count: sz, stream: *FILE) -> sz;
-extern fn fwrite(buffer: *void, size: sz, count: sz, stream: *FILE) -> sz;
+extern fn fwrite(buffer: *const void, size: sz, count: sz, stream: *FILE) -> sz;
 extern fn fgetc(stream: *FILE) -> int;
 extern fn getc() -> int;
 extern fn fgets(str: *const char, count: int, stream: *FILE) -> *const char;

@@ -18,8 +18,6 @@ namespace ariac {
 
     void SemanticAnalyzer::pass_decls() {
         for (Module* mod : context.modules) {
-            context.active_module = mod;
-
             for (size_t i = 0; i < mod->units.size(); i++) {
                 if (mod->units[i]->if_attr) {
                     resolve_expr(mod->units[i]->if_attr);
@@ -47,8 +45,6 @@ namespace ariac {
         }
 
         for (Module* mod : context.modules) {
-            context.active_module = mod;
-
             for (CompilationUnit* unit : mod->units) {
                 resolve_unit_decls(mod, unit);
             }
@@ -61,8 +57,6 @@ namespace ariac {
 
     void SemanticAnalyzer::pass_code() {
         for (Module* mod : context.modules) {
-            context.active_module = mod;
-
             for (CompilationUnit* unit : mod->units) {
                 resolve_unit_code(mod, unit);
             }
@@ -71,8 +65,6 @@ namespace ariac {
 
     void SemanticAnalyzer::pass_generics() {
         for (Module* mod : context.modules) {
-            context.active_module = mod;
-
             for (CompilationUnit* unit : mod->units) {
                 resolve_unit_generics(mod, unit);
             }
@@ -90,6 +82,7 @@ namespace ariac {
                 // We have found the parent
                 module->parent = mod;
                 mod->children.push_back(module);
+                mod->child_lookup[get_bottom_path(module->name)] = module;
 
                 // Set top module
                 Module* top = mod;
@@ -105,6 +98,7 @@ namespace ariac {
         Module* mod = context.find_or_create_module(parent);
         module->parent = mod;
         mod->children.push_back(module);
+        mod->child_lookup[get_bottom_path(module->name)] = module;
 
         // Set top module
         Module* top = mod;
@@ -127,10 +121,34 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_unit_imports(Module* module, CompilationUnit* unit) {
-        context.active_module = module;
         context.active_comp_unit = unit;
 
-        bool imports_std_core = false;
+        // Add top level modules
+        for (Module* m : context.modules) {
+            Module* top = m->top_module;
+
+            unit->local_modules[top->name] = top;
+        }
+
+        // Add the current module's children
+        for (Module* c : module->children) {
+            unit->local_modules[get_bottom_path(c->name)] = c;
+        }
+
+        // Implicitly import the parent modules
+        {
+            Module* m = module->parent;
+            while (m) {
+                unit->imported_modules[m->name] = m;
+
+                // Add thier children too
+                for (Module* c : m->children) {
+                    unit->local_modules[get_bottom_path(c->name)] = c;
+                }
+
+                m = m->parent;
+            }
+        }
 
         for (size_t i = 0; i < unit->imports.size(); i++) {
             Decl* decl = unit->imports[i];
@@ -160,13 +178,26 @@ namespace ariac {
                 continue;
             }
 
-            if (resolvedModule == context.std_core_module) { imports_std_core = true; }
             decl->import.resolved_module = resolvedModule;
-        }
+            unit->imported_modules[resolvedModule->name] = resolvedModule;
 
-        if (!imports_std_core && context.std_core_module) { // Implicitly import std::core if it is avaliable
-            Decl* imp = Decl::Create({}, DeclKind::Import, DeclVisibility::Public, ImportDecl("std::core", context.std_core_module, true));
-            unit->imports.push_back(imp);
+            for (Module* c : resolvedModule->children) {
+                unit->local_modules[get_bottom_path(c->name)] = c;
+            }
+
+            {
+                Module* m = resolvedModule->parent;
+                while (m) {
+                    unit->imported_modules[m->name] = m;
+
+                    // Add thier children too
+                    for (Module* c : m->children) {
+                        unit->local_modules[get_bottom_path(c->name)] = c;
+                    }
+
+                    m = m->parent;
+                }
+            }
         }
 
         add_unit_to_module(module, unit);
@@ -183,7 +214,6 @@ namespace ariac {
             std::string_view ident = s.identifier;
 
             module->symbols[ident] = struc;
-            unit->local_symbols[ident] = struc;
         }
 
         for (size_t i = 0; i < unit->typedefs.size(); i++) {
@@ -206,7 +236,6 @@ namespace ariac {
             }
 
             module->symbols[ident] = td;
-            unit->local_symbols[ident] = td;
         }
 
         for (Decl* en : unit->enums) {
@@ -217,7 +246,6 @@ namespace ariac {
             std::string_view ident = e.identifier;
 
             module->symbols[ident] = en;
-            unit->local_symbols[ident] = en;
         }
 
         for (Decl* g : unit->generics) {
@@ -242,7 +270,6 @@ namespace ariac {
                     }
 
                     module->symbols[ident] = g;
-                    unit->local_symbols[ident] = g;
                     break;
                 }
 
@@ -296,8 +323,7 @@ namespace ariac {
 
             VarDecl& var = global->var;
 
-            module->symbols[var.identifier] = global;
-            unit->local_symbols[var.identifier] = global;       
+            module->symbols[var.identifier] = global;    
         }
 
         for (size_t i = 0; i < unit->generics.size(); i++) {
@@ -361,7 +387,6 @@ namespace ariac {
                     }
 
                     module->symbols[f.identifier] = gen;
-                    unit->local_symbols[f.identifier] = gen;
                     break;
                 }
 
@@ -418,7 +443,6 @@ namespace ariac {
                 }
 
                 module->symbols[f.identifier] = func;
-                unit->local_symbols[f.identifier] = func;
                 context.main_func = func;
                 continue;
             }
@@ -444,7 +468,6 @@ namespace ariac {
             }
 
             module->symbols[f.identifier] = func;
-            unit->local_symbols[f.identifier] = func;
         }
     }
 

@@ -35,7 +35,6 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_param_initializer(TypeInfo* param_type, Expr* arg) {
         resolve_expr(arg);
-
         try_insert_implicit_cast(param_type, arg);
         require_rvalue(arg);
     }

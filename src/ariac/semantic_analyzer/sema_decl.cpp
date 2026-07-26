@@ -324,17 +324,7 @@ namespace ariac {
                 }
 
                 case DeclAttributeKind::Builtin: {
-                    if (attr.string == "string") {
-                        if (context.string_type) {
-                            context.report_compiler_diagnostic(decl->loc, "A type for string is already declared, please remove '@builtin(\"string\")'");
-                        } else {
-                            if (decl->kind == DeclKind::Typedef && decl->typedef_.type->is_slice() && decl->typedef_.type->slice.base->kind == TypeKind::Char) {
-                                context.string_type = decl;
-                            } else {
-                                context.report_compiler_diagnostic(decl->loc, "Builtin for 'string' must be a typedef for '[]char'");
-                            }
-                        }
-                    } else if (attr.string == "assert") {
+                    if (attr.string == "assert") {
                         if (context.assert_func) {
                             context.report_compiler_diagnostic(decl->loc, "A function for assert is already declared, please remove '@builtin(\"assert\")'");
                         } else {

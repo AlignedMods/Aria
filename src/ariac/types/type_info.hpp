@@ -141,12 +141,12 @@ namespace ariac {
         static TypeInfo* get_error();
         static TypeInfo* get_void();
         static TypeInfo* get_sz();
+        static TypeInfo* get_string();
         static TypeInfo* get_typeid();
         static TypeInfo* get_basic(TypeKind kind);
         static TypeInfo* get_void_ptr();
         static TypeInfo* get_char_ptr();
         static TypeInfo* get_char_slice();
-        static TypeInfo* get_string();
         static TypeInfo* get_flattened(TypeInfo* t);
 
         static TypeInfo* dup(TypeInfo* type);
@@ -154,7 +154,7 @@ namespace ariac {
         bool is_error() const { return kind == TypeKind::Error; }
 
         bool is_primitive() const {
-            return is_error() || is_void() || is_boolean() || is_numeric() || is_typeid() || is_any();
+            return is_error() || is_void() || is_boolean() || is_numeric() || is_string() || is_typeid() || is_any();
         }
 
         bool is_void() const {
@@ -179,6 +179,10 @@ namespace ariac {
 
         bool is_numeric() const {
             return is_integral() || is_floating_point();
+        }
+
+        bool is_string() const {
+            return kind == TypeKind::String;
         }
 
         bool is_typeid() const {
@@ -234,8 +238,6 @@ namespace ariac {
         bool is_never() const {
             return kind == TypeKind::Never;
         }
-
-        bool is_string() const;
 
         bool is_signed() const {
             return kind == TypeKind::IChar || kind == TypeKind::Short || kind == TypeKind::Int || kind == TypeKind::Long;

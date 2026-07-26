@@ -1,6 +1,7 @@
 module std::io;
 
 import libc;
+import std::core;
 
 struct File {
     handle: *FILE;
@@ -16,7 +17,7 @@ impl File {
         }
     }
 
-    fn write(s: String) {
+    fn write(s: string) {
         libc::fwrite(s.mem, @sizeof(*s.mem), s.len, handle);
     }
 
@@ -31,9 +32,10 @@ impl File {
 module std::io::File;
 
 import std::io;
+import std::core;
 import libc;
 
-fn open(filename: String, mode: String) -> File {
+fn open(filename: string, mode: string) -> File {
     let s1: StringStream;
     let s2: StringStream;
     defer s1.free();

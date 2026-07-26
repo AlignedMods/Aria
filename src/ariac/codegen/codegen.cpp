@@ -399,6 +399,8 @@ namespace ariac {
             return llvm::Type::getFloatTy(*m_active_module_context.context);
         } else if (t->kind == TypeKind::Double) {
             return llvm::Type::getDoubleTy(*m_active_module_context.context);
+        } else if (t->kind == TypeKind::String) {
+            return llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice");
         } else if (t->kind == TypeKind::Typeid) {
             return type_info_to_llvm_type(TypeInfo::get_sz());
         } else if (t->kind == TypeKind::Any) {
@@ -558,6 +560,8 @@ namespace ariac {
             dit = m_active_debug_context.builder->createBasicType(str_type, t->get_bit_size(), encoding);
         } else if (t->is_floating_point()) {
             dit = m_active_debug_context.builder->createBasicType(str_type, t->get_bit_size(), llvm::dwarf::DW_ATE_float);
+        } else if (t->is_string()) {
+            dit = m_active_debug_context.builder->createStringType("string", t->get_size() * 8);
         } else if (t->is_typeid()) {
             std::array<llvm::Metadata*, 5> elems{};
 
@@ -668,25 +672,27 @@ namespace ariac {
 
     std::string Codegen::mangle_type(TypeInfo* t) {
         switch (t->kind) {
-            case TypeKind::Void: return "v";
-            case TypeKind::Bool: return "b";
-            case TypeKind::Char: return "c";
-            case TypeKind::IChar: return "ic";
-            case TypeKind::Short: return "s";
-            case TypeKind::UShort: return "us";
-            case TypeKind::Int: return "i";
-            case TypeKind::UInt: return "ui";
-            case TypeKind::Long: return "l";
-            case TypeKind::ULong: return "ul";
+            case TypeKind::Void: return "void";
+            case TypeKind::Bool: return "bool";
+            case TypeKind::Char: return "char";
+            case TypeKind::IChar: return "ichar";
+            case TypeKind::Short: return "short";
+            case TypeKind::UShort: return "ushort";
+            case TypeKind::Int: return "int";
+            case TypeKind::UInt: return "uint";
+            case TypeKind::Long: return "long";
+            case TypeKind::ULong: return "ulong";
 
-            case TypeKind::Sz: return "z";
-            case TypeKind::Isz: return "iz";
+            case TypeKind::Sz: return "sz";
+            case TypeKind::Isz: return "isz";
 
-            case TypeKind::Float: return "f";
-            case TypeKind::Double: return "d";
+            case TypeKind::Float: return "float";
+            case TypeKind::Double: return "double";
 
-            case TypeKind::Typeid: return "ti";
-            case TypeKind::Any: return "a";
+            case TypeKind::String: return "string";
+
+            case TypeKind::Typeid: return "typeid";
+            case TypeKind::Any: return "any";
 
             case TypeKind::Pointer: return fmt::format("P{}", mangle_type(t->pointer.base));
             case TypeKind::Array: return fmt::format("A{}.{}", t->array.size, mangle_type(t->array.base));

@@ -539,6 +539,7 @@ namespace ariac {
             { "isz", TokenKind::Isz },
             { "float", TokenKind::Float },
             { "double", TokenKind::Double },
+            { "string", TokenKind::String },
             { "typeid", TokenKind::Typeid },
             { "any", TokenKind::Any }
         };

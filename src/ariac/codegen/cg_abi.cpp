@@ -14,7 +14,7 @@ namespace ariac {
                             t = t->typedef_.base;
                         }
                         
-                        if (t->is_slice()) {
+                        if (t->is_slice() || t->is_string()) {
                             info.kind = ABIParamKind::Pointer;
                         } else if (t->is_structure()) {
                             u64 size = t->get_size();
@@ -56,7 +56,7 @@ namespace ariac {
             case llvm::Triple::OSType::Win32: {
                 switch (context.opts->triple.getArch()) {
                     case llvm::Triple::ArchType::x86_64: {
-                        if (t->is_slice()) {
+                        if (t->is_slice() || t->is_string()) {
                             info.kind = ABIRetKind::Pointer;
                         } else if (t->is_structure()) {
                             u64 size = t->get_size();

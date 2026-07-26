@@ -340,6 +340,8 @@ namespace ariac {
         Float,
         Double,
 
+        String,
+
         // Typeid is a built in type that is the same size as a 'sz'
         // Internally it is a pointer pointing to a struct of the following runtime layout:
         // name: String;

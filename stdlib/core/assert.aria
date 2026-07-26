@@ -3,13 +3,13 @@ module std::core;
 import std::io;
 import libc;
 
-fn assert(cond: bool, file: String, line: ulong, fmt: String, args...) @builtin("assert") {
+fn assert(cond: bool, file: string, line: ulong, fmt: string, args...) @builtin("assert") {
     if !cond { assert_fail(file, line, fmt, args); }
 }
 
 #private
 
-fn assert_fail(file: String, line: ulong, fmt: String, args: []any) {
+fn assert_fail(file: string, line: ulong, fmt: string, args: []any) {
     io::eprintf("%s:%s: Assertion failed: ", file, line);
     io::veprintfn(fmt, args);
     libc::abort();
