@@ -120,7 +120,14 @@ impl StringStream {
             return;
         }
 
-        if core::any_is_array(arg) {
+        if arg.type.kind == TypeKind.ARRAY {
+            append_char('[');
+            for (i: sz = 0; i < arg.type.len; i++) {
+                if i > 0 { append_string(", "); }
+                let val = any_index(arg, i);
+                append_any(&val);
+            }
+            append_char(']');
             return;
         }
     }
@@ -141,6 +148,8 @@ impl StringStream {
                     if var_idx < args.len {
                         let arg = &args[var_idx++];
                         append_any(arg);
+                    } else {
+                        append_string("<MISSING>");
                     }
                 }
             } else {

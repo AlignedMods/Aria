@@ -97,6 +97,9 @@ namespace ariac {
 
         switch (info.kind) {
             case ABIParamKind::Direct: {
+                if (val->getType()->isIntegerTy(1)) {
+                    val = m_active_module_context.builder->CreateZExt(val, m_active_module_context.builder->getInt8Ty(), "zext");
+                }
                 args->push_back(val);                
                 break;
             }

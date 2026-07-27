@@ -314,6 +314,7 @@ namespace ariac {
 
     u64 TypeInfo::get_size() const {
         switch (kind) {
+            case TypeKind::Void: return 0;
             case TypeKind::Bool: return 1;
 
             case TypeKind::Char:

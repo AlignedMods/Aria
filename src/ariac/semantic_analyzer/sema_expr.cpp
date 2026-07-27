@@ -324,8 +324,8 @@ namespace ariac {
                     } else if (mem.member == "len") {
                         member_type = TypeInfo::get_basic(TypeKind::Sz);
                         expr->kind = ExprKind::BuiltinMember;
-                    } else if (mem.member == "types") {
-                        member_type = TypeInfo::create_slice(TypeInfo::get_typeid());
+                    } else if (mem.member == "inner") {
+                        member_type = TypeInfo::get_typeid();
                         expr->kind = ExprKind::BuiltinMember;
                     }
 
@@ -754,51 +754,73 @@ namespace ariac {
 
         resolve_type(expr->type);
 
-        if (expr->type->is_structure()) {
-            Decl* s = expr->type->struct_.source_decl;
+        for (Expr* arg : construct.arguments) {
+            resolve_expr(arg);
+            if (!is_const_expr(arg)) { construct.is_const = false; }
+        }
 
-            if (construct.arguments.size > s->struct_.fields.size) {
-                context.report_compiler_diagnostic(expr->loc, fmt::format("Too many initializers for '{}', expected {} but provided {}", type_info_to_string(expr->type), s->struct_.fields.size, construct.arguments.size));
-                expr->type = TypeInfo::get_error();
-                return;
-            }
-
-            size_t i = 0;
-            for (Expr* arg : construct.arguments) {
-                resolve_expr(arg);
-
-                if (!is_const_expr(arg)) { construct.is_const = false; }
-
-                Decl* fd = s->struct_.fields.items[i++];
-                if (fd->kind == DeclKind::Error) { continue; }
-
-                try_insert_implicit_cast(fd->field.type, arg);
-                require_rvalue(arg);
-
-                if (fd->visibility == DeclVisibility::Private) {
-                    context.report_compiler_diagnostic(arg->loc, fmt::format("Cannot initialize private field '{}'", fd->field.identifier));
-                    context.report_compiler_diagnostic(fd->loc, "Declared here", CompilerDiagKind::Note, fd->parent_unit);
+        switch (expr->type->kind) {
+            case TypeKind::Any: {
+                if (construct.arguments.size > 2) {
+                    context.report_compiler_diagnostic(expr->loc, fmt::format("Too many initializers for '{}', expected 2 but got {}", type_info_to_string(expr->type), construct.arguments.size));
+                    expr->type = TypeInfo::get_error();
+                    break;
                 }
+
+                size_t i = 0;
+                for (Expr* arg : construct.arguments) {
+                    if (i == 0) { try_insert_implicit_cast(TypeInfo::get_typeid(), arg); }
+                    if (i == 1) { try_insert_implicit_cast(TypeInfo::get_void_ptr(), arg); }
+
+                    require_rvalue(arg);
+                    i++;
+                }
+
+                break;
             }
-        } else {
-            ARIA_ASSERT(expr->type->is_any(), "Type must be any");
 
-            construct.is_const = false;
+            case TypeKind::Array: {
+                if (construct.arguments.size > expr->type->array.size) {
+                    context.report_compiler_diagnostic(expr->loc, fmt::format("Too many initializers for '{}', expected {} but got {}", type_info_to_string(expr->type), expr->type->array.size, construct.arguments.size));
+                    expr->type = TypeInfo::get_error();
+                    break;
+                }
 
-            if (construct.arguments.size > 2) {
-                context.report_compiler_diagnostic(expr->loc, fmt::format("Too many initializers for '{}', expected 2 but provided {}", type_info_to_string(expr->type), construct.arguments.size));
-                expr->type = TypeInfo::get_error();
-                return;
+                for (Expr* arg : construct.arguments) {
+                    try_insert_implicit_cast(expr->type->array.base, arg);
+                    require_rvalue(arg);
+                }
+
+                break;
             }
 
-            for (size_t i = 0; i < construct.arguments.size; i++) {
-                Expr* arg = construct.arguments.items[i];
-                resolve_expr(arg);
-                require_rvalue(arg);
+            case TypeKind::Struct: {
+                Decl* s = expr->type->struct_.source_decl;
 
-                if (i == 0) { try_insert_implicit_cast(TypeInfo::get_typeid(), arg); }
-                if (i == 1) { try_insert_implicit_cast(TypeInfo::get_void_ptr(), arg); }
+                if (construct.arguments.size > s->struct_.fields.size) {
+                    context.report_compiler_diagnostic(expr->loc, fmt::format("Too many initializers for '{}', expected {} but got {}", type_info_to_string(expr->type), s->struct_.fields.size, construct.arguments.size));
+                    expr->type = TypeInfo::get_error();
+                    break;
+                }
+
+                size_t i = 0;
+                for (Expr* arg : construct.arguments) {
+                    Decl* fd = s->struct_.fields.items[i++];
+                    if (fd->kind == DeclKind::Error) { continue; }
+
+                    try_insert_implicit_cast(fd->field.type, arg);
+                    require_rvalue(arg);
+
+                    if (fd->visibility == DeclVisibility::Private) {
+                        context.report_compiler_diagnostic(arg->loc, fmt::format("Cannot initialize private field '{}'", fd->field.identifier));
+                        context.report_compiler_diagnostic(fd->loc, "Declared here", CompilerDiagKind::Note, fd->parent_unit);
+                    }
+                }
+
+                break;
             }
+
+            default: ARIA_UNREACHABLE("Invalid type kind");
         }
     }
 
@@ -1753,7 +1775,6 @@ namespace ariac {
         } else if (lty->is_pointer() && !is_binary_operator_bit(op)) {
             if (op == BinaryOperatorKind::Add) {
                 if (rty->is_integral()) {
-                    insert_implicit_cast(TypeInfo::get_sz(), rty, rhs, CastKind::IntegerToPointer);
                     e->type = lty;
                     return;
                 } else {

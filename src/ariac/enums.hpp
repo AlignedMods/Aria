@@ -347,8 +347,8 @@ namespace ariac {
         // name: String;
         // kind: TypeKind ('char' if TypeKind is not available);
         // size: sz;
+        // inner: typeid;
         // len: sz;
-        // types: []typeid;
         Typeid,
 
         // Any is a built in type that has the following runtime layout:

@@ -63,7 +63,7 @@ namespace ariac {
 
                 m_active_module_context.builder->CreateBr(while_cond);
                 m_active_module_context.builder->SetInsertPoint(while_cond);
-                llvm::Value* cond = gen_expr(wh.condition);
+                llvm::Value* cond = gen_cond(wh.condition);
                 m_active_module_context.builder->CreateCondBr(cond, while_body ? while_body : while_cond, while_end);
 
                 if (while_body) {
@@ -97,7 +97,7 @@ namespace ariac {
         m_active_module_context.builder->SetInsertPoint(do_body);
         gen_block_stmt(d.body);
 
-        llvm::Value* cond = gen_expr(d.condition);
+        llvm::Value* cond = gen_cond(d.condition);
         m_active_module_context.builder->CreateCondBr(cond, do_body, do_end);
 
         m_active_module_context.builder->SetInsertPoint(do_end);
@@ -164,7 +164,7 @@ namespace ariac {
                 m_active_module_context.builder->CreateBr(for_cond);
 
                 m_active_module_context.builder->SetInsertPoint(for_cond);
-                llvm::Value* cond = gen_expr(f.condition);
+                llvm::Value* cond = gen_cond(f.condition);
                 m_active_module_context.builder->CreateCondBr(cond, for_body, for_end);
 
                 if (for_body) {
@@ -191,7 +191,7 @@ namespace ariac {
         llvm::BasicBlock* else_body = (i.else_body) ? llvm::BasicBlock::Create(*m_active_module_context.context, "if.else", m_active_module_context.function) : nullptr;
         llvm::BasicBlock* if_end = llvm::BasicBlock::Create(*m_active_module_context.context, "if.end", m_active_module_context.function);
 
-        llvm::Value* cond = gen_expr(i.condition);
+        llvm::Value* cond = gen_cond(i.condition);
         if (else_body) {
             m_active_module_context.builder->CreateCondBr(cond, if_body, else_body);
         } else {
@@ -266,6 +266,10 @@ namespace ariac {
 
             switch (m_ret_type_abi.kind) {
                 case ABIRetKind::Direct: {
+                    if (val->getType()->isIntegerTy(1)) {
+                        val = m_active_module_context.builder->CreateZExt(val, m_active_module_context.builder->getInt8Ty(), "zext");
+                    }
+
                     m_active_module_context.builder->CreateRet(val);
                     break;
                 }

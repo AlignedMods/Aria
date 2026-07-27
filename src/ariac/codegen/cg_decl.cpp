@@ -8,7 +8,6 @@ namespace ariac {
         if (var.const_var) { return;}
 
         llvm::Type* type = type_info_to_llvm_type(var.type);
-        if (type->isIntegerTy(1)) { type = llvm::Type::getInt8Ty(*m_active_module_context.context); }
 
         llvm::Value* a = nullptr;
         if (var.global_var) {
@@ -285,11 +284,9 @@ namespace ariac {
 
                                     if (param_type->is_boolean()) {
                                         function->addParamAttr(ui, llvm::Attribute::ZExt);
-                                        llvm::Value* zext = m_active_module_context.builder->CreateZExt(function->getArg(ui), llvm::Type::getInt8Ty(*m_active_module_context.context), "zext");
-                                        m_active_module_context.builder->CreateStore(zext, a);
-                                    } else {
-                                        m_active_module_context.builder->CreateStore(function->getArg(ui), a);
                                     }
+
+                                    m_active_module_context.builder->CreateStore(function->getArg(ui), a);
 
                                     dil = m_active_debug_context.builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
                                         (unsigned)decl->loc.line, type_info_to_debug_type(param_type));

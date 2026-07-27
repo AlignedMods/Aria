@@ -50,7 +50,7 @@ namespace ariac {
             sz_type
         }, "$builtin_slice");
 
-        llvm::StructType::create({ slice_type, char_type, sz_type, sz_type, slice_type }, "$builtin_typeid");
+        llvm::StructType::create({ slice_type, char_type, sz_type, sz_type, sz_type }, "$builtin_typeid");
         llvm::StructType::create({ ptr_type, ptr_type }, "$builtin_any");
     }
 
@@ -393,7 +393,7 @@ namespace ariac {
         if (t->is_void()) {
             return llvm::Type::getVoidTy(*m_active_module_context.context);
         } else if (t->is_boolean()) {
-            return llvm::Type::getInt1Ty(*m_active_module_context.context);
+            return llvm::Type::getInt8Ty(*m_active_module_context.context);
         } else if (t->is_integral()) {
             return llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(t->get_bit_size()));
         } else if (t->kind == TypeKind::Float) {
@@ -407,7 +407,7 @@ namespace ariac {
         } else if (t->kind == TypeKind::Any) {
             return llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_any");
         } else if (t->kind == TypeKind::Array) {
-            return llvm::ArrayType::get(type_info_to_llvm_type(t->array.base), static_cast<size_t>(t->array.size));
+            return llvm::ArrayType::get(t->array.base->is_boolean() ? llvm::Type::getInt1Ty(*m_active_module_context.context) : type_info_to_llvm_type(t->array.base), static_cast<size_t>(t->array.size));
         } else if (t->kind == TypeKind::Slice) {
             return llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice");
         } else if (t->kind == TypeKind::Pointer) {
@@ -696,7 +696,7 @@ namespace ariac {
             case TypeKind::Any: return "any";
 
             case TypeKind::Pointer: return fmt::format("P{}", mangle_type(t->pointer.base));
-            case TypeKind::Array: return fmt::format("A{}.{}", t->array.size, mangle_type(t->array.base));
+            case TypeKind::Array: return fmt::format("A{}{}", t->array.size, mangle_type(t->array.base));
             case TypeKind::Slice: return fmt::format("S{}", mangle_type(t->slice.base));
 
             case TypeKind::Struct: return fmt::format("{}.{}", valid_module_name(t->typedef_.source_decl->parent_module->name), t->typedef_.identifier);
@@ -782,7 +782,7 @@ namespace ariac {
 
         RuntimeTypeKind kind{};
         u64 len = 0;
-        std::vector<llvm::Constant*> types;
+        llvm::Constant* inner = get_null();
 
         switch (type->kind) {
             case TypeKind::Void: kind = RuntimeTypeKind::Void; break;
@@ -806,9 +806,26 @@ namespace ariac {
             case TypeKind::String: kind = RuntimeTypeKind::String; break;
             case TypeKind::Typeid: kind = RuntimeTypeKind::Typeid; break;
             case TypeKind::Any: kind = RuntimeTypeKind::Any; break;
-            case TypeKind::Pointer: kind = RuntimeTypeKind::Pointer; break;
-            case TypeKind::Array: kind = RuntimeTypeKind::Array; break;
-            case TypeKind::Slice: kind = RuntimeTypeKind::Slice; break;
+
+            case TypeKind::Pointer: {
+                kind = RuntimeTypeKind::Pointer;
+                inner = get_typeid(type->pointer.base);
+                break;
+            }
+
+            case TypeKind::Array: {
+                kind = RuntimeTypeKind::Array;
+                inner = get_typeid(type->array.base);
+                len = type->array.size;
+                break;
+            }
+
+            case TypeKind::Slice: {
+                kind = RuntimeTypeKind::Slice;
+                inner = get_typeid(type->slice.base);
+                break;
+            }
+
             case TypeKind::Function: kind = RuntimeTypeKind::Function; break;
             case TypeKind::Struct: kind = RuntimeTypeKind::Struct; break;
             case TypeKind::Typedef: kind = RuntimeTypeKind::Typedef; break;
@@ -821,15 +838,8 @@ namespace ariac {
         args[0] = get_string(name); // name
         args[1] = get_int(static_cast<u64>(kind), TypeInfo::get_basic(TypeKind::Char)); // kind
         args[2] = get_int(t->get_size(), TypeInfo::get_sz()); // size
-        args[3] = get_int(t->get_alignment(), TypeInfo::get_sz()); // alignment
-        
-        if (types.size() == 1) {
-            args[4] = llvm::ConstantStruct::get(slice_type, { types[0], 
-                m_active_module_context.builder->getInt(llvm::APInt((unsigned)TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), 1)) }); // types
-        } else {
-            ARIA_ASSERT(types.size() == 0, "Invalid amount of types");
-            args[4] = llvm::Constant::getNullValue(slice_type); // types
-        }
+        args[3] = get_int(len, TypeInfo::get_sz()); // len
+        args[4] = inner; // inner;
 
         llvm::Constant* initializer = llvm::ConstantStruct::get(typeid_type, args);
 

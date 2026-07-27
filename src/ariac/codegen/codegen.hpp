@@ -140,6 +140,7 @@ namespace ariac {
 
         llvm::Value* gen_expr(Expr* expr);
         llvm::Value* gen_init_expr(Expr* expr, llvm::Value* dst);
+        llvm::Value* gen_cond(Expr* expr);
 
         void gen_var_decl(Decl* decl);
         void gen_function_decl(Decl* decl);
