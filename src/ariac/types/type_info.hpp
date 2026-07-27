@@ -144,6 +144,7 @@ namespace ariac {
         static TypeInfo* get_string();
         static TypeInfo* get_typeid();
         static TypeInfo* get_basic(TypeKind kind);
+        static TypeInfo* get_typekind();
         static TypeInfo* get_void_ptr();
         static TypeInfo* get_char_ptr();
         static TypeInfo* get_char_slice();
@@ -216,7 +217,7 @@ namespace ariac {
         }
 
         bool is_structure() const {
-            return kind == TypeKind::Structure;
+            return kind == TypeKind::Struct;
         }
 
         bool is_typedef() const {

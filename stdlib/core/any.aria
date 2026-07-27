@@ -3,7 +3,8 @@ module std::core;
 import libc;
 
 fn any_is_array(a: *any) -> bool {
-    return libc::strcmp(a.type.kind.mem, "array") == 0;
+    // return libc::strcmp(a.type.kind.mem, "array") == 0;
+    return false;
 }
 
 fn any_cast<T>(a: *any) -> T {

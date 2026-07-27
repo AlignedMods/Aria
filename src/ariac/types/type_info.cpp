@@ -23,6 +23,7 @@ namespace ariac {
     static TypeInfo* string_type;
     static TypeInfo* typeid_type;
     static TypeInfo* any_type;
+    static TypeInfo* typekind_type;
     static TypeInfo* void_ptr_type;
     static TypeInfo* char_ptr_type;
     static TypeInfo* char_slice_type;
@@ -62,13 +63,13 @@ namespace ariac {
     }
 
     TypeInfo* TypeInfo::create_struct(Decl* d, SourceLoc loc) {
-        TypeInfo* t = create_basic(TypeKind::Structure, loc);
+        TypeInfo* t = create_basic(TypeKind::Struct, loc);
         t->struct_ = StructType(d->struct_.identifier, d);
         return t;
     }
 
     TypeInfo* TypeInfo::create_struct(std::string_view name, Decl* d, SourceLoc loc) {
-        TypeInfo* t = create_basic(TypeKind::Structure, loc);
+        TypeInfo* t = create_basic(TypeKind::Struct, loc);
         t->struct_ = StructType(name, d);
         return t;
     }
@@ -158,7 +159,7 @@ namespace ariac {
                 break;
             }
 
-            case TypeKind::Structure: {
+            case TypeKind::Struct: {
                 t->struct_.identifier = type->struct_.identifier;
                 t->struct_.source_decl = type->struct_.source_decl;
                 break;
@@ -246,6 +247,18 @@ namespace ariac {
         }
     }
 
+    TypeInfo* TypeInfo::get_typekind() {
+        if (typekind_type) { return typekind_type; }
+
+        if (context.typekind_type) {
+            typekind_type = TypeInfo::create_enum(context.typekind_type);
+            return typekind_type;
+        }
+            
+        typekind_type = TypeInfo::get_basic(TypeKind::Char);
+        return typekind_type;
+    }
+
     TypeInfo* TypeInfo::get_void_ptr() {
         if (void_ptr_type) { return void_ptr_type; }
         void_ptr_type = create_pointer(get_basic(TypeKind::Void), false);
@@ -289,7 +302,7 @@ namespace ariac {
             case TypeKind::Slice:
             case TypeKind::Function:
             case TypeKind::Method:
-            case TypeKind::Structure:
+            case TypeKind::Struct:
             case TypeKind::Enum:
                 return t;
 
@@ -352,7 +365,7 @@ namespace ariac {
                 return get_void_ptr()->get_size() + get_basic(TypeKind::Sz)->get_size();
             }
 
-            case TypeKind::Structure: {
+            case TypeKind::Struct: {
                 u64 size = 0;
                 u64 alignment = get_alignment();
 
@@ -364,6 +377,7 @@ namespace ariac {
             }
 
             case TypeKind::Typedef: return typedef_.base->get_size();
+            case TypeKind::Enum: return enum_.source_decl->enum_.backing_type->get_size();
 
             default: ARIA_UNREACHABLE("Invalid type kind");
         }
@@ -410,7 +424,7 @@ namespace ariac {
 
             case TypeKind::Slice: return get_size() * 8;
 
-            case TypeKind::Structure: return get_size() * 8;
+            case TypeKind::Struct: return get_size() * 8;
 
             case TypeKind::Typedef: return typedef_.base->get_bit_size();
 
@@ -462,7 +476,7 @@ namespace ariac {
                 return 0;
             }
 
-            case TypeKind::Structure: {
+            case TypeKind::Struct: {
                 u64 alignment = 0;
 
                 for (Decl* field : struct_.source_decl->struct_.fields) {
@@ -474,6 +488,7 @@ namespace ariac {
             }
 
             case TypeKind::Typedef: return typedef_.base->get_alignment();
+            case TypeKind::Enum: return enum_.source_decl->enum_.backing_type->get_alignment();
 
             default: ARIA_UNREACHABLE("Invalid type kind");
         }
@@ -582,7 +597,7 @@ namespace ariac {
                 break;
             }
 
-            case TypeKind::Structure: {
+            case TypeKind::Struct: {
                 StructType ty = type->struct_;
                 
                 if (pretty) {

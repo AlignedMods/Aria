@@ -1234,7 +1234,7 @@ namespace ariac {
 
             case TokenKind::Struct: {
                 Token& tok = consume();
-                context.report_compiler_diagnostic(tok.loc, fmt::format("Structure declaration is not allowed here"));
+                context.report_compiler_diagnostic(tok.loc, fmt::format("Struct declaration is not allowed here"));
                 return &error_stmt;
             }
 

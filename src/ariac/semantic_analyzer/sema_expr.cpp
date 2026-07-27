@@ -214,7 +214,7 @@ namespace ariac {
             }
 
             if (m_active_struct) {
-                Decl* struc = m_active_struct->kind == TypeKind::Structure ? m_active_struct->struct_.source_decl : m_active_struct->generic_instantiation.resolved_decl->generic.decl;
+                Decl* struc = m_active_struct->kind == TypeKind::Struct ? m_active_struct->struct_.source_decl : m_active_struct->generic_instantiation.resolved_decl->generic.decl;
                 if (struc->struct_.field_lookup.contains(dr.identifier)) {
                     Decl* field = struc->struct_.field_lookup.at(dr.identifier);
                     TypeInfo* mem_type = nullptr;
@@ -316,7 +316,7 @@ namespace ariac {
                         member_type = TypeInfo::get_string();
                         expr->kind = ExprKind::BuiltinMember;
                     } else if (mem.member == "kind") {
-                        member_type = TypeInfo::get_string();
+                        member_type = TypeInfo::get_typekind();
                         expr->kind = ExprKind::BuiltinMember;
                     } else if (mem.member == "size") {
                         member_type = TypeInfo::get_basic(TypeKind::Sz);
@@ -346,7 +346,7 @@ namespace ariac {
                     break;
                 }
 
-                case TypeKind::Structure: {
+                case TypeKind::Struct: {
                     StructType& sd = parent_type->struct_;
 
                     StructDecl s = sd.source_decl->kind == DeclKind::Struct ? sd.source_decl->struct_ : sd.source_decl->generic.decl->struct_;
@@ -1775,6 +1775,13 @@ namespace ariac {
             if (op == BinaryOperatorKind::IsEq || op == BinaryOperatorKind::IsNotEq) {
                e->type = lty;
                return;
+            }
+        } else if (lty->is_enum() && rty->is_enum()) {
+            if (lty->enum_.source_decl == rty->enum_.source_decl) {
+                if (op == BinaryOperatorKind::IsEq || op == BinaryOperatorKind::IsNotEq) {
+                   e->type = lty;
+                   return;
+                }
             }
         }
 

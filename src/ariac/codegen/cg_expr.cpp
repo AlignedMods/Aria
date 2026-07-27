@@ -106,7 +106,7 @@ namespace ariac {
                 }
 
                 switch (type->kind) {
-                    case TypeKind::Structure: {
+                    case TypeKind::Struct: {
                         fields = type->struct_.source_decl->struct_.fields;
                         break;
                     }

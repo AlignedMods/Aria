@@ -147,6 +147,7 @@ namespace ariac {
         Module* std_core_module = nullptr;
         Decl* main_func = nullptr;
         Decl* assert_func = nullptr;
+        Decl* typekind_type = nullptr;
 
         bool has_errors = false;
 

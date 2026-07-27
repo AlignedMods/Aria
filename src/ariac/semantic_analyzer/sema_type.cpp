@@ -449,7 +449,7 @@ namespace ariac {
 
     bool SemanticAnalyzer::type_is_trivial(TypeInfo* t) {
         switch (t->kind) {
-            case TypeKind::Structure: {
+            case TypeKind::Struct: {
                 StructType& sDecl = t->struct_;
 
                 if (sDecl.source_decl) {

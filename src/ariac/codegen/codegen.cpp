@@ -43,13 +43,14 @@ namespace ariac {
     void Codegen::gen_builtin_types() {
         llvm::Type* ptr_type = llvm::PointerType::get(*m_active_module_context.context, 0);
         llvm::Type* sz_type = type_info_to_llvm_type(TypeInfo::get_basic(TypeKind::Sz));
+        llvm::Type* char_type = llvm::IntegerType::get(*m_active_module_context.context, 8);
 
         llvm::StructType* slice_type = llvm::StructType::create({
             ptr_type,
             sz_type
         }, "$builtin_slice");
 
-        llvm::StructType::create({ slice_type, slice_type, sz_type, sz_type, slice_type }, "$builtin_typeid");
+        llvm::StructType::create({ slice_type, char_type, sz_type, sz_type, slice_type }, "$builtin_typeid");
         llvm::StructType::create({ ptr_type, ptr_type }, "$builtin_any");
     }
 
@@ -490,7 +491,7 @@ namespace ariac {
             }
 
             return llvm::FunctionType::get(ret_type, params, t->function.variadic == VariadicKind::Unnamed);
-        } else if (t->kind == TypeKind::Structure) {
+        } else if (t->kind == TypeKind::Struct) {
             std::string name = fmt::format("{}.{}", valid_module_name(t->struct_.source_decl->parent_module->name), t->struct_.identifier);
             llvm::Type* s = llvm::StructType::getTypeByName(*m_active_module_context.context, name);
 
@@ -698,7 +699,9 @@ namespace ariac {
             case TypeKind::Array: return fmt::format("A{}.{}", t->array.size, mangle_type(t->array.base));
             case TypeKind::Slice: return fmt::format("S{}", mangle_type(t->slice.base));
 
-            case TypeKind::Typedef: return mangle_type(t->typedef_.base);
+            case TypeKind::Struct: return fmt::format("{}.{}", valid_module_name(t->typedef_.source_decl->parent_module->name), t->typedef_.identifier);
+            case TypeKind::Typedef: return fmt::format("{}.{}", valid_module_name(t->typedef_.source_decl->parent_module->name), t->typedef_.identifier);
+            case TypeKind::Enum: return fmt::format("{}.{}", valid_module_name(t->enum_.source_decl->parent_module->name), t->enum_.identifier);
 
             default: ARIA_UNREACHABLE("Invalid type kind");
         }
@@ -773,29 +776,52 @@ namespace ariac {
 
         if (m_active_module_context.typeinfos.contains(name)) {
             llvm::Constant* ti = m_active_module_context.typeinfos.at(name);
-            llvm::Value* inttoptr = m_active_module_context.builder->CreatePtrToInt(ti, type_info_to_llvm_type(TypeInfo::get_sz()), "ptrtoint");
-            return llvm::dyn_cast<llvm::Constant>(inttoptr);
+            llvm::Value* ptrtoint = m_active_module_context.builder->CreatePtrToInt(ti, type_info_to_llvm_type(TypeInfo::get_sz()), "ptrtoint");
+            return llvm::dyn_cast<llvm::Constant>(ptrtoint);
         }
 
-        std::string_view kind;
+        RuntimeTypeKind kind{};
         u64 len = 0;
         std::vector<llvm::Constant*> types;
 
-        if (type->is_pointer()) {
-            kind = "pointer";
-        } else if (type->is_slice()) {
-            kind = "slice";
-        } else if (type->is_array()) {
-            kind = "array";
-            len = type->array.size;
-            types.push_back(get_typeid(type->array.base));
+        switch (type->kind) {
+            case TypeKind::Void: kind = RuntimeTypeKind::Void; break;
+            case TypeKind::Bool: kind = RuntimeTypeKind::Bool; break;
+
+            case TypeKind::IChar:
+            case TypeKind::Short:
+            case TypeKind::Int:
+            case TypeKind::Long:
+            case TypeKind::Isz: kind = RuntimeTypeKind::SignedInt; break;
+
+            case TypeKind::Char:
+            case TypeKind::UShort:
+            case TypeKind::UInt:
+            case TypeKind::ULong:
+            case TypeKind::Sz: kind = RuntimeTypeKind::UnsignedInt; break;
+
+            case TypeKind::Float:
+            case TypeKind::Double: kind = RuntimeTypeKind::Float; break;
+
+            case TypeKind::String: kind = RuntimeTypeKind::String; break;
+            case TypeKind::Typeid: kind = RuntimeTypeKind::Typeid; break;
+            case TypeKind::Any: kind = RuntimeTypeKind::Any; break;
+            case TypeKind::Pointer: kind = RuntimeTypeKind::Pointer; break;
+            case TypeKind::Array: kind = RuntimeTypeKind::Array; break;
+            case TypeKind::Slice: kind = RuntimeTypeKind::Slice; break;
+            case TypeKind::Function: kind = RuntimeTypeKind::Function; break;
+            case TypeKind::Struct: kind = RuntimeTypeKind::Struct; break;
+            case TypeKind::Typedef: kind = RuntimeTypeKind::Typedef; break;
+            case TypeKind::Enum: kind = RuntimeTypeKind::Enum; break;
+
+            default: ARIA_UNREACHABLE("Invalid type kind");
         }
 
         std::array<llvm::Constant*, 5> args{};
         args[0] = get_string(name); // name
-        args[1] = get_string(kind); // kind
-        args[2] = m_active_module_context.builder->getInt(llvm::APInt((unsigned)TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), t->get_size())); // size
-        args[3] = m_active_module_context.builder->getInt(llvm::APInt((unsigned)TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), len)); // len
+        args[1] = get_int(static_cast<u64>(kind), TypeInfo::get_basic(TypeKind::Char)); // kind
+        args[2] = get_int(t->get_size(), TypeInfo::get_sz()); // size
+        args[3] = get_int(t->get_alignment(), TypeInfo::get_sz()); // alignment
         
         if (types.size() == 1) {
             args[4] = llvm::ConstantStruct::get(slice_type, { types[0], 

@@ -229,7 +229,7 @@ namespace ariac {
             resolve_decl_attributes(td, td->attributes, &erase);
             
             if (erase) {
-                context.active_comp_unit->generics.erase(context.active_comp_unit->funcs.begin() + i);
+                context.active_comp_unit->typedefs.erase(context.active_comp_unit->typedefs.begin() + i);
                 i--;
                 replace_decl(td, &error_decl);
                 continue;
@@ -238,12 +238,24 @@ namespace ariac {
             module->symbols[ident] = td;
         }
 
-        for (Decl* en : unit->enums) {
+        for (size_t i = 0; i < unit->enums.size(); i++) {
+            Decl* en = unit->enums[i];
+
             en->parent_module = module;
             en->parent_unit = unit;
 
             EnumDecl& e = en->enum_;
             std::string_view ident = e.identifier;
+
+            bool erase = false;
+            resolve_decl_attributes(en, en->attributes, &erase);
+
+            if (erase) {
+                context.active_comp_unit->enums.erase(context.active_comp_unit->enums.begin() + i);
+                i--;
+                replace_decl(en, &error_decl);
+                continue;
+            }
 
             module->symbols[ident] = en;
         }

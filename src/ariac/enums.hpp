@@ -363,7 +363,7 @@ namespace ariac {
         Function,
         Method,
 
-        Structure,
+        Struct,
         Typedef,
         Enum,
 
@@ -397,6 +397,7 @@ namespace ariac {
         SignedInt,
         UnsignedInt,
         Float,
+        String,
         Typeid,
         Any,
         Pointer,
@@ -404,6 +405,7 @@ namespace ariac {
         Slice,
         Function,
         Struct,
+        Union, // Not currently used, only exists to preserve backward compatibility when added
         Typedef,
         Enum
     };

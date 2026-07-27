@@ -1,0 +1,20 @@
+module std::core;
+
+enum TypeKind : char @builtin("TypeKind") {
+    VOID = 0,
+    BOOL,
+    SIGNED_INT,
+    UNSIGNED_INT,
+    FLOAT,
+    STRING,
+    TYPEID,
+    ANY,
+    POINTER,
+    ARRAY,
+    SLICE,
+    FUNCTION,
+    STRUCT,
+    UNION,
+    TYPEDEF,
+    ENUM,
+}
