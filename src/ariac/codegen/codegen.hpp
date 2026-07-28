@@ -167,6 +167,7 @@ namespace ariac {
         void gen_stmt(Stmt* stmt);
 
         LoopKind get_loop_kind_from_cond(Expr* cond);
+        void analyze_switch_cases(SwitchStmt& s);
 
         llvm::Type* type_info_to_llvm_type(TypeInfo* t);
         llvm::DIType* type_info_to_debug_type(TypeInfo* t);
@@ -188,6 +189,8 @@ namespace ariac {
         // Returns nullptr if there is no assert function
         llvm::Function* get_assert_func();
         void call_assert(llvm::Value* cond, u64 line, const std::string& fmt, const std::vector<llvm::Value*>& args = {}, const std::vector<TypeInfo*>& types = {});
+
+        llvm::BasicBlock* create_block(std::string_view name);
 
         ABIParamTypeInfo get_param_abi_type_info(TypeInfo* t);
         ABIRetTypeInfo get_ret_abi_type_info(TypeInfo* t);

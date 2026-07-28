@@ -7,6 +7,7 @@ struct StringStream {
 }
 
 impl StringStream {
+
     fn append_string(s: string) -> void {
         for (i: sz = 0; i < s.len; i++) {
             append_char(s[i]);
@@ -120,6 +121,11 @@ impl StringStream {
             return;
         }
 
+        if arg.type == any {
+            append_any(&&core::any_cast::<any>(arg));
+            return;
+        }
+
         if arg.type.kind == TypeKind.ARRAY {
             append_char('[');
             for (i: sz = 0; i < arg.type.len; i++) {
@@ -130,6 +136,8 @@ impl StringStream {
             append_char(']');
             return;
         }
+
+        append_string("<UNKNOWN>");
     }
 
     fn appendf(fmt: string, args...) -> void {

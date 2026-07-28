@@ -215,15 +215,53 @@ namespace ariac {
         SwitchStmt& s = stmt->switch_;
 
         llvm::BasicBlock* switch_end = llvm::BasicBlock::Create(*m_active_module_context.context, "switch.end", m_active_module_context.function);
+        s.backend.end_block = switch_end;
         llvm::Value* val = gen_expr(s.expression);
 
-        llvm::SwitchInst* i = m_active_module_context.builder->CreateSwitch(val, switch_end, s.cases.size);
+        // No cases, nothing to do
+        if (s.cases.size == 0) {
+            return;
+        }
+
+        if (s.expression->type->is_typeid()) {
+            analyze_switch_cases(s);
+
+            size_t i = 0;
+            for (Stmt* case_ : s.cases) {
+                CaseStmt& c = case_->case_;
+
+                llvm::BasicBlock* switch_case = reinterpret_cast<llvm::BasicBlock*>(c.backend.entry_block);
+                llvm::BasicBlock* switch_body = reinterpret_cast<llvm::BasicBlock*>(c.backend.body_block);
+
+                if (i == 0) { m_active_module_context.builder->CreateBr(switch_case); }
+                m_active_module_context.builder->SetInsertPoint(switch_case);
+
+                llvm::Value* cond_lhs = val;
+                llvm::Value* cond_rhs = gen_expr(c.condition);
+                llvm::Value* cond = m_active_module_context.builder->CreateICmpEQ(cond_lhs, cond_rhs, "eq");
+
+                m_active_module_context.builder->CreateCondBr(cond, switch_body, reinterpret_cast<llvm::BasicBlock*>(c.backend.fail_block));
+
+                m_active_module_context.builder->SetInsertPoint(switch_body);
+
+                gen_block_stmt(c.body);
+                if (c.body->block.reaches_end) { m_active_module_context.builder->CreateBr(switch_end); }
+
+                i++;
+            }
+
+            m_active_module_context.builder->SetInsertPoint(switch_end);
+            return;
+        }
+
+        llvm::SwitchInst* si = m_active_module_context.builder->CreateSwitch(val, switch_end, s.cases.size);
 
         for (Stmt* case_ : s.cases) {
             ARIA_ASSERT(case_->kind == StmtKind::Case, "Invalid case stmt");
             CaseStmt& c = case_->case_;
 
-            llvm::BasicBlock* switch_case = llvm::BasicBlock::Create(*m_active_module_context.context, "switch.case", m_active_module_context.function);
+            llvm::BasicBlock* switch_case = create_block("switch.case");
+            
             m_active_module_context.builder->SetInsertPoint(switch_case);
             gen_block_stmt(c.body);
             if (c.body->block.reaches_end) {
@@ -231,8 +269,7 @@ namespace ariac {
             }
 
             llvm::ConstantInt* cond = llvm::dyn_cast<llvm::ConstantInt>(gen_expr(c.condition));
-
-            i->addCase(cond, switch_case);
+            si->addCase(cond, switch_case);
         }
 
         m_active_module_context.builder->SetInsertPoint(switch_end);
@@ -352,6 +389,25 @@ namespace ariac {
         }
 
         return LoopKind::Normal;
+    }
+
+    void Codegen::analyze_switch_cases(SwitchStmt& s) {
+        for (Stmt* case_ : s.cases) {
+            case_->case_.backend.entry_block = create_block("switch.case");
+            case_->case_.backend.body_block = create_block("switch.case.body");
+        }
+
+        size_t i = 0;
+        for (Stmt* case_ : s.cases) {
+            CaseStmt& c = case_->case_;
+            
+            if (i + 1 == s.cases.size) {
+                c.backend.fail_block = s.backend.end_block;
+            } else {
+                c.backend.fail_block = s.cases.items[i + 1]->case_.backend.entry_block;
+            }
+            i++;
+        }
     }
 
 } // namespace ariac

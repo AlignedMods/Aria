@@ -115,7 +115,7 @@ namespace ariac {
         resolve_expr(s.expression);
         require_rvalue(s.expression);
 
-        if (!s.expression->type->is_integral()) {
+        if (!s.expression->type->is_integral() && !s.expression->type->is_typeid()) {
             context.report_compiler_diagnostic(s.expression->loc, fmt::format("Expression must be of an integral type but is '{}'", type_info_to_string(s.expression->type)));
         }
 

@@ -514,7 +514,7 @@ namespace ariac {
                 break;
             }
 
-            case ConstExprKind::Typeid: m_output += fmt::format("value: Typeid '{}'", type_info_to_string(val->type, false)); break;
+            case ConstExprKind::Typeid: m_output += fmt::format("value: Typeid '{}'\n", type_info_to_string(val->type, false)); break;
 
             default: ARIA_ASSERT(false, static_cast<u64>(val->kind));
         }

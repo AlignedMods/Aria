@@ -73,6 +73,10 @@ namespace ariac {
 
         Expr* expression;
         TinyVector<Stmt*> cases;
+
+        struct {
+            void* end_block = nullptr;
+        } backend;
     };
 
     struct CaseStmt {
@@ -81,6 +85,12 @@ namespace ariac {
 
         Expr* condition;
         Stmt* body;
+
+        struct {
+            void* entry_block = nullptr;
+            void* body_block = nullptr;
+            void* fail_block = nullptr;
+        } backend;
     };
     
     struct ReturnStmt {

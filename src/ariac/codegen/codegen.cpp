@@ -699,7 +699,7 @@ namespace ariac {
             case TypeKind::Array: return fmt::format("A{}{}", t->array.size, mangle_type(t->array.base));
             case TypeKind::Slice: return fmt::format("S{}", mangle_type(t->slice.base));
 
-            case TypeKind::Struct: return fmt::format("{}.{}", valid_module_name(t->typedef_.source_decl->parent_module->name), t->typedef_.identifier);
+            case TypeKind::Struct: return fmt::format("{}.{}", valid_module_name(t->struct_.source_decl->parent_module->name), t->struct_.identifier);
             case TypeKind::Typedef: return fmt::format("{}.{}", valid_module_name(t->typedef_.source_decl->parent_module->name), t->typedef_.identifier);
             case TypeKind::Enum: return fmt::format("{}.{}", valid_module_name(t->enum_.source_decl->parent_module->name), t->enum_.identifier);
 
@@ -870,6 +870,10 @@ namespace ariac {
         gen_call_variadic(&aargs, args, types);
 
         m_active_module_context.builder->CreateCall(fn, aargs);
+    }
+
+    llvm::BasicBlock* Codegen::create_block(std::string_view name) {
+        return llvm::BasicBlock::Create(*m_active_module_context.context, name, m_active_module_context.function);
     }
 
     void Codegen::set_debug_loc(const SourceLoc& loc) {

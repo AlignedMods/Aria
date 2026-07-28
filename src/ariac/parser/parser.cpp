@@ -1084,7 +1084,6 @@ namespace ariac {
             try_consume(TokenKind::Colon, ":");
 
             Stmt* body = parse_block_inline();
-
             cases.append(Stmt::Create(c->loc + cond->loc, StmtKind::Case, CaseStmt(cond, body)));
         }
 
@@ -1226,6 +1225,18 @@ namespace ariac {
                 return Stmt::Create(d->loc, StmtKind::Decl, d);
             }
 
+            case TokenKind::Else: {
+                Token& tok = consume();
+                context.report_compiler_diagnostic(tok.loc, "'else' statement without a previous 'if'");
+                return &error_stmt;
+            }
+
+            case TokenKind::Case: {
+                Token& tok = consume();
+                context.report_compiler_diagnostic(tok.loc, "'case' statement outside a 'switch'");
+                return &error_stmt;
+            }
+
             case TokenKind::Fn: {
                 Token& tok = consume();
                 context.report_compiler_diagnostic(tok.loc, fmt::format("Function declaration is not allowed here"));
@@ -1269,7 +1280,6 @@ namespace ariac {
             }
             case TokenKind::Module:
             case TokenKind::Import:
-            case TokenKind::Else:
             case TokenKind::Extern:
             case TokenKind::Arrow:
             case TokenKind::RightParen:
