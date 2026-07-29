@@ -84,12 +84,6 @@ namespace ariac {
             ABIRetKind kind = ABIRetKind::Direct;
         };
 
-        struct Scope {
-            std::vector<Stmt*> defers;
-            llvm::BasicBlock* loop_start_block = nullptr;
-            llvm::BasicBlock* loop_end_block = nullptr;
-        };
-
         enum class LoopKind {
             Normal, // The condition for this loop is determined at runtime
             Always, // The condition for this loop will always be true (but the loop may or may not be infinite)
@@ -165,6 +159,7 @@ namespace ariac {
         void gen_decl_stmt(Stmt* stmt);
 
         void gen_stmt(Stmt* stmt);
+        void gen_stmt_chain(Stmt* stmt);
 
         LoopKind get_loop_kind_from_cond(Expr* cond);
         void analyze_switch_cases(SwitchStmt& s);
@@ -200,10 +195,6 @@ namespace ariac {
 
         void set_debug_loc(const SourceLoc& loc);
 
-        void push_scope();
-        void pop_scope();
-        void pop_defers(Scope& s);
-
     private:
         ModuleContext m_active_module_context;
         DebugContext m_active_debug_context;
@@ -211,8 +202,6 @@ namespace ariac {
         const llvm::Target* m_target = nullptr;
         llvm::TargetMachine* m_machine = nullptr;
         std::vector<std::string> m_object_files;
-
-        std::vector<Scope> m_scopes;
 
         llvm::AllocaInst* m_self_value = nullptr;
         ABIRetTypeInfo m_ret_type_abi;

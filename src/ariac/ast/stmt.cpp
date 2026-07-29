@@ -31,6 +31,18 @@ namespace ariac {
                 break;
             }
 
+            case StmtKind::Break: {
+                BreakStmt& b = s->break_;
+                copy->break_.target = b.target;
+                break;
+            }
+
+            case StmtKind::Continue: {
+                ContinueStmt& c = s->continue_;
+                copy->continue_.target = c.target;
+                break;
+            }
+
             case StmtKind::Return: {
                 ReturnStmt& r = s->return_;
                 if (r.value) { copy->return_.value = Expr::dup(r.value); }
@@ -47,7 +59,7 @@ namespace ariac {
                 break;
             }
 
-            default: ARIA_UNREACHABLE("Invalid decl kind");
+            default: ARIA_UNREACHABLE("Invalid stmt kind");
         }
 
         return copy;

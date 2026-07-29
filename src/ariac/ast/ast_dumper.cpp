@@ -411,8 +411,8 @@ namespace ariac {
             case StmtKind::Nop: m_output += fmt::format("NopStmt {}\n", source_loc_to_string(stmt->loc));
                 return;
 
-            case StmtKind::Block: m_output += fmt::format("BlockStmt {}{}\n",
-                source_loc_to_string(stmt->loc), stmt->block.reaches_end ? " reaches_end" : "");
+            case StmtKind::Block: m_output += fmt::format("BlockStmt {}\n",
+                source_loc_to_string(stmt->loc));
                 for (Stmt* stmt : stmt->block.stmts) {
                     dump_stmt(stmt, indentation + 4);
                 }
@@ -458,10 +458,10 @@ namespace ariac {
                 dump_stmt(stmt->case_.body, indentation + 4);
                 return;
 
-            case StmtKind::Break: m_output += fmt::format("BreakStmt {}\n", source_loc_to_string(stmt->loc));
+            case StmtKind::Break: m_output += fmt::format("BreakStmt {} {}\n", source_loc_to_string(stmt->loc), reinterpret_cast<void*>(stmt->break_.target));
                 return;
 
-            case StmtKind::Continue: m_output += fmt::format("ContinueStmt {}\n", source_loc_to_string(stmt->loc));
+            case StmtKind::Continue: m_output += fmt::format("ContinueStmt {} {}\n", source_loc_to_string(stmt->loc), reinterpret_cast<void*>(stmt->continue_.target));
                 return;
 
             case StmtKind::Return: m_output += fmt::format("ReturnStmt {}\n", source_loc_to_string(stmt->loc));

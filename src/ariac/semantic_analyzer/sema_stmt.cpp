@@ -9,7 +9,15 @@ namespace ariac {
             resolve_stmt(s);
         }
 
-        stmt->block.reaches_end = m_scopes.back().reaches_end;
+        if (m_scopes.back().reaches_end) {
+            auto& scope = m_scopes.back();
+
+            for (auto it = scope.defers.rbegin(); it != scope.defers.rend(); it++) {
+                Stmt* d = *it;
+                d->next = block.cleanup;
+                block.cleanup = d;
+            }
+        }
     }
 
     void SemanticAnalyzer::resolve_while_stmt(Stmt* stmt) {
@@ -29,9 +37,11 @@ namespace ariac {
             }
         }
 
-        push_scope(true, true);
+        auto prev = set_break_targets(stmt, stmt);
+        push_scope();
         resolve_block_stmt(wh.body);
         pop_scope();
+        restore_break_targets(prev);
     }
 
     void SemanticAnalyzer::resolve_do_while_stmt(Stmt* stmt) {
@@ -51,15 +61,18 @@ namespace ariac {
             }
         }
 
-        push_scope(true, true);
+        auto prev = set_break_targets(stmt, stmt);
+        push_scope();
         resolve_block_stmt(wh.body);
         pop_scope();
+        restore_break_targets(prev);
     }
 
     void SemanticAnalyzer::resolve_for_stmt(Stmt* stmt) {
         ForStmt& fs = stmt->for_;
 
-        push_scope(true, true);
+        auto prev = set_break_targets(stmt, stmt);
+        push_scope();
         if (fs.prologue) { resolve_decl(fs.prologue); }
 
         if (fs.condition) {
@@ -86,6 +99,7 @@ namespace ariac {
         if (fs.step) { resolve_expr(fs.step); }
         resolve_block_stmt(fs.body);
         pop_scope();
+        restore_break_targets(prev);
     }
 
     void SemanticAnalyzer::resolve_if_stmt(Stmt* stmt) {
@@ -141,18 +155,40 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_break_stmt(Stmt* stmt) {
-        if (!m_scopes.back().allow_break_stmt) {
+        if (!m_break_target.target) {
             context.report_compiler_diagnostic(stmt->loc, "Cannot use 'break' here");
         } else {
             m_scopes.back().reaches_end = false;
+            stmt->break_.target = m_break_target.target;
+
+            for (auto it = m_scopes.rbegin(); it != m_break_target.scope; it++) {
+                auto& scope = *it;
+
+                for (auto it2 = scope.defers.rbegin(); it2 != scope.defers.rend(); it2++) {
+                    Stmt* d = *it2;
+                    d->next = stmt->break_.cleanup;
+                    stmt->break_.cleanup = d;
+                }
+            }
         }
     }
 
     void SemanticAnalyzer::resolve_continue_stmt(Stmt* stmt) {
-        if (!m_scopes.back().allow_break_stmt) {
+        if (!m_continue_target.target) {
             context.report_compiler_diagnostic(stmt->loc, "Cannot use 'continue' here");
         } else {
             m_scopes.back().reaches_end = false;
+            stmt->continue_.target = m_continue_target.target;
+
+            for (auto it = m_scopes.rbegin(); it != m_continue_target.scope; it++) {
+                auto& scope = *it;
+
+                for (auto it2 = scope.defers.rbegin(); it2 != scope.defers.rend(); it2++) {
+                    Stmt* d = *it2;
+                    d->next = stmt->continue_.cleanup;
+                    stmt->continue_.cleanup = d;
+                }
+            }
         }
     }
 
@@ -170,6 +206,16 @@ namespace ariac {
         }
         
         m_scopes.back().reaches_end = false;
+
+        for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); it++) {
+            auto& scope = *it;
+
+            for (auto it2 = scope.defers.rbegin(); it2 != scope.defers.rend(); it2++) {
+                Stmt* d = *it2;
+                d->next = ret.cleanup;
+                ret.cleanup = d;
+            }
+        }
 
         if (ret.value) {
             resolve_expr(ret.value);
@@ -190,6 +236,7 @@ namespace ariac {
     void SemanticAnalyzer::resolve_defer_stmt(Stmt* stmt) {
         DeferStmt& defer = stmt->defer;
         resolve_stmt(defer.statement);
+        m_scopes.back().defers.push_back(defer.statement);
     }
 
     void SemanticAnalyzer::resolve_expr_stmt(Stmt* stmt) {

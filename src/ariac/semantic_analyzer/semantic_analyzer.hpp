@@ -29,10 +29,15 @@ namespace ariac {
 
         struct Scope {
             std::unordered_map<std::string_view, Declaration> declarations;
-            bool allow_break_stmt = false;
-            bool allow_continue_stmt = false;
+            std::vector<Stmt*> defers;
             bool reaches_end = true;
         };
+
+        struct JumpTarget {
+            Stmt* target = nullptr;
+            std::vector<Scope>::reverse_iterator scope;
+        };
+
 
     public:
         SemanticAnalyzer();
@@ -129,8 +134,11 @@ namespace ariac {
 
         bool is_assignable_expr(Expr* expr);
 
-        void push_scope(bool allow_break = false, bool allow_continue = false);
+        void push_scope();
         void pop_scope();
+
+        std::pair<JumpTarget, JumpTarget> set_break_targets(Stmt* b, Stmt* c);
+        void restore_break_targets(std::pair<JumpTarget, JumpTarget> prev);
 
         ConversionCost get_conversion_cost(TypeInfo* dst, TypeInfo* src);
         void insert_implicit_cast(TypeInfo* dst_type, TypeInfo* src_type, Expr* src_expr, CastKind cast_kind);
@@ -164,6 +172,9 @@ namespace ariac {
         std::vector<Scope> m_scopes;
         TypeInfo* m_active_return_type = nullptr;
         TypeInfo* m_active_struct = nullptr;
+
+        JumpTarget m_break_target;
+        JumpTarget m_continue_target;
     };
 
 } // namespace ariac

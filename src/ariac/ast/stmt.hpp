@@ -26,7 +26,7 @@ namespace ariac {
             : stmts(stmts) {}
 
         TinyVector<Stmt*> stmts;
-        bool reaches_end = true;
+        Stmt* cleanup = nullptr;
     };
 
     struct WhileStmt {
@@ -36,6 +36,11 @@ namespace ariac {
         Expr* condition = nullptr;
         Stmt* body = nullptr;
         bool infinite = false;
+
+        struct {
+            void* continue_block = nullptr;
+            void* end_block = nullptr;
+        } backend;
     };
     
     struct DoWhileStmt {
@@ -45,6 +50,11 @@ namespace ariac {
         Expr* condition = nullptr;
         Stmt* body = nullptr;
         bool infinite = false;
+
+        struct {
+            void* continue_block = nullptr;
+            void* end_block = nullptr;
+        } backend;
     };
     
     struct ForStmt {
@@ -56,6 +66,11 @@ namespace ariac {
         Expr* step = nullptr; // i += 1;
         Stmt* body = nullptr; // { ... }
         bool infinite = false;
+
+        struct {
+            void* continue_block = nullptr;
+            void* end_block = nullptr;
+        } backend;
     };
     
     struct IfStmt {
@@ -92,12 +107,23 @@ namespace ariac {
             void* fail_block = nullptr;
         } backend;
     };
+
+    struct BreakStmt {
+        Stmt* target = nullptr;
+        Stmt* cleanup = nullptr;
+    };
+
+    struct ContinueStmt {
+        Stmt* target = nullptr;
+        Stmt* cleanup = nullptr;
+    };
     
     struct ReturnStmt {
         ReturnStmt(Expr* value)
             : value(value) {}
 
         Expr* value = nullptr;
+        Stmt* cleanup = nullptr;
     };
 
     struct DeferStmt {
@@ -116,7 +142,8 @@ namespace ariac {
 
         SourceLoc loc;
 
-        bool reached = true; // A flag to see if this statement can ever be reached in a function body
+        Stmt* next = nullptr;
+        bool reached = true;
 
         union {
             ErrorStmt error;
@@ -127,6 +154,8 @@ namespace ariac {
             IfStmt if_;
             SwitchStmt switch_;
             CaseStmt case_;
+            BreakStmt break_;
+            ContinueStmt continue_;
             ReturnStmt return_;
             DeferStmt defer;
             Expr* expr;
@@ -156,6 +185,12 @@ namespace ariac {
 
         Stmt(StmtKind kind, SourceLoc loc, CaseStmt c)
             : kind(kind), loc(loc), case_(c) {}
+
+        Stmt(StmtKind kind, SourceLoc loc, BreakStmt b)
+            : kind(kind), loc(loc), break_(b) {}
+
+        Stmt(StmtKind kind, SourceLoc loc, ContinueStmt c)
+            : kind(kind), loc(loc), continue_(c) {}
 
         Stmt(StmtKind kind, SourceLoc loc, ReturnStmt ret)
             : kind(kind), loc(loc), return_(ret) {}

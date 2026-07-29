@@ -8,6 +8,8 @@ namespace ariac {
         for (Stmt* stmt : block.stmts) {
             gen_stmt(stmt);
         }
+
+        gen_stmt_chain(block.cleanup);
     }
 
     void Codegen::gen_while_stmt(Stmt* stmt) {
@@ -32,22 +34,19 @@ namespace ariac {
                 llvm::BasicBlock* while_body = wh.body->block.stmts.size == 0 ? nullptr : llvm::BasicBlock::Create(*m_active_module_context.context, "while.body", m_active_module_context.function);
                 llvm::BasicBlock* while_end = llvm::BasicBlock::Create(*m_active_module_context.context, "while.end", m_active_module_context.function);
 
-                push_scope();
-                m_scopes.back().loop_start_block = while_body;
-                m_scopes.back().loop_end_block = while_end;
+                wh.backend.continue_block = while_body;
+                wh.backend.end_block = while_end;
 
                 if (while_body) {
                     m_active_module_context.builder->CreateBr(while_body);
                     m_active_module_context.builder->SetInsertPoint(while_body);
                     gen_block_stmt(wh.body);
 
-                    if (wh.body->block.reaches_end) {
-                        pop_defers(m_scopes.back());
+                    if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) {
                         m_active_module_context.builder->CreateBr(while_body);
                     }
                 }
 
-                pop_scope();
                 m_active_module_context.builder->SetInsertPoint(while_end);
                 return;
             }
@@ -57,9 +56,8 @@ namespace ariac {
                 llvm::BasicBlock* while_body = wh.body->block.stmts.size == 0 ? nullptr : llvm::BasicBlock::Create(*m_active_module_context.context, "while.body", m_active_module_context.function);
                 llvm::BasicBlock* while_end = llvm::BasicBlock::Create(*m_active_module_context.context, "while.end", m_active_module_context.function);
 
-                push_scope();
-                m_scopes.back().loop_start_block = while_cond;
-                m_scopes.back().loop_end_block = while_end;
+                wh.backend.continue_block = while_cond;
+                wh.backend.end_block = while_end;
 
                 m_active_module_context.builder->CreateBr(while_cond);
                 m_active_module_context.builder->SetInsertPoint(while_cond);
@@ -70,13 +68,10 @@ namespace ariac {
                     m_active_module_context.builder->SetInsertPoint(while_body);
                     gen_block_stmt(wh.body);
 
-                    if (wh.body->block.reaches_end) {
-                        pop_defers(m_scopes.back());
+                    if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) {
                         m_active_module_context.builder->CreateBr(while_cond);
                     }
                 }
-
-                pop_scope();
                 
                 m_active_module_context.builder->SetInsertPoint(while_end);
                 return;
@@ -131,21 +126,18 @@ namespace ariac {
                     llvm::BasicBlock::Create(*m_active_module_context.context, "for.body", m_active_module_context.function);
                 llvm::BasicBlock* for_end = llvm::BasicBlock::Create(*m_active_module_context.context, "for.end", m_active_module_context.function);
 
-                push_scope();
-                m_scopes.back().loop_start_block = for_body;
-                m_scopes.back().loop_end_block = for_end;
+                f.backend.continue_block = for_body;
+                f.backend.end_block = for_end;
 
                 m_active_module_context.builder->CreateBr(for_body);
                 m_active_module_context.builder->SetInsertPoint(for_body);
                 gen_block_stmt(f.body);
 
-                if (f.body->block.reaches_end) {
+                if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) {
                     if (f.step) { gen_expr(f.step); }
-                    pop_defers(m_scopes.back());
                     m_active_module_context.builder->CreateBr(for_body);
                 }
 
-                pop_scope();
                 m_active_module_context.builder->SetInsertPoint(for_end);
                 return;
             }
@@ -157,9 +149,8 @@ namespace ariac {
                     llvm::BasicBlock::Create(*m_active_module_context.context, "for.body", m_active_module_context.function);
                 llvm::BasicBlock* for_end = llvm::BasicBlock::Create(*m_active_module_context.context, "for.end", m_active_module_context.function);
 
-                push_scope();
-                m_scopes.back().loop_start_block = for_body;
-                m_scopes.back().loop_end_block = for_end;
+                f.backend.continue_block = for_cond;
+                f.backend.end_block = for_end;
 
                 m_active_module_context.builder->CreateBr(for_cond);
 
@@ -175,7 +166,6 @@ namespace ariac {
                     m_active_module_context.builder->CreateBr(for_cond);
                 }
 
-                pop_scope();
                 m_active_module_context.builder->SetInsertPoint(for_end);
                 return;
             }
@@ -200,12 +190,12 @@ namespace ariac {
 
         m_active_module_context.builder->SetInsertPoint(if_body);
         gen_block_stmt(i.body);
-        if (i.body->block.reaches_end) { m_active_module_context.builder->CreateBr(if_end); }
+        if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) { m_active_module_context.builder->CreateBr(if_end); }
 
         if (else_body) {
             m_active_module_context.builder->SetInsertPoint(else_body);
             gen_block_stmt(i.else_body);
-            if (i.body->block.reaches_end) { m_active_module_context.builder->CreateBr(if_end); }
+            if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) { m_active_module_context.builder->CreateBr(if_end); }
         }
 
         m_active_module_context.builder->SetInsertPoint(if_end);
@@ -245,7 +235,7 @@ namespace ariac {
                 m_active_module_context.builder->SetInsertPoint(switch_body);
 
                 gen_block_stmt(c.body);
-                if (c.body->block.reaches_end) { m_active_module_context.builder->CreateBr(switch_end); }
+                if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) { m_active_module_context.builder->CreateBr(switch_end); }
 
                 i++;
             }
@@ -264,7 +254,7 @@ namespace ariac {
             
             m_active_module_context.builder->SetInsertPoint(switch_case);
             gen_block_stmt(c.body);
-            if (c.body->block.reaches_end) {
+            if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) {
                 m_active_module_context.builder->CreateBr(switch_end);
             }
 
@@ -276,29 +266,40 @@ namespace ariac {
     }
 
     void Codegen::gen_break_stmt(Stmt* stmt) {
-        for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); it++) {
-            if (it->loop_end_block) {
-                m_active_module_context.builder->CreateBr(it->loop_end_block);
-            }
+        void* block = nullptr;
+        switch (stmt->break_.target->kind) {
+            case StmtKind::While: block = stmt->break_.target->while_.backend.end_block; break;
+            case StmtKind::DoWhile: block = stmt->break_.target->do_while.backend.end_block; break;
+            case StmtKind::For: block = stmt->break_.target->for_.backend.end_block; break;
+
+            default: ARIA_UNREACHABLE("Invalid stmt kind");
         }
+
+        gen_stmt_chain(stmt->break_.cleanup);
+        ARIA_ASSERT(block, "Block must be set");
+        m_active_module_context.builder->CreateBr(reinterpret_cast<llvm::BasicBlock*>(block));
     }
 
     void Codegen::gen_continue_stmt(Stmt* stmt) {
-        for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); it++) {
-            if (it->loop_start_block) {
-                m_active_module_context.builder->CreateBr(it->loop_start_block);
-            }
+        void* block = nullptr;
+        switch (stmt->break_.target->kind) {
+            case StmtKind::While: block = stmt->break_.target->while_.backend.continue_block; break;
+            case StmtKind::DoWhile: block = stmt->break_.target->do_while.backend.continue_block; break;
+            case StmtKind::For: block = stmt->break_.target->for_.backend.continue_block; break;
+
+            default: ARIA_UNREACHABLE("Invalid stmt kind");
         }
+
+        gen_stmt_chain(stmt->continue_.cleanup);
+        ARIA_ASSERT(block, "Block must be set");
+        m_active_module_context.builder->CreateBr(reinterpret_cast<llvm::BasicBlock*>(block));
     }
 
     void Codegen::gen_return_stmt(Stmt* stmt) {
         ReturnStmt& ret = stmt->return_;
 
-        for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); it++) {
-            pop_defers(*it);
-        }
-
         if (ret.value) {
+            gen_stmt_chain(ret.cleanup);
             llvm::Value* val = gen_expr(ret.value);
 
             switch (m_ret_type_abi.kind) {
@@ -332,11 +333,12 @@ namespace ariac {
         } else {
             m_active_module_context.builder->CreateRetVoid();
         }
+
+        ARIA_ASSERT(m_active_module_context.builder->GetInsertBlock()->getTerminator(), "Should have a terminator");
     }
 
     void Codegen::gen_defer_stmt(Stmt* stmt) {
         DeferStmt& defer = stmt->defer;
-        m_scopes.back().defers.push_back(defer.statement);
     }
 
     void Codegen::gen_expr_stmt(Stmt* stmt) {
@@ -353,14 +355,7 @@ namespace ariac {
         if (!stmt->reached) { return; } // Statement is never reached via control flow
 
         switch (stmt->kind) {
-            case StmtKind::Block: {
-                push_scope();
-                gen_block_stmt(stmt);
-                pop_defers(m_scopes.back());
-                pop_scope();
-                return;
-            }
-
+            case StmtKind::Block: return gen_block_stmt(stmt);
             case StmtKind::While: return gen_while_stmt(stmt);
             case StmtKind::DoWhile: return gen_do_while_stmt(stmt);
             case StmtKind::For: return gen_for_stmt(stmt);
@@ -374,6 +369,13 @@ namespace ariac {
             case StmtKind::Decl: return gen_decl_stmt(stmt);
 
             default: ARIA_UNREACHABLE("Invalid stmt kind");
+        }
+    }
+
+    void Codegen::gen_stmt_chain(Stmt* stmt) {
+        while (stmt) {
+            gen_stmt(stmt);
+            stmt = stmt->next;
         }
     }
 

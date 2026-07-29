@@ -16,25 +16,27 @@ namespace ariac {
         pass_generics();
     }
 
-    void SemanticAnalyzer::push_scope(bool allow_break, bool allow_continue) {
-        Scope s;
-
-        if (m_scopes.size() > 0) {
-            if (m_scopes.back().allow_break_stmt) { s.allow_break_stmt = true; }
-            else { s.allow_break_stmt = allow_break; }
-
-            if (m_scopes.back().allow_continue_stmt) { s.allow_continue_stmt = true; }
-            else { s.allow_continue_stmt = allow_continue; }
-        } else {
-            s.allow_break_stmt = allow_break;
-            s.allow_continue_stmt = allow_continue;
-        }
-
-        m_scopes.push_back(s);
+    void SemanticAnalyzer::push_scope() {
+        m_scopes.emplace_back();
     }
 
     void SemanticAnalyzer::pop_scope() {
         m_scopes.pop_back();
+    }
+
+    std::pair<SemanticAnalyzer::JumpTarget, SemanticAnalyzer::JumpTarget> SemanticAnalyzer::set_break_targets(Stmt* b, Stmt* c) {
+        JumpTarget prevb = m_break_target;
+        JumpTarget prevc = m_continue_target;
+
+        m_break_target = { b, m_scopes.rbegin() };
+        m_continue_target = { c, m_scopes.rbegin() };
+
+        return { prevb, prevc };
+    }
+
+    void SemanticAnalyzer::restore_break_targets(std::pair<JumpTarget, JumpTarget> prev) {
+        m_break_target = prev.first;
+        m_continue_target = prev.second;
     }
 
     void SemanticAnalyzer::replace_expr(Expr* src, Expr* new_expr) {

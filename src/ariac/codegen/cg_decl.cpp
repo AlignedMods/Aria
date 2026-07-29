@@ -78,7 +78,6 @@ namespace ariac {
 
             llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", function);
             m_active_module_context.builder->SetInsertPoint(bb);
-            push_scope();
 
             m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
 
@@ -146,11 +145,10 @@ namespace ariac {
 
             gen_block_stmt(fn->body);
 
-            if (fn->body->block.reaches_end && fn->type->function.return_type->is_void()) {
+            if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) {
                 m_active_module_context.builder->CreateRetVoid();
             }
 
-            pop_scope();
             m_active_module_context.alloca_marker->eraseFromParent();
             m_active_module_context.alloca_marker = nullptr;
             if (llvm::verifyFunction(*function, &llvm::errs())) { throw std::exception(); }
@@ -259,7 +257,6 @@ namespace ariac {
 
                         llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", function);
                         m_active_module_context.builder->SetInsertPoint(bb);
-                        push_scope();
 
                         m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
 
@@ -330,11 +327,10 @@ namespace ariac {
 
                         gen_block_stmt(m.body);
 
-                        if (m.body->block.reaches_end && m.type->function.return_type->is_void()) {
+                        if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) {
                             m_active_module_context.builder->CreateRetVoid();
                         }
 
-                        pop_scope();
                         m_active_module_context.alloca_marker->eraseFromParent();
                         m_active_module_context.alloca_marker = nullptr;
                         if (llvm::verifyFunction(*function, &llvm::errs())) { throw std::exception(); }
