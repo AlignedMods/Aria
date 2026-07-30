@@ -359,6 +359,7 @@ namespace ariac {
                     switch (fd->kind) {
                         case DeclKind::Field: member_type = fd->field.type; break;
                         case DeclKind::Method: member_type = fd->method.type; break;
+                        case DeclKind::Destructor: member_type = TypeInfo::create_function(TypeKind::Method, TypeInfo::get_void(), {}, VariadicKind::None); break;
                         default: ARIA_UNREACHABLE("Invalid field kind");
                     }
                     mem.referenced_member = fd;
@@ -859,24 +860,42 @@ namespace ariac {
         }
 
         if (mc.callee->member.referenced_member->kind != DeclKind::Error) {
-            ARIA_ASSERT(mc.callee->member.referenced_member->kind == DeclKind::Method, "Invalid referenced member");
+            switch (mc.callee->member.referenced_member->kind) {
+                case DeclKind::Method: {
+                    resolve_type(mc.callee->member.referenced_member->method.type);
+                    FunctionType& fn_type = callee_type->function;
 
-            resolve_type(mc.callee->member.referenced_member->method.type);
-            FunctionType& fn_type = callee_type->function;
+                    if (fn_type.param_types.size != mc.arguments.size) {
+                        context.report_compiler_diagnostic(expr->loc, fmt::format("Mismatched argument count, method expects {} but got {}", fn_type.param_types.size, mc.arguments.size));
+                        for (size_t i = 0; i < mc.arguments.size; i++) {
+                            resolve_expr(mc.arguments.items[i]);
+                        }
+                    } else {
+                        for (size_t i = 0; i < fn_type.param_types.size; i++) {
+                            resolve_param_initializer(fn_type.param_types.items[i], mc.arguments.items[i]);
+                        }
+                    }
 
-            if (fn_type.param_types.size != mc.arguments.size) {
-                context.report_compiler_diagnostic(expr->loc, fmt::format("Mismatched argument count, method expects {} but got {}", fn_type.param_types.size, mc.arguments.size));
-                for (size_t i = 0; i < mc.arguments.size; i++) {
-                    resolve_expr(mc.arguments.items[i]);
+                    expr->type = fn_type.return_type;
+                    expr->value_kind = ExprValueKind::RValue;
+                    break;
                 }
-            } else {
-                for (size_t i = 0; i < fn_type.param_types.size; i++) {
-                    resolve_param_initializer(fn_type.param_types.items[i], mc.arguments.items[i]);
+
+                case DeclKind::Destructor: {
+                    if (mc.arguments.size != 0) {
+                        context.report_compiler_diagnostic(expr->loc, fmt::format("Mismatched argument count, destructor expects 0 but got {}", mc.arguments.size));
+                        for (size_t i = 0; i < mc.arguments.size; i++) {
+                            resolve_expr(mc.arguments.items[i]);
+                        }
+                    }
+
+                    expr->type = TypeInfo::get_void();
+                    expr->value_kind = ExprValueKind::RValue;
+                    break;
                 }
+
+                default: ARIA_UNREACHABLE("Invalid referenced member");
             }
-
-            expr->type = fn_type.return_type;
-            expr->value_kind = ExprValueKind::RValue;
         } else {
             for (Expr* arg : mc.arguments) {
                 resolve_expr(arg);

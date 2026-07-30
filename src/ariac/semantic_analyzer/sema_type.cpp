@@ -530,8 +530,8 @@ namespace ariac {
         switch (t->kind) {
             case TypeKind::Struct: {
                 StructDecl& s = t->struct_.source_decl->struct_;
-                if (s.field_lookup.contains("<dtor>")) {
-                    return s.field_lookup.at("<dtor>");
+                if (s.field_lookup.contains("~")) {
+                    return s.field_lookup.at("~");
                 }
 
                 return nullptr;

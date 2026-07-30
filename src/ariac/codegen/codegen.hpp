@@ -146,7 +146,7 @@ namespace ariac {
         void gen_impl_decl(Decl* decl);
         void gen_method_decl(Decl* decl);
         void gen_destructor_decl(Decl* decl);
-        void gen_global_init_func(llvm::GlobalVariable* var, Expr* initializer, Decl* dtor);
+        void gen_global_init_func(SourceLoc loc, llvm::GlobalVariable* var, Expr* initializer, Decl* dtor);
 
         void gen_decl(Decl* decl);
 

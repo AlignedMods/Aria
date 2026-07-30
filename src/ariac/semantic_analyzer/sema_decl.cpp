@@ -28,7 +28,7 @@ namespace ariac {
             if (m_scopes.size() > 0) {
                 TypeInfo* type = TypeInfo::create_function(TypeKind::Method, TypeInfo::get_void(), {}, VariadicKind::None);
                 Expr* ref = Expr::Create(decl->loc, ExprKind::DeclRef, ExprValueKind::LValue, var.type, DeclRefExpr(var.identifier, nullptr, decl));
-                Expr* mem = Expr::Create(decl->loc, ExprKind::Member, ExprValueKind::LValue, type, MemberExpr("<dtor>", ref, dtor));
+                Expr* mem = Expr::Create(decl->loc, ExprKind::Member, ExprValueKind::LValue, type, MemberExpr("~", ref, dtor));
                 Expr* call = Expr::Create(decl->loc, ExprKind::MethodCall, ExprValueKind::RValue, type->function.return_type, CallExpr(mem, {}));
 
                 Stmt* defer = Stmt::Create(decl->loc, StmtKind::Expr, call);
@@ -117,11 +117,48 @@ namespace ariac {
             
                 s.field_lookup.insert(field->field.identifier, field);
             }
-            decl->resolve_status = ResolveStatus::Done;
         }        
 
         for (Decl* impl : decl->struct_.impls) {
             resolve_impl_decl(impl);
+        }
+
+        if (decl->resolve_status != ResolveStatus::Done) {
+            decl->resolve_status = ResolveStatus::Done;
+
+            for (Decl* field : decl->struct_.fields) {
+                ARIA_ASSERT(field->kind == DeclKind::Field, "Invalid field");
+
+                if (Decl* dtor = type_get_destructor(field->field.type)) {
+                    if (!decl->struct_.field_lookup.contains("~")) {
+                        context.report_compiler_diagnostic_with_notes(decl->loc, fmt::format("Field '{}' has a destructor, but the struct does not", field->field.identifier),
+                            { "Did you mean to provide an empty destructor for this struct?" });
+
+                        return;
+                    }
+
+                    Decl* d = decl->struct_.field_lookup.at("~");
+                    ARIA_ASSERT(d->kind == DeclKind::Destructor, "Invalid destructor");
+
+                    Expr* self = Expr::Create(d->loc, ExprKind::Self, ExprValueKind::LValue,
+                        TypeInfo::create_pointer(type_from_decl(decl), false), ErrorExpr());
+
+                    Expr* field_member = Expr::Create(d->loc, ExprKind::Member, ExprValueKind::LValue, field->field.type,
+                        MemberExpr(field->field.identifier, self, field));
+                    field_member->member.implicit_deref = true;
+
+                    Expr* field_dtor = Expr::Create(d->loc, ExprKind::Member, ExprValueKind::LValue,
+                        TypeInfo::create_function(TypeKind::Method, TypeInfo::get_void(), {}, VariadicKind::None),
+                        MemberExpr("~", field_member, dtor));
+
+                    Expr* dtor_call = Expr::Create(d->loc, ExprKind::MethodCall, ExprValueKind::RValue, TypeInfo::get_void(),
+                        CallExpr(field_dtor, {}));
+
+                    Stmt* defer = Stmt::Create(d->loc, StmtKind::Expr, dtor_call);
+                    defer->next = d->destructor.body->block.cleanup;
+                    d->destructor.body->block.cleanup = defer;
+                }
+            }
         }
     }
 
@@ -157,16 +194,16 @@ namespace ariac {
                 }
 
                 case DeclKind::Destructor: {
-                    if (s.field_lookup.contains("<dtor>")) {
-                        Decl* prev = i.field_lookup.at("<dtor>");
+                    if (s.field_lookup.contains("~")) {
+                        Decl* prev = i.field_lookup.at("~");
 
                         context.report_compiler_diagnostic(field->loc, "Redeclaring destructor");
                         context.report_compiler_diagnostic(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
                         continue;
                     }
 
-                    i.field_lookup.insert("<dtor>", field);
-                    s.field_lookup.insert("<dtor>", field);
+                    i.field_lookup.insert("~", field);
+                    s.field_lookup.insert("~", field);
                     break;
                 }
 
@@ -355,9 +392,11 @@ namespace ariac {
             default: ARIA_UNREACHABLE("Invalid impl parent");
         }
         
+        m_sema_context.dtor_body = true;
         push_scope();
         resolve_block_stmt(d.body);
         pop_scope();
+        m_sema_context.dtor_body = false;
 
         m_active_struct = nullptr;
         m_active_return_type = nullptr;

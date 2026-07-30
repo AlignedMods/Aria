@@ -197,7 +197,13 @@ namespace ariac {
         
         if (m_active_return_type == nullptr) {
             context.report_compiler_diagnostic(stmt->loc, "'return' statement out of function body is not allowed");
-            ret.value->type = TypeInfo::get_error();
+            if (ret.value) { ret.value->type = TypeInfo::get_error(); }
+            return;
+        }
+
+        if (m_sema_context.dtor_body) {
+            context.report_compiler_diagnostic(stmt->loc, "'return' statement inside of destructor is not allowed");
+            if (ret.value) { ret.value->type = TypeInfo::get_error(); }
             return;
         }
 

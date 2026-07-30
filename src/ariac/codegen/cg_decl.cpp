@@ -17,7 +17,7 @@ namespace ariac {
             a = global;
 
             if (var.dtor || var.initializer) {
-                gen_global_init_func(global, var.initializer, var.dtor);
+                gen_global_init_func(decl->loc, global, var.initializer, var.dtor);
             }
         } else {
             a = alloca_at_entry(m_active_module_context.function, var.identifier, var.type);
@@ -414,7 +414,7 @@ namespace ariac {
         m_active_module_context.functions[decl];
     }
 
-    void Codegen::gen_global_init_func(llvm::GlobalVariable* var, Expr* initializer, Decl* dtor) {
+    void Codegen::gen_global_init_func(SourceLoc loc, llvm::GlobalVariable* var, Expr* initializer, Decl* dtor) {
         llvm::Function* d = nullptr;
         llvm::Function* at_exit = nullptr;
         llvm::Function* dtor_call = nullptr;
@@ -442,7 +442,14 @@ namespace ariac {
             llvm::BasicBlock* entry = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", dtor_call);
             m_active_module_context.builder->SetInsertPoint(entry);
 
-            set_debug_loc({});
+            llvm::DISubprogram* sp = m_active_debug_context.builder->createFunction(m_active_debug_context.unit->getFile(),
+                dtor_call->getName(), {}, m_active_debug_context.unit->getFile(), (unsigned)loc.line,
+                m_active_debug_context.builder->createSubroutineType({}), (unsigned)loc.line, llvm::DINode::FlagPrototyped, llvm::DISubprogram::SPFlagDefinition);
+            
+            dtor_call->setSubprogram(sp);
+            m_active_debug_context.scope = sp;
+
+            set_debug_loc(loc);
 
             m_active_module_context.builder->CreateCall(d, var);
             m_active_module_context.builder->CreateRetVoid();
@@ -458,13 +465,13 @@ namespace ariac {
         m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
 
         llvm::DISubprogram* sp = m_active_debug_context.builder->createFunction(m_active_debug_context.unit->getFile(),
-            init_var->getName(), {}, m_active_debug_context.unit->getFile(), (unsigned)initializer->loc.line,
-            m_active_debug_context.builder->createSubroutineType({}), (unsigned)initializer->loc.line, llvm::DINode::FlagPrototyped, llvm::DISubprogram::SPFlagDefinition);
+            init_var->getName(), {}, m_active_debug_context.unit->getFile(), (unsigned)loc.line,
+            m_active_debug_context.builder->createSubroutineType({}), (unsigned)loc.line, llvm::DINode::FlagPrototyped, llvm::DISubprogram::SPFlagDefinition);
         
         init_var->setSubprogram(sp);
         m_active_debug_context.scope = sp;
 
-        set_debug_loc({});
+        set_debug_loc(loc);
 
         if (initializer) {
             llvm::Value* val = gen_expr(initializer);
