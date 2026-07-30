@@ -13,7 +13,12 @@ namespace ariac {
         if (var.global_var) {
             std::string ident = fmt::format("{}.{}", valid_module_name(decl->parent_module->name), var.identifier);
             llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, type, false, linkage_kind_to_llvm(var.linkage_kind), llvm::Constant::getNullValue(type), ident);
+            llvm::Value* initializer = nullptr;
             a = global;
+
+            if (var.dtor || var.initializer) {
+                gen_global_init_func(global, var.initializer, var.dtor);
+            }
         } else {
             a = alloca_at_entry(m_active_module_context.function, var.identifier, var.type);
 
@@ -23,18 +28,16 @@ namespace ariac {
             m_active_debug_context.builder->insertDeclare(a,
                 dil, m_active_debug_context.builder->createExpression(), 
                 llvm::DILocation::get(*m_active_module_context.context, (unsigned)decl->loc.line, (unsigned)decl->loc.col, m_active_debug_context.scope), m_active_module_context.builder->GetInsertBlock());
+
+            if (var.initializer) {
+                gen_init_expr(var.initializer, a);
+            } else {
+                m_active_module_context.builder->CreateStore(llvm::Constant::getNullValue(type), a);
+            }
         }
 
         ARIA_ASSERT(a, "Invalid var decl");
         m_active_module_context.named_values[decl] = a;
-
-        if (var.global_var) { return; }
-
-        if (var.initializer) {
-            gen_init_expr(var.initializer, a);
-        } else {
-            m_active_module_context.builder->CreateStore(llvm::Constant::getNullValue(type), m_active_module_context.named_values.at(decl));
-        }
     }
 
     void Codegen::gen_function_decl(Decl* decl) {
@@ -208,6 +211,25 @@ namespace ariac {
         m_active_module_context.functions[decl] = function;
     }
 
+    void Codegen::gen_destructor_prototype(Decl* decl) {
+        DestructorDecl& d = decl->destructor;
+        std::string_view parent_name;
+
+        ARIA_ASSERT(d.parent->kind == DeclKind::Impl, "Invalid method parent");
+
+        switch (d.parent->impl.parent->kind) {
+            case DeclKind::Struct: parent_name = d.parent->impl.parent->struct_.identifier; break;
+            case DeclKind::Typedef: parent_name = d.parent->impl.parent->typedef_.identifier; break;
+            default: ARIA_UNREACHABLE("Invalid method parent");
+        }
+
+        std::string sig = fmt::format(".{}.{}.dtor", valid_module_name(d.parent->parent_module->name), parent_name);
+
+        llvm::FunctionType* fn_ty = llvm::FunctionType::get(llvm::Type::getVoidTy(*m_active_module_context.context), llvm::PointerType::get(*m_active_module_context.context, 0), false);
+        llvm::Function* function = llvm::Function::Create(fn_ty, llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
+        m_active_module_context.functions[decl] = function;
+    }
+
     void Codegen::gen_struct_decl(Decl* decl) {
         StructDecl& struc = decl->struct_;
 
@@ -231,118 +253,240 @@ namespace ariac {
 
         for (Decl* field : impl.fields) {
             switch (field->kind) {
-                case DeclKind::Method: {
-                    MethodDecl& m = field->method;
-
-                    if (!m_active_module_context.functions.contains(field)) {
-                        gen_method_prototype(field);
-                    }
-
-                    llvm::Function* function = m_active_module_context.functions.at(field);
-                    m_active_module_context.function = function;
-
-                    llvm::DISubprogram* sp = m_active_debug_context.builder->createFunction(m_active_debug_context.unit->getFile(),
-                        function->getName(), {}, m_active_debug_context.unit->getFile(), (unsigned)decl->loc.line,
-                        m_active_debug_context.builder->createSubroutineType({}), (unsigned)decl->loc.line, llvm::DINode::FlagPrototyped, llvm::DISubprogram::SPFlagDefinition);
-
-                    function->setSubprogram(sp);
-                    m_active_debug_context.scope = sp;
-
-                    // Don't set any source locations for the prologue
-                    set_debug_loc({});
-
-                    if (m.body) {
-                        m_ret_type_abi = get_ret_abi_type_info(m.type->function.return_type);
-                        unsigned idx = m_ret_type_abi.kind == ABIRetKind::Pointer ? 1 : 0;
-
-                        llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", function);
-                        m_active_module_context.builder->SetInsertPoint(bb);
-
-                        m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
-
-                        // self
-                        llvm::AllocaInst* s = alloca_at_entry(function, "self", llvm::PointerType::get(*m_active_module_context.context, 0));
-                        m_self_value = s;
-                        m_active_module_context.builder->CreateStore(function->getArg(idx++), s);
-
-                        for (Decl* param : m.parameters) {
-                            TypeInfo* param_type = param->param.variadic ? TypeInfo::create_slice(param->param.type) : param->param.type;
-                            ABIParamTypeInfo info = get_param_abi_type_info(param->param.type);
-
-                            llvm::DILocalVariable* dil = nullptr;
-                            llvm::DIExpression* di_expr = nullptr;
-
-                            switch (info.kind) {
-                                case ABIParamKind::Direct: {
-                                    llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, param_type);
-                                    m_active_module_context.named_values[param] = a;
-
-                                    unsigned ui = static_cast<unsigned>(idx++);
-
-                                    if (param_type->is_boolean()) {
-                                        function->addParamAttr(ui, llvm::Attribute::ZExt);
-                                    }
-
-                                    m_active_module_context.builder->CreateStore(function->getArg(ui), a);
-
-                                    dil = m_active_debug_context.builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
-                                        (unsigned)decl->loc.line, type_info_to_debug_type(param_type));
-                                    di_expr = m_active_debug_context.builder->createExpression();
-                                    break;
-                                }
-
-                                case ABIParamKind::Pointer: {
-                                    llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, llvm::PointerType::get(*m_active_module_context.context, 0));
-                                    m_active_module_context.named_values[param] = a;
-
-                                    m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
-
-                                    dil = m_active_debug_context.builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
-                                        (unsigned)decl->loc.line, type_info_to_debug_type(param_type));
-                                    di_expr = m_active_debug_context.builder->createExpression(llvm::dwarf::DW_OP_deref);
-                                    break;
-                                }
-
-                                case ABIParamKind::Integer: {
-                                    llvm::AllocaInst* a = alloca_at_entry(m_active_module_context.function, param->param.identifier, param_type);
-                                    m_active_module_context.named_values[param] = a;
-
-                                    m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
-
-                                    dil = m_active_debug_context.builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
-                                        (unsigned)decl->loc.line, type_info_to_debug_type(param_type));
-                                    di_expr = m_active_debug_context.builder->createExpression();
-                                    break;
-                                }
-
-                                default: ARIA_UNREACHABLE("Invalid ABIParamTypeInfo");
-                            }
-
-                            ARIA_ASSERT(dil, "Must set the debug local variable");
-                            ARIA_ASSERT(di_expr, "Must set the debug expression");
-                            m_active_debug_context.builder->insertDeclare(m_active_module_context.named_values.at(param),
-                                dil, di_expr, 
-                                llvm::DILocation::get(*m_active_module_context.context, (unsigned)decl->loc.line, (unsigned)decl->loc.col, sp), m_active_module_context.builder->GetInsertBlock());
-                        }
-
-                        gen_block_stmt(m.body);
-
-                        if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) {
-                            m_active_module_context.builder->CreateRetVoid();
-                        }
-
-                        m_active_module_context.alloca_marker->eraseFromParent();
-                        m_active_module_context.alloca_marker = nullptr;
-                        if (llvm::verifyFunction(*function, &llvm::errs())) { throw std::exception(); }
-                    }
-
-                    m_active_module_context.functions[field];
-                    break;
-                }
-
+                case DeclKind::Method: gen_method_decl(field); break;
+                case DeclKind::Destructor: gen_destructor_decl(field); break;
+                    
                 default: ARIA_UNREACHABLE("Invalid field kind");
             }
         }
+    }
+
+    void Codegen::gen_method_decl(Decl* decl) {
+        MethodDecl& m = decl->method;
+
+        if (!m_active_module_context.functions.contains(decl)) {
+            gen_method_prototype(decl);
+        }
+        
+        llvm::Function* function = m_active_module_context.functions.at(decl);
+        m_active_module_context.function = function;
+        
+        llvm::DISubprogram* sp = m_active_debug_context.builder->createFunction(m_active_debug_context.unit->getFile(),
+            function->getName(), {}, m_active_debug_context.unit->getFile(), (unsigned)decl->loc.line,
+            m_active_debug_context.builder->createSubroutineType({}), (unsigned)decl->loc.line, llvm::DINode::FlagPrototyped, llvm::DISubprogram::SPFlagDefinition);
+        
+        function->setSubprogram(sp);
+        m_active_debug_context.scope = sp;
+        
+        // Don't set any source locations for the prologue
+        set_debug_loc({});
+        
+        if (m.body) {
+            m_ret_type_abi = get_ret_abi_type_info(m.type->function.return_type);
+            unsigned idx = m_ret_type_abi.kind == ABIRetKind::Pointer ? 1 : 0;
+        
+            llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", function);
+            m_active_module_context.builder->SetInsertPoint(bb);
+        
+            m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
+        
+            // self
+            llvm::AllocaInst* s = alloca_at_entry(function, "self", llvm::PointerType::get(*m_active_module_context.context, 0));
+            m_self_value = s;
+            m_active_module_context.builder->CreateStore(function->getArg(idx++), s);
+        
+            for (Decl* param : m.parameters) {
+                TypeInfo* param_type = param->param.variadic ? TypeInfo::create_slice(param->param.type) : param->param.type;
+                ABIParamTypeInfo info = get_param_abi_type_info(param->param.type);
+        
+                llvm::DILocalVariable* dil = nullptr;
+                llvm::DIExpression* di_expr = nullptr;
+        
+                switch (info.kind) {
+                    case ABIParamKind::Direct: {
+                        llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, param_type);
+                        m_active_module_context.named_values[param] = a;
+        
+                        unsigned ui = static_cast<unsigned>(idx++);
+        
+                        if (param_type->is_boolean()) {
+                            function->addParamAttr(ui, llvm::Attribute::ZExt);
+                        }
+        
+                        m_active_module_context.builder->CreateStore(function->getArg(ui), a);
+        
+                        dil = m_active_debug_context.builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
+                            (unsigned)decl->loc.line, type_info_to_debug_type(param_type));
+                        di_expr = m_active_debug_context.builder->createExpression();
+                        break;
+                    }
+        
+                    case ABIParamKind::Pointer: {
+                        llvm::AllocaInst* a = alloca_at_entry(function, param->param.identifier, llvm::PointerType::get(*m_active_module_context.context, 0));
+                        m_active_module_context.named_values[param] = a;
+        
+                        m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
+        
+                        dil = m_active_debug_context.builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
+                            (unsigned)decl->loc.line, type_info_to_debug_type(param_type));
+                        di_expr = m_active_debug_context.builder->createExpression(llvm::dwarf::DW_OP_deref);
+                        break;
+                    }
+        
+                    case ABIParamKind::Integer: {
+                        llvm::AllocaInst* a = alloca_at_entry(m_active_module_context.function, param->param.identifier, param_type);
+                        m_active_module_context.named_values[param] = a;
+        
+                        m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
+        
+                        dil = m_active_debug_context.builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
+                            (unsigned)decl->loc.line, type_info_to_debug_type(param_type));
+                        di_expr = m_active_debug_context.builder->createExpression();
+                        break;
+                    }
+        
+                    default: ARIA_UNREACHABLE("Invalid ABIParamTypeInfo");
+                }
+        
+                ARIA_ASSERT(dil, "Must set the debug local variable");
+                ARIA_ASSERT(di_expr, "Must set the debug expression");
+                m_active_debug_context.builder->insertDeclare(m_active_module_context.named_values.at(param),
+                    dil, di_expr, 
+                    llvm::DILocation::get(*m_active_module_context.context, (unsigned)decl->loc.line, (unsigned)decl->loc.col, sp), m_active_module_context.builder->GetInsertBlock());
+            }
+        
+            gen_block_stmt(m.body);
+        
+            if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) {
+                m_active_module_context.builder->CreateRetVoid();
+            }
+        
+            m_active_module_context.alloca_marker->eraseFromParent();
+            m_active_module_context.alloca_marker = nullptr;
+            if (llvm::verifyFunction(*function, &llvm::errs())) { throw std::exception(); }
+        }
+        
+        m_active_module_context.functions[decl];
+    }
+
+    void Codegen::gen_destructor_decl(Decl* decl) {
+        DestructorDecl& d = decl->destructor;
+
+        if (!m_active_module_context.functions.contains(decl)) {
+            gen_destructor_prototype(decl);
+        }
+        
+        llvm::Function* function = m_active_module_context.functions.at(decl);
+        m_active_module_context.function = function;
+        
+        llvm::DISubprogram* sp = m_active_debug_context.builder->createFunction(m_active_debug_context.unit->getFile(),
+            function->getName(), {}, m_active_debug_context.unit->getFile(), (unsigned)decl->loc.line,
+            m_active_debug_context.builder->createSubroutineType({}), (unsigned)decl->loc.line, llvm::DINode::FlagPrototyped, llvm::DISubprogram::SPFlagDefinition);
+        
+        function->setSubprogram(sp);
+        m_active_debug_context.scope = sp;
+        
+        // Don't set any source locations for the prologue
+        set_debug_loc({});
+        
+        m_ret_type_abi = get_ret_abi_type_info(TypeInfo::get_void());
+
+        llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", function);
+        m_active_module_context.builder->SetInsertPoint(bb);
+        
+        m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
+        
+        // self
+        llvm::AllocaInst* s = alloca_at_entry(function, "self", llvm::PointerType::get(*m_active_module_context.context, 0));
+        m_self_value = s;
+        m_active_module_context.builder->CreateStore(function->getArg(0), s);
+
+        gen_block_stmt(d.body);
+        
+        if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) {
+            m_active_module_context.builder->CreateRetVoid();
+        }
+        
+        m_active_module_context.alloca_marker->eraseFromParent();
+        m_active_module_context.alloca_marker = nullptr;
+        if (llvm::verifyFunction(*function, &llvm::errs())) { throw std::exception(); }
+        
+        m_active_module_context.functions[decl];
+    }
+
+    void Codegen::gen_global_init_func(llvm::GlobalVariable* var, Expr* initializer, Decl* dtor) {
+        llvm::Function* d = nullptr;
+        llvm::Function* at_exit = nullptr;
+        llvm::Function* dtor_call = nullptr;
+
+        // Previous state
+        llvm::BasicBlock* prevbb = m_active_module_context.builder->GetInsertBlock();
+        llvm::Function* prevf = m_active_module_context.function;
+        llvm::Instruction* preva = m_active_module_context.alloca_marker;
+
+        if (dtor) {
+            if (!m_active_module_context.functions.contains(dtor)) { gen_destructor_prototype(dtor); }
+            d = m_active_module_context.functions.at(dtor);
+
+            if (!m_active_module_context.module->getFunction("atexit")) {
+                at_exit = llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(*m_active_module_context.context), llvm::PointerType::get(*m_active_module_context.context, 0), false),
+                    llvm::GlobalValue::LinkageTypes::ExternalLinkage, "atexit", m_active_module_context.module);
+            } else {
+                at_exit = m_active_module_context.module->getFunction("atexit");
+            }
+
+            // Create a wrapper function to call the dtor
+            dtor_call = llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(*m_active_module_context.context), false),
+                llvm::GlobalValue::LinkageTypes::InternalLinkage, fmt::format(".__aria_global_call_dtor.{}", var->getName().str()), m_active_module_context.module);
+
+            llvm::BasicBlock* entry = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", dtor_call);
+            m_active_module_context.builder->SetInsertPoint(entry);
+
+            set_debug_loc({});
+
+            m_active_module_context.builder->CreateCall(d, var);
+            m_active_module_context.builder->CreateRetVoid();
+        }
+
+        // Create the function that will set the initializer and destructor
+        llvm::Function* init_var = llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(*m_active_module_context.context), false),
+            llvm::GlobalValue::LinkageTypes::InternalLinkage, fmt::format(".__aria_global_var_init.{}", var->getName().str()), m_active_module_context.module);
+
+        llvm::BasicBlock* entry = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", init_var);
+        m_active_module_context.builder->SetInsertPoint(entry);
+        m_active_module_context.function = init_var;
+        m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
+
+        llvm::DISubprogram* sp = m_active_debug_context.builder->createFunction(m_active_debug_context.unit->getFile(),
+            init_var->getName(), {}, m_active_debug_context.unit->getFile(), (unsigned)initializer->loc.line,
+            m_active_debug_context.builder->createSubroutineType({}), (unsigned)initializer->loc.line, llvm::DINode::FlagPrototyped, llvm::DISubprogram::SPFlagDefinition);
+        
+        init_var->setSubprogram(sp);
+        m_active_debug_context.scope = sp;
+
+        set_debug_loc({});
+
+        if (initializer) {
+            llvm::Value* val = gen_expr(initializer);
+            if (llvm::Constant* c = llvm::dyn_cast<llvm::Constant>(val)) {
+                var->setInitializer(c);
+            } else {
+                m_active_module_context.builder->CreateStore(val, var);
+            }
+        }
+
+        if (dtor) {
+            m_active_module_context.builder->CreateCall(at_exit, dtor_call);
+        }
+
+        m_active_module_context.builder->CreateRetVoid();
+        m_active_module_context.alloca_marker->removeFromParent();
+        m_active_module_context.global_initializers.push_back(init_var);
+
+        // Restore the old state
+        m_active_module_context.builder->SetInsertPoint(prevbb);
+        m_active_module_context.function = prevf;
+        m_active_module_context.alloca_marker = preva;
     }
 
     void Codegen::gen_decl(Decl* decl) {

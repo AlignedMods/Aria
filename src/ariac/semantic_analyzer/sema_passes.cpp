@@ -509,8 +509,11 @@ namespace ariac {
             ARIA_ASSERT(impl->kind == DeclKind::Impl, "Invalid impl decl");
 
             for (Decl* method : impl->impl.fields) {
-                ARIA_ASSERT(method->kind == DeclKind::Method, "Invalid method decl");
-                resolve_method_body(method);
+                switch (method->kind) {
+                    case DeclKind::Method: resolve_method_body(method); break;
+                    case DeclKind::Destructor: resolve_destructor_body(method); break;
+                    default: ARIA_UNREACHABLE("Invalid impl field");
+                }
             }
         }
 

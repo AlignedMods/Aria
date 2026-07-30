@@ -104,6 +104,7 @@ namespace ariac {
         void resolve_function_body(Decl* decl);
         void resolve_generic_body(Decl* decl);
         void resolve_method_body(Decl* decl);
+        void resolve_destructor_body(Decl* decl);
 
         void resolve_decl_attributes(Decl* decl, TinyVector<DeclAttribute> attrs, bool* erase_decl);
 
@@ -148,6 +149,7 @@ namespace ariac {
         void insert_arithmetic_promotion(Expr* lhs, Expr* rhs, BinaryOperatorKind op, Expr* e);
         bool cast_needs_rvalue(CastKind kind);
         TypeInfo* type_from_decl(Decl* decl);
+        Decl* type_get_destructor(TypeInfo* t);
 
         void replace_expr(Expr* src, Expr* new_expr);
         void replace_decl(Decl* src, Decl* new_decl);

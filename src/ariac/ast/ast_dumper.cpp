@@ -368,6 +368,12 @@ namespace ariac {
                 dump_stmt(decl->method.body, indentation + 4);
                 return;
 
+            case DeclKind::Destructor: m_output += fmt::format("DestructorDecl {}\n",
+                source_loc_to_string(decl->loc));
+
+                dump_stmt(decl->destructor.body, indentation + 4);
+                return;
+
             case DeclKind::Generic: m_output += fmt::format("GenericDecl {}\n", source_loc_to_string(decl->loc));
                 for (Decl* param : decl->generic.parameters) {
                     dump_decl(param, indentation + 4);

@@ -135,6 +135,14 @@ namespace ariac {
                 return m_active_module_context.functions.at(mem.referenced_member);
             }
 
+            case DeclKind::Destructor: {
+                if (!m_active_module_context.functions.contains(mem.referenced_member)) {
+                    gen_destructor_prototype(mem.referenced_member);
+                }
+
+                return m_active_module_context.functions.at(mem.referenced_member);
+            }
+
             case DeclKind::EnumConstant: {
                 return m_active_module_context.builder->getIntN(expr->type->enum_.source_decl->enum_.backing_type->get_bit_size(), 
                     mem.referenced_member->enum_constant.resolved_value);

@@ -252,6 +252,7 @@ namespace ariac {
         EnumConstant,
         Field,
         Method,
+        Destructor,
         Generic,
         GenericParameter
     };
@@ -270,6 +271,7 @@ namespace ariac {
             case DeclKind::EnumConstant: return "EnumConstant";
             case DeclKind::Field: return "Field";
             case DeclKind::Method: return "Method";
+            case DeclKind::Destructor: return "Destructor";
             case DeclKind::Generic: return "Generic";
 
             case DeclKind::GenericParameter: return "GenericParameter";

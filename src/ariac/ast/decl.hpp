@@ -93,6 +93,7 @@ namespace ariac {
         Expr* initializer = nullptr;
         bool global_var = false;
         bool const_var = false;
+        Decl* dtor = nullptr;
         LinkageKind linkage_kind = LinkageKind::None;
     };
 
@@ -204,6 +205,14 @@ namespace ariac {
         Stmt* body = nullptr;
     };
 
+    struct DestructorDecl {
+        DestructorDecl(Decl* parent, Stmt* body)
+            : parent(parent), body(body) {}
+
+        Decl* parent = nullptr;
+        Stmt* body = nullptr;
+    };
+
     struct GenericDecl {
         GenericDecl(TinyVector<Decl*> params, Decl* decl)
             : parameters(params), decl(decl) {}
@@ -257,6 +266,7 @@ namespace ariac {
             EnumConstantDecl enum_constant;
             FieldDecl field;
             MethodDecl method;
+            DestructorDecl destructor;
             GenericDecl generic;
             GenericParameterDecl generic_parameter;
         };
@@ -305,6 +315,9 @@ namespace ariac {
 
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, MethodDecl method)
             : loc(loc), kind(kind), visibility(visibility), method(method) {}
+
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, DestructorDecl dtor)
+            : loc(loc), kind(kind), visibility(visibility), destructor(dtor) {}
 
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, GenericDecl generic)
             : loc(loc), kind(kind), visibility(visibility), generic(generic) {}

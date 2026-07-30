@@ -86,6 +86,9 @@ namespace ariac {
         MemberExpr(std::string_view member, Expr* parent)
             : member(member), parent(parent) {}
 
+        MemberExpr(std::string_view member, Expr* parent, Decl* rm)
+            : member(member), parent(parent), referenced_member(rm) {}
+
         std::string_view member;
         Expr* parent = nullptr;
         bool implicit_deref = false;

@@ -1663,6 +1663,20 @@ namespace ariac {
             if (match(TokenKind::Identifier)) {
                 context.report_compiler_diagnostic(loc, "Unexpected identifier found, did you mean to put 'fn' before it?");
                 sync_local();
+            } else if (match(TokenKind::Squigly)) {
+                Token& s = consume();
+                try_consume(TokenKind::LeftParen, "(");
+                Token* rp = try_consume(TokenKind::RightParen, ")");
+
+                if (!rp) {
+                    sync_local();
+                    continue;
+                }
+
+                Stmt* body = parse_block();
+
+                impl->impl.fields.append(Decl::Create(s.loc + rp->loc, DeclKind::Destructor,
+                    visibility, DestructorDecl(impl, body)));
             } else if (match(TokenKind::Fn)) {
                 consume();
                 SourceLoc end_loc;
@@ -1677,7 +1691,7 @@ namespace ariac {
                 TypeInfo* ret_type = TypeInfo::get_void();
 
                 if (match(TokenKind::Arrow)) {
-                    Token& a =consume();
+                    Token& a = consume();
 
                     if (!is_type()) {
                         context.report_compiler_diagnostic(peek()->loc, "Expected a type after '->'");

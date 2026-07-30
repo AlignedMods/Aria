@@ -54,6 +54,7 @@ namespace ariac {
             std::unordered_map<Decl*, llvm::Value*> named_values;
             std::unordered_map<Decl*, std::string> generic_structs;
             std::unordered_map<std::string, llvm::Constant*> typeinfos; // Runtime type information for types
+            std::vector<llvm::Function*> global_initializers;
 
             // Debug info
             std::unordered_map<std::string, DebugContext> debug_contexts;
@@ -140,8 +141,12 @@ namespace ariac {
         void gen_function_decl(Decl* decl);
         void gen_function_prototype(Decl* decl);
         void gen_method_prototype(Decl* decl);
+        void gen_destructor_prototype(Decl* decl);
         void gen_struct_decl(Decl* decl);
         void gen_impl_decl(Decl* decl);
+        void gen_method_decl(Decl* decl);
+        void gen_destructor_decl(Decl* decl);
+        void gen_global_init_func(llvm::GlobalVariable* var, Expr* initializer, Decl* dtor);
 
         void gen_decl(Decl* decl);
 

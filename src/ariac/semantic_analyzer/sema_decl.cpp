@@ -6,27 +6,44 @@ namespace ariac {
         if (decl->resolve_status == ResolveStatus::Done || decl->resolve_status == ResolveStatus::InProgress) { return; }
         decl->resolve_status = ResolveStatus::InProgress;
 
-        VarDecl& varDecl = decl->var;
-        std::string_view ident = varDecl.identifier;
+        VarDecl& var = decl->var;
+        std::string_view ident = var.identifier;
 
-        if (varDecl.type) {
-            resolve_type(varDecl.type);
+        if (var.type) {
+            resolve_type(var.type);
 
-            if (varDecl.type->is_void()) {
+            if (var.type->is_void()) {
                 context.report_compiler_diagnostic(decl->loc, "Cannot declare variable of type 'void'");
-            } else if (varDecl.type->is_function()) {
-                context.report_compiler_diagnostic(decl->loc, fmt::format("Cannot declare variable of function type '{}'", type_info_to_string(varDecl.type)));
+            } else if (var.type->is_function()) {
+                context.report_compiler_diagnostic(decl->loc, fmt::format("Cannot declare variable of function type '{}'", type_info_to_string(var.type)));
             }
         }
 
         resolve_var_initializer(decl);
+
+        if (Decl* dtor = type_get_destructor(var.type)) {
+            ARIA_ASSERT(dtor->kind == DeclKind::Destructor, "Invalid destructor");
+
+            // If we are in a function, we can insert a defer
+            if (m_scopes.size() > 0) {
+                TypeInfo* type = TypeInfo::create_function(TypeKind::Method, TypeInfo::get_void(), {}, VariadicKind::None);
+                Expr* ref = Expr::Create(decl->loc, ExprKind::DeclRef, ExprValueKind::LValue, var.type, DeclRefExpr(var.identifier, nullptr, decl));
+                Expr* mem = Expr::Create(decl->loc, ExprKind::Member, ExprValueKind::LValue, type, MemberExpr("<dtor>", ref, dtor));
+                Expr* call = Expr::Create(decl->loc, ExprKind::MethodCall, ExprValueKind::RValue, type->function.return_type, CallExpr(mem, {}));
+
+                Stmt* defer = Stmt::Create(decl->loc, StmtKind::Expr, call);
+                m_scopes.back().defers.push_back(defer);
+            } else { // Otherwise just inform the codegen
+                var.dtor = dtor;
+            }
+        }
 
         if (m_scopes.size() > 0) {
             if (m_scopes.back().declarations.contains(ident)) {
                 context.report_compiler_diagnostic(decl->loc, fmt::format("Redeclaring symbol '{}'", ident));
             }
 
-            m_scopes.back().declarations[ident] = { varDecl.type, decl, DeclKind::Var };
+            m_scopes.back().declarations[ident] = { var.type, decl, DeclKind::Var };
         }
 
         decl->resolve_status = ResolveStatus::Done;
@@ -138,6 +155,22 @@ namespace ariac {
                     s.field_lookup.insert(field->method.identifier, field);
                     break;
                 }
+
+                case DeclKind::Destructor: {
+                    if (s.field_lookup.contains("<dtor>")) {
+                        Decl* prev = i.field_lookup.at("<dtor>");
+
+                        context.report_compiler_diagnostic(field->loc, "Redeclaring destructor");
+                        context.report_compiler_diagnostic(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
+                        continue;
+                    }
+
+                    i.field_lookup.insert("<dtor>", field);
+                    s.field_lookup.insert("<dtor>", field);
+                    break;
+                }
+
+                default: ARIA_UNREACHABLE("Invalid field kind");
             }
         }
 
@@ -265,9 +298,9 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_method_body(Decl* decl) {
         MethodDecl& m = decl->method;
-
+        
         m_active_return_type = m.type->function.return_type;
-
+        
         switch (m.parent->impl.parent->kind) {
             case DeclKind::Struct: {
                 resolve_struct_decl(m.parent->impl.parent);
@@ -279,7 +312,7 @@ namespace ariac {
                 m_active_struct = TypeInfo::create_struct(m.parent->impl.parent->generic.decl);
                 break;
             }
-
+        
             default: ARIA_UNREACHABLE("Invalid impl parent");
         }
         
@@ -290,14 +323,42 @@ namespace ariac {
         }
         
         resolve_block_stmt(m.body);
-
+        
         if (m_scopes.back().reaches_end) {
             if (!m.type->function.return_type->is_void()) {
                 context.report_compiler_diagnostic(decl->loc, "Missing return statement in method");
             }
         }
-
+        
         pop_scope();
+        m_active_struct = nullptr;
+        m_active_return_type = nullptr;
+    }
+
+    void SemanticAnalyzer::resolve_destructor_body(Decl* decl) {
+        DestructorDecl& d = decl->destructor;
+
+        m_active_return_type = TypeInfo::get_void();
+        
+        switch (d.parent->impl.parent->kind) {
+            case DeclKind::Struct: {
+                resolve_struct_decl(d.parent->impl.parent);
+                m_active_struct = TypeInfo::create_struct(d.parent->impl.parent);
+                break;
+            }
+            case DeclKind::Generic: {
+                resolve_struct_decl(d.parent->impl.parent->generic.decl);
+                m_active_struct = TypeInfo::create_struct(d.parent->impl.parent->generic.decl);
+                break;
+            }
+        
+            default: ARIA_UNREACHABLE("Invalid impl parent");
+        }
+        
+        push_scope();
+        resolve_block_stmt(d.body);
+        pop_scope();
+
         m_active_struct = nullptr;
         m_active_return_type = nullptr;
     }

@@ -526,4 +526,19 @@ namespace ariac {
         }
     }
 
+    Decl* SemanticAnalyzer::type_get_destructor(TypeInfo* t) {
+        switch (t->kind) {
+            case TypeKind::Struct: {
+                StructDecl& s = t->struct_.source_decl->struct_;
+                if (s.field_lookup.contains("<dtor>")) {
+                    return s.field_lookup.at("<dtor>");
+                }
+
+                return nullptr;
+            }
+
+            default: return nullptr;
+        }
+    }
+
 } // namespace ariac

@@ -145,6 +145,23 @@ namespace ariac {
             }
         }
 
+        if (!m_active_module_context.global_initializers.empty()) {
+            llvm::Function* f = llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(*m_active_module_context.context), false),
+                llvm::GlobalValue::LinkageTypes::InternalLinkage, fmt::format(".__aria_init_global_vars.{}", valid_module_name(mod->name)),
+                m_active_module_context.module);
+
+            llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", f);
+            m_active_module_context.builder->SetInsertPoint(bb);
+
+            for (llvm::Function* gi : m_active_module_context.global_initializers) {
+                m_active_module_context.builder->CreateCall(gi);
+            }
+
+            m_active_module_context.builder->CreateRetVoid();
+
+            llvm::appendToGlobalCtors(*m_active_module_context.module, f, 65535);
+        }
+
         if (context.main_func && context.main_func->parent_module == mod) {
             context.active_comp_unit = context.main_func->parent_unit;
             m_active_debug_context = m_active_module_context.debug_contexts.at(context.main_func->parent_unit->filename);
@@ -284,7 +301,9 @@ namespace ariac {
             if (llvm::verifyFunction(*main, &llvm::errs())) { throw std::exception(); }
         }
 
-        if (llvm::verifyModule(*m_active_module_context.module)) { throw std::runtime_error(fmt::format("Module '{}' failed verification", mod->name)); }
+        if (llvm::verifyModule(*m_active_module_context.module, &llvm::errs())) {
+            throw std::runtime_error(fmt::format("Module '{}' failed verification", mod->name));
+        }
 
         m_active_module_context.module->setDataLayout(m_machine->createDataLayout());
         m_active_module_context.module->setTargetTriple(context.opts->triple.str());
