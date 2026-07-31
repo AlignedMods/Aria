@@ -56,17 +56,6 @@ namespace ariac {
             context.report_compiler_diagnostic(decl->loc, fmt::format("Cannot declare parameter of function type '{}'", type_info_to_string(param.type)));
         }
 
-        if (Decl* dtor = type_get_destructor(param.type)) {
-            ARIA_ASSERT(dtor->kind == DeclKind::Destructor, "Invalid destructor");
-            TypeInfo* type = TypeInfo::create_function(TypeKind::Method, TypeInfo::get_void(), {}, VariadicKind::None);
-            Expr* ref = Expr::Create(decl->loc, ExprKind::DeclRef, ExprValueKind::LValue, param.type, DeclRefExpr(param.identifier, nullptr, decl));
-            Expr* mem = Expr::Create(decl->loc, ExprKind::Member, ExprValueKind::LValue, type, MemberExpr("~", ref, dtor));
-            Expr* call = Expr::Create(decl->loc, ExprKind::MethodCall, ExprValueKind::RValue, type->function.return_type, CallExpr(mem, {}));
-
-            Stmt* defer = Stmt::Create(decl->loc, StmtKind::Expr, call);
-            m_scopes.back().defers.push_back(defer);
-        }
-
         m_scopes.back().declarations[param.identifier] = { param.type, decl, DeclKind::Param };
     }
 

@@ -157,6 +157,26 @@ namespace ariac {
         Expr* expression = nullptr;
     };
 
+    // TemporaryExpr
+    // Wraps an expression along with a destructor that needs to be called
+    struct TemporaryExpr {
+        TemporaryExpr(Expr* expr, Decl* dtor)
+            : expression(expr), dtor(dtor) {}
+
+        Expr* expression = nullptr;
+        Decl* dtor = nullptr;
+    };
+
+    // ExprWithCleanups
+    // Wraps an expression that contains one or more TemporaryExpr's
+    // This expression will handle the cleanup of those temporaries
+    struct ExprWithCleanups {
+        ExprWithCleanups(Expr* expr)
+            : expression(expr) {}
+
+        Expr* expression = nullptr;
+    };
+
     // ParenExpr
     // At its core it just wraps an expression
     // These kinds of expressions are usually from the actual source code
@@ -297,6 +317,8 @@ namespace ariac {
             ArraySubscriptExpr array_subscript;
             ToSliceExpr to_slice;
             MoveExpr move;
+            TemporaryExpr temporary;
+            ExprWithCleanups expr_with_cleanups;
             ParenExpr paren;
             CastExpr cast;
             ImplicitCastExpr implicit_cast;
@@ -359,6 +381,12 @@ namespace ariac {
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, MoveExpr move)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), move(move) {}
+
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, TemporaryExpr temp)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), temporary(temp) {}
+
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ExprWithCleanups ewc)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), expr_with_cleanups(ewc) {}
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ParenExpr paren)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), paren(paren) {}

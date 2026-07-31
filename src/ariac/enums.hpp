@@ -32,6 +32,8 @@ namespace ariac {
         ArraySubscript,
         ToSlice,
         Move,
+        Temporary,
+        ExprWithCleanups,
         Paren,
         Cast,
         ImplicitCast,

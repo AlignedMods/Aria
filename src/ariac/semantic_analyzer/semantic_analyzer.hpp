@@ -147,6 +147,8 @@ namespace ariac {
         void require_rvalue(Expr* expr);
         void maybe_promote_to_int(Expr* expr);
         void insert_arithmetic_promotion(Expr* lhs, Expr* rhs, BinaryOperatorKind op, Expr* e);
+        void insert_temporary_expr(Expr* expr, Decl* dtor);
+        void insert_expr_with_cleanups(Expr* expr);
         bool cast_needs_rvalue(CastKind kind);
         TypeInfo* type_from_decl(Decl* decl);
         Decl* type_get_destructor(TypeInfo* t);
@@ -164,6 +166,8 @@ namespace ariac {
         struct {
             bool call : 1;
             bool address_of : 1;
+            bool temporary : 1;
+            bool needs_cleanup : 1;
         } m_sema_context;
 
         std::vector<Decl*> m_generic_types;

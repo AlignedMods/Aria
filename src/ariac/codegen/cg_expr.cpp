@@ -524,6 +524,34 @@ namespace ariac {
         return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(expr->type), temp);
     }
 
+    llvm::Value* Codegen::gen_temporary_expr(Expr* expr) {
+        TemporaryExpr& t = expr->temporary;
+
+        llvm::Type* ty = type_info_to_llvm_type(expr->type);
+        llvm::Value* temp = alloca_at_entry(m_active_module_context.function, "temp.expr", ty);
+        llvm::Value* val = gen_expr(t.expression);
+        m_active_module_context.builder->CreateStore(val, temp);
+
+        if (!m_active_module_context.functions.contains(t.dtor)) { gen_destructor_prototype(t.dtor); }
+        llvm::Function* dtor = m_active_module_context.functions.at(t.dtor);
+
+        m_active_module_context.temps.push_back({ temp, dtor });
+        return m_active_module_context.builder->CreateLoad(ty, temp);
+    }
+
+    llvm::Value* Codegen::gen_expr_with_cleanups(Expr* expr) {
+        ExprWithCleanups& e = expr->expr_with_cleanups;
+
+        llvm::Value* val = gen_expr(e.expression);
+
+        for (auto& temp : m_active_module_context.temps) {
+            m_active_module_context.builder->CreateCall(temp.dtor, temp.val);
+        }
+        m_active_module_context.temps.clear();
+
+        return val;
+    }
+
     llvm::Value* Codegen::gen_paren_expr(Expr* expr) {
         ParenExpr& p = expr->paren;
         set_debug_loc(expr->loc);
@@ -1088,6 +1116,8 @@ namespace ariac {
             case ExprKind::ArraySubscript: return gen_array_subscript_expr(expr);
             case ExprKind::ToSlice: return gen_to_slice_expr(expr);
             case ExprKind::Move: return gen_move_expr(expr);
+            case ExprKind::Temporary: return gen_temporary_expr(expr);
+            case ExprKind::ExprWithCleanups: return gen_expr_with_cleanups(expr);
             case ExprKind::Paren: return gen_paren_expr(expr);
             case ExprKind::ImplicitCast: return gen_implicit_cast_expr(expr);
             case ExprKind::Cast: return gen_cast_expr(expr);

@@ -827,6 +827,12 @@ namespace ariac {
         if (expr->result_discarded) {
             context.report_compiler_diagnostic(expr->loc, "Discarding result of expression");
         }
+
+        if (m_sema_context.temporary) {
+            if (Decl* dtor = type_get_destructor(expr->type)) {
+                insert_temporary_expr(expr, dtor);
+            }
+        }
     }
 
     void SemanticAnalyzer::resolve_array_literal_expr(Expr* expr) {
@@ -882,6 +888,13 @@ namespace ariac {
 
                     expr->type = fn_type.return_type;
                     expr->value_kind = ExprValueKind::RValue;
+
+                    if (m_sema_context.temporary) {
+                        if (Decl* dtor = type_get_destructor(expr->type)) {
+                            insert_temporary_expr(expr, dtor);
+                        }
+                    }
+
                     break;
                 }
 
@@ -1708,6 +1721,10 @@ namespace ariac {
         if (expr->value_kind == ExprValueKind::LValue) {
             if (expr->type->is_struct()) {
                 Expr* m = Expr::Create(expr->loc, ExprKind::Move, ExprValueKind::RValue, expr->type, MoveExpr(Expr::dup(expr)));
+                if (Decl* dtor = type_get_destructor(expr->type)) {
+                    insert_temporary_expr(m, dtor);
+                }
+
                 replace_expr(expr, m);
                 return;
             }
@@ -1839,6 +1856,20 @@ namespace ariac {
             type_info_to_string(lty), type_info_to_string(rty)));
         e->type = TypeInfo::get_error();
         return;
+    }
+
+    void SemanticAnalyzer::insert_temporary_expr(Expr* expr, Decl* dtor) {
+        Expr* temp = Expr::Create(expr->loc, ExprKind::Temporary, ExprValueKind::RValue, expr->type, TemporaryExpr(Expr::dup(expr), dtor));
+        replace_expr(expr, temp);
+        m_sema_context.needs_cleanup = true;
+    }
+
+    void SemanticAnalyzer::insert_expr_with_cleanups(Expr* expr) {
+        if (m_sema_context.needs_cleanup) {
+            Expr* e = Expr::Create(expr->loc, ExprKind::ExprWithCleanups, expr->value_kind, expr->type, ExprWithCleanups(Expr::dup(expr)));
+            replace_expr(expr, e);
+            m_sema_context.needs_cleanup = false;
+        }
     }
 
 } // namespace ariac

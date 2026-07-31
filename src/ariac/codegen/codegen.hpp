@@ -43,6 +43,11 @@ namespace ariac {
             llvm::DIScope* scope = nullptr;
         };
 
+        struct Temporary {
+            llvm::Value* val = nullptr;
+            llvm::Function* dtor = nullptr;
+        };
+
         struct ModuleContext {
             llvm::LLVMContext* context = nullptr;
             llvm::Module* module = nullptr;
@@ -55,6 +60,7 @@ namespace ariac {
             std::unordered_map<Decl*, std::string> generic_structs;
             std::unordered_map<std::string, llvm::Constant*> typeinfos; // Runtime type information for types
             std::vector<llvm::Function*> global_initializers;
+            std::vector<Temporary> temps; // Temporary expressions
 
             // Debug info
             std::unordered_map<std::string, DebugContext> debug_contexts;
@@ -126,6 +132,8 @@ namespace ariac {
         llvm::Value* gen_array_subscript_expr(Expr* expr);
         llvm::Value* gen_to_slice_expr(Expr* expr);
         llvm::Value* gen_move_expr(Expr* expr);
+        llvm::Value* gen_temporary_expr(Expr* expr);
+        llvm::Value* gen_expr_with_cleanups(Expr* expr);
         llvm::Value* gen_paren_expr(Expr* expr);
         llvm::Value* gen_implicit_cast_expr(Expr* expr);
         llvm::Value* gen_cast_expr(Expr* expr);

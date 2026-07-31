@@ -86,6 +86,17 @@ namespace ariac {
                 break;
             }
 
+            case ExprKind::Construct: {
+                ConstructExpr& c = e->construct;
+
+                for (Expr* arg : c.arguments) {
+                    copy->construct.arguments.append(Expr::dup(arg));
+                }
+
+                copy->construct.is_const = c.is_const;
+                break;
+            }
+
             case ExprKind::ArrayLiteral: {
                 ArrayLiteralExpr& lit = e->array_literal;
 
@@ -120,6 +131,25 @@ namespace ariac {
                 ToSliceExpr& t = e->to_slice;
                 if (t.len) copy->to_slice.len = Expr::dup(t.len);
                 copy->to_slice.source = Expr::dup(t.source);
+                break;
+            }
+
+            case ExprKind::Move: {
+                MoveExpr& m = e->move;
+                copy->move.expression = Expr::dup(m.expression);
+                break;
+            }
+
+            case ExprKind::Temporary: {
+                TemporaryExpr& t = e->temporary;
+                copy->temporary.expression = Expr::dup(t.expression);
+                copy->temporary.dtor = t.dtor;
+                break;
+            }
+
+            case ExprKind::ExprWithCleanups: {
+                ExprWithCleanups& c = e->expr_with_cleanups;
+                copy->expr_with_cleanups.expression = Expr::dup(c.expression);
                 break;
             }
 

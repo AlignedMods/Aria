@@ -25,6 +25,7 @@ namespace ariac {
 
         resolve_expr(wh.condition);
         require_rvalue(wh.condition);
+        insert_expr_with_cleanups(wh.condition);
 
         if (!wh.condition->type->is_boolean()) {
             context.report_compiler_diagnostic(wh.condition->loc, fmt::format("Expression must be of type 'bool' but is '{}'", type_info_to_string(wh.condition->type)));
@@ -49,6 +50,7 @@ namespace ariac {
 
         resolve_expr(wh.condition);
         require_rvalue(wh.condition);
+        insert_expr_with_cleanups(wh.condition);
 
         if (!wh.condition->type->is_boolean()) {
             context.report_compiler_diagnostic(wh.condition->loc, fmt::format("Expression must be of type 'bool' but is'{}'", type_info_to_string(wh.condition->type)));
@@ -78,6 +80,7 @@ namespace ariac {
         if (fs.condition) {
             resolve_expr(fs.condition);
             require_rvalue(fs.condition);
+            insert_expr_with_cleanups(fs.condition);
 
             if (!fs.condition->type->is_boolean() && !fs.condition->type->is_error()) {
                 context.report_compiler_diagnostic(fs.condition->loc, fmt::format("For loop condition must be of a boolean type but is '{}'", type_info_to_string(fs.condition->type)));
@@ -107,6 +110,7 @@ namespace ariac {
 
         resolve_expr(ifs.condition);
         require_rvalue(ifs.condition);
+        insert_expr_with_cleanups(ifs.condition);
 
         if (!ifs.condition->type->is_boolean()) {
             context.report_compiler_diagnostic(ifs.condition->loc, fmt::format("Expression must be of type 'bool' but is '{}'", type_info_to_string(ifs.condition->type)));
@@ -128,6 +132,7 @@ namespace ariac {
 
         resolve_expr(s.expression);
         require_rvalue(s.expression);
+        insert_expr_with_cleanups(s.expression);
 
         if (!s.expression->type->is_integral() && !s.expression->type->is_typeid()) {
             context.report_compiler_diagnostic(s.expression->loc, fmt::format("Expression must be of an integral type but is '{}'", type_info_to_string(s.expression->type)));
@@ -219,13 +224,9 @@ namespace ariac {
 
         if (ret.value) {
             resolve_expr(ret.value);
-            require_rvalue(ret.value);
-
-            if (ret.value->type->is_error() || m_active_return_type->is_error()) {
-                return;
-            }
-
             try_insert_implicit_cast(m_active_return_type, ret.value);
+            require_rvalue(ret.value);
+            insert_expr_with_cleanups(ret.value);
         } else {
             if (!m_active_return_type->is_void() && !m_active_return_type->is_never()) {
                 context.report_compiler_diagnostic(stmt->loc, "Missing value for return statement");
@@ -240,7 +241,10 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_expr_stmt(Stmt* stmt) {
+        m_sema_context.temporary = true;
         resolve_expr(stmt->expr);
+        m_sema_context.temporary = false;
+        insert_expr_with_cleanups(stmt->expr);
     }
 
     void SemanticAnalyzer::resolve_decl_stmt(Stmt* stmt) {

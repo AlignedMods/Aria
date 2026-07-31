@@ -11,6 +11,7 @@ namespace ariac {
 
             // Handle type inferrence here
             if (!var.type) { var.type = var.initializer->type; }
+            resolve_type(var.type);
             if (var.initializer->type->is_error() || var.type->is_error()) { return; }
 
             try_insert_implicit_cast(var.type, var.initializer);
@@ -27,9 +28,12 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_param_initializer(TypeInfo* param_type, Expr* arg) {
+        bool prev_val = m_sema_context.temporary;
+        m_sema_context.temporary = true;
         resolve_expr(arg);
         try_insert_implicit_cast(param_type, arg);
         require_rvalue(arg);
+        m_sema_context.temporary = prev_val;
     }
 
 } // namespace ariac
