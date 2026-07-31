@@ -19,6 +19,7 @@ namespace ariac {
                 copy->var.global_var = v.global_var;
                 copy->var.const_var = v.const_var;
                 copy->var.linkage_kind = v.linkage_kind;
+                copy->var.dtor = v.dtor;
                 break;
             }
 

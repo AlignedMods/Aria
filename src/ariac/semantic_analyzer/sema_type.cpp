@@ -372,7 +372,7 @@ namespace ariac {
             return cost;
         }
 
-        if (src->is_structure() && dst->is_structure()) {
+        if (src->is_struct() && dst->is_struct()) {
             if (src->struct_.source_decl != dst->struct_.source_decl) {
                 cost.explicit_cast_possible = false;
                 cost.implicit_cast_possible = false;
@@ -437,7 +437,7 @@ namespace ariac {
             return true;
         }
 
-        if (lhs->is_structure() && rhs->is_structure()) {
+        if (lhs->is_struct() && rhs->is_struct()) {
             StructType& sLhs = lhs->struct_;
             StructType& sRhs = rhs->struct_;
 
@@ -527,6 +527,8 @@ namespace ariac {
     }
 
     Decl* SemanticAnalyzer::type_get_destructor(TypeInfo* t) {
+        t = TypeInfo::get_flattened(t);
+
         switch (t->kind) {
             case TypeKind::Struct: {
                 StructDecl& s = t->struct_.source_decl->struct_;

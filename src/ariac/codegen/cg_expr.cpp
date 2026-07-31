@@ -513,6 +513,17 @@ namespace ariac {
         return m_active_module_context.builder->CreateLoad(type, slice);
     }
 
+    llvm::Value* Codegen::gen_move_expr(Expr* expr) {
+        MoveExpr& m = expr->move;
+
+        llvm::Value* temp = alloca_at_entry(m_active_module_context.function, "move", expr->type);
+        llvm::Value* val = gen_expr(m.expression);
+        m_active_module_context.builder->CreateMemCpy(temp, llvm::MaybeAlign(), val, llvm::MaybeAlign(), get_sz(expr->type->get_size()));
+        m_active_module_context.builder->CreateMemSet(val, get_int(0, TypeInfo::get_basic(TypeKind::Char)), get_sz(expr->type->get_size()), llvm::MaybeAlign());
+
+        return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(expr->type), temp);
+    }
+
     llvm::Value* Codegen::gen_paren_expr(Expr* expr) {
         ParenExpr& p = expr->paren;
         set_debug_loc(expr->loc);
@@ -1076,6 +1087,7 @@ namespace ariac {
             case ExprKind::MethodCall: return gen_method_call_expr(expr);
             case ExprKind::ArraySubscript: return gen_array_subscript_expr(expr);
             case ExprKind::ToSlice: return gen_to_slice_expr(expr);
+            case ExprKind::Move: return gen_move_expr(expr);
             case ExprKind::Paren: return gen_paren_expr(expr);
             case ExprKind::ImplicitCast: return gen_implicit_cast_expr(expr);
             case ExprKind::Cast: return gen_cast_expr(expr);

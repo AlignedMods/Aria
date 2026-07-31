@@ -216,7 +216,7 @@ namespace ariac {
             return kind == TypeKind::Method;
         }
 
-        bool is_structure() const {
+        bool is_struct() const {
             return kind == TypeKind::Struct;
         }
 

@@ -659,7 +659,7 @@ namespace ariac {
                 llvm::DINode::DIFlags::FlagExplicit, nullptr, m_active_debug_context.builder->getOrCreateArray(elems));
         } else if (t->is_function()) {
             return type_info_to_debug_type(TypeInfo::get_void());
-        } else if (t->is_structure()) {
+        } else if (t->is_struct()) {
             std::vector<llvm::Metadata*> elems;
 
             u64 offset_bits = 0;

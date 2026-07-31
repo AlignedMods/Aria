@@ -9,17 +9,14 @@ namespace ariac {
         VarDecl& var = decl->var;
         std::string_view ident = var.identifier;
 
-        if (var.type) {
-            resolve_type(var.type);
-
-            if (var.type->is_void()) {
-                context.report_compiler_diagnostic(decl->loc, "Cannot declare variable of type 'void'");
-            } else if (var.type->is_function()) {
-                context.report_compiler_diagnostic(decl->loc, fmt::format("Cannot declare variable of function type '{}'", type_info_to_string(var.type)));
-            }
-        }
-
         resolve_var_initializer(decl);
+
+        resolve_type(var.type);
+        if (var.type->is_void()) {
+            context.report_compiler_diagnostic(decl->loc, "Cannot declare variable of type 'void'");
+        } else if (var.type->is_function()) {
+            context.report_compiler_diagnostic(decl->loc, fmt::format("Cannot declare variable of function type '{}'", type_info_to_string(var.type)));
+        }
 
         if (Decl* dtor = type_get_destructor(var.type)) {
             ARIA_ASSERT(dtor->kind == DeclKind::Destructor, "Invalid destructor");
@@ -50,16 +47,27 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_param_decl(Decl* decl) {
-        ParamDecl& paramDecl = decl->param;
-        resolve_type(paramDecl.type);
+        ParamDecl& param = decl->param;
+        resolve_type(param.type);
 
-        if (paramDecl.type->is_void()) {
+        if (param.type->is_void()) {
             context.report_compiler_diagnostic(decl->loc, "Cannot declare parameter of type 'void'");
-        } else if (paramDecl.type->is_function()) {
-            context.report_compiler_diagnostic(decl->loc, fmt::format("Cannot declare parameter of function type '{}'", type_info_to_string(paramDecl.type)));
+        } else if (param.type->is_function()) {
+            context.report_compiler_diagnostic(decl->loc, fmt::format("Cannot declare parameter of function type '{}'", type_info_to_string(param.type)));
         }
 
-        m_scopes.back().declarations[paramDecl.identifier] = { paramDecl.type, decl, DeclKind::Param };
+        if (Decl* dtor = type_get_destructor(param.type)) {
+            ARIA_ASSERT(dtor->kind == DeclKind::Destructor, "Invalid destructor");
+            TypeInfo* type = TypeInfo::create_function(TypeKind::Method, TypeInfo::get_void(), {}, VariadicKind::None);
+            Expr* ref = Expr::Create(decl->loc, ExprKind::DeclRef, ExprValueKind::LValue, param.type, DeclRefExpr(param.identifier, nullptr, decl));
+            Expr* mem = Expr::Create(decl->loc, ExprKind::Member, ExprValueKind::LValue, type, MemberExpr("~", ref, dtor));
+            Expr* call = Expr::Create(decl->loc, ExprKind::MethodCall, ExprValueKind::RValue, type->function.return_type, CallExpr(mem, {}));
+
+            Stmt* defer = Stmt::Create(decl->loc, StmtKind::Expr, call);
+            m_scopes.back().defers.push_back(defer);
+        }
+
+        m_scopes.back().declarations[param.identifier] = { param.type, decl, DeclKind::Param };
     }
 
     void SemanticAnalyzer::resolve_function_decl(Decl* decl) {
@@ -87,76 +95,51 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_struct_decl(Decl* decl) {
-        if (decl->resolve_status != ResolveStatus::Done) {
-            decl->resolve_status = ResolveStatus::InProgress;
+        if (decl->resolve_status == ResolveStatus::Done) { return; }
+        decl->resolve_status = ResolveStatus::InProgress;
 
-            StructDecl& s = decl->struct_;
-            
-            if (s.fields.size == 0) {
-                context.report_compiler_diagnostic(decl->loc, "Empty structs are not allowed");
+        StructDecl& s = decl->struct_;
+        
+        if (s.fields.size == 0) {
+            context.report_compiler_diagnostic(decl->loc, "Empty structs are not allowed");
+        }
+        
+        for (Decl* field : s.fields) {
+            field->parent_unit = decl->parent_unit;
+            field->parent_module = decl->parent_module;
+            resolve_type(field->field.type);
+        
+            ARIA_ASSERT(field->kind == DeclKind::Field, "Invalid field");
+        
+            if (s.field_lookup.contains(field->field.identifier)) {
+                Decl* prev = s.field_lookup.at(field->field.identifier);
+                context.report_compiler_diagnostic(field->loc, fmt::format("Redeclaring field '{}'", field->field.identifier));
+                context.report_compiler_diagnostic(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
             }
-            
-            for (Decl* field : s.fields) {
-                field->parent_unit = decl->parent_unit;
-                field->parent_module = decl->parent_module;
-                resolve_type(field->field.type);
-            
-                ARIA_ASSERT(field->kind == DeclKind::Field, "Invalid field");
-            
-                if (s.field_lookup.contains(field->field.identifier)) {
-                    Decl* prev = s.field_lookup.at(field->field.identifier);
-                    context.report_compiler_diagnostic(field->loc, fmt::format("Redeclaring field '{}'", field->field.identifier));
-                    context.report_compiler_diagnostic(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
-                }
-            
-                if (field->field.type->is_void()) {
-                    context.report_compiler_diagnostic(field->loc, "Cannot declare field of 'void' type");
-                    field->kind = DeclKind::Error;
-                    continue;
-                }
-            
-                s.field_lookup.insert(field->field.identifier, field);
+        
+            if (field->field.type->is_void()) {
+                context.report_compiler_diagnostic(field->loc, "Cannot declare field of 'void' type");
+                field->kind = DeclKind::Error;
+                continue;
             }
-        }        
+        
+            s.field_lookup.insert(field->field.identifier, field);
+        }
+
+        decl->resolve_status = ResolveStatus::Done;
 
         for (Decl* impl : decl->struct_.impls) {
             resolve_impl_decl(impl);
         }
 
-        if (decl->resolve_status != ResolveStatus::Done) {
-            decl->resolve_status = ResolveStatus::Done;
+        for (Decl* field : decl->struct_.fields) {
+            ARIA_ASSERT(field->kind == DeclKind::Field, "Invalid field");
 
-            for (Decl* field : decl->struct_.fields) {
-                ARIA_ASSERT(field->kind == DeclKind::Field, "Invalid field");
-
-                if (Decl* dtor = type_get_destructor(field->field.type)) {
-                    if (!decl->struct_.field_lookup.contains("~")) {
-                        context.report_compiler_diagnostic_with_notes(decl->loc, fmt::format("Field '{}' has a destructor, but the struct does not", field->field.identifier),
-                            { "Did you mean to provide an empty destructor for this struct?" });
-
-                        return;
-                    }
-
-                    Decl* d = decl->struct_.field_lookup.at("~");
-                    ARIA_ASSERT(d->kind == DeclKind::Destructor, "Invalid destructor");
-
-                    Expr* self = Expr::Create(d->loc, ExprKind::Self, ExprValueKind::LValue,
-                        TypeInfo::create_pointer(type_from_decl(decl), false), ErrorExpr());
-
-                    Expr* field_member = Expr::Create(d->loc, ExprKind::Member, ExprValueKind::LValue, field->field.type,
-                        MemberExpr(field->field.identifier, self, field));
-                    field_member->member.implicit_deref = true;
-
-                    Expr* field_dtor = Expr::Create(d->loc, ExprKind::Member, ExprValueKind::LValue,
-                        TypeInfo::create_function(TypeKind::Method, TypeInfo::get_void(), {}, VariadicKind::None),
-                        MemberExpr("~", field_member, dtor));
-
-                    Expr* dtor_call = Expr::Create(d->loc, ExprKind::MethodCall, ExprValueKind::RValue, TypeInfo::get_void(),
-                        CallExpr(field_dtor, {}));
-
-                    Stmt* defer = Stmt::Create(d->loc, StmtKind::Expr, dtor_call);
-                    defer->next = d->destructor.body->block.cleanup;
-                    d->destructor.body->block.cleanup = defer;
+            if (Decl* dtor = type_get_destructor(field->field.type)) {
+                if (!decl->struct_.field_lookup.contains("~")) {
+                    context.report_compiler_diagnostic_with_notes(decl->loc, fmt::format("Field '{}' has a destructor, but the struct does not", field->field.identifier),
+                        { "Did you mean to provide an empty destructor for this struct?" });
+                    return;
                 }
             }
         }
@@ -392,11 +375,33 @@ namespace ariac {
             default: ARIA_UNREACHABLE("Invalid impl parent");
         }
         
-        m_sema_context.dtor_body = true;
         push_scope();
+
+        for (Decl* field : m_active_struct->struct_.source_decl->struct_.fields) {
+            ARIA_ASSERT(field->kind == DeclKind::Field, "Invalid field");
+
+            if (Decl* dtor = type_get_destructor(field->field.type)) {
+                Expr* self = Expr::Create(decl->loc, ExprKind::Self, ExprValueKind::LValue,
+                    TypeInfo::create_pointer(m_active_struct, false), ErrorExpr());
+
+                Expr* field_member = Expr::Create(decl->loc, ExprKind::Member, ExprValueKind::LValue, field->field.type,
+                    MemberExpr(field->field.identifier, self, field));
+                field_member->member.implicit_deref = true;
+
+                Expr* field_dtor = Expr::Create(decl->loc, ExprKind::Member, ExprValueKind::LValue,
+                    TypeInfo::create_function(TypeKind::Method, TypeInfo::get_void(), {}, VariadicKind::None),
+                    MemberExpr("~", field_member, dtor));
+
+                Expr* dtor_call = Expr::Create(decl->loc, ExprKind::MethodCall, ExprValueKind::RValue, TypeInfo::get_void(),
+                    CallExpr(field_dtor, {}));
+
+                Stmt* defer = Stmt::Create(decl->loc, StmtKind::Expr, dtor_call);
+                m_scopes.back().defers.push_back(defer);
+            }
+        }
+
         resolve_block_stmt(d.body);
         pop_scope();
-        m_sema_context.dtor_body = false;
 
         m_active_struct = nullptr;
         m_active_return_type = nullptr;

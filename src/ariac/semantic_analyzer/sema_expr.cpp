@@ -823,6 +823,10 @@ namespace ariac {
 
             default: ARIA_UNREACHABLE("Invalid type kind");
         }
+
+        if (expr->result_discarded) {
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of expression");
+        }
     }
 
     void SemanticAnalyzer::resolve_array_literal_expr(Expr* expr) {
@@ -1702,6 +1706,12 @@ namespace ariac {
 
     void SemanticAnalyzer::require_rvalue(Expr* expr) {
         if (expr->value_kind == ExprValueKind::LValue) {
+            if (expr->type->is_struct()) {
+                Expr* m = Expr::Create(expr->loc, ExprKind::Move, ExprValueKind::RValue, expr->type, MoveExpr(Expr::dup(expr)));
+                replace_expr(expr, m);
+                return;
+            }
+
             insert_implicit_cast(expr->type, expr->type, expr, CastKind::LValueToRValue);
         }
     }

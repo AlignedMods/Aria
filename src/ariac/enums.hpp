@@ -31,6 +31,7 @@ namespace ariac {
         MethodCall,
         ArraySubscript,
         ToSlice,
+        Move,
         Paren,
         Cast,
         ImplicitCast,

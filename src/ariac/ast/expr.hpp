@@ -143,6 +143,20 @@ namespace ariac {
         Expr* len = nullptr;
     };
 
+    // MoveExpr
+    // Represents a 'moved' struct
+    // A move means that the old struct is invalidated (zero initialized) and the new one is the same as the old one
+    // NOTE: The subexpression must be an lvalue
+    // eg.
+    // let s: SomeStruct;
+    // foo(s); -> 's' becomes a MoveExpr
+    struct MoveExpr {
+        MoveExpr(Expr* expr)
+            : expression(expr) {}
+
+        Expr* expression = nullptr;
+    };
+
     // ParenExpr
     // At its core it just wraps an expression
     // These kinds of expressions are usually from the actual source code
@@ -282,6 +296,7 @@ namespace ariac {
             ArrayLiteralExpr array_literal;
             ArraySubscriptExpr array_subscript;
             ToSliceExpr to_slice;
+            MoveExpr move;
             ParenExpr paren;
             CastExpr cast;
             ImplicitCastExpr implicit_cast;
@@ -341,6 +356,9 @@ namespace ariac {
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ToSliceExpr to_slice)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), to_slice(to_slice) {}
+
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, MoveExpr move)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), move(move) {}
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ParenExpr paren)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), paren(paren) {}

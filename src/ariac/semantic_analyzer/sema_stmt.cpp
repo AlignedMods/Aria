@@ -201,12 +201,6 @@ namespace ariac {
             return;
         }
 
-        if (m_sema_context.dtor_body) {
-            context.report_compiler_diagnostic(stmt->loc, "'return' statement inside of destructor is not allowed");
-            if (ret.value) { ret.value->type = TypeInfo::get_error(); }
-            return;
-        }
-
         if (m_active_return_type->is_never()) {
             context.report_compiler_diagnostic(stmt->loc, "Function with return type '!' should not have any return statement");
         }

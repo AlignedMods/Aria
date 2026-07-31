@@ -304,6 +304,7 @@ namespace ariac {
             case TypeKind::Method:
             case TypeKind::Struct:
             case TypeKind::Enum:
+            case TypeKind::Generic:
                 return t;
 
             case TypeKind::Typedef: return t->typedef_.base;
@@ -499,7 +500,7 @@ namespace ariac {
         TypeInfo* t = const_cast<TypeInfo*>(this);
 
         while (true) {
-            if (t->is_primitive() || t->is_function() || t->is_structure() || t->is_typedef() || t->is_enum() || t->is_generic() || t->is_unresolved() || t->is_never()) {
+            if (t->is_primitive() || t->is_function() || t->is_struct() || t->is_typedef() || t->is_enum() || t->is_generic() || t->is_unresolved() || t->is_never()) {
                 break;
             }
 

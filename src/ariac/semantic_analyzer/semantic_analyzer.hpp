@@ -164,7 +164,6 @@ namespace ariac {
         struct {
             bool call : 1;
             bool address_of : 1;
-            bool dtor_body : 1;
         } m_sema_context;
 
         std::vector<Decl*> m_generic_types;
