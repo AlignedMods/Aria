@@ -19,7 +19,6 @@ namespace ariac {
         SourceLoc loc;
 
         std::string message;
-        std::vector<std::string> notes;
 
         CompilationUnit* unit = nullptr;
     };
@@ -53,7 +52,6 @@ namespace ariac {
         std::vector<Decl*> impls;
         std::vector<Decl*> typedefs;
         std::vector<Decl*> enums;
-        std::vector<Decl*> generics;
         std::vector<Decl*> imports;
 
         Expr* if_attr = nullptr;
@@ -112,10 +110,19 @@ namespace ariac {
             d.kind = kind;
             d.loc = loc;
             d.message = error;
-            d.notes = notes;
             d.unit = unit ? unit : active_comp_unit;
 
             diagnostics.push_back(d);
+
+            for (auto& note : notes) {
+                CompilerDiagnostic n;
+                n.kind = CompilerDiagKind::Note;
+                n.loc = loc;
+                n.message = note;
+                n.unit = unit ? unit : active_comp_unit;
+
+                diagnostics.push_back(n);
+            }
 
             if (kind == CompilerDiagKind::Error) {
                 has_errors = true;

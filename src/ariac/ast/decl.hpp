@@ -147,10 +147,10 @@ namespace ariac {
     };
 
     struct ImplDecl {
-        ImplDecl(std::string_view identifier, TinyVector<Decl*> fields)
-            : identifier(identifier), fields(fields) {}
+        ImplDecl(TypeInfo* type, TinyVector<Decl*> fields)
+            : type(type), fields(fields) {}
 
-        std::string_view identifier;
+        TypeInfo* type;
         TinyVector<Decl*> fields;
         HTable<Decl*> field_lookup;
         Decl* parent = nullptr;

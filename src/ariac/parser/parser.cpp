@@ -1461,7 +1461,7 @@ namespace ariac {
             return f;
         } else {
             Decl* g = Decl::Create(f->loc, DeclKind::Generic, m_current_visibility, GenericDecl(generic_params, f));
-            context.active_comp_unit->generics.push_back(g);
+            context.active_comp_unit->funcs.push_back(g);
             return g;
         }
     }
@@ -1643,17 +1643,28 @@ namespace ariac {
             return struc;
         } else {
             Decl* g = Decl::Create(struc->loc, DeclKind::Generic, m_current_visibility, GenericDecl(generic_params, struc));
-            context.active_comp_unit->generics.push_back(g);
+            context.active_comp_unit->structs.push_back(g);
             return g;
         }
     }
 
     Decl* Parser::parse_impl_decl() {
         Token s = consume(); // consume "impl"
-        Token* ident = try_consume(TokenKind::Identifier, "identifier");
-        if (!ident) { return &error_decl; }
+        TypeInfo* type = nullptr;
+
+        TinyVector<Decl*> generic_params;
+        if (match(TokenKind::Less)) {
+            generic_params = parse_generic_params();
+        }
+
+        if (is_type()) {
+            type = parse_type();
+        } else {
+            context.report_compiler_diagnostic(peek()->loc, "Expected a type");
+            return &error_decl;
+        }
         
-        Decl* impl = Decl::Create(s.loc + ident->loc, DeclKind::Impl, m_current_visibility, ImplDecl(ident->string, {}));
+        Decl* impl = Decl::Create(s.loc + type->loc, DeclKind::Impl, m_current_visibility, ImplDecl(type, {}));
         DeclVisibility visibility = DeclVisibility::Public;
 
         try_consume(TokenKind::LeftCurly, "{");
@@ -1720,8 +1731,14 @@ namespace ariac {
         }
         try_consume(TokenKind::RightCurly, "}");
         
-        context.active_comp_unit->impls.push_back(impl);
-        return impl;
+        if (generic_params.size == 0) {
+            context.active_comp_unit->impls.push_back(impl);
+            return impl;
+        } else {
+            Decl* g = Decl::Create(impl->loc, DeclKind::Generic, m_current_visibility, GenericDecl(generic_params, impl));
+            context.active_comp_unit->impls.push_back(g);
+            return g;
+        }
     }
 
     Decl* Parser::parse_extern_decl() {

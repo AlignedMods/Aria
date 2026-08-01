@@ -66,7 +66,7 @@ namespace ariac {
 
             case DeclKind::Impl: {
                 ImplDecl& i = d->impl;
-                copy->impl.identifier = i.identifier;
+                copy->impl.type = TypeInfo::dup(i.type);
 
                 for (Decl* f : i.fields) {
                     Decl* dupped = Decl::dup(f);

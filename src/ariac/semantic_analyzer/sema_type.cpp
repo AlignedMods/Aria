@@ -8,8 +8,19 @@ namespace ariac {
                 UnresolvedType& t = type->unresolved;
                 resolve_expr(t.ident);
 
+                if (t.ident->kind == ExprKind::Error) {
+                    type->kind = TypeKind::Error;
+                    break;
+                }
+
                 if (t.ident->kind != ExprKind::TypeInfo) {
                     context.report_compiler_diagnostic(type->loc, fmt::format("'{}' is not a type", t.ident->decl_ref.identifier));
+                    type->kind = TypeKind::Error;
+                    break;
+                }
+
+                if (t.ident->type_info.type->kind == TypeKind::GenericDecl && !m_sema_context.generic_instantiation) {
+                    context.report_compiler_diagnostic(type->loc, fmt::format("Missing generic arguments for '{}'", type_info_to_string(t.ident->type_info.type)));
                     type->kind = TypeKind::Error;
                     break;
                 }
@@ -72,12 +83,22 @@ namespace ariac {
             case TypeKind::GenericInstantiation: {
                 GenericInstantiationType& gi = type->generic_instantiation;
 
-                m_search_generics = true;
-                resolve_type(gi.base);
-                m_search_generics = false;
+                {
+                    bool sg_prev_val = m_search_generics;
+                    bool gi_prev_val = m_sema_context.generic_instantiation;
+                    m_search_generics = true;
+                    m_sema_context.generic_instantiation = true;
+                    resolve_type(gi.base);
+                    m_sema_context.generic_instantiation = gi_prev_val;
+                    m_search_generics = sg_prev_val;
+                }
 
                 for (TypeInfo* t : gi.arguments) {
                     resolve_type(t);
+                    if (t->is_error()) {
+                        type->kind = TypeKind::Error;
+                        return;
+                    }
                 }
 
                 if (gi.base->kind != TypeKind::GenericDecl) {
@@ -516,6 +537,20 @@ namespace ariac {
                 }
 
                 return TypeInfo::create_enum(decl);
+            }
+
+            case DeclKind::Generic: {
+                if (decl->resolve_status == ResolveStatus::InProgress) {
+                    context.report_compiler_diagnostic(decl->loc, "Recursive definition of generic");
+                    return TypeInfo::get_error();
+                } else {
+                    CompilationUnit* old_unit = context.active_comp_unit;
+                    context.active_comp_unit = decl->parent_unit;
+                    resolve_generic_decl(decl);
+                    context.active_comp_unit = old_unit;
+                }
+
+                return TypeInfo::create_generic_decl(decl);
             }
 
             case DeclKind::GenericParameter: {

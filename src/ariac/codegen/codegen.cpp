@@ -106,15 +106,6 @@ namespace ariac {
             for (Decl* struct_ : unit->structs) {
                 gen_struct_decl(struct_);
             }
-
-            for (Decl* gen : unit->generics) {
-                ARIA_ASSERT(gen->kind == DeclKind::Generic, "Invalid generic decl");
-
-                for (Decl* spec : gen->generic.specilizations) {
-                    if (spec->kind != DeclKind::StructSpecilization) { continue; }
-                    gen_struct_decl(spec->struct_specilization.source);
-                }
-            }
         }
 
         for (CompilationUnit* unit : mod->units) {
@@ -132,16 +123,6 @@ namespace ariac {
 
             for (Decl* func : unit->funcs) {
                 gen_function_decl(func);
-            }
-
-            for (Decl* gen : unit->generics) {
-                ARIA_ASSERT(gen->kind == DeclKind::Generic, "Invalid generic decl");
-
-                for (Decl* spec : gen->generic.specilizations) {
-                    if (spec->kind != DeclKind::FunctionSpecilization) { continue; }
-                    ARIA_ASSERT(spec->function_specilization.source, "Invalid generic function specilization");
-                    gen_function_decl(spec);
-                }
             }
         }
 

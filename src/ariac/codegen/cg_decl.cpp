@@ -43,12 +43,18 @@ namespace ariac {
     void Codegen::gen_function_decl(Decl* decl) {
         FunctionDecl* fn = nullptr;
 
-        if (decl->kind == DeclKind::Function) {
-            fn = &decl->function;
-        } else if (decl->kind == DeclKind::FunctionSpecilization) {
-            fn = &decl->function_specilization.source->function;
-        } else {
-            ARIA_UNREACHABLE("Invalid function decl");
+        switch (decl->kind) {
+            case DeclKind::Function: fn = &decl->function; break;
+            case DeclKind::FunctionSpecilization: fn = &decl->function_specilization.source->function; break;
+
+            case DeclKind::Generic: {
+                for (Decl* gs : decl->generic.specilizations) {
+                    gen_function_decl(gs);
+                }
+
+                return;
+            }
+            default: ARIA_UNREACHABLE("Invalid function decl");
         }
 
         if (fn->linkage_kind == LinkageKind::Extern) { return; }
@@ -82,7 +88,7 @@ namespace ariac {
             llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", function);
             m_active_module_context.builder->SetInsertPoint(bb);
 
-            m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
+            m_active_module_context.alloca_marker = m_active_module_context.builder->CreateAlloca(m_active_module_context.builder->getInt8Ty());
 
             for (Decl* param : fn->parameters) {
                 TypeInfo* param_type = param->param.variadic ? TypeInfo::create_slice(param->param.type) : param->param.type;
@@ -288,7 +294,7 @@ namespace ariac {
             llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", function);
             m_active_module_context.builder->SetInsertPoint(bb);
         
-            m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
+            m_active_module_context.alloca_marker = m_active_module_context.builder->CreateAlloca(m_active_module_context.builder->getInt8Ty());
         
             // self
             llvm::AllocaInst* s = alloca_at_entry(function, "self", llvm::PointerType::get(*m_active_module_context.context, 0));

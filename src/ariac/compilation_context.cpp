@@ -171,23 +171,6 @@ namespace ariac {
                 fmt::print(stderr, "        | {:>{w}}\n", std::string(diag->loc.len, '^'), fmt::arg("w", diag->loc.col + diag->loc.len - 1));
             }
         }
-
-        for (auto& note : diag->notes) {
-            if (diag->loc.line && diag->loc.col) {
-                if (is_tty) {
-                    fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", diag->unit->filename, diag->loc.line, diag->loc.col);
-                } else {
-                    fmt::print(stderr, "{}:{}:{}: ", diag->unit->filename, diag->loc.line, diag->loc.col);
-                }
-            }
-
-            if (is_tty) {
-                fmt::print(fg(fmt::color::light_blue), "note: ");
-                fmt::print("{}\n\n", note);
-            } else {
-                fmt::print(stderr, "note: {}\n\n", note);
-            }
-        }
     }
 
     void CompilationContext::lex() { Lexer l; }

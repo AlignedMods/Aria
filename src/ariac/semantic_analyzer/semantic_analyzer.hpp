@@ -50,7 +50,6 @@ namespace ariac {
         void pass_imports();
         void pass_decls();
         void pass_code();
-        void pass_generics();
 
         void resolve_module_heirarchy(Module* module);
 
@@ -60,7 +59,7 @@ namespace ariac {
         void resolve_unit_type_decls(Module* module, CompilationUnit* unit);
         void resolve_unit_decls(Module* module, CompilationUnit* unit);
         void resolve_unit_code(Module* module, CompilationUnit* unit);
-        void resolve_unit_generics(Module* module, CompilationUnit* unit);
+        void resolve_unit_generic_code(Module* module, CompilationUnit* unit);
 
         void resolve_boolean_literal_expr(Expr* expr);
         void resolve_character_literal_expr(Expr* expr);
@@ -168,6 +167,7 @@ namespace ariac {
             bool address_of : 1;
             bool temporary : 1;
             bool needs_cleanup : 1;
+            bool generic_instantiation : 1;
         } m_sema_context;
 
         std::vector<Decl*> m_generic_types;

@@ -825,7 +825,7 @@ namespace ariac {
         }
 
         if (expr->result_discarded) {
-            context.report_compiler_diagnostic(expr->loc, "Discarding result of expression");
+            context.report_compiler_diagnostic(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
         }
 
         if (m_sema_context.temporary) {
@@ -1859,6 +1859,8 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::insert_temporary_expr(Expr* expr, Decl* dtor) {
+        if (!m_sema_context.temporary) { return; }
+
         Expr* temp = Expr::Create(expr->loc, ExprKind::Temporary, ExprValueKind::RValue, expr->type, TemporaryExpr(Expr::dup(expr), dtor));
         replace_expr(expr, temp);
         m_sema_context.needs_cleanup = true;

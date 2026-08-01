@@ -56,6 +56,10 @@ namespace ariac {
             context.report_compiler_diagnostic(decl->loc, fmt::format("Cannot declare parameter of function type '{}'", type_info_to_string(param.type)));
         }
 
+        if (m_scopes.back().declarations.contains(param.identifier)) {
+            context.report_compiler_diagnostic(decl->loc, fmt::format("Redeclaring symbol '{}'", param.identifier));
+        }
+
         m_scopes.back().declarations[param.identifier] = { param.type, decl, DeclKind::Param };
     }
 
@@ -68,7 +72,7 @@ namespace ariac {
         std::string ident = fmt::format("{}", fn.identifier);
         
         if (fn.linkage_kind == LinkageKind::Extern && fn.body) {
-            context.report_compiler_diagnostic(decl->loc, "Function marked 'extern' must not have body");
+            context.report_compiler_diagnostic(decl->loc, "Function marked 'extern' must not have a body");
         }
 
         if (fn.type->function.variadic == VariadicKind::Unnamed && fn.linkage_kind != LinkageKind::Extern) {
@@ -84,7 +88,10 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_struct_decl(Decl* decl) {
-        if (decl->resolve_status == ResolveStatus::Done) { return; }
+        if (decl->resolve_status == ResolveStatus::Done) {
+            return;
+        }
+
         decl->resolve_status = ResolveStatus::InProgress;
 
         StructDecl& s = decl->struct_;
@@ -116,10 +123,6 @@ namespace ariac {
         }
 
         decl->resolve_status = ResolveStatus::Done;
-
-        for (Decl* impl : decl->struct_.impls) {
-            resolve_impl_decl(impl);
-        }
 
         for (Decl* field : decl->struct_.fields) {
             ARIA_ASSERT(field->kind == DeclKind::Field, "Invalid field");
@@ -282,26 +285,38 @@ namespace ariac {
             m_generic_types.push_back(t);
         }
 
-        resolve_function_body(gen.decl);
-        m_generic_types.clear();
+        switch (gen.decl->kind) {
+            case DeclKind::Function: {
+                resolve_function_body(gen.decl);
+                m_generic_types.clear();
 
-        for (Decl* spec : gen.specilizations) {
-            ARIA_ASSERT(spec->kind == DeclKind::FunctionSpecilization, "Invalid function specilization");
+                for (Decl* spec : gen.specilizations) {
+                    ARIA_ASSERT(spec->kind == DeclKind::FunctionSpecilization, "Invalid function specilization");
 
-            Decl* func = Decl::dup(gen.decl);
-            func->parent_module = decl->parent_module;
-            func->parent_unit = decl->parent_unit;
+                    Decl* func = Decl::dup(gen.decl);
+                    func->parent_module = decl->parent_module;
+                    func->parent_unit = decl->parent_unit;
 
-            func->function.type = spec->function_specilization.type;
-            spec->function_specilization.source = func;
+                    func->function.type = spec->function_specilization.type;
+                    spec->function_specilization.source = func;
 
-            for (size_t i = 0; i < spec->function_specilization.types.size; i++) {
-                m_specialized_generic_types[gen.parameters.items[i]->generic_parameter.identifier] = spec->function_specilization.types.items[i];
+                    for (size_t i = 0; i < spec->function_specilization.types.size; i++) {
+                        m_specialized_generic_types[gen.parameters.items[i]->generic_parameter.identifier] = spec->function_specilization.types.items[i];
+                    }
+
+                    m_replace_generic_types = true;
+                    resolve_function_body(spec->function_specilization.source);
+                    m_replace_generic_types = false;
+                }
+                break;
             }
 
-            m_replace_generic_types = true;
-            resolve_function_body(spec->function_specilization.source);
-            m_replace_generic_types = false;
+            case DeclKind::Impl: {
+                resolve_impl_decl(gen.decl);
+                m_generic_types.clear();
+
+                break;
+            }
         }
     }
 
@@ -309,21 +324,7 @@ namespace ariac {
         MethodDecl& m = decl->method;
         
         m_active_return_type = m.type->function.return_type;
-        
-        switch (m.parent->impl.parent->kind) {
-            case DeclKind::Struct: {
-                resolve_struct_decl(m.parent->impl.parent);
-                m_active_struct = TypeInfo::create_struct(m.parent->impl.parent);
-                break;
-            }
-            case DeclKind::Generic: {
-                resolve_struct_decl(m.parent->impl.parent->generic.decl);
-                m_active_struct = TypeInfo::create_struct(m.parent->impl.parent->generic.decl);
-                break;
-            }
-        
-            default: ARIA_UNREACHABLE("Invalid impl parent");
-        }
+        m_active_struct = type_from_decl(m.parent->impl.parent);
         
         push_scope();
         

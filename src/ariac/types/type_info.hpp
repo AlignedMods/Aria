@@ -136,6 +136,7 @@ namespace ariac {
         static TypeInfo* create_enum(Decl* d, SourceLoc loc = {});
         static TypeInfo* create_generic_decl(Decl* d, SourceLoc loc = {});
         static TypeInfo* create_generic(std::string_view name, SourceLoc loc = {});
+        static TypeInfo* create_generic_instantation(TypeInfo* base, TinyVector<TypeInfo*> args, SourceLoc loc = {});
         static TypeInfo* create_unresolved(Expr* e, SourceLoc loc = {});
 
         static TypeInfo* get_error();

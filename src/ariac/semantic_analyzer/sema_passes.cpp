@@ -61,12 +61,10 @@ namespace ariac {
                 resolve_unit_code(mod, unit);
             }
         }
-    }
 
-    void SemanticAnalyzer::pass_generics() {
         for (Module* mod : context.modules) {
             for (CompilationUnit* unit : mod->units) {
-                resolve_unit_generics(mod, unit);
+                resolve_unit_generic_code(mod, unit);
             }
         }
     }
@@ -259,72 +257,44 @@ namespace ariac {
 
             module->symbols[ident] = en;
         }
-
-        for (Decl* g : unit->generics) {
-            g->parent_module = module;
-            g->parent_unit = unit;
-
-            ARIA_ASSERT(g->kind == DeclKind::Generic, "Invalid generic");
-            GenericDecl& gen = g->generic;
-            
-            switch (gen.decl->kind) {
-                case DeclKind::Function: break;
-
-                case DeclKind::Struct: {
-                    std::string_view ident = gen.decl->struct_.identifier;
-
-                    gen.decl->struct_.type = TypeInfo::create_basic(TypeKind::GenericInstantiation);
-                    gen.decl->struct_.type->generic_instantiation.base = TypeInfo::create_generic_decl(g);
-                    gen.decl->struct_.type->generic_instantiation.resolved_decl = g;
-
-                    for (Decl* p : gen.parameters) {
-                        gen.decl->struct_.type->generic_instantiation.arguments.append(TypeInfo::create_generic(p->generic_parameter.identifier));
-                    }
-
-                    module->symbols[ident] = g;
-                    break;
-                }
-
-                default: ARIA_UNREACHABLE("Invalid generic decl");
-            }
-        }
     }
 
     void SemanticAnalyzer::resolve_unit_decls(Module* module, CompilationUnit* unit) {
         context.active_comp_unit = unit;
 
         for (Decl* impl : unit->impls) {
+            ARIA_ASSERT(impl->kind == DeclKind::Impl, "Invalid impl");
+
             impl->parent_module = module;
             impl->parent_unit = unit;
 
             ImplDecl& i = impl->impl;
-            if (!module->symbols.contains(i.identifier)) {
-                context.report_compiler_diagnostic(impl->loc, fmt::format("No such struct '{}' to create an implementation for", i.identifier));
-            } else {
-                Decl* sym = module->symbols.at(i.identifier);
+            resolve_type(i.type);
 
-                switch (sym->kind) {
-                    case DeclKind::Struct: {
-                        impl->impl.parent = sym;
-                        sym->struct_.impls.append(impl);
-                        break;
-                    }
+            if (i.type->is_error()) { impl->kind = DeclKind::Error; continue; }
 
-                    case DeclKind::Generic: {
-                        ARIA_ASSERT(sym->generic.decl->kind == DeclKind::Struct, "Invalid generic");
+            switch (i.type->kind) {
+                case TypeKind::Struct: {
+                    i.parent = i.type->struct_.source_decl;
+                    i.type->struct_.source_decl->struct_.impls.append(impl);
+                    break;
+                }
 
-                        impl->impl.parent = sym;
-                        sym->generic.decl->struct_.impls.append(impl);
-                        break;
-                    }
+                case TypeKind::GenericDecl: {
+                    ARIA_ASSERT(i.type->generic_decl.generic->generic.decl->kind == DeclKind::Struct, "Invalid generic");
 
-                    default: {
-                        context.report_compiler_diagnostic(impl->loc, fmt::format("'{}' is not a struct", i.identifier));
-                        context.report_compiler_diagnostic(sym->loc, "Declared here", CompilerDiagKind::Note, sym->parent_unit);
-                        break;
-                    }
+                    i.parent = i.type->generic_decl.generic;
+                    i.type->generic_decl.generic->generic.decl->struct_.impls.append(impl);
+                    break;
+                }
+
+                default: {
+                    context.report_compiler_diagnostic(impl->loc, fmt::format("'{}' is not a struct", type_info_to_string(i.type)));
+                    continue;
                 }
             }
+
+            resolve_impl_decl(impl);
         }
 
         for (Decl* global : unit->globals) {
@@ -338,84 +308,34 @@ namespace ariac {
             module->symbols[var.identifier] = global;    
         }
 
-        for (size_t i = 0; i < unit->generics.size(); i++) {
-            Decl* gen = unit->generics[i];
-            ARIA_ASSERT(gen->kind == DeclKind::Generic, "Invalid generic decl");
-
-            switch (gen->generic.decl->kind) {
-                case DeclKind::Function: {
-                    Decl* func = gen->generic.decl;
-                    func->parent_module = module;
-                    func->parent_unit = unit;
-
-                    ARIA_ASSERT(func->kind == DeclKind::Function, "Invalid generic func");
-                    FunctionDecl& f = func->function;
-
-                    size_t i = m_generic_types.size();
-                    for (Decl* t : gen->generic.parameters) {
-                        m_generic_types.push_back(t);
-                    }
-
-                    resolve_type(f.type);
-                    m_generic_types.erase(m_generic_types.begin() + i, m_generic_types.end());
-
-                    for (size_t i = 0; i < f.parameters.size; i++) {
-                        f.parameters.items[i]->param.type = f.type->function.param_types.items[i];
-                    }
-
-                    bool erase = false;
-                    resolve_decl_attributes(func, func->attributes, &erase);
-                    
-                    if (erase) {
-                        context.active_comp_unit->generics.erase(context.active_comp_unit->funcs.begin() + i);
-                        i--;
-                        replace_decl(func, &error_decl);
-                        continue;
-                    }
-
-                    if (f.identifier == "main") {
-                        context.report_compiler_diagnostic(func->loc, "'main' function cannot be generic");
-                        continue;
-                    }
-
-                    if (module->symbols.contains(f.identifier)) {
-                        Decl* d = module->symbols.at(f.identifier);
-                    
-                        if (d->kind == DeclKind::Function) {
-                            context.report_compiler_diagnostic(func->loc, fmt::format("Redefining function '{}' as generic", f.identifier));
-                            context.report_compiler_diagnostic(func->loc, "Previous declaration here", CompilerDiagKind::Note, func->parent_unit);
-                        } else if (d->kind == DeclKind::Var) {
-                            context.report_compiler_diagnostic(func->loc, fmt::format("Redefining global variable '{}' as function", f.identifier));
-                            context.report_compiler_diagnostic(func->loc, "Previous declaration here", CompilerDiagKind::Note, func->parent_unit);
-                        } else if (d->kind == DeclKind::Struct) {
-                            context.report_compiler_diagnostic(func->loc, fmt::format("Redefining struct '{}' as function", f.identifier));
-                            context.report_compiler_diagnostic(func->loc, "Previous declaration here", CompilerDiagKind::Note, func->parent_unit);
-                        } else {
-                            ARIA_UNREACHABLE("Invalid decl kind");
-                        }
-                    
-                        func->kind = DeclKind::Error;
-                        continue;
-                    }
-
-                    module->symbols[f.identifier] = gen;
-                    break;
-                }
-
-                case DeclKind::Struct: break;
-
-                default: ARIA_UNREACHABLE("Invalid generic kind");
-            }
-        }
-
         for (size_t i = 0; i < unit->funcs.size(); i++) {
             Decl* func = unit->funcs[i];
             func->parent_module = module;
             func->parent_unit = unit;
+            bool generic = false;
 
-            ARIA_ASSERT(func->kind == DeclKind::Function, "Invalid func in funcs");
+            switch (func->kind) {
+                case DeclKind::Function: break;
+                case DeclKind::Generic: {
+                    func = func->generic.decl;
+                    func->parent_module = module;
+                    func->parent_unit = unit;
+                    generic = true;
+                    break;
+                }
+
+                default: ARIA_UNREACHABLE("Invalid func in funcs");
+            }
+
             FunctionDecl& f = func->function;
-            resolve_type(f.type);
+
+            if (generic) {
+                for (Decl* p : unit->funcs[i]->generic.parameters) { m_generic_types.push_back(p); }
+                resolve_type(f.type);
+                m_generic_types.clear();
+            } else {
+                resolve_type(f.type);
+            }
 
             for (size_t i = 0; i < f.parameters.size; i++) {
                 f.parameters.items[i]->param.type = f.type->function.param_types.items[i];
@@ -432,6 +352,11 @@ namespace ariac {
             }
 
             if (f.identifier == "main") {
+                if (generic) {
+                    context.report_compiler_diagnostic(func->loc, "Main function must not be generic");
+                    continue;
+                }
+
                 if (context.main_func) {
                     context.report_compiler_diagnostic(func->loc, "Redefining main function");
                     context.report_compiler_diagnostic(context.main_func->loc, "Previous declaration here", CompilerDiagKind::Note, context.main_func->parent_unit);
@@ -479,7 +404,7 @@ namespace ariac {
                 return;
             }
 
-            module->symbols[f.identifier] = func;
+            module->symbols[f.identifier] = unit->funcs[i];
         }
     }
 
@@ -500,11 +425,6 @@ namespace ariac {
             resolve_var_decl(var);
         }
 
-        for (Decl* gen : unit->generics) {
-            ARIA_ASSERT(gen->kind == DeclKind::Generic, "Invalid generic decl");
-            resolve_generic_decl(gen);
-        }
-
         for (Decl* impl : unit->impls) {
             ARIA_ASSERT(impl->kind == DeclKind::Impl, "Invalid impl decl");
 
@@ -518,21 +438,27 @@ namespace ariac {
         }
 
         for (Decl* func : unit->funcs) {
-            ARIA_ASSERT(func->kind == DeclKind::Function, "Invalid function decl");
+            switch (func->kind) {
+                case DeclKind::Function: {
+                    if (func->function.body) { resolve_function_body(func); }
+                    break;
+                }
 
-            if (func->function.body) {
-                resolve_function_body(func);
+                case DeclKind::Generic: break;
+
+                default: ARIA_UNREACHABLE("Invalid function");
             }
         }
     }
 
-    void SemanticAnalyzer::resolve_unit_generics(Module* module, CompilationUnit* unit) {
-        context.active_comp_unit = unit;
+    void SemanticAnalyzer::resolve_unit_generic_code(Module* module, CompilationUnit* unit) {
+        for (Decl* func : unit->funcs) {
+            switch (func->kind) {
+                case DeclKind::Function: break;
+                case DeclKind::Generic: resolve_generic_body(func); break;
 
-        for (Decl* gen : unit->generics) {
-            ARIA_ASSERT(gen->kind == DeclKind::Generic, "Invalid generic decl");
-
-            resolve_generic_body(gen);
+                default: ARIA_UNREACHABLE("Invalid generic");
+            }
         }
     }
 

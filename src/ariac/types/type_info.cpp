@@ -98,6 +98,12 @@ namespace ariac {
         return t;
     }
 
+    TypeInfo* TypeInfo::create_generic_instantation(TypeInfo* base, TinyVector<TypeInfo*> args, SourceLoc loc) {
+        TypeInfo* t = create_basic(TypeKind::GenericInstantiation, loc);
+        t->generic_instantiation = GenericInstantiationType(base, args);
+        return t;
+    }
+
     TypeInfo* TypeInfo::create_unresolved(Expr* e, SourceLoc loc) {
         TypeInfo* t = create_basic(TypeKind::Unresolved, loc);
         t->unresolved = UnresolvedType(e);
