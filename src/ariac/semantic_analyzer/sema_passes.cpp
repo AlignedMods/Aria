@@ -208,10 +208,19 @@ namespace ariac {
             struc->parent_module = module;
             struc->parent_unit = unit;
 
-            StructDecl& s = struc->struct_;
-            std::string_view ident = s.identifier;
+            switch (struc->kind) {
+                case DeclKind::Struct: {
+                    module->symbols[struc->struct_.identifier] = struc;
+                    break;
+                }
 
-            module->symbols[ident] = struc;
+                case DeclKind::Generic: {
+                    module->symbols[struc->generic.decl->struct_.identifier] = struc;
+                    break;
+                }
+
+                default: ARIA_UNREACHABLE("Invalid struct decl");
+            }
         }
 
         for (size_t i = 0; i < unit->typedefs.size(); i++) {
@@ -263,38 +272,22 @@ namespace ariac {
         context.active_comp_unit = unit;
 
         for (Decl* impl : unit->impls) {
-            ARIA_ASSERT(impl->kind == DeclKind::Impl, "Invalid impl");
-
             impl->parent_module = module;
             impl->parent_unit = unit;
 
-            ImplDecl& i = impl->impl;
-            resolve_type(i.type);
-
-            if (i.type->is_error()) { impl->kind = DeclKind::Error; continue; }
-
-            switch (i.type->kind) {
-                case TypeKind::Struct: {
-                    i.parent = i.type->struct_.source_decl;
-                    i.type->struct_.source_decl->struct_.impls.append(impl);
+            switch (impl->kind) {
+                case DeclKind::Impl: {
+                    resolve_impl_decl(impl);
                     break;
                 }
 
-                case TypeKind::GenericDecl: {
-                    ARIA_ASSERT(i.type->generic_decl.generic->generic.decl->kind == DeclKind::Struct, "Invalid generic");
-
-                    i.parent = i.type->generic_decl.generic;
-                    i.type->generic_decl.generic->generic.decl->struct_.impls.append(impl);
+                case DeclKind::Generic: {
+                    resolve_generic_decl(impl);
                     break;
                 }
 
-                default: {
-                    context.report_compiler_diagnostic(impl->loc, fmt::format("'{}' is not a struct", type_info_to_string(i.type)));
-                    continue;
-                }
+                default: ARIA_UNREACHABLE("Invalid impl decl");
             }
-
-            resolve_impl_decl(impl);
         }
 
         for (Decl* global : unit->globals) {
@@ -376,7 +369,7 @@ namespace ariac {
                 }
 
                 if (!f.type->function.return_type->is_void() && f.type->function.return_type->kind != TypeKind::Int) {
-                    context.report_compiler_diagnostic(f.type->loc, "Return type of 'main' function must be 'void' or 'int'");
+                    context.report_compiler_diagnostic(func->loc, "Return type of 'main' function must be 'void' or 'int'");
                 }
 
                 module->symbols[f.identifier] = func;
@@ -412,8 +405,19 @@ namespace ariac {
         context.active_comp_unit = unit;
 
         for (Decl* struc : unit->structs) {
-            ARIA_ASSERT(struc->kind == DeclKind::Struct, "Invalid struct decl");
-            resolve_struct_decl(struc);
+            switch (struc->kind) {
+                case DeclKind::Struct: {
+                    resolve_struct_decl(struc);
+                    break;
+                }
+
+                case DeclKind::Generic: {
+                    resolve_generic_decl(struc);
+                    break;
+                }
+
+                default: ARIA_UNREACHABLE("Invalid struct");
+            }
         }
 
         for (Decl* struc : unit->enums) {
@@ -426,14 +430,15 @@ namespace ariac {
         }
 
         for (Decl* impl : unit->impls) {
-            ARIA_ASSERT(impl->kind == DeclKind::Impl, "Invalid impl decl");
-
-            for (Decl* method : impl->impl.fields) {
-                switch (method->kind) {
-                    case DeclKind::Method: resolve_method_body(method); break;
-                    case DeclKind::Destructor: resolve_destructor_body(method); break;
-                    default: ARIA_UNREACHABLE("Invalid impl field");
+            switch (impl->kind) {
+                case DeclKind::Impl: {
+                    resolve_impl_body(impl);
+                    break;
                 }
+
+                case DeclKind::Generic: break;
+
+                default: ARIA_UNREACHABLE("Invalid impl decl");
             }
         }
 
@@ -456,6 +461,15 @@ namespace ariac {
             switch (func->kind) {
                 case DeclKind::Function: break;
                 case DeclKind::Generic: resolve_generic_body(func); break;
+
+                default: ARIA_UNREACHABLE("Invalid generic");
+            }
+        }
+
+        for (Decl* impl : unit->impls) {
+            switch (impl->kind) {
+                case DeclKind::Impl: break;
+                case DeclKind::Generic: resolve_generic_body(impl); break;
 
                 default: ARIA_UNREACHABLE("Invalid generic");
             }

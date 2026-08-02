@@ -102,6 +102,7 @@ namespace ariac {
 
         void resolve_function_body(Decl* decl);
         void resolve_generic_body(Decl* decl);
+        void resolve_impl_body(Decl* decl);
         void resolve_method_body(Decl* decl);
         void resolve_destructor_body(Decl* decl);
 

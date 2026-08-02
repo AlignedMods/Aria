@@ -663,6 +663,24 @@ namespace ariac {
                 m_active_debug_context.unit->getFile(), (unsigned)t->typedef_.source_decl->loc.line, m_active_debug_context.scope);
         } else if (t->is_enum()) {
             dit = type_info_to_debug_type(t->enum_.source_decl->enum_.backing_type);
+        } else if (t->kind == TypeKind::GenericInstantiation) {
+            std::vector<llvm::Metadata*> elems;
+
+            u64 offset_bits = 0;
+            for (Decl* d : t->generic_instantiation.resolved_decl->struct_.fields) {
+                ARIA_ASSERT(d->kind == DeclKind::Field, "Invalid field");
+
+                llvm::DIType* mem = m_active_debug_context.builder->createMemberType(m_active_debug_context.scope, d->field.identifier, 
+                    m_active_debug_context.scope->getFile(), (unsigned)d->loc.line, (unsigned)d->field.type->get_bit_size(), (unsigned)d->field.type->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
+                    type_info_to_debug_type(d->field.type));
+
+                elems.push_back(mem);
+                offset_bits += align_value(d->field.type->get_bit_size(), t->get_alignment() * 8);
+            }
+
+            dit = m_active_debug_context.builder->createStructType(m_active_debug_context.scope,
+                str_type, m_active_debug_context.scope->getFile(), (unsigned)t->generic_instantiation.resolved_decl->loc.line, (unsigned)t->get_size() * 8, (unsigned)t->get_alignment() * 8,
+                llvm::DINode::DIFlags::FlagExplicit, nullptr, m_active_debug_context.builder->getOrCreateArray(elems));
         } else {
             ARIA_UNREACHABLE("Invalid type");
         }

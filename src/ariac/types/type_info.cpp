@@ -190,6 +190,23 @@ namespace ariac {
                 break;
             }
 
+            case TypeKind::GenericDecl: {
+                t->generic_decl.identifier = type->generic_decl.identifier;
+                t->generic_decl.generic = type->generic_decl.generic;
+                break;
+            }
+
+            case TypeKind::GenericInstantiation: {
+                t->generic_instantiation.base = TypeInfo::dup(type->generic_instantiation.base);
+
+                for (TypeInfo* a : type->generic_instantiation.arguments) {
+                    t->generic_instantiation.arguments.append(a);
+                }
+
+                t->generic_instantiation.resolved_decl = type->generic_instantiation.resolved_decl;
+                break;
+            }
+
             case TypeKind::Unresolved: {
                 t->unresolved.ident = type->unresolved.ident;
                 break;
@@ -311,6 +328,7 @@ namespace ariac {
             case TypeKind::Struct:
             case TypeKind::Enum:
             case TypeKind::Generic:
+            case TypeKind::GenericInstantiation:
                 return t;
 
             case TypeKind::Typedef: return t->typedef_.base;
@@ -386,6 +404,17 @@ namespace ariac {
 
             case TypeKind::Typedef: return typedef_.base->get_size();
             case TypeKind::Enum: return enum_.source_decl->enum_.backing_type->get_size();
+
+            case TypeKind::GenericInstantiation: {
+                u64 size = 0;
+                u64 alignment = get_alignment();
+
+                for (Decl* field : generic_instantiation.resolved_decl->struct_.fields) {
+                    size += align_value(field->field.type->get_size(), alignment);
+                }
+
+                return size;
+            }
 
             default: ARIA_UNREACHABLE("Invalid type kind");
         }
@@ -497,6 +526,17 @@ namespace ariac {
 
             case TypeKind::Typedef: return typedef_.base->get_alignment();
             case TypeKind::Enum: return enum_.source_decl->enum_.backing_type->get_alignment();
+
+            case TypeKind::GenericInstantiation: {
+                u64 alignment = 0;
+
+                for (Decl* field : generic_instantiation.resolved_decl->struct_.fields) {
+                    u64 new_alignment = field->field.type->get_alignment();
+                    alignment = (new_alignment > alignment) ? new_alignment : alignment;
+                }
+
+                return alignment;
+            }
 
             default: ARIA_UNREACHABLE("Invalid type kind");
         }
@@ -681,6 +721,14 @@ namespace ariac {
         }
 
         return str;
+    }
+
+    bool GenericInstantiationType::needs_specilization() {
+        for (TypeInfo* arg : arguments) {
+            if (!arg->is_generic()) { return true; }
+        }
+
+        return false;
     }
 
 } // namespace ariac 

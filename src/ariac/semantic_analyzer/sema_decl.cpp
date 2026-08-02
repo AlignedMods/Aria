@@ -88,10 +88,7 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_struct_decl(Decl* decl) {
-        if (decl->resolve_status == ResolveStatus::Done) {
-            return;
-        }
-
+        if (decl->resolve_status == ResolveStatus::Done) { return; }
         decl->resolve_status = ResolveStatus::InProgress;
 
         StructDecl& s = decl->struct_;
@@ -142,6 +139,34 @@ namespace ariac {
         decl->resolve_status = ResolveStatus::InProgress;
 
         ImplDecl& i = decl->impl;
+
+        resolve_type(i.type);
+        if (i.type->is_error()) { decl->kind = DeclKind::Error; return; }
+
+        switch (i.type->kind) {
+            case TypeKind::Struct: {
+                i.parent = i.type->struct_.source_decl;
+                i.parent->struct_.impls.append(decl);
+                break;
+            }
+
+            case TypeKind::GenericInstantiation: {
+                if (!i.type->generic_instantiation.needs_specilization()) {
+                    i.parent = i.type->generic_instantiation.base->generic.resolved_decl;
+                    i.parent->generic.decl->struct_.impls.append(decl);
+                } else {
+                    ARIA_TODO("Impls for generic instatiations");
+                }
+                break;
+            }
+
+            default: {
+                context.report_compiler_diagnostic(decl->loc, fmt::format("'{}' is not a struct", type_info_to_string(i.type)));
+                decl->kind = DeclKind::Error;
+                return;
+            }
+        }
+
         StructDecl& s = i.parent->kind == DeclKind::Struct ? i.parent->struct_ : i.parent->generic.decl->struct_;
 
         for (Decl* field : i.fields) {
@@ -312,10 +337,21 @@ namespace ariac {
             }
 
             case DeclKind::Impl: {
-                resolve_impl_decl(gen.decl);
+                resolve_impl_body(gen.decl);
                 m_generic_types.clear();
-
                 break;
+            }
+        }
+    }
+
+    void SemanticAnalyzer::resolve_impl_body(Decl* decl) {
+        ImplDecl& i = decl->impl;
+
+        for (Decl* method : i.fields) {
+            switch (method->kind) {
+                case DeclKind::Method: resolve_method_body(method); break;
+                case DeclKind::Destructor: resolve_destructor_body(method); break;
+                default: ARIA_UNREACHABLE("Invalid impl field");
             }
         }
     }
@@ -324,7 +360,7 @@ namespace ariac {
         MethodDecl& m = decl->method;
         
         m_active_return_type = m.type->function.return_type;
-        m_active_struct = type_from_decl(m.parent->impl.parent);
+        m_active_struct = m.parent->impl.type;
         
         push_scope();
         
@@ -349,22 +385,8 @@ namespace ariac {
         DestructorDecl& d = decl->destructor;
 
         m_active_return_type = TypeInfo::get_void();
-        
-        switch (d.parent->impl.parent->kind) {
-            case DeclKind::Struct: {
-                resolve_struct_decl(d.parent->impl.parent);
-                m_active_struct = TypeInfo::create_struct(d.parent->impl.parent);
-                break;
-            }
-            case DeclKind::Generic: {
-                resolve_struct_decl(d.parent->impl.parent->generic.decl);
-                m_active_struct = TypeInfo::create_struct(d.parent->impl.parent->generic.decl);
-                break;
-            }
-        
-            default: ARIA_UNREACHABLE("Invalid impl parent");
-        }
-        
+        m_active_struct = d.parent->impl.type;
+
         push_scope();
 
         for (Decl* field : m_active_struct->struct_.source_decl->struct_.fields) {
@@ -507,7 +529,7 @@ namespace ariac {
             case DeclKind::Param: return resolve_param_decl(decl);
             case DeclKind::Function: return resolve_function_decl(decl);
             case DeclKind::Struct: return resolve_struct_decl(decl);
-            case DeclKind::Impl: return;
+            case DeclKind::Impl: return resolve_impl_decl(decl);
             case DeclKind::Typedef: return resolve_typedef_decl(decl);
             case DeclKind::Enum: return resolve_enum_decl(decl);
             case DeclKind::Generic: return resolve_generic_decl(decl);

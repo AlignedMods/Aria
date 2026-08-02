@@ -106,6 +106,10 @@ namespace ariac {
                     break;
                 }
 
+                if (!gi.needs_specilization()) {
+                    break;
+                }
+
                 Decl* g = gi.base->generic_decl.generic;
                 ARIA_ASSERT(g->kind == DeclKind::Generic, "Invalid generic");
                 ARIA_ASSERT(g->generic.decl->kind == DeclKind::Struct, "Invalid generic");
@@ -136,9 +140,26 @@ namespace ariac {
                     specilization->parent_unit = g->parent_unit;
                     g->generic.specilizations.append(specilization);
 
-                    for (size_t i = 0; i < gi.arguments.size; i++) { m_specialized_generic_types[g->generic.parameters.items[i]->generic_parameter.identifier] = gi.arguments.items[i]; }
+                    for (size_t i = 0; i < gi.arguments.size; i++) {
+                        m_specialized_generic_types[g->generic.parameters.items[i]->generic_parameter.identifier] = gi.arguments.items[i];
+                    }
+
+                    for (Decl* impl : struc->struct_.impls) {
+                        if (impl->kind == DeclKind::Generic) {
+                            bool max_val = std::min(gi.arguments.size, impl->generic.parameters.size);
+                            for (size_t i = 0; i < max_val; i++) {
+                                m_specialized_generic_types[impl->generic.parameters.items[i]->generic_parameter.identifier] = gi.arguments.items[i];
+                            }
+                        }
+                    }
+
                     bool prev_val = m_replace_generic_types;
                     m_replace_generic_types = true;
+
+                    for (Decl* impl : struc->struct_.impls) {
+                        resolve_impl_decl(impl);
+                    }
+
                     resolve_struct_decl(struc);
                     m_replace_generic_types = prev_val;
                 }

@@ -56,8 +56,6 @@ namespace ariac {
                 for (Decl* i : s.impls) {
                     Decl* dupped = Decl::dup(i);
                     dupped->impl.parent = copy;
-
-
                     copy->struct_.impls.append(dupped);
                 }
 

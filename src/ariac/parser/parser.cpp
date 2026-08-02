@@ -1453,7 +1453,7 @@ namespace ariac {
 
         TypeInfo* final_type = TypeInfo::create_function(TypeKind::Function, ret_type, param_types, variadic);
 
-        Decl* f = Decl::Create(ident->loc + end_loc, DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, final_type, params, body, linkage));
+        Decl* f = Decl::Create(loc + end_loc, DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, final_type, params, body, linkage));
         f->attributes = attrs;
 
         if (generic_params.size == 0) {

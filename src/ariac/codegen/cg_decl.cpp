@@ -237,19 +237,34 @@ namespace ariac {
     }
 
     void Codegen::gen_struct_decl(Decl* decl) {
-        StructDecl& struc = decl->struct_;
+        StructDecl* struc = nullptr;
+
+        switch (decl->kind) {
+            case DeclKind::Struct: struc = &decl->struct_; break;
+            case DeclKind::StructSpecilization: struc = &decl->struct_specilization.source->struct_; break;
+
+            case DeclKind::Generic: {
+                for (Decl* ss : decl->generic.specilizations) {
+                    gen_struct_decl(ss);
+                }
+
+                return;
+            }
+
+            default: ARIA_UNREACHABLE("Invalid struct decl");
+        }
 
         std::vector<llvm::Type*> fields;
-        fields.reserve(struc.fields.size);
-        std::string name = fmt::format("{}.{}", valid_module_name(decl->parent_module->name), struc.identifier);
+        fields.reserve(struc->fields.size);
+        std::string name = fmt::format("{}.{}", valid_module_name(decl->parent_module->name), struc->identifier);
 
-        for (Decl* field : struc.fields) {
+        for (Decl* field : struc->fields) {
             fields.push_back(type_info_to_llvm_type(field->field.type));
         }
 
         llvm::StructType* type = llvm::StructType::create(fields, name);
 
-        for (Decl* impl : struc.impls) {
+        for (Decl* impl : struc->impls) {
             gen_impl_decl(impl);
         }
     }

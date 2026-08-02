@@ -92,6 +92,11 @@ namespace ariac {
         GenericInstantiationType(TypeInfo* base, TinyVector<TypeInfo*> args)
             : base(base), arguments(args) {}
 
+        // Checks if this instatiation actually needs to specialize a type
+        // There are certain cases where specilization is not neccessary
+        // eg. Foo<T> -> Where 'T' is a generic parameter itself
+        bool needs_specilization();
+
         TypeInfo* base = nullptr;
         TinyVector<TypeInfo*> arguments;
         Decl* resolved_decl = nullptr;
