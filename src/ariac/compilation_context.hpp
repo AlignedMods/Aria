@@ -15,12 +15,8 @@ namespace ariac {
 
     struct CompilerDiagnostic {
         CompilerDiagKind kind = CompilerDiagKind::Warning;
-
         SourceLoc loc;
-
         std::string message;
-
-        CompilationUnit* unit = nullptr;
     };
 
     struct Module {
@@ -91,12 +87,11 @@ namespace ariac {
             return arena->allocate(size);
         }
 
-        inline void report_compiler_diagnostic(SourceLoc loc, const std::string& error, CompilerDiagKind kind = CompilerDiagKind::Error, CompilationUnit* unit = nullptr) {
+        inline void report_compiler_diagnostic(SourceLoc loc, const std::string& error, CompilerDiagKind kind = CompilerDiagKind::Error) {
             CompilerDiagnostic d;
             d.kind = kind;
             d.loc = loc;
             d.message = error;
-            d.unit = unit ? unit : active_comp_unit;
 
             diagnostics.push_back(d);
 
@@ -105,12 +100,11 @@ namespace ariac {
             }
         }
 
-        inline void report_compiler_diagnostic_with_notes(SourceLoc loc, const std::string& error, std::initializer_list<std::string> notes, CompilerDiagKind kind = CompilerDiagKind::Error, CompilationUnit* unit = nullptr) {
+        inline void report_compiler_diagnostic_with_notes(SourceLoc loc, const std::string& error, std::initializer_list<std::string> notes, CompilerDiagKind kind = CompilerDiagKind::Error) {
             CompilerDiagnostic d;
             d.kind = kind;
             d.loc = loc;
             d.message = error;
-            d.unit = unit ? unit : active_comp_unit;
 
             diagnostics.push_back(d);
 
@@ -119,7 +113,6 @@ namespace ariac {
                 n.kind = CompilerDiagKind::Note;
                 n.loc = loc;
                 n.message = note;
-                n.unit = unit ? unit : active_comp_unit;
 
                 diagnostics.push_back(n);
             }
@@ -146,6 +139,7 @@ namespace ariac {
     public:
         ArenaAllocator* arena = nullptr;
 
+        std::vector<std::string> files;
         std::vector<CompilationUnit*> compilation_units;
         CompilationUnit* active_comp_unit = nullptr;
         BuildOptions* opts = nullptr;

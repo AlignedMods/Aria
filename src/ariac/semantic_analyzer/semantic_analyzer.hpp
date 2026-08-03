@@ -72,6 +72,7 @@ namespace ariac {
         void resolve_member_expr(Expr* expr);
         void resolve_type_member_expr(Expr* expr);
         void resolve_builtin_member_expr(Expr* expr);
+        void resolve_dependent_member_expr(Expr* expr);
         void resolve_self_expr(Expr* expr);
         void resolve_call_expr(Expr* expr);
         void resolve_builtin_call_expr(Expr* expr);
@@ -162,6 +163,12 @@ namespace ariac {
         bool type_is_equal(TypeInfo* lhs, TypeInfo* rhs);
         bool type_is_trivial(TypeInfo* t);
 
+        void report_error(SourceLoc loc, const std::string& error);
+        void report_warning(SourceLoc loc, const std::string& error);
+        void report_note(SourceLoc loc, const std::string& error);
+        void report_diag(SourceLoc loc, const std::string& error, CompilerDiagKind kind = CompilerDiagKind::Error);
+        void report_diag_with_notes(SourceLoc loc, const std::string& error, std::initializer_list<std::string> notes, CompilerDiagKind kind = CompilerDiagKind::Error);
+
     private:
         struct {
             bool call : 1;
@@ -179,6 +186,8 @@ namespace ariac {
         std::vector<Scope> m_scopes;
         TypeInfo* m_active_return_type = nullptr;
         TypeInfo* m_active_struct = nullptr;
+
+        std::vector<SourceLoc> m_generic_instantations;
 
         JumpTarget m_break_target;
         JumpTarget m_continue_target;

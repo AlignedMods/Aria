@@ -19,7 +19,7 @@ namespace ariac {
 
             if (var.const_var) {
                 if (!is_const_expr(var.initializer)) {
-                    context.report_compiler_diagnostic(var.initializer->loc, "Initializier of const variable must be a constant expression");
+                    report_diag(var.initializer->loc, "Initializier of const variable must be a constant expression");
                 } else if (type_is_equal(var.type, var.initializer->type)) {
                     var.initializer = eval_const_expr(var.initializer);
                 }

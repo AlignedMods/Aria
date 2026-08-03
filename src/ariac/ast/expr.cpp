@@ -55,7 +55,8 @@ namespace ariac {
             case ExprKind::TypeInfo: break;
 
             case ExprKind::Member:
-            case ExprKind::BuiltinMember: {
+            case ExprKind::BuiltinMember:
+            case ExprKind::DependentMember: {
                 MemberExpr& m = e->member;
                 copy->member.member = m.member;
                 copy->member.parent = Expr::dup(m.parent);

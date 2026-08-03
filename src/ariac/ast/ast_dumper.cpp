@@ -126,6 +126,13 @@ namespace ariac {
                 dump_expr(expr->member.parent, indentation + 4);
                 return;
 
+            case ExprKind::DependentMember: m_output += fmt::format("DependentMemberExpr {} '{}'{} '{}' {}\n",
+                source_loc_to_string(expr->loc), expr->member.member, expr->member.implicit_deref ? " implicit_deref" : "",
+                type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
+
+                dump_expr(expr->member.parent, indentation + 4);
+                return;
+
             case ExprKind::Self: m_output += fmt::format("SelfExpr {} '{}' {}\n", 
                 source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind)); 
                 return;

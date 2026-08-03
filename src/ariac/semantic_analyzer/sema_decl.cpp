@@ -13,9 +13,9 @@ namespace ariac {
 
         resolve_type(var.type);
         if (var.type->is_void()) {
-            context.report_compiler_diagnostic(decl->loc, "Cannot declare variable of type 'void'");
+            report_diag(decl->loc, "Cannot declare variable of type 'void'");
         } else if (var.type->is_function()) {
-            context.report_compiler_diagnostic(decl->loc, fmt::format("Cannot declare variable of function type '{}'", type_info_to_string(var.type)));
+            report_diag(decl->loc, fmt::format("Cannot declare variable of function type '{}'", type_info_to_string(var.type)));
         }
 
         if (Decl* dtor = type_get_destructor(var.type)) {
@@ -37,7 +37,7 @@ namespace ariac {
 
         if (m_scopes.size() > 0) {
             if (m_scopes.back().declarations.contains(ident)) {
-                context.report_compiler_diagnostic(decl->loc, fmt::format("Redeclaring symbol '{}'", ident));
+                report_diag(decl->loc, fmt::format("Redeclaring symbol '{}'", ident));
             }
 
             m_scopes.back().declarations[ident] = { var.type, decl, DeclKind::Var };
@@ -51,13 +51,13 @@ namespace ariac {
         resolve_type(param.type);
 
         if (param.type->is_void()) {
-            context.report_compiler_diagnostic(decl->loc, "Cannot declare parameter of type 'void'");
+            report_diag(decl->loc, "Cannot declare parameter of type 'void'");
         } else if (param.type->is_function()) {
-            context.report_compiler_diagnostic(decl->loc, fmt::format("Cannot declare parameter of function type '{}'", type_info_to_string(param.type)));
+            report_diag(decl->loc, fmt::format("Cannot declare parameter of function type '{}'", type_info_to_string(param.type)));
         }
 
         if (m_scopes.back().declarations.contains(param.identifier)) {
-            context.report_compiler_diagnostic(decl->loc, fmt::format("Redeclaring symbol '{}'", param.identifier));
+            report_diag(decl->loc, fmt::format("Redeclaring symbol '{}'", param.identifier));
         }
 
         m_scopes.back().declarations[param.identifier] = { param.type, decl, DeclKind::Param };
@@ -72,15 +72,15 @@ namespace ariac {
         std::string ident = fmt::format("{}", fn.identifier);
         
         if (fn.linkage_kind == LinkageKind::Extern && fn.body) {
-            context.report_compiler_diagnostic(decl->loc, "Function marked 'extern' must not have a body");
+            report_diag(decl->loc, "Function marked 'extern' must not have a body");
         }
 
         if (fn.type->function.variadic == VariadicKind::Unnamed && fn.linkage_kind != LinkageKind::Extern) {
-            context.report_compiler_diagnostic(decl->loc, "C style variadic functions must be marked 'extern'");
+            report_diag(decl->loc, "C style variadic functions must be marked 'extern'");
         }
 
         if (!fn.body && fn.linkage_kind != LinkageKind::Extern) {
-            context.report_compiler_diagnostic_with_notes(decl->loc, "Body for this function must be specified",
+            report_diag_with_notes(decl->loc, "Body for this function must be specified",
                 { "If this function is defined elsewhere, use 'extern'"} );
         }
 
@@ -94,7 +94,7 @@ namespace ariac {
         StructDecl& s = decl->struct_;
         
         if (s.fields.size == 0) {
-            context.report_compiler_diagnostic(decl->loc, "Empty structs are not allowed");
+            report_diag(decl->loc, "Empty structs are not allowed");
         }
         
         for (Decl* field : s.fields) {
@@ -106,12 +106,12 @@ namespace ariac {
         
             if (s.field_lookup.contains(field->field.identifier)) {
                 Decl* prev = s.field_lookup.at(field->field.identifier);
-                context.report_compiler_diagnostic(field->loc, fmt::format("Redeclaring field '{}'", field->field.identifier));
-                context.report_compiler_diagnostic(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
+                report_diag(field->loc, fmt::format("Redeclaring field '{}'", field->field.identifier));
+                report_diag(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
             }
         
             if (field->field.type->is_void()) {
-                context.report_compiler_diagnostic(field->loc, "Cannot declare field of 'void' type");
+                report_diag(field->loc, "Cannot declare field of 'void' type");
                 field->kind = DeclKind::Error;
                 continue;
             }
@@ -126,7 +126,7 @@ namespace ariac {
 
             if (Decl* dtor = type_get_destructor(field->field.type)) {
                 if (!decl->struct_.field_lookup.contains("~")) {
-                    context.report_compiler_diagnostic_with_notes(decl->loc, fmt::format("Field '{}' has a destructor, but the struct does not", field->field.identifier),
+                    report_diag_with_notes(decl->loc, fmt::format("Field '{}' has a destructor, but the struct does not", field->field.identifier),
                         { "Did you mean to provide an empty destructor for this struct?" });
                     return;
                 }
@@ -161,7 +161,7 @@ namespace ariac {
             }
 
             default: {
-                context.report_compiler_diagnostic(decl->loc, fmt::format("'{}' is not a struct", type_info_to_string(i.type)));
+                report_diag(decl->loc, fmt::format("'{}' is not a struct", type_info_to_string(i.type)));
                 decl->kind = DeclKind::Error;
                 return;
             }
@@ -178,12 +178,12 @@ namespace ariac {
                         Decl* prev = i.field_lookup.at(field->method.identifier);
 
                         if (prev->kind == DeclKind::Method) {
-                            context.report_compiler_diagnostic(field->loc, fmt::format("Redeclaring method '{}'", field->method.identifier));
-                            context.report_compiler_diagnostic(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
+                            report_diag(field->loc, fmt::format("Redeclaring method '{}'", field->method.identifier));
+                            report_diag(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
                             continue;
                         } else {
-                            context.report_compiler_diagnostic(field->loc, fmt::format("Redeclaring field '{}' as method", field->method.identifier));
-                            context.report_compiler_diagnostic(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
+                            report_diag(field->loc, fmt::format("Redeclaring field '{}' as method", field->method.identifier));
+                            report_diag(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
                             continue;
                         }
                     }
@@ -197,8 +197,8 @@ namespace ariac {
                     if (s.field_lookup.contains("~")) {
                         Decl* prev = i.field_lookup.at("~");
 
-                        context.report_compiler_diagnostic(field->loc, "Redeclaring destructor");
-                        context.report_compiler_diagnostic(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
+                        report_diag(field->loc, "Redeclaring destructor");
+                        report_diag(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
                         continue;
                     }
 
@@ -232,7 +232,7 @@ namespace ariac {
         resolve_type(e.backing_type);
 
         if (!TypeInfo::get_flattened(e.backing_type)->is_integral()) {
-            context.report_compiler_diagnostic(decl->loc, fmt::format("Backing type for enum must be an integral type but is '{}'", type_info_to_string(e.backing_type)));
+            report_diag(decl->loc, fmt::format("Backing type for enum must be an integral type but is '{}'", type_info_to_string(e.backing_type)));
         }
 
         u64 val = -1;
@@ -245,7 +245,7 @@ namespace ariac {
                 resolve_expr(c.value);
 
                 if (!is_const_expr(c.value)) {
-                    context.report_compiler_diagnostic(c.value->loc, "Value of enum constant must be a constant expression");
+                    report_diag(c.value->loc, "Value of enum constant must be a constant expression");
                 } else {
                     try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Int), c.value);
                     Expr* cons = eval_const_expr(c.value);
@@ -291,9 +291,9 @@ namespace ariac {
 
         if (m_scopes.back().reaches_end) {
             if (fn.type->function.return_type->is_never()) {
-                context.report_compiler_diagnostic(decl->loc, "Function with return type '!' should not return");
+                report_diag(decl->loc, "Function with return type '!' should not return");
             } else if (!fn.type->function.return_type->is_void()) {
-                context.report_compiler_diagnostic(decl->loc, "Missing return statement in function");
+                report_diag(decl->loc, "Missing return statement in function");
             }
         }
 
@@ -329,9 +329,11 @@ namespace ariac {
                         m_specialized_generic_types[gen.parameters.items[i]->generic_parameter.identifier] = spec->function_specilization.types.items[i];
                     }
 
+                    m_generic_instantations.push_back(spec->function_specilization.instantiation_loc);
                     m_replace_generic_types = true;
                     resolve_function_body(spec->function_specilization.source);
                     m_replace_generic_types = false;
+                    m_generic_instantations.pop_back();
                 }
                 break;
             }
@@ -372,7 +374,7 @@ namespace ariac {
         
         if (m_scopes.back().reaches_end) {
             if (!m.type->function.return_type->is_void()) {
-                context.report_compiler_diagnostic(decl->loc, "Missing return statement in method");
+                report_diag(decl->loc, "Missing return statement in method");
             }
         }
         
@@ -426,12 +428,12 @@ namespace ariac {
                     resolve_expr(attr.expr);
 
                     if (!is_const_expr(attr.expr)) {
-                        context.report_compiler_diagnostic(attr.expr->loc, "Expression must be a compile time constant");
+                        report_diag(attr.expr->loc, "Expression must be a compile time constant");
                         break;
                     }
 
                     if (!attr.expr->type->is_boolean()) {
-                        context.report_compiler_diagnostic(attr.expr->loc, "Expression must be of type 'bool'");
+                        report_diag(attr.expr->loc, "Expression must be of type 'bool'");
                         break;
                     }
 
@@ -443,12 +445,12 @@ namespace ariac {
                 case DeclAttributeKind::Builtin: {
                     if (attr.string == "assert") {
                         if (context.assert_func) {
-                            context.report_compiler_diagnostic(decl->loc, "A function for assert is already declared, please remove '@builtin(\"assert\")'");
+                            report_diag(decl->loc, "A function for assert is already declared, please remove '@builtin(\"assert\")'");
                             break;
                         }
 
                         if (decl->kind != DeclKind::Function) {
-                            context.report_compiler_diagnostic(decl->loc, "Builtin for 'assert' must be a function");
+                            report_diag(decl->loc, "Builtin for 'assert' must be a function");
                             break;
                         }
 
@@ -464,19 +466,19 @@ namespace ariac {
                         TypeInfo* fn_ty = TypeInfo::create_function(TypeKind::Function, TypeInfo::get_void(), param_types, VariadicKind::Named);
 
                         if (!type_is_equal(fn_ty, fn.type)) {
-                            context.report_compiler_diagnostic(decl->loc, fmt::format("Builtin for 'assert' must have signature '{}'", type_info_to_string(fn_ty)));
+                            report_diag(decl->loc, fmt::format("Builtin for 'assert' must have signature '{}'", type_info_to_string(fn_ty)));
                             break;
                         }
 
                         context.assert_func = decl;
                     } else if (attr.string == "TypeKind") {
                         if (context.typekind_type) {
-                            context.report_compiler_diagnostic(decl->loc, "A type for TypeKind is already declared, please remove '@builtin(\"TypeKind\")'");
+                            report_diag(decl->loc, "A type for TypeKind is already declared, please remove '@builtin(\"TypeKind\")'");
                             break;
                         } 
 
                         if (decl->kind != DeclKind::Enum) {
-                            context.report_compiler_diagnostic(decl->loc, "Builtin for 'TypeInfo' must be an enum");
+                            report_diag(decl->loc, "Builtin for 'TypeInfo' must be an enum");
                             break;
                         }
 
@@ -484,13 +486,13 @@ namespace ariac {
                         resolve_type(e.backing_type);
 
                         if (e.backing_type->kind != TypeKind::Char) {
-                            context.report_compiler_diagnostic(decl->loc, "Builtin for 'TypeKind' must have backing type 'char'");
+                            report_diag(decl->loc, "Builtin for 'TypeKind' must have backing type 'char'");
                             break;
                         }
 
                         context.typekind_type = decl;
                     } else {
-                        context.report_compiler_diagnostic(decl->loc, fmt::format("Unknown builtin '{}'", attr.string));
+                        report_diag(decl->loc, fmt::format("Unknown builtin '{}'", attr.string));
                     }
 
                     break;
@@ -498,7 +500,7 @@ namespace ariac {
 
                 case DeclAttributeKind::Init: {
                     if (decl->kind != DeclKind::Function) {
-                        context.report_compiler_diagnostic(decl->loc, "Only functions may have '@init'");
+                        report_diag(decl->loc, "Only functions may have '@init'");
                         break;
                     }
 
@@ -506,7 +508,7 @@ namespace ariac {
                     TypeInfo* fn_ty = TypeInfo::create_function(TypeKind::Function, TypeInfo::get_void(), {}, VariadicKind::None);
 
                     if (!type_is_equal(fn_ty, fn.type)) {
-                        context.report_compiler_diagnostic(decl->loc, fmt::format("Function marked '@init' must have signature '{}'", type_info_to_string(fn_ty)));
+                        report_diag(decl->loc, fmt::format("Function marked '@init' must have signature '{}'", type_info_to_string(fn_ty)));
                         break;
                     }
 

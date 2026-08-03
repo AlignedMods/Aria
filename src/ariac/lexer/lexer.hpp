@@ -39,6 +39,8 @@ namespace ariac {
         void add_token_with_number(TokenKind kind, const SourceLoc& loc, double number);
 
         size_t get_column(size_t index);
+        SourceLoc get_loc(size_t len);
+        SourceLoc get_current_loc();
 
     private:
         Tokens m_tokens;

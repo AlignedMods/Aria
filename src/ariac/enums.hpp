@@ -23,6 +23,7 @@ namespace ariac {
         TypeInfo,
         Member,
         BuiltinMember,
+        DependentMember,
         Self,
         Call,
         BuiltinCall,

@@ -238,6 +238,10 @@ namespace ariac {
             return kind == TypeKind::Generic;
         }
 
+        bool is_generic_instantation() const {
+            return kind == TypeKind::GenericInstantiation;
+        }
+
         bool is_unresolved() const {
             return kind == TypeKind::Unresolved;
         }

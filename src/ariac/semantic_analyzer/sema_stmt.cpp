@@ -28,7 +28,7 @@ namespace ariac {
         insert_expr_with_cleanups(wh.condition);
 
         if (!wh.condition->type->is_boolean()) {
-            context.report_compiler_diagnostic(wh.condition->loc, fmt::format("Expression must be of type 'bool' but is '{}'", type_info_to_string(wh.condition->type)));
+            report_diag(wh.condition->loc, fmt::format("Expression must be of type 'bool' but is '{}'", type_info_to_string(wh.condition->type)));
         } else if (is_const_expr(wh.condition)) {
             wh.condition = eval_const_expr(wh.condition);
 
@@ -53,7 +53,7 @@ namespace ariac {
         insert_expr_with_cleanups(wh.condition);
 
         if (!wh.condition->type->is_boolean()) {
-            context.report_compiler_diagnostic(wh.condition->loc, fmt::format("Expression must be of type 'bool' but is'{}'", type_info_to_string(wh.condition->type)));
+            report_diag(wh.condition->loc, fmt::format("Expression must be of type 'bool' but is'{}'", type_info_to_string(wh.condition->type)));
         } else if (is_const_expr(wh.condition)) {
             wh.condition = eval_const_expr(wh.condition);
 
@@ -83,7 +83,7 @@ namespace ariac {
             insert_expr_with_cleanups(fs.condition);
 
             if (!fs.condition->type->is_boolean() && !fs.condition->type->is_error()) {
-                context.report_compiler_diagnostic(fs.condition->loc, fmt::format("For loop condition must be of a boolean type but is '{}'", type_info_to_string(fs.condition->type)));
+                report_diag(fs.condition->loc, fmt::format("For loop condition must be of a boolean type but is '{}'", type_info_to_string(fs.condition->type)));
             } else if (is_const_expr(fs.condition)) {
                 fs.condition = eval_const_expr(fs.condition);
 
@@ -113,7 +113,7 @@ namespace ariac {
         insert_expr_with_cleanups(ifs.condition);
 
         if (!ifs.condition->type->is_boolean()) {
-            context.report_compiler_diagnostic(ifs.condition->loc, fmt::format("Expression must be of type 'bool' but is '{}'", type_info_to_string(ifs.condition->type)));
+            report_diag(ifs.condition->loc, fmt::format("Expression must be of type 'bool' but is '{}'", type_info_to_string(ifs.condition->type)));
         }
 
         push_scope();
@@ -135,7 +135,7 @@ namespace ariac {
         insert_expr_with_cleanups(s.expression);
 
         if (!s.expression->type->is_integral() && !s.expression->type->is_typeid()) {
-            context.report_compiler_diagnostic(s.expression->loc, fmt::format("Expression must be of an integral type but is '{}'", type_info_to_string(s.expression->type)));
+            report_diag(s.expression->loc, fmt::format("Expression must be of an integral type but is '{}'", type_info_to_string(s.expression->type)));
         }
 
         for (Stmt* case_ : s.cases) {
@@ -147,7 +147,7 @@ namespace ariac {
             require_rvalue(c.condition);
 
             if (!is_const_expr(c.condition)) {
-                context.report_compiler_diagnostic(c.condition->loc, "Expression must be a compile time constant");
+                report_diag(c.condition->loc, "Expression must be a compile time constant");
                 c.condition->kind = ExprKind::Error;
             }
 
@@ -161,7 +161,7 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_break_stmt(Stmt* stmt) {
         if (!m_break_target.target) {
-            context.report_compiler_diagnostic(stmt->loc, "Cannot use 'break' here");
+            report_diag(stmt->loc, "Cannot use 'break' here");
         } else {
             m_scopes.back().reaches_end = false;
             stmt->break_.target = m_break_target.target;
@@ -180,7 +180,7 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_continue_stmt(Stmt* stmt) {
         if (!m_continue_target.target) {
-            context.report_compiler_diagnostic(stmt->loc, "Cannot use 'continue' here");
+            report_diag(stmt->loc, "Cannot use 'continue' here");
         } else {
             m_scopes.back().reaches_end = false;
             stmt->continue_.target = m_continue_target.target;
@@ -201,13 +201,13 @@ namespace ariac {
         ReturnStmt& ret = stmt->return_;
         
         if (m_active_return_type == nullptr) {
-            context.report_compiler_diagnostic(stmt->loc, "'return' statement out of function body is not allowed");
+            report_diag(stmt->loc, "'return' statement out of function body is not allowed");
             if (ret.value) { ret.value->type = TypeInfo::get_error(); }
             return;
         }
 
         if (m_active_return_type->is_never()) {
-            context.report_compiler_diagnostic(stmt->loc, "Function with return type '!' should not have any return statement");
+            report_diag(stmt->loc, "Function with return type '!' should not have any return statement");
         }
         
         m_scopes.back().reaches_end = false;
@@ -229,7 +229,7 @@ namespace ariac {
             insert_expr_with_cleanups(ret.value);
         } else {
             if (!m_active_return_type->is_void() && !m_active_return_type->is_never()) {
-                context.report_compiler_diagnostic(stmt->loc, "Missing value for return statement");
+                report_diag(stmt->loc, "Missing value for return statement");
             }
         }
     }
@@ -253,7 +253,7 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_stmt(Stmt* stmt) {
         if (m_scopes.size() > 0 && !m_scopes.back().reaches_end) {
-            context.report_compiler_diagnostic(stmt->loc, "This statement is never reached", CompilerDiagKind::Warning);
+            report_diag(stmt->loc, "This statement is never reached", CompilerDiagKind::Warning);
             stmt->reached = false;
         }
 

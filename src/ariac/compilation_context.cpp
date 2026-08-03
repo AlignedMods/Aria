@@ -127,11 +127,12 @@ namespace ariac {
 
     void CompilationContext::print_diag(CompilerDiagnostic* diag) {
         bool is_tty = isatty(fileno(stdout));
+        CompilationUnit* unit = reinterpret_cast<CompilationUnit*>(diag->loc.unit);
         if (diag->loc.line && diag->loc.col) {
             if (is_tty) {
-                fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", diag->unit->filename, diag->loc.line, diag->loc.col);
+                fmt::print(fg(fmt::color::gray), "{}:{}:{}: ", unit->filename, diag->loc.line, diag->loc.col);
             } else {
-                fmt::print(stderr, "{}:{}:{}: ", diag->unit->filename, diag->loc.line, diag->loc.col);
+                fmt::print(stderr, "{}:{}:{}: ", unit->filename, diag->loc.line, diag->loc.col);
             }
         }
 
@@ -164,10 +165,10 @@ namespace ariac {
         if (diag->loc.line && diag->loc.col) {
             // fmt format strings from: https://hackingcpp.com/cpp/libs/fmt
             if (is_tty) {
-                fmt::print(" {:6} | {}\n", diag->loc.line, get_line(diag->unit->source, diag->loc.line));
+                fmt::print(" {:6} | {}\n", diag->loc.line, get_line(unit->source, diag->loc.line));
                 fmt::print("        | {:>{w}}\n", std::string(diag->loc.len, '^'), fmt::arg("w", diag->loc.col + diag->loc.len - 1));
             } else {
-                fmt::print(stderr, " {:6} | {}\n", diag->loc.line, get_line(diag->unit->source, diag->loc.line));
+                fmt::print(stderr, " {:6} | {}\n", diag->loc.line, get_line(unit->source, diag->loc.line));
                 fmt::print(stderr, "        | {:>{w}}\n", std::string(diag->loc.len, '^'), fmt::arg("w", diag->loc.col + diag->loc.len - 1));
             }
         }

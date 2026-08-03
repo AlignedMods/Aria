@@ -11,14 +11,12 @@ namespace ariac {
         size_t col = 0;
         size_t offset = 0;
         size_t len = 0;
+        void* unit = nullptr;
 
         SourceLoc() = default;
 
-        SourceLoc(size_t line, size_t col, size_t offset)
-            : line(line), col(col), offset(offset), len(0) {}
-
-        SourceLoc(size_t line, size_t col, size_t offset, size_t len)
-            : line(line), col(col), offset(offset), len(len) {}
+        SourceLoc(size_t line, size_t col, size_t offset, size_t len, void* unit)
+            : line(line), col(col), offset(offset), len(len), unit(unit) {}
 
         bool is_valid() const { return len != 0; }
     };

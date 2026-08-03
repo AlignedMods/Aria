@@ -200,7 +200,7 @@ namespace ariac {
                 t->generic_instantiation.base = TypeInfo::dup(type->generic_instantiation.base);
 
                 for (TypeInfo* a : type->generic_instantiation.arguments) {
-                    t->generic_instantiation.arguments.append(a);
+                    t->generic_instantiation.arguments.append(TypeInfo::dup(a));
                 }
 
                 t->generic_instantiation.resolved_decl = type->generic_instantiation.resolved_decl;
@@ -546,9 +546,15 @@ namespace ariac {
         TypeInfo* t = const_cast<TypeInfo*>(this);
 
         while (true) {
-            if (t->is_primitive() || t->is_function() || t->is_struct() || t->is_typedef() || t->is_enum() || t->is_generic() || t->is_unresolved() || t->is_never()) {
-                break;
-            }
+            if (t->is_primitive() || 
+                t->is_function() || 
+                t->is_struct() || 
+                t->is_typedef() || 
+                t->is_enum() || 
+                t->is_generic() || 
+                t->is_generic_instantation() || 
+                t->is_unresolved() || 
+                t->is_never()) { break; }
 
             if (t->is_pointer()) { t = t->pointer.base; continue; }
             if (t->is_array()) { t = t->array.base; continue; }
@@ -725,10 +731,10 @@ namespace ariac {
 
     bool GenericInstantiationType::needs_specilization() {
         for (TypeInfo* arg : arguments) {
-            if (!arg->is_generic()) { return true; }
+            if (arg->is_generic()) { return false; }
         }
 
-        return false;
+        return true;
     }
 
 } // namespace ariac 

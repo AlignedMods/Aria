@@ -14,13 +14,13 @@ namespace ariac {
                 }
 
                 if (t.ident->kind != ExprKind::TypeInfo) {
-                    context.report_compiler_diagnostic(type->loc, fmt::format("'{}' is not a type", t.ident->decl_ref.identifier));
+                    report_diag(type->loc, fmt::format("'{}' is not a type", t.ident->decl_ref.identifier));
                     type->kind = TypeKind::Error;
                     break;
                 }
 
                 if (t.ident->type_info.type->kind == TypeKind::GenericDecl && !m_sema_context.generic_instantiation) {
-                    context.report_compiler_diagnostic(type->loc, fmt::format("Missing generic arguments for '{}'", type_info_to_string(t.ident->type_info.type)));
+                    report_diag(type->loc, fmt::format("Missing generic arguments for '{}'", type_info_to_string(t.ident->type_info.type)));
                     type->kind = TypeKind::Error;
                     break;
                 }
@@ -44,13 +44,13 @@ namespace ariac {
                 resolve_expr(type->array.expression);
 
                 if (!is_const_expr(type->array.expression)) {
-                    context.report_compiler_diagnostic(type->array.expression->loc, "Size of array must be a compile time constant");
+                    report_diag(type->array.expression->loc, "Size of array must be a compile time constant");
                     break;
                 }
 
                 ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(TypeKind::ULong), type->array.expression->type);
                 if (cost.cast_needed && !cost.implicit_cast_possible) {
-                    context.report_compiler_diagnostic(type->array.expression->loc, "Size of array must be convertable to 'ulong'");
+                    report_diag(type->array.expression->loc, "Size of array must be convertable to 'ulong'");
                     break;
                 }
 
@@ -102,7 +102,7 @@ namespace ariac {
                 }
 
                 if (gi.base->kind != TypeKind::GenericDecl) {
-                    context.report_compiler_diagnostic(gi.base->loc, "Non generic type cannot be used for generic instantiation");
+                    report_diag(gi.base->loc, "Non generic type cannot be used for generic instantiation");
                     break;
                 }
 
@@ -115,7 +115,7 @@ namespace ariac {
                 ARIA_ASSERT(g->generic.decl->kind == DeclKind::Struct, "Invalid generic");
 
                 if (gi.arguments.size != g->generic.parameters.size) {
-                    context.report_compiler_diagnostic(type->loc, fmt::format("Mismatched generic instantiation, generic expects {} arguments but got {}", g->generic.parameters.size, gi.arguments.size));
+                    report_diag(type->loc, fmt::format("Mismatched generic instantiation, generic expects {} arguments but got {}", g->generic.parameters.size, gi.arguments.size));
                     break;
                 }
 
@@ -146,7 +146,7 @@ namespace ariac {
 
                     for (Decl* impl : struc->struct_.impls) {
                         if (impl->kind == DeclKind::Generic) {
-                            bool max_val = std::min(gi.arguments.size, impl->generic.parameters.size);
+                            size_t max_val = std::min(gi.arguments.size, impl->generic.parameters.size);
                             for (size_t i = 0; i < max_val; i++) {
                                 m_specialized_generic_types[impl->generic.parameters.items[i]->generic_parameter.identifier] = gi.arguments.items[i];
                             }
@@ -438,6 +438,17 @@ namespace ariac {
             }
         }
 
+        if (src->is_generic_instantation()) {
+            if (src->generic_instantiation.resolved_decl != dst->generic_instantiation.resolved_decl) {
+                cost.explicit_cast_possible = false;
+                cost.implicit_cast_possible = false;
+                return cost;
+            }
+
+            cost.cast_needed = false;
+            return cost;
+        }
+
         cost.explicit_cast_possible = false;
         cost.implicit_cast_possible = false;
         return cost;
@@ -520,7 +531,7 @@ namespace ariac {
         switch (decl->kind) {
             case DeclKind::Struct: {
                 if (decl->resolve_status == ResolveStatus::InProgress) {
-                    context.report_compiler_diagnostic(decl->loc, "Recursive definition of struct");
+                    report_diag(decl->loc, "Recursive definition of struct");
                     return TypeInfo::get_error();
                 } else {
                     CompilationUnit* old_unit = context.active_comp_unit;
@@ -534,7 +545,7 @@ namespace ariac {
 
             case DeclKind::Typedef: {
                 if (decl->resolve_status == ResolveStatus::InProgress) {
-                    context.report_compiler_diagnostic(decl->loc, "Recursive definition of typedef");
+                    report_diag(decl->loc, "Recursive definition of typedef");
                     return TypeInfo::get_error();
                 } else {
                     CompilationUnit* old_unit = context.active_comp_unit;
@@ -548,7 +559,7 @@ namespace ariac {
 
             case DeclKind::Enum: {
                 if (decl->resolve_status == ResolveStatus::InProgress) {
-                    context.report_compiler_diagnostic(decl->loc, "Recursive definition of enum");
+                    report_diag(decl->loc, "Recursive definition of enum");
                     return TypeInfo::get_error();
                 } else {
                     CompilationUnit* old_unit = context.active_comp_unit;
@@ -562,7 +573,7 @@ namespace ariac {
 
             case DeclKind::Generic: {
                 if (decl->resolve_status == ResolveStatus::InProgress) {
-                    context.report_compiler_diagnostic(decl->loc, "Recursive definition of generic");
+                    report_diag(decl->loc, "Recursive definition of generic");
                     return TypeInfo::get_error();
                 } else {
                     CompilationUnit* old_unit = context.active_comp_unit;

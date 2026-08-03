@@ -62,4 +62,28 @@ namespace ariac {
         return path.substr(i + 2);
     }
 
+    void SemanticAnalyzer::report_error(SourceLoc loc, const std::string& error) {
+        report_diag(loc, error, CompilerDiagKind::Error);
+    }
+
+    void SemanticAnalyzer::report_warning(SourceLoc loc, const std::string& error) {
+        report_diag(loc, error, CompilerDiagKind::Warning);
+    }
+
+    void SemanticAnalyzer::report_note(SourceLoc loc, const std::string& error) {
+        report_diag(loc, error, CompilerDiagKind::Note);
+    }
+
+    void SemanticAnalyzer::report_diag(SourceLoc loc, const std::string& error, CompilerDiagKind kind) {
+        report_diag_with_notes(loc, error, {}, kind);
+    }
+
+    void SemanticAnalyzer::report_diag_with_notes(SourceLoc loc, const std::string& error, std::initializer_list<std::string> notes, CompilerDiagKind kind) {
+        context.report_compiler_diagnostic_with_notes(loc, error, notes, kind);
+
+        for (auto it = m_generic_instantations.rbegin(); it != m_generic_instantations.rend(); it++) {
+            context.report_compiler_diagnostic(*it, "Instantiated from here", CompilerDiagKind::Note);
+        }
+    }
+
 } // namespace ariac

@@ -118,12 +118,13 @@ namespace ariac {
     };
 
     struct FunctionSpecilizationDecl {
-        FunctionSpecilizationDecl(TinyVector<TypeInfo*> types, TypeInfo* t)
-            : types(types), type(t) {}
+        FunctionSpecilizationDecl(TinyVector<TypeInfo*> types, TypeInfo* t, SourceLoc instantiation_loc)
+            : types(types), type(t), instantiation_loc(instantiation_loc) {}
 
         TinyVector<TypeInfo*> types;
         TypeInfo* type = nullptr;
         Decl* source = nullptr;
+        SourceLoc instantiation_loc;
     };
 
     struct StructDecl {
