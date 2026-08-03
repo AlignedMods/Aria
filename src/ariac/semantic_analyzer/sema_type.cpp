@@ -19,7 +19,7 @@ namespace ariac {
                     break;
                 }
 
-                if (t.ident->type_info.type->kind == TypeKind::GenericDecl && !m_sema_context.generic_instantiation) {
+                if (t.ident->type_info.type->kind == TypeKind::GenericDecl && !m_sema_context.struct_specilization) {
                     report_diag(type->loc, fmt::format("Missing generic arguments for '{}'", type_info_to_string(t.ident->type_info.type)));
                     type->kind = TypeKind::Error;
                     break;
@@ -80,16 +80,16 @@ namespace ariac {
                 break;
             }
 
-            case TypeKind::GenericInstantiation: {
-                GenericInstantiationType& gi = type->generic_instantiation;
+            case TypeKind::StructSpecilization: {
+                StructSpecilizationType& gi = type->struct_specilization;
 
                 {
                     bool sg_prev_val = m_search_generics;
-                    bool gi_prev_val = m_sema_context.generic_instantiation;
+                    bool gi_prev_val = m_sema_context.struct_specilization;
                     m_search_generics = true;
-                    m_sema_context.generic_instantiation = true;
+                    m_sema_context.struct_specilization = true;
                     resolve_type(gi.base);
-                    m_sema_context.generic_instantiation = gi_prev_val;
+                    m_sema_context.struct_specilization = gi_prev_val;
                     m_search_generics = sg_prev_val;
                 }
 
@@ -438,8 +438,8 @@ namespace ariac {
             }
         }
 
-        if (src->is_generic_instantation()) {
-            if (src->generic_instantiation.resolved_decl != dst->generic_instantiation.resolved_decl) {
+        if (src->is_struct_specilization()) {
+            if (src->struct_specilization.resolved_decl != dst->struct_specilization.resolved_decl) {
                 cost.explicit_cast_possible = false;
                 cost.implicit_cast_possible = false;
                 return cost;

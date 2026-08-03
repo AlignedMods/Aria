@@ -175,7 +175,7 @@ namespace ariac {
             bool address_of : 1;
             bool temporary : 1;
             bool needs_cleanup : 1;
-            bool generic_instantiation : 1;
+            bool struct_specilization : 1;
         } m_sema_context;
 
         std::vector<Decl*> m_generic_types;

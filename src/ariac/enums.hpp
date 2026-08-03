@@ -375,7 +375,7 @@ namespace ariac {
 
         Generic,
         GenericDecl,
-        GenericInstantiation,
+        StructSpecilization,
 
         Unresolved,
         Typeof,

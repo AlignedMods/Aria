@@ -166,7 +166,13 @@ namespace ariac {
                         }
 
                         case DeclKind::Struct: {
-                            replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, TypeInfo::get_typeid(), TypeInfoExpr(type_from_decl(sym))));
+                            if (dr.provides_generic_args) {
+                                TypeInfo* gi = TypeInfo::create_generic_instantation(type_from_decl(sym), dr.generic_arguments, expr->loc);
+                                resolve_type(gi);
+                                replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, TypeInfo::get_typeid(), TypeInfoExpr(gi)));
+                            } else {
+                                replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, TypeInfo::get_typeid(), TypeInfoExpr(type_from_decl(sym))));
+                            }
                             return;
                         }
 
@@ -214,7 +220,7 @@ namespace ariac {
             }
 
             if (m_active_struct) {
-                Decl* struc = m_active_struct->kind == TypeKind::Struct ? m_active_struct->struct_.source_decl : m_active_struct->generic_instantiation.resolved_decl->generic.decl;
+                Decl* struc = m_active_struct->kind == TypeKind::Struct ? m_active_struct->struct_.source_decl : m_active_struct->struct_specilization.resolved_decl->generic.decl;
                 if (struc->struct_.field_lookup.contains(dr.identifier)) {
                     Decl* field = struc->struct_.field_lookup.at(dr.identifier);
                     TypeInfo* mem_type = nullptr;
@@ -378,8 +384,8 @@ namespace ariac {
                     break;
                 }
 
-                case TypeKind::GenericInstantiation: {
-                    GenericInstantiationType& gi = parent_type->generic_instantiation;
+                case TypeKind::StructSpecilization: {
+                    StructSpecilizationType& gi = parent_type->struct_specilization;
 
                     if (!gi.resolved_decl) {
                         expr->kind = ExprKind::DependentMember;
@@ -560,8 +566,8 @@ namespace ariac {
         MemberExpr& m = expr->member;
         resolve_expr(m.parent);
 
-        ARIA_ASSERT(m.parent->type->is_generic_instantation(), "Invalid parent type");
-        if (m.parent->type->generic_instantiation.resolved_decl) {
+        ARIA_ASSERT(m.parent->type->is_struct_specilization(), "Invalid parent type");
+        if (m.parent->type->struct_specilization.resolved_decl) {
             expr->kind = ExprKind::Member;
             resolve_member_expr(expr);
         }
@@ -591,6 +597,7 @@ namespace ariac {
 
         if (call.callee->kind == ExprKind::Error) {
             expr->type = TypeInfo::get_error();
+            expr->kind = ExprKind::Error;
             return;
         } else if (call.callee->kind == ExprKind::TypeInfo) {
             expr->kind = ExprKind::Construct;
@@ -779,6 +786,8 @@ namespace ariac {
         }
 
         switch (expr->type->kind) {
+            case TypeKind::Error: expr->type = TypeInfo::get_error(); break;
+
             case TypeKind::Any: {
                 if (construct.arguments.size > 2) {
                     report_diag(expr->loc, fmt::format("Too many initializers for '{}', expected 2 but got {}", type_info_to_string(expr->type), construct.arguments.size));
@@ -813,8 +822,14 @@ namespace ariac {
                 break;
             }
 
-            case TypeKind::Struct: {
-                Decl* s = expr->type->struct_.source_decl;
+            case TypeKind::Struct:
+            case TypeKind::StructSpecilization: {
+                // Incomplete generic instantiation
+                if (expr->type->is_struct_specilization() && !expr->type->struct_specilization.needs_specilization()) {
+                    break;
+                }
+
+                Decl* s = expr->type->is_struct() ? expr->type->struct_.source_decl : expr->type->struct_specilization.resolved_decl->struct_specilization.source;
 
                 if (construct.arguments.size > s->struct_.fields.size) {
                     report_diag(expr->loc, fmt::format("Too many initializers for '{}', expected {} but got {}", type_info_to_string(expr->type), s->struct_.fields.size, construct.arguments.size));

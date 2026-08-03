@@ -507,15 +507,15 @@ namespace ariac {
             return type_info_to_llvm_type(t->typedef_.base);
         } else if (t->kind == TypeKind::Enum) {
             return type_info_to_llvm_type(t->enum_.source_decl->enum_.backing_type);
-        } else if (t->kind == TypeKind::GenericInstantiation) {
-            Decl* struc = t->generic_instantiation.resolved_decl->struct_specilization.source;
+        } else if (t->kind == TypeKind::StructSpecilization) {
+            Decl* struc = t->struct_specilization.resolved_decl->struct_specilization.source;
             std::string name = fmt::format("{}.{}<", valid_module_name(struc->parent_module->name), struc->struct_.identifier);
 
-            for (size_t i = 0; i < t->generic_instantiation.arguments.size; i++) {
+            for (size_t i = 0; i < t->struct_specilization.arguments.size; i++) {
                 if (i > 0) {
                     name += ", ";
                 }
-                name += type_info_to_string(t->generic_instantiation.arguments.items[i]);
+                name += type_info_to_string(t->struct_specilization.arguments.items[i]);
             }
             name += '>';
 
@@ -663,11 +663,12 @@ namespace ariac {
                 m_active_debug_context.unit->getFile(), (unsigned)t->typedef_.source_decl->loc.line, m_active_debug_context.scope);
         } else if (t->is_enum()) {
             dit = type_info_to_debug_type(t->enum_.source_decl->enum_.backing_type);
-        } else if (t->kind == TypeKind::GenericInstantiation) {
+        } else if (t->is_struct_specilization()) {
             std::vector<llvm::Metadata*> elems;
+            StructDecl& s = t->struct_specilization.resolved_decl->struct_specilization.source->struct_;
 
             u64 offset_bits = 0;
-            for (Decl* d : t->generic_instantiation.resolved_decl->struct_.fields) {
+            for (Decl* d : s.fields) {
                 ARIA_ASSERT(d->kind == DeclKind::Field, "Invalid field");
 
                 llvm::DIType* mem = m_active_debug_context.builder->createMemberType(m_active_debug_context.scope, d->field.identifier, 
@@ -679,7 +680,7 @@ namespace ariac {
             }
 
             dit = m_active_debug_context.builder->createStructType(m_active_debug_context.scope,
-                str_type, m_active_debug_context.scope->getFile(), (unsigned)t->generic_instantiation.resolved_decl->loc.line, (unsigned)t->get_size() * 8, (unsigned)t->get_alignment() * 8,
+                str_type, m_active_debug_context.scope->getFile(), (unsigned)t->struct_specilization.resolved_decl->loc.line, (unsigned)t->get_size() * 8, (unsigned)t->get_alignment() * 8,
                 llvm::DINode::DIFlags::FlagExplicit, nullptr, m_active_debug_context.builder->getOrCreateArray(elems));
         } else {
             ARIA_UNREACHABLE("Invalid type");

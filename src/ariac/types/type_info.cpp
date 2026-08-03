@@ -99,8 +99,8 @@ namespace ariac {
     }
 
     TypeInfo* TypeInfo::create_generic_instantation(TypeInfo* base, TinyVector<TypeInfo*> args, SourceLoc loc) {
-        TypeInfo* t = create_basic(TypeKind::GenericInstantiation, loc);
-        t->generic_instantiation = GenericInstantiationType(base, args);
+        TypeInfo* t = create_basic(TypeKind::StructSpecilization, loc);
+        t->struct_specilization = StructSpecilizationType(base, args);
         return t;
     }
 
@@ -196,14 +196,14 @@ namespace ariac {
                 break;
             }
 
-            case TypeKind::GenericInstantiation: {
-                t->generic_instantiation.base = TypeInfo::dup(type->generic_instantiation.base);
+            case TypeKind::StructSpecilization: {
+                t->struct_specilization.base = TypeInfo::dup(type->struct_specilization.base);
 
-                for (TypeInfo* a : type->generic_instantiation.arguments) {
-                    t->generic_instantiation.arguments.append(TypeInfo::dup(a));
+                for (TypeInfo* a : type->struct_specilization.arguments) {
+                    t->struct_specilization.arguments.append(TypeInfo::dup(a));
                 }
 
-                t->generic_instantiation.resolved_decl = type->generic_instantiation.resolved_decl;
+                t->struct_specilization.resolved_decl = type->struct_specilization.resolved_decl;
                 break;
             }
 
@@ -328,7 +328,7 @@ namespace ariac {
             case TypeKind::Struct:
             case TypeKind::Enum:
             case TypeKind::Generic:
-            case TypeKind::GenericInstantiation:
+            case TypeKind::StructSpecilization:
                 return t;
 
             case TypeKind::Typedef: return t->typedef_.base;
@@ -405,11 +405,11 @@ namespace ariac {
             case TypeKind::Typedef: return typedef_.base->get_size();
             case TypeKind::Enum: return enum_.source_decl->enum_.backing_type->get_size();
 
-            case TypeKind::GenericInstantiation: {
+            case TypeKind::StructSpecilization: {
                 u64 size = 0;
                 u64 alignment = get_alignment();
 
-                for (Decl* field : generic_instantiation.resolved_decl->struct_.fields) {
+                for (Decl* field : struct_specilization.resolved_decl->struct_.fields) {
                     size += align_value(field->field.type->get_size(), alignment);
                 }
 
@@ -527,10 +527,10 @@ namespace ariac {
             case TypeKind::Typedef: return typedef_.base->get_alignment();
             case TypeKind::Enum: return enum_.source_decl->enum_.backing_type->get_alignment();
 
-            case TypeKind::GenericInstantiation: {
+            case TypeKind::StructSpecilization: {
                 u64 alignment = 0;
 
-                for (Decl* field : generic_instantiation.resolved_decl->struct_.fields) {
+                for (Decl* field : struct_specilization.resolved_decl->struct_specilization.source->struct_.fields) {
                     u64 new_alignment = field->field.type->get_alignment();
                     alignment = (new_alignment > alignment) ? new_alignment : alignment;
                 }
@@ -552,7 +552,7 @@ namespace ariac {
                 t->is_typedef() || 
                 t->is_enum() || 
                 t->is_generic() || 
-                t->is_generic_instantation() || 
+                t->is_struct_specilization() || 
                 t->is_unresolved() || 
                 t->is_never()) { break; }
 
@@ -701,12 +701,12 @@ namespace ariac {
                 break;
             }
 
-            case TypeKind::GenericInstantiation: {
-                str = fmt::format("{}<", type_info_to_string(type->generic_instantiation.base, pretty));
+            case TypeKind::StructSpecilization: {
+                str = fmt::format("{}<", type_info_to_string(type->struct_specilization.base, pretty));
 
-                for (size_t i = 0; i < type->generic_instantiation.arguments.size; i++) {
+                for (size_t i = 0; i < type->struct_specilization.arguments.size; i++) {
                     if (i > 0) { str += ", "; }
-                    str += type_info_to_string(type->generic_instantiation.arguments.items[i], pretty);
+                    str += type_info_to_string(type->struct_specilization.arguments.items[i], pretty);
                 }
 
                 str += ">";
@@ -729,7 +729,7 @@ namespace ariac {
         return str;
     }
 
-    bool GenericInstantiationType::needs_specilization() {
+    bool StructSpecilizationType::needs_specilization() {
         for (TypeInfo* arg : arguments) {
             if (arg->is_generic()) { return false; }
         }

@@ -150,9 +150,9 @@ namespace ariac {
                 break;
             }
 
-            case TypeKind::GenericInstantiation: {
-                if (!i.type->generic_instantiation.needs_specilization()) {
-                    i.parent = i.type->generic_instantiation.base->generic.resolved_decl;
+            case TypeKind::StructSpecilization: {
+                if (!i.type->struct_specilization.needs_specilization()) {
+                    i.parent = i.type->struct_specilization.base->generic.resolved_decl;
                     i.parent->generic.decl->struct_.impls.append(decl);
                 } else {
                     ARIA_TODO("Impls for generic instatiations");

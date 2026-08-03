@@ -520,6 +520,7 @@ namespace ariac {
         TinyVector<TypeInfo*> generic_args;
         bool provides_generic_args = false;
         Token ident = t;
+        SourceLoc last_loc = ident.loc;
 
         while (match(TokenKind::ColonColon)) {
             consume();
@@ -543,11 +544,14 @@ namespace ariac {
                 }
             
                 try_consume(TokenKind::Greater, ">");
+                last_loc = peek(-1)->loc;
                 break;
             }
 
             Token* c = try_consume(TokenKind::Identifier, "identifier");
             if (!c) { return &error_expr; }
+
+            last_loc = c->loc;
 
             if (specifier) {
                 Specifier* child = Specifier::Create(ident.loc, SpecifierKind::Name, NameSpecifier(ident.string));
@@ -566,7 +570,7 @@ namespace ariac {
             }
         }
 
-        return Expr::Create(ident.loc, ExprKind::DeclRef,
+        return Expr::Create(ident.loc + last_loc, ExprKind::DeclRef,
                        ExprValueKind::LValue, nullptr, 
                        DeclRefExpr(ident.string, specifier, generic_args, provides_generic_args));
     }
@@ -910,8 +914,8 @@ namespace ariac {
         
                     try_consume(TokenKind::Greater, ">");
         
-                    type->generic_instantiation = GenericInstantiationType(TypeInfo::dup(type), args);
-                    type->kind = TypeKind::GenericInstantiation;
+                    type->struct_specilization = StructSpecilizationType(TypeInfo::dup(type), args);
+                    type->kind = TypeKind::StructSpecilization;
         
                     type->loc += peek(-1)->loc;
                 }

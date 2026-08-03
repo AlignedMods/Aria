@@ -88,8 +88,8 @@ namespace ariac {
         Decl* generic = nullptr;
     };
 
-    struct GenericInstantiationType {
-        GenericInstantiationType(TypeInfo* base, TinyVector<TypeInfo*> args)
+    struct StructSpecilizationType {
+        StructSpecilizationType(TypeInfo* base, TinyVector<TypeInfo*> args)
             : base(base), arguments(args) {}
 
         // Checks if this instatiation actually needs to specialize a type
@@ -123,7 +123,7 @@ namespace ariac {
             EnumType enum_;
             GenericType generic;
             GenericDeclType generic_decl;
-            GenericInstantiationType generic_instantiation;
+            StructSpecilizationType struct_specilization;
             UnresolvedType unresolved;
             TypeofType typeof;
 
@@ -238,8 +238,8 @@ namespace ariac {
             return kind == TypeKind::Generic;
         }
 
-        bool is_generic_instantation() const {
-            return kind == TypeKind::GenericInstantiation;
+        bool is_struct_specilization() const {
+            return kind == TypeKind::StructSpecilization;
         }
 
         bool is_unresolved() const {

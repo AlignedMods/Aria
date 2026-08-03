@@ -108,8 +108,8 @@ namespace ariac {
                         break;
                     }
 
-                    case TypeKind::GenericInstantiation: {
-                        fields = type->generic_instantiation.resolved_decl->struct_specilization.source->struct_.fields;
+                    case TypeKind::StructSpecilization: {
+                        fields = type->struct_specilization.resolved_decl->struct_specilization.source->struct_.fields;
                         break;
                     }
 
@@ -331,7 +331,8 @@ namespace ariac {
             }
 
             case TypeKind::Any:
-            case TypeKind::Struct: {
+            case TypeKind::Struct:
+            case TypeKind::StructSpecilization: {
                 if (ct.is_const) {
                     std::vector<llvm::Constant*> fields;
                     for (Expr* arg : ct.arguments) {
