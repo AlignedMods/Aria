@@ -9,8 +9,8 @@ namespace ariac {
             resolve_stmt(s);
         }
 
-        if (m_scopes.back().reaches_end) {
-            auto& scope = m_scopes.back();
+        if (m_functions.back().scopes.back().reaches_end) {
+            auto& scope = m_functions.back().scopes.back();
 
             for (auto it = scope.defers.rbegin(); it != scope.defers.rend(); it++) {
                 Stmt* d = *it;
@@ -33,7 +33,7 @@ namespace ariac {
             wh.condition = eval_const_expr(wh.condition);
 
             if (wh.condition->const_.boolean && wh.body->block.stmts.size == 0) {
-                m_scopes.back().reaches_end = false;
+                m_functions.back().scopes.back().reaches_end = false;
                 wh.infinite = true;
             }
         }
@@ -58,7 +58,7 @@ namespace ariac {
             wh.condition = eval_const_expr(wh.condition);
 
             if (wh.condition->const_.boolean && wh.body->block.stmts.size == 0) {
-                m_scopes.back().reaches_end = false;
+                m_functions.back().scopes.back().reaches_end = false;
                 wh.infinite = true;
             }
         }
@@ -88,13 +88,13 @@ namespace ariac {
                 fs.condition = eval_const_expr(fs.condition);
 
                 if (fs.condition->const_.boolean && fs.body->block.stmts.size == 0) {
-                    m_scopes.at(m_scopes.size() - 2).reaches_end = false;
+                    m_functions.back().scopes.at(m_functions.back().scopes.size() - 2).reaches_end = false;
                     fs.infinite = true;
                 }
             }
         } else {
             if (fs.body->block.stmts.size == 0) {
-                m_scopes.at(m_scopes.size() - 2).reaches_end = false;
+                m_functions.back().scopes.at(m_functions.back().scopes.size() - 2).reaches_end = false;
                 fs.infinite = true;
             }
         }
@@ -163,10 +163,10 @@ namespace ariac {
         if (!m_break_target.target) {
             report_diag(stmt->loc, "Cannot use 'break' here");
         } else {
-            m_scopes.back().reaches_end = false;
+            m_functions.back().scopes.back().reaches_end = false;
             stmt->break_.target = m_break_target.target;
 
-            for (auto it = m_scopes.rbegin(); it != m_break_target.scope; it++) {
+            for (auto it = m_functions.back().scopes.rbegin(); it != m_break_target.scope; it++) {
                 auto& scope = *it;
 
                 for (auto it2 = scope.defers.rbegin(); it2 != scope.defers.rend(); it2++) {
@@ -182,10 +182,10 @@ namespace ariac {
         if (!m_continue_target.target) {
             report_diag(stmt->loc, "Cannot use 'continue' here");
         } else {
-            m_scopes.back().reaches_end = false;
+            m_functions.back().scopes.back().reaches_end = false;
             stmt->continue_.target = m_continue_target.target;
 
-            for (auto it = m_scopes.rbegin(); it != m_continue_target.scope; it++) {
+            for (auto it = m_functions.back().scopes.rbegin(); it != m_continue_target.scope; it++) {
                 auto& scope = *it;
 
                 for (auto it2 = scope.defers.rbegin(); it2 != scope.defers.rend(); it2++) {
@@ -199,20 +199,14 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_return_stmt(Stmt* stmt) {
         ReturnStmt& ret = stmt->return_;
-        
-        if (m_active_return_type == nullptr) {
-            report_diag(stmt->loc, "'return' statement out of function body is not allowed");
-            if (ret.value) { ret.value->type = TypeInfo::get_error(); }
-            return;
-        }
 
-        if (m_active_return_type->is_never()) {
+        if (m_functions.back().return_type->is_never()) {
             report_diag(stmt->loc, "Function with return type '!' should not have any return statement");
         }
         
-        m_scopes.back().reaches_end = false;
+        m_functions.back().scopes.back().reaches_end = false;
 
-        for (auto it = m_scopes.rbegin(); it != m_scopes.rend(); it++) {
+        for (auto it = m_functions.back().scopes.rbegin(); it != m_functions.back().scopes.rend(); it++) {
             auto& scope = *it;
 
             for (auto it2 = scope.defers.rbegin(); it2 != scope.defers.rend(); it2++) {
@@ -224,11 +218,11 @@ namespace ariac {
 
         if (ret.value) {
             resolve_expr(ret.value);
-            try_insert_implicit_cast(m_active_return_type, ret.value);
+            try_insert_implicit_cast(m_functions.back().return_type, ret.value);
             require_rvalue(ret.value);
             insert_expr_with_cleanups(ret.value);
         } else {
-            if (!m_active_return_type->is_void() && !m_active_return_type->is_never()) {
+            if (!m_functions.back().return_type->is_void() && !m_functions.back().return_type->is_never()) {
                 report_diag(stmt->loc, "Missing value for return statement");
             }
         }
@@ -237,7 +231,7 @@ namespace ariac {
     void SemanticAnalyzer::resolve_defer_stmt(Stmt* stmt) {
         DeferStmt& defer = stmt->defer;
         resolve_stmt(defer.statement);
-        m_scopes.back().defers.push_back(defer.statement);
+        m_functions.back().scopes.back().defers.push_back(defer.statement);
     }
 
     void SemanticAnalyzer::resolve_expr_stmt(Stmt* stmt) {
@@ -252,7 +246,7 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_stmt(Stmt* stmt) {
-        if (m_scopes.size() > 0 && !m_scopes.back().reaches_end) {
+        if (!m_functions.back().scopes.back().reaches_end) {
             report_diag(stmt->loc, "This statement is never reached", CompilerDiagKind::Warning);
             stmt->reached = false;
         }
@@ -265,8 +259,8 @@ namespace ariac {
                 push_scope();
                 resolve_block_stmt(stmt);
 
-                if (!m_scopes.back().reaches_end) {
-                    m_scopes[m_scopes.size() - 2].reaches_end = false;
+                if (!m_functions.back().scopes.back().reaches_end) {
+                    m_functions.back().scopes[m_functions.back().scopes.size() - 2].reaches_end = false;
                 }
 
                 pop_scope(); 

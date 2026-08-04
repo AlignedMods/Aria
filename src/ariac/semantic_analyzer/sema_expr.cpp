@@ -124,6 +124,13 @@ namespace ariac {
 
                             for (TypeInfo* t : dr.generic_arguments) {
                                 resolve_type(t);
+
+                                // If we have any non expanded generic parameters, don't create any instantiations
+                                if (t->is_generic()) {
+                                    dr.referenced_decl = sym;
+                                    expr->type = sym->generic.decl->function.type;
+                                    return;
+                                }
                             }
 
                             Decl* specilization = nullptr;
@@ -138,26 +145,43 @@ namespace ariac {
                                 if (!failed) { specilization = i; }
                             }
 
+                            // Create instantiation if needed
                             if (!specilization) {
+                                GenericInstantationContext ctx;
+                                ctx.loc = expr->loc;
+
                                 for (size_t i = 0; i < dr.generic_arguments.size; i++) {
                                     Decl* gen_param = sym->generic.parameters.items[i];
                                     TypeInfo* gen_arg = dr.generic_arguments.items[i];
                                     ARIA_ASSERT(gen_param->kind == DeclKind::GenericParameter, "Invalid generic parameter");
-
-                                    m_specialized_generic_types[gen_param->generic_parameter.identifier] = gen_arg;
+                                    ctx.generic_types[gen_param->generic_parameter.identifier] = gen_arg;
                                 }
 
+                                m_generic_instantations.push_back(ctx);
+
                                 TypeInfo* new_type = TypeInfo::dup(sym->generic.decl->function.type);
-
-                                bool prev_val = m_replace_generic_types;
-                                m_replace_generic_types = true;
                                 resolve_type(new_type);
-                                m_replace_generic_types = false;
-
                                 specilization = Decl::Create(sym->loc, DeclKind::FunctionSpecilization, sym->visibility, FunctionSpecilizationDecl(dr.generic_arguments, new_type, expr->loc));
                                 specilization->parent_module = sym->parent_module;
                                 specilization->parent_unit = sym->parent_unit;
+
+                                if (sym->generic.decl->resolve_status == ResolveStatus::NotStarted) {
+                                    size_t size = m_generic_types.size();
+                                    for (Decl* p : sym->generic.parameters) { m_generic_types.push_back(p); }
+                                    resolve_function_body(sym->generic.decl);
+                                    m_generic_types.resize(size);
+                                }
+
+                                Decl* func = Decl::dup(sym->generic.decl);
+                                func->parent_module = sym->parent_module;
+                                func->parent_unit = sym->parent_unit;
+
+                                func->function.type = specilization->function_specilization.type;
+                                specilization->function_specilization.source = func;
+                                resolve_function_body(func);
+
                                 sym->generic.specilizations.append(specilization);
+                                m_generic_instantations.pop_back();
                             }
 
                             dr.referenced_decl = specilization;
@@ -219,8 +243,8 @@ namespace ariac {
                 dr.referenced_decl = sym;
             }
 
-            if (m_active_struct) {
-                Decl* struc = m_active_struct->kind == TypeKind::Struct ? m_active_struct->struct_.source_decl : m_active_struct->struct_specilization.resolved_decl->generic.decl;
+            if (m_functions.back().struct_type) {
+                Decl* struc = m_functions.back().struct_type->kind == TypeKind::Struct ? m_functions.back().struct_type->struct_.source_decl : m_functions.back().struct_type->struct_specilization.resolved_decl->generic.decl;
                 if (struc->struct_.field_lookup.contains(dr.identifier)) {
                     Decl* field = struc->struct_.field_lookup.at(dr.identifier);
                     TypeInfo* mem_type = nullptr;
@@ -233,7 +257,7 @@ namespace ariac {
                     }
 
                     Expr* self = Expr::Create(expr->loc, ExprKind::Self, 
-                        ExprValueKind::LValue, TypeInfo::create_pointer(m_active_struct, false), 
+                        ExprValueKind::LValue, TypeInfo::create_pointer(m_functions.back().struct_type, false), 
                         ErrorExpr());
 
                     Expr* member = Expr::Create(expr->loc, ExprKind::Member,
@@ -256,7 +280,7 @@ namespace ariac {
                 }
             }
 
-            for (auto& scope : m_scopes) {
+            for (auto& scope : m_functions.back().scopes) {
                 if (scope.declarations.contains(dr.identifier)) {
                     sym = scope.declarations.at(dr.identifier).source_decl;
                     dr.referenced_decl = sym;
@@ -574,14 +598,14 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_self_expr(Expr* expr) {
-        if (!m_active_struct) {
+        if (!m_functions.back().struct_type) {
             report_diag(expr->loc, "Cannot use 'self' outside of a method");
             expr->type = TypeInfo::get_error();
             return;
         }
 
         if (!expr->type) {
-            expr->type = TypeInfo::create_pointer(m_active_struct, false);
+            expr->type = TypeInfo::create_pointer(m_functions.back().struct_type, false);
         }
 
         resolve_type(expr->type);
@@ -656,7 +680,7 @@ namespace ariac {
         }
 
         if (fn_type->return_type->is_never()) {
-            m_scopes.back().reaches_end = false;
+            m_functions.back().scopes.back().reaches_end = false;
         }
 
         if (fn_type->param_types.size != call.arguments.size && !fn_type->is_variadic()) {
@@ -1461,6 +1485,8 @@ namespace ariac {
             case ExprKind::BinaryOperator:
                 return is_const_expr(expr->binary_operator.lhs) && is_const_expr(expr->binary_operator.rhs);
 
+            case ExprKind::Const: return true;
+
             default: return false;
         }
     }
@@ -1469,6 +1495,9 @@ namespace ariac {
         ARIA_ASSERT(is_const_expr(expr), "Cannot evaulate a non-constant expression");
 
         switch (expr->kind) {
+            // Already evaluated
+            case ExprKind::Const: return expr;
+
             case ExprKind::Error: 
                 return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Error));
 

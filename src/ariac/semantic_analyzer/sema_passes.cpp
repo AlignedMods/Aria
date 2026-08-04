@@ -61,12 +61,6 @@ namespace ariac {
                 resolve_unit_code(mod, unit);
             }
         }
-
-        for (Module* mod : context.modules) {
-            for (CompilationUnit* unit : mod->units) {
-                resolve_unit_generic_code(mod, unit);
-            }
-        }
     }
 
     void SemanticAnalyzer::resolve_module_heirarchy(Module* module) {
@@ -449,29 +443,17 @@ namespace ariac {
                     break;
                 }
 
-                case DeclKind::Generic: break;
+                case DeclKind::Generic: {
+                    if (func->generic.decl->resolve_status == ResolveStatus::NotStarted) {
+                        size_t size = m_generic_types.size();
+                        for (Decl* p : func->generic.parameters) { m_generic_types.push_back(p); }
+                        resolve_function_body(func->generic.decl);
+                        m_generic_types.resize(size);
+                    }
+                    break;
+                }
 
                 default: ARIA_UNREACHABLE("Invalid function");
-            }
-        }
-    }
-
-    void SemanticAnalyzer::resolve_unit_generic_code(Module* module, CompilationUnit* unit) {
-        for (Decl* func : unit->funcs) {
-            switch (func->kind) {
-                case DeclKind::Function: break;
-                case DeclKind::Generic: resolve_generic_body(func); break;
-
-                default: ARIA_UNREACHABLE("Invalid generic");
-            }
-        }
-
-        for (Decl* impl : unit->impls) {
-            switch (impl->kind) {
-                case DeclKind::Impl: break;
-                case DeclKind::Generic: resolve_generic_body(impl); break;
-
-                default: ARIA_UNREACHABLE("Invalid generic");
             }
         }
     }

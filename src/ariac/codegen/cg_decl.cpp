@@ -173,15 +173,17 @@ namespace ariac {
             if (fn.linkage_kind == LinkageKind::Extern) {
                 sig = fn.identifier;
             } else {
-                sig = fmt::format("{}.{}", valid_module_name(decl->parent_module->name), fn.identifier);
+                sig = fmt::format("_A{}{}{}", mangle_module(decl->parent_module), fn.identifier.length(), fn.identifier);
             }
 
             llvm::Type* fn_ty = type_info_to_llvm_type(fn.type);
             function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), linkage_kind_to_llvm(fn.linkage_kind), 0, sig, m_active_module_context.module);
         } else if (decl->kind == DeclKind::FunctionSpecilization) {
             FunctionSpecilizationDecl& fn = decl->function_specilization;
-            sig = fmt::format("{}.{}__G{}", valid_module_name(decl->parent_module->name), fn.source->function.identifier, fn.types.size);
-            for (TypeInfo* t : fn.types) { sig += mangle_type(t); }
+            sig = fmt::format("_A{}{}{}G", mangle_module(decl->parent_module), fn.source->function.identifier.length(), fn.source->function.identifier);
+            for (TypeInfo* t : fn.types) {
+                sig += mangle_type(t);
+            }
 
             llvm::Type* fn_ty = type_info_to_llvm_type(fn.source->function.type);
             function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), linkage_kind_to_llvm(fn.source->function.linkage_kind), 0, sig, m_active_module_context.module);

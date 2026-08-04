@@ -38,6 +38,16 @@ namespace ariac {
             std::vector<Scope>::reverse_iterator scope;
         };
 
+        struct FunctionContext {
+            TypeInfo* return_type = nullptr;
+            TypeInfo* struct_type = nullptr;
+            std::vector<Scope> scopes;
+        };
+
+        struct GenericInstantationContext {
+            std::unordered_map<std::string_view, TypeInfo*> generic_types;
+            SourceLoc loc;
+        };
 
     public:
         SemanticAnalyzer();
@@ -59,7 +69,6 @@ namespace ariac {
         void resolve_unit_type_decls(Module* module, CompilationUnit* unit);
         void resolve_unit_decls(Module* module, CompilationUnit* unit);
         void resolve_unit_code(Module* module, CompilationUnit* unit);
-        void resolve_unit_generic_code(Module* module, CompilationUnit* unit);
 
         void resolve_boolean_literal_expr(Expr* expr);
         void resolve_character_literal_expr(Expr* expr);
@@ -102,7 +111,6 @@ namespace ariac {
         void resolve_generic_decl(Decl* decl);
 
         void resolve_function_body(Decl* decl);
-        void resolve_generic_body(Decl* decl);
         void resolve_impl_body(Decl* decl);
         void resolve_method_body(Decl* decl);
         void resolve_destructor_body(Decl* decl);
@@ -171,23 +179,17 @@ namespace ariac {
 
     private:
         struct {
-            bool call : 1;
-            bool address_of : 1;
-            bool temporary : 1;
-            bool needs_cleanup : 1;
-            bool struct_specilization : 1;
+            bool call : 1 = false;
+            bool address_of : 1 = false;
+            bool temporary : 1 = false;
+            bool needs_cleanup : 1 = false;
+            bool struct_specilization : 1 = false;
+            bool search_generics : 1 = false;
         } m_sema_context;
 
+        std::vector<FunctionContext> m_functions;
+        std::vector<GenericInstantationContext> m_generic_instantations;
         std::vector<Decl*> m_generic_types;
-        std::unordered_map<std::string_view, TypeInfo*> m_specialized_generic_types;
-        bool m_replace_generic_types = false;
-        bool m_search_generics = false;
-
-        std::vector<Scope> m_scopes;
-        TypeInfo* m_active_return_type = nullptr;
-        TypeInfo* m_active_struct = nullptr;
-
-        std::vector<SourceLoc> m_generic_instantations;
 
         JumpTarget m_break_target;
         JumpTarget m_continue_target;

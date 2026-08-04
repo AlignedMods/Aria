@@ -73,10 +73,11 @@ namespace ariac {
 
             case TypeKind::Generic: {
                 GenericType& g = type->generic;
-                if (m_replace_generic_types) {
-                    ARIA_ASSERT(m_specialized_generic_types.contains(g.identifier), "Invalid generic specilization type");
-                    *type = *m_specialized_generic_types.at(g.identifier);
-                }
+
+                if (m_generic_instantations.empty()) { break; }
+
+                ARIA_ASSERT(m_generic_instantations.back().generic_types.contains(g.identifier), "Invalid generic specilization type");
+                *type = *m_generic_instantations.back().generic_types.at(g.identifier);
                 break;
             }
 
@@ -84,13 +85,10 @@ namespace ariac {
                 StructSpecilizationType& gi = type->struct_specilization;
 
                 {
-                    bool sg_prev_val = m_search_generics;
                     bool gi_prev_val = m_sema_context.struct_specilization;
-                    m_search_generics = true;
                     m_sema_context.struct_specilization = true;
                     resolve_type(gi.base);
                     m_sema_context.struct_specilization = gi_prev_val;
-                    m_search_generics = sg_prev_val;
                 }
 
                 for (TypeInfo* t : gi.arguments) {
@@ -132,36 +130,37 @@ namespace ariac {
                 }
 
                 if (!specilization) {
-                    Decl* struc = Decl::dup(g->generic.decl);
-                    struc->parent_module = g->parent_module;
-                    struc->parent_unit = g->parent_unit;
-                    specilization = Decl::Create(g->loc, DeclKind::StructSpecilization, g->visibility, StructSpecilizationDecl(gi.arguments, struc, struc->struct_.impls));
-                    specilization->parent_module = g->parent_module;
-                    specilization->parent_unit = g->parent_unit;
-                    g->generic.specilizations.append(specilization);
-
-                    for (size_t i = 0; i < gi.arguments.size; i++) {
-                        m_specialized_generic_types[g->generic.parameters.items[i]->generic_parameter.identifier] = gi.arguments.items[i];
-                    }
-
-                    for (Decl* impl : struc->struct_.impls) {
-                        if (impl->kind == DeclKind::Generic) {
-                            size_t max_val = std::min(gi.arguments.size, impl->generic.parameters.size);
-                            for (size_t i = 0; i < max_val; i++) {
-                                m_specialized_generic_types[impl->generic.parameters.items[i]->generic_parameter.identifier] = gi.arguments.items[i];
-                            }
-                        }
-                    }
-
-                    bool prev_val = m_replace_generic_types;
-                    m_replace_generic_types = true;
-
-                    for (Decl* impl : struc->struct_.impls) {
-                        resolve_impl_decl(impl);
-                    }
-
-                    resolve_struct_decl(struc);
-                    m_replace_generic_types = prev_val;
+                    ARIA_TODO("Struct specilization");
+                    // Decl* struc = Decl::dup(g->generic.decl);
+                    // struc->parent_module = g->parent_module;
+                    // struc->parent_unit = g->parent_unit;
+                    // specilization = Decl::Create(g->loc, DeclKind::StructSpecilization, g->visibility, StructSpecilizationDecl(gi.arguments, struc, struc->struct_.impls));
+                    // specilization->parent_module = g->parent_module;
+                    // specilization->parent_unit = g->parent_unit;
+                    // g->generic.specilizations.append(specilization);
+                    // 
+                    // for (size_t i = 0; i < gi.arguments.size; i++) {
+                    //     m_specialized_generic_types[g->generic.parameters.items[i]->generic_parameter.identifier] = gi.arguments.items[i];
+                    // }
+                    // 
+                    // for (Decl* impl : struc->struct_.impls) {
+                    //     if (impl->kind == DeclKind::Generic) {
+                    //         size_t max_val = std::min(gi.arguments.size, impl->generic.parameters.size);
+                    //         for (size_t i = 0; i < max_val; i++) {
+                    //             m_specialized_generic_types[impl->generic.parameters.items[i]->generic_parameter.identifier] = gi.arguments.items[i];
+                    //         }
+                    //     }
+                    // }
+                    // 
+                    // bool prev_val = m_replace_generic_types;
+                    // m_replace_generic_types = true;
+                    // 
+                    // for (Decl* impl : struc->struct_.impls) {
+                    //     resolve_impl_decl(impl);
+                    // }
+                    // 
+                    // resolve_struct_decl(struc);
+                    // m_replace_generic_types = prev_val;
                 }
 
                 gi.resolved_decl = specilization;

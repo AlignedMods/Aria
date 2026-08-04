@@ -459,8 +459,8 @@ namespace ariac {
                 }
             }
 
+            case TypeKind::Array: return get_size() * 8;
             case TypeKind::Slice: return get_size() * 8;
-
             case TypeKind::Struct: return get_size() * 8;
 
             case TypeKind::Typedef: return typedef_.base->get_bit_size();
@@ -503,6 +503,8 @@ namespace ariac {
 
                 return 0;
             }
+
+            case TypeKind::Array: return array.base->get_alignment();
 
             case TypeKind::String:
             case TypeKind::Slice: {

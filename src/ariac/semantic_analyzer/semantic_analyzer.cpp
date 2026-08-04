@@ -16,19 +16,19 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::push_scope() {
-        m_scopes.emplace_back();
+        m_functions.back().scopes.emplace_back();
     }
 
     void SemanticAnalyzer::pop_scope() {
-        m_scopes.pop_back();
+        m_functions.back().scopes.pop_back();
     }
 
     std::pair<SemanticAnalyzer::JumpTarget, SemanticAnalyzer::JumpTarget> SemanticAnalyzer::set_break_targets(Stmt* b, Stmt* c) {
         JumpTarget prevb = m_break_target;
         JumpTarget prevc = m_continue_target;
 
-        m_break_target = { b, m_scopes.rbegin() };
-        m_continue_target = { c, m_scopes.rbegin() };
+        m_break_target = { b, m_functions.back().scopes.rbegin() };
+        m_continue_target = { c, m_functions.back().scopes.rbegin() };
 
         return { prevb, prevc };
     }
@@ -82,7 +82,7 @@ namespace ariac {
         context.report_compiler_diagnostic_with_notes(loc, error, notes, kind);
 
         for (auto it = m_generic_instantations.rbegin(); it != m_generic_instantations.rend(); it++) {
-            context.report_compiler_diagnostic(*it, "Instantiated from here", CompilerDiagKind::Note);
+            context.report_compiler_diagnostic(it->loc, "Instantiated from here", CompilerDiagKind::Note);
         }
     }
 

@@ -35,18 +35,18 @@ impl StringStream {
     }
 
     // Integer formatting
-    fn append_int(l: long) -> void {
+    fn append_int(l: long, base: uint) -> void {
         let u = cast(ulong, l);
     
         if (l < 0) {
             append_char('-');
-            append_uint(u);
+            append_uint(u, base);
         } else {
-            append_uint(u);
+            append_uint(u, base);
         }
     }
 
-    fn append_uint(u: ulong) -> void {
+    fn append_uint(u: ulong, base: uint) -> void {
         let buf: [32]char;
         let i: isz;
 
@@ -76,43 +76,13 @@ impl StringStream {
             return;
         }
 
-        if arg.type == short {
-            append_int(core::any_cast::<short>(arg));
+        if arg.type.kind == TypeKind.SIGNED_INT {
+            append_int(core::any_to_int::<long>(arg), 10);
             return;
         }
 
-        if arg.type == ushort {
-            append_uint(core::any_cast::<ushort>(arg));
-            return;
-        }
-
-        if arg.type == int {
-            append_int(core::any_cast::<int>(arg));
-            return;
-        }
-
-        if arg.type == uint {
-            append_uint(core::any_cast::<uint>(arg));
-            return;
-        }
-
-        if arg.type == long {
-            append_int(core::any_cast::<long>(arg));
-            return;
-        }
-
-        if arg.type == ulong {
-            append_uint(core::any_cast::<ulong>(arg));
-            return;
-        }
-
-        if arg.type == sz {
-            append_uint(core::any_cast::<sz>(arg));
-            return;
-        }
-
-        if arg.type == isz {
-            append_int(core::any_cast::<isz>(arg));
+        if arg.type.kind == TypeKind.UNSIGNED_INT {
+            append_uint(core::any_to_int::<ulong>(arg), 10);
             return;
         }
 
@@ -123,6 +93,15 @@ impl StringStream {
 
         if arg.type == any {
             append_any(&&core::any_cast::<any>(arg));
+            return;
+        }
+
+        if arg.type.kind == TypeKind.POINTER {
+            let val = core::any_cast::<sz>(arg);
+            
+            if val == 0 { append_string("(null)"); return; }
+
+            append_int(val, 16);
             return;
         }
 

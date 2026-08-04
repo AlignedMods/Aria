@@ -692,30 +692,30 @@ namespace ariac {
 
     std::string Codegen::mangle_type(TypeInfo* t) {
         switch (t->kind) {
-            case TypeKind::Void: return "void";
-            case TypeKind::Bool: return "bool";
-            case TypeKind::Char: return "char";
-            case TypeKind::IChar: return "ichar";
-            case TypeKind::Short: return "short";
-            case TypeKind::UShort: return "ushort";
-            case TypeKind::Int: return "int";
-            case TypeKind::UInt: return "uint";
-            case TypeKind::Long: return "long";
-            case TypeKind::ULong: return "ulong";
+            case TypeKind::Void: return "4void";
+            case TypeKind::Bool: return "4bool";
+            case TypeKind::Char: return "4char";
+            case TypeKind::IChar: return "5ichar";
+            case TypeKind::Short: return "5short";
+            case TypeKind::UShort: return "6ushort";
+            case TypeKind::Int: return "3int";
+            case TypeKind::UInt: return "4uint";
+            case TypeKind::Long: return "4long";
+            case TypeKind::ULong: return "5ulong";
 
-            case TypeKind::Sz: return "sz";
-            case TypeKind::Isz: return "isz";
+            case TypeKind::Sz: return "2sz";
+            case TypeKind::Isz: return "3isz";
 
-            case TypeKind::Float: return "float";
-            case TypeKind::Double: return "double";
+            case TypeKind::Float: return "5float";
+            case TypeKind::Double: return "6double";
 
-            case TypeKind::String: return "string";
+            case TypeKind::String: return "6string";
 
-            case TypeKind::Typeid: return "typeid";
-            case TypeKind::Any: return "any";
+            case TypeKind::Typeid: return "6typeid";
+            case TypeKind::Any: return "3any";
 
             case TypeKind::Pointer: return fmt::format("P{}", mangle_type(t->pointer.base));
-            case TypeKind::Array: return fmt::format("A{}{}", t->array.size, mangle_type(t->array.base));
+            case TypeKind::Array: return fmt::format("A{}.{}", t->array.size, mangle_type(t->array.base));
             case TypeKind::Slice: return fmt::format("S{}", mangle_type(t->slice.base));
 
             case TypeKind::Struct: return fmt::format("{}.{}", valid_module_name(t->struct_.source_decl->parent_module->name), t->struct_.identifier);
@@ -724,6 +724,11 @@ namespace ariac {
 
             default: ARIA_UNREACHABLE("Invalid type kind");
         }
+    }
+
+    std::string Codegen::mangle_module(Module* mod) {
+        std::string valid_name = valid_module_name(mod->name);
+        return fmt::format("{}{}", valid_name.length(), valid_name);
     }
 
     llvm::GlobalValue::LinkageTypes Codegen::linkage_kind_to_llvm(LinkageKind kind) {

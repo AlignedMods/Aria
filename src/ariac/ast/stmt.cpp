@@ -31,6 +31,24 @@ namespace ariac {
                 break;
             }
 
+            case StmtKind::Switch: {
+                SwitchStmt& sw = s->switch_;
+                copy->switch_.expression = Expr::dup(sw.expression);
+                
+                for (Stmt* c : sw.cases) {
+                    copy->switch_.cases.append(Stmt::dup(c));
+                }
+
+                break;
+            }
+
+            case StmtKind::Case: {
+                CaseStmt& c = s->case_;
+                copy->case_.condition = Expr::dup(c.condition);
+                copy->case_.body = Stmt::dup(c.body);
+                break;
+            }
+
             case StmtKind::Break: {
                 BreakStmt& b = s->break_;
                 copy->break_.target = b.target;

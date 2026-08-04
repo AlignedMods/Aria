@@ -520,6 +520,7 @@ namespace ariac {
         TinyVector<TypeInfo*> generic_args;
         bool provides_generic_args = false;
         Token ident = t;
+        SourceLoc first_loc = ident.loc;
         SourceLoc last_loc = ident.loc;
 
         while (match(TokenKind::ColonColon)) {
@@ -570,7 +571,7 @@ namespace ariac {
             }
         }
 
-        return Expr::Create(ident.loc + last_loc, ExprKind::DeclRef,
+        return Expr::Create(first_loc + last_loc, ExprKind::DeclRef,
                        ExprValueKind::LValue, nullptr, 
                        DeclRefExpr(ident.string, specifier, generic_args, provides_generic_args));
     }

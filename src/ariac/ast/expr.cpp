@@ -45,6 +45,7 @@ namespace ariac {
                 copy->decl_ref.identifier = d.identifier;
                 copy->decl_ref.name_specifier = d.name_specifier;
                 copy->decl_ref.referenced_decl = d.referenced_decl;
+                copy->decl_ref.provides_generic_args = d.provides_generic_args;
 
                 for (TypeInfo* arg : d.generic_arguments) {
                     copy->decl_ref.generic_arguments.append(arg);
@@ -229,6 +230,11 @@ namespace ariac {
                         for (Expr* e : c.values) {
                             copy->const_.values.append(Expr::dup(e));
                         }
+                        break;
+                    }
+
+                    case ConstExprKind::Typeid: {
+                        copy->const_.type = TypeInfo::dup(c.type);
                         break;
                     }
 

@@ -6,6 +6,21 @@ fn any_cast<T>(a: *any) -> T {
     return *cast(*T, a.value);
 }
 
+fn any_to_int<T>(a: *any) -> T {
+    switch a.type {
+        case char: return any_cast::<char>(a);
+        case ichar: return any_cast::<ichar>(a);
+        // case short: return any_cast::<short>(a);
+        // case ushort: return any_cast::<ushort>(a);
+        case int: return any_cast::<int>(a);
+        // case uint: return any_cast::<uint>(a);
+        // case long: return any_cast::<long>(a);
+        // case ulong: return any_cast::<ulong>(a);
+    }
+
+    return 0;
+}
+
 // Treats 'a' like an array and indexes into it
 fn any_index(a: *any, idx: sz) -> any {
     let ptr = a.value + (idx * a.type.inner.size);

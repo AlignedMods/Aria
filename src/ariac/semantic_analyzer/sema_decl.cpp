@@ -22,25 +22,25 @@ namespace ariac {
             ARIA_ASSERT(dtor->kind == DeclKind::Destructor, "Invalid destructor");
 
             // If we are in a function, we can insert a defer
-            if (m_scopes.size() > 0) {
+            if (m_functions.size() > 0) {
                 TypeInfo* type = TypeInfo::create_function(TypeKind::Method, TypeInfo::get_void(), {}, VariadicKind::None);
                 Expr* ref = Expr::Create(decl->loc, ExprKind::DeclRef, ExprValueKind::LValue, var.type, DeclRefExpr(var.identifier, nullptr, decl));
                 Expr* mem = Expr::Create(decl->loc, ExprKind::Member, ExprValueKind::LValue, type, MemberExpr("~", ref, dtor));
                 Expr* call = Expr::Create(decl->loc, ExprKind::MethodCall, ExprValueKind::RValue, type->function.return_type, CallExpr(mem, {}));
 
                 Stmt* defer = Stmt::Create(decl->loc, StmtKind::Expr, call);
-                m_scopes.back().defers.push_back(defer);
+                m_functions.back().scopes.back().defers.push_back(defer);
             } else { // Otherwise just inform the codegen
                 var.dtor = dtor;
             }
         }
 
-        if (m_scopes.size() > 0) {
-            if (m_scopes.back().declarations.contains(ident)) {
+        if (m_functions.size() > 0) {
+            if (m_functions.back().scopes.back().declarations.contains(ident)) {
                 report_diag(decl->loc, fmt::format("Redeclaring symbol '{}'", ident));
             }
 
-            m_scopes.back().declarations[ident] = { var.type, decl, DeclKind::Var };
+            m_functions.back().scopes.back().declarations[ident] = { var.type, decl, DeclKind::Var };
         }
 
         decl->resolve_status = ResolveStatus::Done;
@@ -56,11 +56,11 @@ namespace ariac {
             report_diag(decl->loc, fmt::format("Cannot declare parameter of function type '{}'", type_info_to_string(param.type)));
         }
 
-        if (m_scopes.back().declarations.contains(param.identifier)) {
+        if (m_functions.back().scopes.back().declarations.contains(param.identifier)) {
             report_diag(decl->loc, fmt::format("Redeclaring symbol '{}'", param.identifier));
         }
 
-        m_scopes.back().declarations[param.identifier] = { param.type, decl, DeclKind::Param };
+        m_functions.back().scopes.back().declarations[param.identifier] = { param.type, decl, DeclKind::Param };
     }
 
     void SemanticAnalyzer::resolve_function_decl(Decl* decl) {
@@ -274,13 +274,17 @@ namespace ariac {
         }
 
         resolve_decl(gen.decl);
-        m_generic_types.erase(m_generic_types.begin() + i, m_generic_types.end());
+        m_generic_types.resize(i);
     }
 
     void SemanticAnalyzer::resolve_function_body(Decl* decl) {
         FunctionDecl& fn = decl->function;
+        decl->resolve_status = ResolveStatus::InProgress;
 
-        m_active_return_type = fn.type->function.return_type;
+        FunctionContext ctx;
+        ctx.return_type = fn.type->function.return_type;
+        m_functions.push_back(ctx);
+
         push_scope();
         
         for (Decl* p : fn.parameters) {
@@ -289,7 +293,7 @@ namespace ariac {
         
         resolve_block_stmt(fn.body);
 
-        if (m_scopes.back().reaches_end) {
+        if (m_functions.back().scopes.back().reaches_end) {
             if (fn.type->function.return_type->is_never()) {
                 report_diag(decl->loc, "Function with return type '!' should not return");
             } else if (!fn.type->function.return_type->is_void()) {
@@ -298,52 +302,8 @@ namespace ariac {
         }
 
         pop_scope();
-        m_active_return_type = nullptr;
-    }
-
-    void SemanticAnalyzer::resolve_generic_body(Decl* decl) {
-        GenericDecl& gen = decl->generic;
-
-        if (gen.decl->kind == DeclKind::Struct) { return; }
-
-        for (Decl* t : gen.parameters) {
-            m_generic_types.push_back(t);
-        }
-
-        switch (gen.decl->kind) {
-            case DeclKind::Function: {
-                resolve_function_body(gen.decl);
-                m_generic_types.clear();
-
-                for (Decl* spec : gen.specilizations) {
-                    ARIA_ASSERT(spec->kind == DeclKind::FunctionSpecilization, "Invalid function specilization");
-
-                    Decl* func = Decl::dup(gen.decl);
-                    func->parent_module = decl->parent_module;
-                    func->parent_unit = decl->parent_unit;
-
-                    func->function.type = spec->function_specilization.type;
-                    spec->function_specilization.source = func;
-
-                    for (size_t i = 0; i < spec->function_specilization.types.size; i++) {
-                        m_specialized_generic_types[gen.parameters.items[i]->generic_parameter.identifier] = spec->function_specilization.types.items[i];
-                    }
-
-                    m_generic_instantations.push_back(spec->function_specilization.instantiation_loc);
-                    m_replace_generic_types = true;
-                    resolve_function_body(spec->function_specilization.source);
-                    m_replace_generic_types = false;
-                    m_generic_instantations.pop_back();
-                }
-                break;
-            }
-
-            case DeclKind::Impl: {
-                resolve_impl_body(gen.decl);
-                m_generic_types.clear();
-                break;
-            }
-        }
+        m_functions.pop_back();
+        decl->resolve_status = ResolveStatus::Done;
     }
 
     void SemanticAnalyzer::resolve_impl_body(Decl* decl) {
@@ -361,8 +321,10 @@ namespace ariac {
     void SemanticAnalyzer::resolve_method_body(Decl* decl) {
         MethodDecl& m = decl->method;
         
-        m_active_return_type = m.type->function.return_type;
-        m_active_struct = m.parent->impl.type;
+        FunctionContext ctx;
+        ctx.return_type = m.type->function.return_type;
+        ctx.struct_type = m.parent->impl.type;
+        m_functions.push_back(ctx);
         
         push_scope();
         
@@ -372,31 +334,32 @@ namespace ariac {
         
         resolve_block_stmt(m.body);
         
-        if (m_scopes.back().reaches_end) {
+        if (m_functions.back().scopes.back().reaches_end) {
             if (!m.type->function.return_type->is_void()) {
                 report_diag(decl->loc, "Missing return statement in method");
             }
         }
         
         pop_scope();
-        m_active_struct = nullptr;
-        m_active_return_type = nullptr;
+        m_functions.pop_back();
     }
 
     void SemanticAnalyzer::resolve_destructor_body(Decl* decl) {
         DestructorDecl& d = decl->destructor;
 
-        m_active_return_type = TypeInfo::get_void();
-        m_active_struct = d.parent->impl.type;
+        FunctionContext ctx;
+        ctx.return_type = TypeInfo::get_void();
+        ctx.struct_type = d.parent->impl.type;
+        m_functions.push_back(ctx);
 
         push_scope();
 
-        for (Decl* field : m_active_struct->struct_.source_decl->struct_.fields) {
+        for (Decl* field : ctx.struct_type->struct_.source_decl->struct_.fields) {
             ARIA_ASSERT(field->kind == DeclKind::Field, "Invalid field");
 
             if (Decl* dtor = type_get_destructor(field->field.type)) {
                 Expr* self = Expr::Create(decl->loc, ExprKind::Self, ExprValueKind::LValue,
-                    TypeInfo::create_pointer(m_active_struct, false), ErrorExpr());
+                    TypeInfo::create_pointer(ctx.struct_type, false), ErrorExpr());
 
                 Expr* field_member = Expr::Create(decl->loc, ExprKind::Member, ExprValueKind::LValue, field->field.type,
                     MemberExpr(field->field.identifier, self, field));
@@ -410,15 +373,13 @@ namespace ariac {
                     CallExpr(field_dtor, {}));
 
                 Stmt* defer = Stmt::Create(decl->loc, StmtKind::Expr, dtor_call);
-                m_scopes.back().defers.push_back(defer);
+                ctx.scopes.back().defers.push_back(defer);
             }
         }
 
         resolve_block_stmt(d.body);
         pop_scope();
-
-        m_active_struct = nullptr;
-        m_active_return_type = nullptr;
+        m_functions.pop_back();
     }
 
     void SemanticAnalyzer::resolve_decl_attributes(Decl* decl, TinyVector<DeclAttribute> attrs, bool* erase_decl) {
