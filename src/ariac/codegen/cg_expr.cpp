@@ -920,6 +920,14 @@ namespace ariac {
                 break;
             }
 
+            case BinaryOperatorKind::BitAnd: {
+                llvm::Value* lhs = gen_expr(bin.lhs);
+                llvm::Value* rhs = gen_expr(bin.rhs);
+
+                m_active_module_context.builder->CreateAnd(lhs, rhs, "and");
+                break;
+            }
+
             case BinaryOperatorKind::LogOr: {
                 llvm::Value* lhs = gen_expr(bin.lhs);
 
@@ -1042,6 +1050,19 @@ namespace ariac {
 
                 ARIA_UNREACHABLE("Should be unreachable");
                 break;
+            }
+
+            case BinaryOperatorKind::CompoundShr: {
+                llvm::Value* shr = nullptr;
+
+                if (expr->type->is_signed()) {
+                    shr = m_active_module_context.builder->CreateAShr(lhs_val, rhs, "shr");
+                } else {
+                    shr = m_active_module_context.builder->CreateLShr(lhs_val, rhs, "shr");
+                }
+
+                m_active_module_context.builder->CreateStore(shr, lhs);
+                return lhs;
             }
 
             default: ARIA_UNREACHABLE("Invalid compound binary operator");

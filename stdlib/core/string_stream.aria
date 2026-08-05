@@ -36,13 +36,11 @@ impl StringStream {
 
     // Integer formatting
     fn append_int(l: long, base: uint) -> void {
-        let u = cast(ulong, l);
-    
         if (l < 0) {
             append_char('-');
-            append_uint(u, base);
+            append_uint(-l, base);
         } else {
-            append_uint(u, base);
+            append_uint(l, base);
         }
     }
 
@@ -50,10 +48,23 @@ impl StringStream {
         let buf: [32]char;
         let i: isz;
 
-        do {
-            buf[i++] = '0' + (u % 10u);
-            u /= 10u;
-        } while u > 0;
+        switch base {
+            case 10: {
+                do {
+                    buf[i++] = '0' + (u % 10u);
+                    u /= 10u;
+                } while u > 0;
+            }
+
+            case 16: {
+                append_string("0x");
+                do {
+                    let digit = cast(char, u & 0xF);
+                    buf[i++] = '0' + digit;
+                    u >>= 4;
+                } while u > 0;
+            }
+        }
 
         for (j: isz = 1; j < i + 1; j++) {
             append_char(buf[i - j]);

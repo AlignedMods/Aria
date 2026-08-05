@@ -243,7 +243,7 @@ namespace ariac {
                 dr.referenced_decl = sym;
             }
 
-            if (m_functions.back().struct_type) {
+            if (!m_functions.empty() && m_functions.back().struct_type) {
                 Decl* struc = m_functions.back().struct_type->kind == TypeKind::Struct ? m_functions.back().struct_type->struct_.source_decl : m_functions.back().struct_type->struct_specilization.resolved_decl->generic.decl;
                 if (struc->struct_.field_lookup.contains(dr.identifier)) {
                     Decl* field = struc->struct_.field_lookup.at(dr.identifier);
@@ -280,10 +280,12 @@ namespace ariac {
                 }
             }
 
-            for (auto& scope : m_functions.back().scopes) {
-                if (scope.declarations.contains(dr.identifier)) {
-                    sym = scope.declarations.at(dr.identifier).source_decl;
-                    dr.referenced_decl = sym;
+            if (!m_functions.empty()) {
+                for (auto& scope : m_functions.back().scopes) {
+                    if (scope.declarations.contains(dr.identifier)) {
+                        sym = scope.declarations.at(dr.identifier).source_decl;
+                        dr.referenced_decl = sym;
+                    }
                 }
             }
 
@@ -1838,9 +1840,6 @@ namespace ariac {
                 // We want to keep the original types for error messages
                 TypeInfo lhs_type = *lty;
                 TypeInfo rhs_type = *rty;
-
-                maybe_promote_to_int(lhs);
-                maybe_promote_to_int(rhs);
 
                 size_t l_size = lty->get_bit_size();
                 size_t r_size = rty->get_bit_size();
