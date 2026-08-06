@@ -218,7 +218,7 @@ namespace ariac {
 
         if (ret.value) {
             resolve_expr(ret.value);
-            try_insert_implicit_cast(m_functions.back().return_type, ret.value);
+            try_insert_implicit_cast(m_functions.back().return_type, ret.value, "return type");
             require_rvalue(ret.value);
             insert_expr_with_cleanups(ret.value);
         } else {

@@ -38,6 +38,15 @@ namespace ariac {
         m_continue_target = prev.second;
     }
 
+    TypeInfo* SemanticAnalyzer::get_typeinfo(Expr* e) {
+        if (!e->type->is_typeid()) { return nullptr; }
+        if (!is_const_expr(e)) { return nullptr; }
+
+        Expr* c = eval_const_expr(e);
+        ARIA_ASSERT(c->const_.kind == ConstExprKind::Typeid, "Invalid typeid");
+        return c->const_.type;
+    }
+
     void SemanticAnalyzer::replace_expr(Expr* src, Expr* new_expr) {
         bool resultDiscarded = src->result_discarded;
         *src = *new_expr;

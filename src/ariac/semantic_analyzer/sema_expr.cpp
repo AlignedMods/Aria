@@ -147,6 +147,14 @@ namespace ariac {
 
                             // Create instantiation if needed
                             if (!specilization) {
+                                // Resolve the body for the generic function if it isn't yet resolved
+                                if (sym->generic.decl->resolve_status == ResolveStatus::NotStarted) {
+                                    size_t size = m_generic_types.size();
+                                    for (Decl* p : sym->generic.parameters) { m_generic_types.push_back(p); }
+                                    resolve_function_body(sym->generic.decl);
+                                    m_generic_types.resize(size);
+                                }
+
                                 GenericInstantationContext ctx;
                                 ctx.loc = expr->loc;
 
@@ -164,13 +172,6 @@ namespace ariac {
                                 specilization = Decl::Create(sym->loc, DeclKind::FunctionSpecilization, sym->visibility, FunctionSpecilizationDecl(dr.generic_arguments, new_type, expr->loc));
                                 specilization->parent_module = sym->parent_module;
                                 specilization->parent_unit = sym->parent_unit;
-
-                                if (sym->generic.decl->resolve_status == ResolveStatus::NotStarted) {
-                                    size_t size = m_generic_types.size();
-                                    for (Decl* p : sym->generic.parameters) { m_generic_types.push_back(p); }
-                                    resolve_function_body(sym->generic.decl);
-                                    m_generic_types.resize(size);
-                                }
 
                                 Decl* func = Decl::dup(sym->generic.decl);
                                 func->parent_module = sym->parent_module;
@@ -625,9 +626,9 @@ namespace ariac {
             expr->type = TypeInfo::get_error();
             expr->kind = ExprKind::Error;
             return;
-        } else if (call.callee->kind == ExprKind::TypeInfo) {
+        } else if (TypeInfo* t = get_typeinfo(call.callee)) {
             expr->kind = ExprKind::Construct;
-            expr->type = call.callee->type_info.type;
+            expr->type = t;
             expr->construct.arguments = call.arguments;
             resolve_construct_expr(expr);
             return;
@@ -813,6 +814,35 @@ namespace ariac {
 
         switch (expr->type->kind) {
             case TypeKind::Error: expr->type = TypeInfo::get_error(); break;
+
+            case TypeKind::Void: {
+                report_error(expr->loc, "'void' cannot be constructed");
+                expr->type = TypeInfo::get_error();
+                break;
+            }
+
+            case TypeKind::Bool:
+            case TypeKind::Char:
+            case TypeKind::IChar:
+            case TypeKind::Short:
+            case TypeKind::UShort:
+            case TypeKind::Int:
+            case TypeKind::UInt:
+            case TypeKind::Long:
+            case TypeKind::ULong:
+            case TypeKind::Float:
+            case TypeKind::Double:
+            case TypeKind::Pointer: {
+                if (construct.arguments.size == 0) { break; }
+
+                if (construct.arguments.size == 1) {
+                    try_insert_explicit_cast(expr->type, construct.arguments.items[0]);
+                    break;
+                }
+
+                report_error(expr->loc, fmt::format("Expected 0 or 1 arguments but got '{}'", construct.arguments.size));
+                break;
+            }
 
             case TypeKind::Any: {
                 if (construct.arguments.size > 2) {
@@ -1184,8 +1214,8 @@ namespace ariac {
             }
 
             case UnaryOperatorKind::Dereference: {
-                if (unop.expression->kind == ExprKind::TypeInfo) {
-                    replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, TypeInfo::get_typeid(), TypeInfoExpr(TypeInfo::create_pointer(unop.expression->type, false))));
+                if (TypeInfo* t = get_typeinfo(unop.expression)) {
+                    replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, TypeInfo::get_typeid(), TypeInfoExpr(TypeInfo::create_pointer(t, false))));
                     break;
                 }
 
@@ -1766,19 +1796,43 @@ namespace ariac {
         replace_expr(srcExpr, implicitCast);
     }
 
-    void SemanticAnalyzer::try_insert_implicit_cast(TypeInfo* dst_type, Expr* src_expr) {
+    void SemanticAnalyzer::try_insert_implicit_cast(TypeInfo* dst_type, Expr* src_expr, std::string_view kind) {
         ConversionCost cost = get_conversion_cost(dst_type, src_expr->type);
 
         if (cost.cast_needed) {
             if (cost.implicit_cast_possible) {
                 insert_implicit_cast(dst_type, src_expr->type, src_expr, cost.kind);
             } else if (cost.explicit_cast_possible) {
-                report_diag_with_notes(src_expr->loc, 
-                    fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(src_expr->type), type_info_to_string(dst_type)),
-                    { "You can however insert an explicit cast in the code" });
+                if (!kind.empty()) {
+                    report_diag_with_notes(src_expr->loc,
+                        fmt::format("Cannot implicitly convert from '{}' to {} '{}'", type_info_to_string(src_expr->type), kind, type_info_to_string(dst_type)),
+                        { "You can however insert an explicit cast in the code" }); 
+                } else {
+                    report_diag_with_notes(src_expr->loc,
+                        fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(src_expr->type), type_info_to_string(dst_type)),
+                        { "You can however insert an explicit cast in the code" }); 
+                }
+            } else {
+                if (!kind.empty()) {
+                    report_diag(src_expr->loc,
+                        fmt::format("Cannot implicitly convert from '{}' to {} '{}'", type_info_to_string(src_expr->type), kind, type_info_to_string(dst_type))); 
+                } else {
+                    report_diag(src_expr->loc,
+                        fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(src_expr->type), type_info_to_string(dst_type))); 
+                }
+            }
+        }
+    }
+
+    void SemanticAnalyzer::try_insert_explicit_cast(TypeInfo* dst_type, Expr* src_expr) {
+        ConversionCost cost = get_conversion_cost(dst_type, src_expr->type);
+
+        if (cost.cast_needed) {
+            if (cost.explicit_cast_possible) {
+                insert_implicit_cast(dst_type, src_expr->type, src_expr, cost.kind);
             } else {
                 report_diag(src_expr->loc, 
-                    fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(src_expr->type), type_info_to_string(dst_type)));
+                    fmt::format("Cannot convert from '{}' to '{}'", type_info_to_string(src_expr->type), type_info_to_string(dst_type)));
             }
         }
     }

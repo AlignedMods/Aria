@@ -130,37 +130,28 @@ namespace ariac {
                 }
 
                 if (!specilization) {
-                    ARIA_TODO("Struct specilization");
-                    // Decl* struc = Decl::dup(g->generic.decl);
-                    // struc->parent_module = g->parent_module;
-                    // struc->parent_unit = g->parent_unit;
-                    // specilization = Decl::Create(g->loc, DeclKind::StructSpecilization, g->visibility, StructSpecilizationDecl(gi.arguments, struc, struc->struct_.impls));
-                    // specilization->parent_module = g->parent_module;
-                    // specilization->parent_unit = g->parent_unit;
-                    // g->generic.specilizations.append(specilization);
-                    // 
-                    // for (size_t i = 0; i < gi.arguments.size; i++) {
-                    //     m_specialized_generic_types[g->generic.parameters.items[i]->generic_parameter.identifier] = gi.arguments.items[i];
-                    // }
-                    // 
-                    // for (Decl* impl : struc->struct_.impls) {
-                    //     if (impl->kind == DeclKind::Generic) {
-                    //         size_t max_val = std::min(gi.arguments.size, impl->generic.parameters.size);
-                    //         for (size_t i = 0; i < max_val; i++) {
-                    //             m_specialized_generic_types[impl->generic.parameters.items[i]->generic_parameter.identifier] = gi.arguments.items[i];
-                    //         }
-                    //     }
-                    // }
-                    // 
-                    // bool prev_val = m_replace_generic_types;
-                    // m_replace_generic_types = true;
-                    // 
-                    // for (Decl* impl : struc->struct_.impls) {
-                    //     resolve_impl_decl(impl);
-                    // }
-                    // 
-                    // resolve_struct_decl(struc);
-                    // m_replace_generic_types = prev_val;
+                    GenericInstantationContext ctx;
+                    ctx.loc = type->loc;
+
+                    for (size_t i = 0; i < gi.arguments.size; i++) {
+                        Decl* gen_param = g->generic.parameters.items[i];
+                        TypeInfo* gen_arg = gi.arguments.items[i];
+                        ARIA_ASSERT(gen_param->kind == DeclKind::GenericParameter, "Invalid generic parameter");
+                        ctx.generic_types[gen_param->generic_parameter.identifier] = gen_arg;
+                    }
+
+                    m_generic_instantations.push_back(ctx);
+
+                    Decl* struc = Decl::dup(g->generic.decl);
+                    struc->parent_module = g->parent_module;
+                    struc->parent_unit = g->parent_unit;
+                    resolve_struct_decl(struc);
+
+                    specilization = Decl::Create(g->loc, DeclKind::StructSpecilization, g->visibility, StructSpecilizationDecl(gi.arguments, struc, struc->struct_.impls));
+                    specilization->parent_module = g->parent_module;
+                    specilization->parent_unit = g->parent_unit;
+                    g->generic.specilizations.append(specilization);
+                    m_generic_instantations.pop_back();
                 }
 
                 gi.resolved_decl = specilization;

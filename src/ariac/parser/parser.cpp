@@ -101,7 +101,6 @@ namespace ariac {
         m_expr_rules[TokenKind::Identifier] =        { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Self] =              { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Env] =               { BIND_PARSE_RULE(parse_env),           nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Cast] =              { BIND_PARSE_RULE(parse_cast),          nullptr, PREC_NONE };
 
         m_expr_rules[TokenKind::AtSizeof] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE };
         m_expr_rules[TokenKind::AtMemcpy] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE};
@@ -192,33 +191,6 @@ namespace ariac {
         return Expr::Create(lp->loc + rp->loc, ExprKind::Paren, 
             child->value_kind, child->type,
             ParenExpr(child));
-    }
-
-    Expr* Parser::parse_cast(Expr* left) {
-        ARIA_ASSERT(left == nullptr, "Parser::parse_cast() should not have a left side");
-
-        Token& c = consume(); // consume "cast"
-        try_consume(TokenKind::LeftParen, "(");
-
-        TypeInfo* type = TypeInfo::get_error();
-
-        if (is_type()) {
-            type = parse_type();
-        } else {
-            context.report_compiler_diagnostic(peek()->loc, "Expected a type");
-        }
-
-        try_consume(TokenKind::Comma, ",");
-        Expr* child = parse_expression();
-
-        if (!try_consume(TokenKind::RightParen, ")")) {
-            sync_local();
-            return &error_expr;
-        }
-
-        return Expr::Create(c.loc + peek(-1)->loc, ExprKind::Cast, 
-            ExprValueKind::RValue, type,
-            CastExpr(child, type));
     }
 
     Expr* Parser::parse_call(Expr* left) {
@@ -1165,7 +1137,6 @@ namespace ariac {
             case TokenKind::NumLit:
             case TokenKind::StrLit:
             case TokenKind::Identifier:
-            case TokenKind::Cast:
             case TokenKind::Self:
             case TokenKind::Void:
             case TokenKind::Bool:

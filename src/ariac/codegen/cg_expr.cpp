@@ -301,6 +301,29 @@ namespace ariac {
         llvm::Type* type = type_info_to_llvm_type(expr->type);
 
         switch (expr->type->kind) {
+            case TypeKind::Bool:
+            case TypeKind::Char:
+            case TypeKind::IChar:
+            case TypeKind::Short:
+            case TypeKind::UShort:
+            case TypeKind::Int:
+            case TypeKind::UInt:
+            case TypeKind::Long:
+            case TypeKind::ULong:
+            case TypeKind::Float:
+            case TypeKind::Double:
+            case TypeKind::Pointer: {
+                if (ct.arguments.size == 0) {
+                    return llvm::Constant::getNullValue(type);
+                }
+
+                if (ct.arguments.size == 1) {
+                    return gen_expr(ct.arguments.items[0]);
+                }
+
+                ARIA_UNREACHABLE("Invalid amount of args");
+            }
+
             case TypeKind::Array: {
                 if (ct.is_const) {
                     std::vector<llvm::Constant*> fields;

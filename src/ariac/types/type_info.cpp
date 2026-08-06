@@ -450,6 +450,8 @@ namespace ariac {
             case TypeKind::Float: return 32;
             case TypeKind::Double: return 64;
 
+            case TypeKind::String: return get_size() * 8;
+
             case TypeKind::Pointer: {
                 switch (context.opts->triple.getArch()) {
                     case llvm::Triple::x86: return 32;

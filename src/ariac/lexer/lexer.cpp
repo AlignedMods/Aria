@@ -522,7 +522,6 @@ namespace ariac {
             { "enum", TokenKind::Enum },
             { "as", TokenKind::As },
             { "const", TokenKind::Const },
-            { "cast", TokenKind::Cast },
             { "self", TokenKind::Self },
 
             { "void", TokenKind::Void },

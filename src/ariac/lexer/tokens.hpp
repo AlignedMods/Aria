@@ -83,7 +83,6 @@ namespace ariac {
         Enum,
         As,
         Const,
-        Cast,
         Self,
         HashPrivate, // #private
         AtIf, // @if
@@ -212,7 +211,6 @@ namespace ariac {
             case TokenKind::Enum: return "enum";
             case TokenKind::As: return "as";
             case TokenKind::Const: return "const";
-            case TokenKind::Cast: return "cast";
             case TokenKind::Self: return "self";
             case TokenKind::HashPrivate: return "#private";
             case TokenKind::AtIf: return "@if";

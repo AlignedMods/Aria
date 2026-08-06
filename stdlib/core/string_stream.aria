@@ -59,7 +59,7 @@ impl StringStream {
             case 16: {
                 append_string("0x");
                 do {
-                    let digit = cast(char, u & 0xF);
+                    let digit = char(u & 0xF);
                     buf[i++] = '0' + digit;
                     u >>= 4;
                 } while u > 0;

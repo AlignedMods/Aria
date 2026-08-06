@@ -27,7 +27,6 @@ namespace ariac {
 
         // Expressions
         Expr* parse_grouping(Expr* left);
-        Expr* parse_cast(Expr* left);
         Expr* parse_call(Expr* left);
         BuiltinCallKind get_builtin_call_from_token(Token* token);
         UnaryOperatorKind get_unary_operator_from_token(Token* token);

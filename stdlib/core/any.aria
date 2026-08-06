@@ -3,7 +3,7 @@ module std::core;
 import libc;
 
 fn any_cast<T>(a: *any) -> T {
-    return *cast(*T, a.value);
+    return *(*T)(a.value);
 }
 
 fn any_to_int<T>(a: *any) -> T {
