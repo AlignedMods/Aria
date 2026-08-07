@@ -202,16 +202,8 @@ namespace ariac {
 
     void Codegen::gen_method_prototype(Decl* decl) {
         MethodDecl& m = decl->method;
-        std::string_view parent_name;
-
-        ARIA_ASSERT(m.parent->kind == DeclKind::Impl, "Invalid method parent");
-
-        switch (m.parent->impl.parent->kind) {
-            case DeclKind::Struct: parent_name = m.parent->impl.parent->struct_.identifier; break;
-            case DeclKind::Typedef: parent_name = m.parent->impl.parent->typedef_.identifier; break;
-            default: ARIA_UNREACHABLE("Invalid method parent");
-        }
-
+        ARIA_ASSERT(m.parent->kind == DeclKind::Struct, "Invalid method parent");
+        std::string_view parent_name = m.parent->struct_.identifier;
         std::string sig = fmt::format("{}.{}.{}", valid_module_name(m.parent->parent_module->name), parent_name, m.identifier);
 
         llvm::Type* fn_ty = type_info_to_llvm_type(m.type);
@@ -221,15 +213,8 @@ namespace ariac {
 
     void Codegen::gen_destructor_prototype(Decl* decl) {
         DestructorDecl& d = decl->destructor;
-        std::string_view parent_name;
-
-        ARIA_ASSERT(d.parent->kind == DeclKind::Impl, "Invalid method parent");
-
-        switch (d.parent->impl.parent->kind) {
-            case DeclKind::Struct: parent_name = d.parent->impl.parent->struct_.identifier; break;
-            case DeclKind::Typedef: parent_name = d.parent->impl.parent->typedef_.identifier; break;
-            default: ARIA_UNREACHABLE("Invalid method parent");
-        }
+        ARIA_ASSERT(d.parent->kind == DeclKind::Struct, "Invalid method parent");
+        std::string_view parent_name = d.parent->struct_.identifier;
 
         std::string sig = fmt::format(".{}.{}.dtor", valid_module_name(d.parent->parent_module->name), parent_name);
 
@@ -261,13 +246,19 @@ namespace ariac {
         std::string name = fmt::format("{}.{}", valid_module_name(decl->parent_module->name), struc->identifier);
 
         for (Decl* field : struc->fields) {
+            if (field->kind != DeclKind::Field) { continue; }
             fields.push_back(type_info_to_llvm_type(field->field.type));
         }
+        llvm::StructType::create(fields, name);
 
-        llvm::StructType* type = llvm::StructType::create(fields, name);
+        for (Decl* field : struc->fields) {
+            switch (field->kind) {
+                case DeclKind::Field: break;
+                case DeclKind::Method: gen_method_decl(field); break;
+                case DeclKind::Destructor: gen_destructor_decl(field); break;
 
-        for (Decl* impl : struc->impls) {
-            gen_impl_decl(impl);
+                default: ARIA_UNREACHABLE("Invalid field kind");
+            }
         }
     }
 

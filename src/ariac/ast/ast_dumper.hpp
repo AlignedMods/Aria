@@ -26,6 +26,8 @@ namespace ariac {
         void dump_attributes(TinyVector<DeclAttribute> attrs, size_t indentation);
         void dump_attribute(DeclAttribute attr, size_t indentation);
 
+        void dump_type(TypeInfo* type, size_t indentation);
+
         std::string source_loc_to_string(SourceLoc loc);
 
     private:

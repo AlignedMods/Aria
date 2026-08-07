@@ -524,7 +524,10 @@ namespace ariac {
             if (!s) {
                 std::vector<llvm::Type*> types;
                 types.reserve(struc->struct_.fields.size);
-                for (Decl* field : struc->struct_.fields) { types.push_back(type_info_to_llvm_type(field->field.type)); }
+                for (Decl* field : struc->struct_.fields) {
+                    if (field->kind != DeclKind::Field) { continue; }
+                    types.push_back(type_info_to_llvm_type(field->field.type));
+                }
                 s = llvm::StructType::create(*m_active_module_context.context, types, name);
             }
 
@@ -645,7 +648,7 @@ namespace ariac {
 
             u64 offset_bits = 0;
             for (Decl* d : t->struct_.source_decl->struct_.fields) {
-                ARIA_ASSERT(d->kind == DeclKind::Field, "Invalid field");
+                if (d->kind != DeclKind::Field) { continue; }
 
                 llvm::DIType* mem = m_active_debug_context.builder->createMemberType(m_active_debug_context.scope, d->field.identifier, 
                     m_active_debug_context.scope->getFile(), (unsigned)d->loc.line, (unsigned)d->field.type->get_bit_size(), (unsigned)d->field.type->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
@@ -669,7 +672,7 @@ namespace ariac {
 
             u64 offset_bits = 0;
             for (Decl* d : s.fields) {
-                ARIA_ASSERT(d->kind == DeclKind::Field, "Invalid field");
+                if (d->kind != DeclKind::Field) { continue; }
 
                 llvm::DIType* mem = m_active_debug_context.builder->createMemberType(m_active_debug_context.scope, d->field.identifier, 
                     m_active_debug_context.scope->getFile(), (unsigned)d->loc.line, (unsigned)d->field.type->get_bit_size(), (unsigned)d->field.type->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,

@@ -145,7 +145,7 @@ namespace ariac {
                                 if (!failed) { specilization = i; }
                             }
 
-                            // Create instantiation if needed
+                            // Create specilization if needed
                             if (!specilization) {
                                 // Resolve the body for the generic function if it isn't yet resolved
                                 if (sym->generic.decl->resolve_status == ResolveStatus::NotStarted) {
@@ -318,7 +318,7 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_typeinfo_expr(Expr* expr) {
-        resolve_type(expr->type);
+        resolve_type(expr->type_info.type);
     }
 
     void SemanticAnalyzer::resolve_member_expr(Expr* expr) {
@@ -326,8 +326,9 @@ namespace ariac {
 
         resolve_expr(mem.parent);
 
-        if (mem.parent->kind == ExprKind::TypeInfo) {
-            mem.parent->type = mem.parent->type_info.type;
+        if (TypeInfo* t = get_typeinfo(mem.parent)) {
+            Expr* new_expr = Expr::Create(expr->loc, ExprKind::TypeMember, ExprValueKind::RValue, nullptr, TypeMemberExpr(mem.member, t));
+            replace_expr(expr, new_expr);
             return resolve_type_member_expr(expr);
         }
 
@@ -392,14 +393,14 @@ namespace ariac {
                     switch (fd->kind) {
                         case DeclKind::Field: member_type = fd->field.type; break;
                         case DeclKind::Method: member_type = fd->method.type; break;
-                        case DeclKind::Destructor: member_type = TypeInfo::create_function(TypeKind::Method, TypeInfo::get_void(), {}, VariadicKind::None); break;
+                        case DeclKind::Destructor: member_type = fd->destructor.type; break;
                         default: ARIA_UNREACHABLE("Invalid field kind");
                     }
                     mem.referenced_member = fd;
 
                     if (fd->visibility == DeclVisibility::Private && mem.parent->kind != ExprKind::Self) {
-                        report_diag(expr->loc, fmt::format("'{}' is private and cannot be accessed", mem.member));
-                        report_diag(fd->loc, "Declared here", CompilerDiagKind::Note);
+                        report_error(expr->loc, fmt::format("'{}' is private and cannot be accessed", mem.member));
+                        report_note(fd->loc, "Declared here");
                     }
 
                     if (member_type->is_method() && !m_sema_context.call) {
@@ -488,6 +489,10 @@ namespace ariac {
                 }
 
                 case TypeKind::String: {
+                    if (mem.parent->value_kind == ExprValueKind::RValue) {
+                        expr->value_kind = ExprValueKind::RValue;
+                    }
+
                     if (mem.member == "mem") {
                         member_type = TypeInfo::get_char_ptr();
                         expr->kind = ExprKind::BuiltinMember;
@@ -501,6 +506,10 @@ namespace ariac {
                 }
 
                 case TypeKind::Slice: {
+                    if (mem.parent->value_kind == ExprValueKind::RValue) {
+                        expr->value_kind = ExprValueKind::RValue;
+                    }
+
                     if (mem.member == "mem") {
                         member_type = TypeInfo::create_pointer(parent_type->slice.base, false);
                         expr->kind = ExprKind::BuiltinMember;
@@ -529,7 +538,7 @@ namespace ariac {
                 case TypeKind::Typedef: { parent_type = parent_type->typedef_.base; break; }
 
                 default: {
-                    report_diag(mem.parent->loc, fmt::format("Expression must be of 'typeinfo', 'any', slice, array or struct type but is '{}'", type_info_to_string(mem.parent->type)));
+                    report_diag(mem.parent->loc, fmt::format("Expression must be of 'typeid', 'any', slice, array or struct type but is '{}'", type_info_to_string(mem.parent->type)));
                     expr->type = TypeInfo::get_error();
                     mem.referenced_member = &error_decl;
                     return;
@@ -553,32 +562,34 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_type_member_expr(Expr* expr) {
-        MemberExpr& mem = expr->member;
-        ARIA_ASSERT(mem.parent->kind == ExprKind::TypeInfo, "Parent expression must be a TypeInfo");
-        TypeInfo* parent_type = mem.parent->type;
+        TypeMemberExpr& mem = expr->type_member;
+        resolve_type(mem.type);
 
-        switch (parent_type->kind) {
+        if (mem.member == "name") {
+            expr->type = TypeInfo::get_string();
+            return;
+        }
+
+        switch (mem.type->kind) {
             case TypeKind::Enum: {
-                EnumDecl& e = parent_type->enum_.source_decl->enum_;
+                EnumDecl& e = mem.type->enum_.source_decl->enum_;
 
                 if (e.field_lookup.contains(mem.member)) {
                     Decl* d = e.field_lookup.at(mem.member);
-                    expr->type = TypeInfo::create_enum(parent_type->enum_.source_decl);
+                    expr->type = TypeInfo::create_enum(mem.type->enum_.source_decl);
                     expr->value_kind = ExprValueKind::RValue;
                     mem.referenced_member = d;
                 } else {
                     report_diag(expr->loc, fmt::format("Enum '{}' has no field named '{}'", e.identifier, mem.member));
                     expr->type = TypeInfo::get_error();
-                    mem.referenced_member = &error_decl;
                 }
 
                 return;
             }
 
             default: {
-                report_diag(expr->loc, fmt::format("No such member '{}' in type '{}'", mem.member, type_info_to_string(parent_type)));
+                report_diag(expr->loc, fmt::format("No such member '{}' in type '{}'", mem.member, type_info_to_string(mem.type)));
                 expr->type = TypeInfo::get_error();
-                mem.referenced_member = &error_decl;
                 return;
             }
         }
@@ -840,7 +851,13 @@ namespace ariac {
                     break;
                 }
 
-                report_error(expr->loc, fmt::format("Expected 0 or 1 arguments but got '{}'", construct.arguments.size));
+                report_error(expr->loc, fmt::format("Expected 0 or 1 arguments but got {}", construct.arguments.size));
+                break;
+            }
+
+            case TypeKind::Typeid: {
+                report_error(expr->loc, "'typeid' cannot be constructed");
+                expr->kind = ExprKind::Error;
                 break;
             }
 
@@ -1433,6 +1450,7 @@ namespace ariac {
             case ExprKind::Member: resolve_member_expr(expr); break;
             case ExprKind::BuiltinMember: resolve_builtin_member_expr(expr); break;
             case ExprKind::DependentMember: resolve_dependent_member_expr(expr); break;
+            case ExprKind::TypeMember: resolve_type_member_expr(expr); break;
             case ExprKind::Self: resolve_self_expr(expr); break;
             case ExprKind::Call: resolve_call_expr(expr); break;
             case ExprKind::BuiltinCall: resolve_builtin_call_expr(expr); break;

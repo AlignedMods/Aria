@@ -106,8 +106,8 @@ namespace ariac {
 
                 return;
 
-            case ExprKind::TypeInfo: m_output += fmt::format("TypeInfoExpr {} '{}' {}\n", 
-                source_loc_to_string(expr->loc),
+            case ExprKind::TypeInfo: m_output += fmt::format("TypeInfoExpr {} '{}' '{}' {}\n", 
+                source_loc_to_string(expr->loc), expr->type_info.type->to_string(),
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
                 return;
 
@@ -131,6 +131,11 @@ namespace ariac {
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->member.parent, indentation + 4);
+                return;
+
+            case ExprKind::TypeMember: m_output += fmt::format("TypeMemberExpr {} '{}' '{}' '{}' {}\n",
+                source_loc_to_string(expr->loc), expr->type_member.member, expr->type_member.type->to_string(false),
+                expr->type->to_string(false), expr_value_kind_to_string(expr->value_kind));
                 return;
 
             case ExprKind::Self: m_output += fmt::format("SelfExpr {} '{}' {}\n", 
@@ -254,8 +259,8 @@ namespace ariac {
                 dump_expr(expr->compound_assign.rhs, indentation + 4);
                 return;
 
-            case ExprKind::Const: { m_output += fmt::format("ConstExpr {} '{}'\n",
-                source_loc_to_string(expr->loc), type_info_to_string(expr->type));
+            case ExprKind::Const: { m_output += fmt::format("ConstExpr {} '{}' {}\n",
+                source_loc_to_string(expr->loc), type_info_to_string(expr->type), expr_value_kind_to_string(expr->value_kind));
 
                 dump_const_expr_val(&expr->const_, indentation + 4);
 
@@ -310,11 +315,11 @@ namespace ariac {
                 }
                 return;
 
-            case DeclKind::FunctionSpecilization: m_output += fmt::format("FunctionSpecilizationDecl {} ", source_loc_to_string(decl->loc));
-                for (size_t i = 0; i < decl->function_specilization.types.size; i++) {
-                    m_output += fmt::format("'{}' ", type_info_to_string(decl->function_specilization.types.items[i]));
+            case DeclKind::FunctionSpecilization: m_output += fmt::format("FunctionSpecilizationDecl {} instantiated at {}\n",
+                source_loc_to_string(decl->loc), source_loc_to_string(decl->function_specilization.instantiation_loc));
+                for (TypeInfo* t : decl->struct_specilization.types) {
+                    dump_type(t, indentation + 4);
                 }
-                m_output += '\n';
 
                 dump_decl(decl->function_specilization.source, indentation + 4);
                 return;
@@ -328,11 +333,11 @@ namespace ariac {
 
                 return;
 
-            case DeclKind::StructSpecilization: m_output += fmt::format("StructSpecilizationDecl {} ", source_loc_to_string(decl->loc));
-                for (size_t i = 0; i < decl->struct_specilization.types.size; i++) {
-                    m_output += fmt::format("'{}' ", type_info_to_string(decl->struct_specilization.types.items[i]));
+            case DeclKind::StructSpecilization: m_output += fmt::format("StructSpecilizationDecl {} instantiated at {}\n",
+                source_loc_to_string(decl->loc), source_loc_to_string(decl->struct_specilization.instantiation_loc));
+                for (TypeInfo* t : decl->struct_specilization.types) {
+                    dump_type(t, indentation + 4);
                 }
-                m_output += '\n';
 
                 dump_decl(decl->struct_specilization.source, indentation + 4);
 
@@ -389,8 +394,8 @@ namespace ariac {
                 dump_stmt(decl->method.body, indentation + 4);
                 return;
 
-            case DeclKind::Destructor: m_output += fmt::format("DestructorDecl {}\n",
-                source_loc_to_string(decl->loc));
+            case DeclKind::Destructor: m_output += fmt::format("DestructorDecl {} '{}'\n",
+                source_loc_to_string(decl->loc), decl->destructor.type->to_string(false));
 
                 dump_stmt(decl->destructor.body, indentation + 4);
                 return;
@@ -579,14 +584,91 @@ namespace ariac {
         }
     }
 
+    void ASTDumper::dump_type(TypeInfo* type, size_t indentation) {
+        std::string ident;
+        ident.append(indentation, ' ');
+        m_output += ident;
+
+        if (type->is_error()) {
+            m_output += "ErrorType '<error_type'>\n";
+        } else if (type->is_primitive()) {
+            m_output += fmt::format("PrimitiveType '{}'\n", type->to_string(false));
+        } else if (type->is_pointer()) {
+            m_output += fmt::format("PointerType '{}'\n", type->to_string(false));
+            dump_type(type->pointer.base, indentation + 4);
+        } else if (type->is_array()) {
+            m_output += fmt::format("ArrayType {} '{}'\n", type->array.size, type->to_string(false));
+            dump_type(type->array.base, indentation + 4);
+        } else if (type->is_slice()) {
+            m_output += fmt::format("SliceType '{}'\n", type->to_string(false));
+            dump_type(type->slice.base, indentation + 4);
+        } else if (type->is_function()) {
+            m_output += fmt::format("FunctionType '{}'\n", type->to_string(false));
+            dump_type(type->function.return_type, indentation + 4);
+
+            for (TypeInfo* t : type->function.param_types) {
+                dump_type(t, indentation + 4);
+            }
+        } else if (type->is_method()) {
+            m_output += fmt::format("MethodType '{}'\n", type->to_string(false));
+            dump_type(type->function.return_type, indentation + 4);
+
+            for (TypeInfo* t : type->function.param_types) {
+                dump_type(t, indentation + 4);
+            }
+        } else if (type->is_struct()) {
+            m_output += fmt::format("StructType '{}'\n", type->to_string(false));
+        } else if (type->is_typedef()) {
+            m_output += fmt::format("TypedefType '{}'\n", type->to_string(false));
+        } else if (type->is_enum()) {
+            m_output += fmt::format("EnumType '{}'\n", type->to_string(false));
+        } else if (type->is_struct_specilization()) {
+            m_output += fmt::format("StructSpecilizationType '{}'\n", type->to_string(false));
+
+            for (TypeInfo* t : type->struct_specilization.arguments) {
+                dump_type(t, indentation + 4);
+            }
+        } else {
+            ARIA_UNREACHABLE("Invalid type kind");
+        }
+
+        switch (type->kind) {
+            case TypeKind::Error: {
+                m_output += "ErrorType";
+                break;
+            }
+
+            case TypeKind::Bool: {
+                m_output += "ErrorType";
+                break;
+            }
+        }
+    }
+
     std::string ASTDumper::source_loc_to_string(SourceLoc loc) {
+        // A hack to perform a 'defer', aria supports this but C++ for some reason doesn't
+        struct SetPrevLoc {
+            SetPrevLoc(SourceLoc l, SourceLoc* prev)
+                : loc(l), prev(prev) {}
+            ~SetPrevLoc() { *prev = loc; }
+
+            SourceLoc loc;
+            SourceLoc* prev;
+        } _set_prev_loc(loc, &m_prev_loc);
+
         if (!loc.is_valid()) {
-            m_prev_loc = loc;
             return "<invalid_loc>";
         }
 
+        if (!m_prev_loc.is_valid()) {
+            return fmt::format("<line:{}, col:{}>", loc.line, loc.col);
+        }
+
+        if (loc.unit != m_prev_loc.unit) {
+            return fmt::format("<file:{}, line:{}, col:{}", reinterpret_cast<CompilationUnit*>(loc.unit)->filename, loc.line, loc.col);
+        }
+
         if (loc.line == m_prev_loc.line) {
-            m_prev_loc = loc;
             return fmt::format("<col:{}>", loc.col);
         }
 

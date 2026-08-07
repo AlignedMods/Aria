@@ -53,7 +53,10 @@ namespace ariac {
                 break;
             }
 
-            case ExprKind::TypeInfo: break;
+            case ExprKind::TypeInfo: {
+                copy->type_info.type = TypeInfo::dup(e->type_info.type);
+                break;
+            }
 
             case ExprKind::Member:
             case ExprKind::BuiltinMember:
@@ -63,6 +66,14 @@ namespace ariac {
                 copy->member.parent = Expr::dup(m.parent);
                 copy->member.implicit_deref = m.implicit_deref;
                 copy->member.referenced_member = m.referenced_member;
+                break;
+            }
+
+            case ExprKind::TypeMember: {
+                TypeMemberExpr& m = e->type_member;
+                copy->type_member.member = m.member;
+                copy->type_member.type = TypeInfo::dup(m.type);
+                copy->type_member.referenced_member = m.referenced_member;
                 break;
             }
 

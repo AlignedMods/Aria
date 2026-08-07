@@ -210,6 +210,9 @@ namespace ariac {
 
                 case DeclKind::Generic: {
                     module->symbols[struc->generic.decl->struct_.identifier] = struc;
+
+                    struc->generic.decl->parent_module = module;
+                    struc->generic.decl->parent_unit = unit;
                     break;
                 }
 
@@ -401,12 +404,17 @@ namespace ariac {
         for (Decl* struc : unit->structs) {
             switch (struc->kind) {
                 case DeclKind::Struct: {
-                    resolve_struct_decl(struc);
+                    resolve_struct_body(struc);
                     break;
                 }
 
                 case DeclKind::Generic: {
-                    resolve_generic_decl(struc);
+                    if (struc->generic.decl->resolve_status == ResolveStatus::NotStarted) {
+                        size_t size = m_generic_types.size();
+                        for (Decl* p : struc->generic.parameters) { m_generic_types.push_back(p); }
+                        resolve_struct_body(struc->generic.decl);
+                        m_generic_types.resize(size);
+                    }
                     break;
                 }
 

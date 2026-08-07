@@ -15,6 +15,8 @@ namespace ariac {
 
     struct TypeInfo;
 
+    std::string type_info_to_string(TypeInfo* type, bool pretty = true);
+
     struct PointerType {
         PointerType(TypeInfo* base, bool is_const)
             : base(base), is_const(is_const) {}
@@ -92,10 +94,14 @@ namespace ariac {
         StructSpecilizationType(TypeInfo* base, TinyVector<TypeInfo*> args)
             : base(base), arguments(args) {}
 
-        // Checks if this instatiation actually needs to specialize a type
-        // There are certain cases where specilization is not neccessary
-        // eg. Foo<T> -> Where 'T' is a generic parameter itself
+        // Checks if this specilization actually needs to instantiate a type
+        // There are certain cases where instantiation is not neccessary
+        // eg. Foo<T, int> -> Where 'T' is a generic parameter itself
         bool needs_specilization();
+
+        // Checks if this specilization is fully generic
+        // eg. Foo<T, T2> -> Where 'T' and 'T2' are generic parameters
+        bool is_generic();
 
         TypeInfo* base = nullptr;
         TinyVector<TypeInfo*> arguments;
@@ -154,6 +160,7 @@ namespace ariac {
         static TypeInfo* get_void_ptr();
         static TypeInfo* get_char_ptr();
         static TypeInfo* get_char_slice();
+        static TypeInfo* get_void_method(); // Returns a 'fn (self) -> void'
         static TypeInfo* get_flattened(TypeInfo* t);
 
         static TypeInfo* dup(TypeInfo* type);
@@ -264,8 +271,8 @@ namespace ariac {
         u64 get_bit_size() const;
         u64 get_alignment() const;
         TypeInfo* get_bottom_type() const; // Get the type of the bottom of the type hierarchy
-    };
 
-    std::string type_info_to_string(TypeInfo* type, bool pretty = true);
+        inline std::string to_string(bool pretty = true) { return type_info_to_string(this, pretty); }
+    };
 
 } // namespace ariac

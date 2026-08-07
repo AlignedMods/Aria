@@ -139,12 +139,13 @@ namespace ariac {
     };
 
     struct StructSpecilizationDecl {
-        StructSpecilizationDecl(TinyVector<TypeInfo*> types, Decl* source, TinyVector<Decl*> impls)
-            : types(types), source(source), impls(impls) {}
+        StructSpecilizationDecl(TinyVector<TypeInfo*> types, Decl* source, TinyVector<Decl*> impls, SourceLoc instantiation_loc)
+            : types(types), source(source), impls(impls), instantiation_loc(instantiation_loc) {}
 
         TinyVector<TypeInfo*> types;
         Decl* source = nullptr;
         TinyVector<Decl*> impls;
+        SourceLoc instantiation_loc;
     };
 
     struct ImplDecl {
@@ -207,10 +208,11 @@ namespace ariac {
     };
 
     struct DestructorDecl {
-        DestructorDecl(Decl* parent, Stmt* body)
-            : parent(parent), body(body) {}
+        DestructorDecl(Decl* parent, TypeInfo* type, Stmt* body)
+            : parent(parent), type(type), body(body) {}
 
         Decl* parent = nullptr;
+        TypeInfo* type = nullptr;
         Stmt* body = nullptr;
     };
 

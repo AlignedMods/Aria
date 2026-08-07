@@ -96,6 +96,14 @@ namespace ariac {
                 break;
             }
 
+            case DeclKind::Destructor: {
+                DestructorDecl& dt = d->destructor;
+                copy->destructor.body = Stmt::dup(dt.body);
+                copy->destructor.type = dt.type; // Note that it's safe to do a shallow copy because dtor types never change
+                copy->destructor.parent = dt.parent;
+                break;
+            }
+
             default: ARIA_UNREACHABLE("Invalid decl kind");
         }
 

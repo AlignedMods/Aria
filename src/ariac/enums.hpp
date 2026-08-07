@@ -24,6 +24,7 @@ namespace ariac {
         Member,
         BuiltinMember,
         DependentMember,
+        TypeMember,
         Self,
         Call,
         BuiltinCall,

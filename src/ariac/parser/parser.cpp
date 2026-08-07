@@ -1603,11 +1603,57 @@ namespace ariac {
                 }
 
                 struc->struct_.fields.append(Decl::Create(fieldName->loc + peek(-1)->loc, DeclKind::Field, visibility, FieldDecl(fieldName->string, type)));
+            } else if (match(TokenKind::Fn)) {
+                consume();
+                SourceLoc end_loc;
+
+                Token* name = try_consume(TokenKind::Identifier, "identifier");
+                if (!name) { sync_local(); continue; }
+                
+                VariadicKind variadic = VariadicKind::None;
+                auto[params, param_types] = parse_function_params(&variadic);
+                end_loc = peek(-1)->loc;
+
+                TypeInfo* ret_type = TypeInfo::get_void();
+
+                if (match(TokenKind::Arrow)) {
+                    Token& a = consume();
+
+                    if (!is_type()) {
+                        context.report_compiler_diagnostic(peek()->loc, "Expected a type after '->'");
+                        sync_local();
+                        ret_type = TypeInfo::get_error();
+                        end_loc = a.loc;
+                    } else {
+                        ret_type = parse_type();
+                        end_loc = ret_type->loc;
+                    }
+                }
+
+                Stmt* body = parse_block();
+
+                TypeInfo* final_type = TypeInfo::create_function(TypeKind::Method, ret_type, param_types, variadic);
+                struc->struct_.fields.append(Decl::Create(loc + end_loc, DeclKind::Method,
+                    visibility, MethodDecl(struc, name->string, final_type, params, body)));
+            } else if (match(TokenKind::Squigly)) {
+                Token& s = consume();
+                try_consume(TokenKind::LeftParen, "(");
+                Token* rp = try_consume(TokenKind::RightParen, ")");
+
+                if (!rp) {
+                    sync_local();
+                    continue;
+                }
+
+                Stmt* body = parse_block();
+
+                struc->struct_.fields.append(Decl::Create(loc + rp->loc, DeclKind::Destructor,
+                    visibility, DestructorDecl(struc, TypeInfo::get_void_method(), body)));
             } else if (match(TokenKind::HashPrivate)) {
                 context.report_compiler_diagnostic(loc + peek()->loc, "Structs do not support private fields");
                 consume();
             } else {
-                context.report_compiler_diagnostic(loc, "Expected identifier");
+                context.report_compiler_diagnostic(loc, "Expected identifier, 'fn' or '~'");
                 sync_local();
                 if (match(TokenKind::Semi)) { consume(); }
             }
@@ -1663,7 +1709,7 @@ namespace ariac {
                 Stmt* body = parse_block();
 
                 impl->impl.fields.append(Decl::Create(s.loc + rp->loc, DeclKind::Destructor,
-                    visibility, DestructorDecl(impl, body)));
+                    visibility, DestructorDecl(impl, TypeInfo::get_void_method(), body)));
             } else if (match(TokenKind::Fn)) {
                 consume();
                 SourceLoc end_loc;

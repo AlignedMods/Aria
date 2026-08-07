@@ -95,6 +95,15 @@ namespace ariac {
         Decl* referenced_member = nullptr;
     };
 
+    struct TypeMemberExpr {
+        TypeMemberExpr(std::string_view member, TypeInfo* t)
+            : member(member), type(t) {}
+
+        std::string_view member;
+        TypeInfo* type;
+        Decl* referenced_member = nullptr; // NOTE: This could be null
+    };
+
     struct CallExpr {
         CallExpr(Expr* callee, TinyVector<Expr*> args)
             : callee(callee), arguments(args) {}
@@ -310,6 +319,7 @@ namespace ariac {
             DeclRefExpr decl_ref;
             TypeInfoExpr type_info;
             MemberExpr member;
+            TypeMemberExpr type_member;
             CallExpr call;
             BuiltinCallExpr builtin_call;
             ConstructExpr construct;
@@ -360,6 +370,9 @@ namespace ariac {
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, MemberExpr member)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), member(member) {}
+
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, TypeMemberExpr member)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), type_member(member) {}
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, CallExpr call)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), call(call) {}

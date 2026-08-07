@@ -92,17 +92,15 @@ namespace ariac {
         decl->resolve_status = ResolveStatus::InProgress;
 
         StructDecl& s = decl->struct_;
+        if (s.fields.size == 0) { report_diag(decl->loc, "Empty structs are not allowed"); }
         
-        if (s.fields.size == 0) {
-            report_diag(decl->loc, "Empty structs are not allowed");
-        }
-        
+        // First resolve all the fields
         for (Decl* field : s.fields) {
+            if (field->kind != DeclKind::Field) { continue; }
+
             field->parent_unit = decl->parent_unit;
             field->parent_module = decl->parent_module;
             resolve_type(field->field.type);
-        
-            ARIA_ASSERT(field->kind == DeclKind::Field, "Invalid field");
         
             if (s.field_lookup.contains(field->field.identifier)) {
                 Decl* prev = s.field_lookup.at(field->field.identifier);
@@ -121,15 +119,56 @@ namespace ariac {
 
         decl->resolve_status = ResolveStatus::Done;
 
-        for (Decl* field : decl->struct_.fields) {
-            ARIA_ASSERT(field->kind == DeclKind::Field, "Invalid field");
+        // Then do further analysis
+        for (Decl* field : s.fields) {
+            switch (field->kind) {
+                case DeclKind::Field: {
+                    if (Decl* dtor = type_get_destructor(field->field.type)) {
+                        if (!decl->struct_.field_lookup.contains("~")) {
+                            report_diag_with_notes(decl->loc, fmt::format("Field '{}' has a destructor, but the struct does not", field->field.identifier),
+                                { "Did you mean to provide an empty destructor for this struct?" });
+                            return;
+                        }
+                    }
 
-            if (Decl* dtor = type_get_destructor(field->field.type)) {
-                if (!decl->struct_.field_lookup.contains("~")) {
-                    report_diag_with_notes(decl->loc, fmt::format("Field '{}' has a destructor, but the struct does not", field->field.identifier),
-                        { "Did you mean to provide an empty destructor for this struct?" });
-                    return;
+                    break;
                 }
+
+                case DeclKind::Method: {
+                    resolve_type(field->method.type);
+
+                    if (s.field_lookup.contains(field->method.identifier)) {
+                        Decl* prev = s.field_lookup.at(field->method.identifier);
+
+                        if (prev->kind == DeclKind::Method) {
+                            report_error(field->loc, fmt::format("Redeclaring method '{}'", field->method.identifier));
+                            report_note(prev->loc, "Previous declaration here");
+                            break;
+                        } else {
+                            report_error(field->loc, fmt::format("Redeclaring field '{}' as method", field->method.identifier));
+                            report_note(prev->loc, "Previous declaration here");
+                            break;
+                        }
+                    }
+
+                    s.field_lookup.insert(field->method.identifier, field);
+                    break;
+                }
+
+                case DeclKind::Destructor: {
+                    if (s.field_lookup.contains("~")) {
+                        Decl* prev = s.field_lookup.at("~");
+
+                        report_error(field->loc, "Redeclaring destructor");
+                        report_note(prev->loc, "Previous declaration here");
+                        continue;
+                    }
+
+                    s.field_lookup.insert("~", field);
+                    break;
+                }
+
+                default: ARIA_UNREACHABLE("Invalid field kind");
             }
         }
     }
@@ -151,11 +190,12 @@ namespace ariac {
             }
 
             case TypeKind::StructSpecilization: {
-                if (!i.type->struct_specilization.needs_specilization()) {
+                if (i.type->struct_specilization.is_generic()) {
                     i.parent = i.type->struct_specilization.base->generic.resolved_decl;
                     i.parent->generic.decl->struct_.impls.append(decl);
                 } else {
-                    ARIA_TODO("Impls for generic instatiations");
+                    i.parent = i.type->struct_specilization.resolved_decl;
+                    i.parent->struct_specilization.impls.append(decl);
                 }
                 break;
             }
@@ -318,12 +358,26 @@ namespace ariac {
         }
     }
 
+    void SemanticAnalyzer::resolve_struct_body(Decl* decl) {
+        StructDecl& s = decl->struct_;
+
+        for (Decl* f : s.fields) {
+            switch (f->kind) {
+                case DeclKind::Field: break;
+                case DeclKind::Method: resolve_method_body(f); break;
+                case DeclKind::Destructor: resolve_destructor_body(f); break;
+
+                default: ARIA_UNREACHABLE("Invalid struct field");
+            }
+        }
+    }
+
     void SemanticAnalyzer::resolve_method_body(Decl* decl) {
         MethodDecl& m = decl->method;
         
         FunctionContext ctx;
         ctx.return_type = m.type->function.return_type;
-        ctx.struct_type = m.parent->impl.type;
+        ctx.struct_type = type_from_decl(m.parent);
         m_functions.push_back(ctx);
         
         push_scope();
@@ -349,13 +403,13 @@ namespace ariac {
 
         FunctionContext ctx;
         ctx.return_type = TypeInfo::get_void();
-        ctx.struct_type = d.parent->impl.type;
+        ctx.struct_type = type_from_decl(d.parent);
         m_functions.push_back(ctx);
 
         push_scope();
 
         for (Decl* field : ctx.struct_type->struct_.source_decl->struct_.fields) {
-            ARIA_ASSERT(field->kind == DeclKind::Field, "Invalid field");
+            if (field->kind != DeclKind::Field) { continue; }
 
             if (Decl* dtor = type_get_destructor(field->field.type)) {
                 Expr* self = Expr::Create(decl->loc, ExprKind::Self, ExprValueKind::LValue,

@@ -43,6 +43,8 @@ namespace ariac {
         if (!is_const_expr(e)) { return nullptr; }
 
         Expr* c = eval_const_expr(e);
+        if (c->const_.kind == ConstExprKind::Error) { return nullptr; }
+
         ARIA_ASSERT(c->const_.kind == ConstExprKind::Typeid, "Invalid typeid");
         return c->const_.type;
     }

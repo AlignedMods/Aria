@@ -145,12 +145,15 @@ namespace ariac {
                     Decl* struc = Decl::dup(g->generic.decl);
                     struc->parent_module = g->parent_module;
                     struc->parent_unit = g->parent_unit;
-                    resolve_struct_decl(struc);
 
-                    specilization = Decl::Create(g->loc, DeclKind::StructSpecilization, g->visibility, StructSpecilizationDecl(gi.arguments, struc, struc->struct_.impls));
+                    specilization = Decl::Create(g->loc, DeclKind::StructSpecilization, g->visibility, StructSpecilizationDecl(gi.arguments, struc, struc->struct_.impls, type->loc));
                     specilization->parent_module = g->parent_module;
                     specilization->parent_unit = g->parent_unit;
                     g->generic.specilizations.append(specilization);
+
+                    resolve_struct_decl(struc);
+                    resolve_struct_body(struc);
+
                     m_generic_instantations.pop_back();
                 }
 

@@ -27,6 +27,7 @@ namespace ariac {
     static TypeInfo* void_ptr_type;
     static TypeInfo* char_ptr_type;
     static TypeInfo* char_slice_type;
+    static TypeInfo* void_method;
 
     TypeInfo* TypeInfo::create_basic(TypeKind kind, SourceLoc loc) {
         TypeInfo* t = context.allocate<TypeInfo>();
@@ -300,6 +301,12 @@ namespace ariac {
         return char_slice_type;
     }
 
+    TypeInfo* TypeInfo::get_void_method() {
+        if (void_method) { return void_method; }
+        void_method = create_function(TypeKind::Method, get_void(), {}, VariadicKind::None);
+        return void_method;
+    }
+
     TypeInfo* TypeInfo::get_flattened(TypeInfo* t) {
         switch (t->kind) {
             case TypeKind::Error:
@@ -396,6 +403,7 @@ namespace ariac {
                 u64 alignment = get_alignment();
 
                 for (Decl* field : struct_.source_decl->struct_.fields) {
+                    if (field->kind != DeclKind::Field) { continue; }
                     size += align_value(field->field.type->get_size(), alignment);
                 }
 
@@ -521,6 +529,7 @@ namespace ariac {
                 u64 alignment = 0;
 
                 for (Decl* field : struct_.source_decl->struct_.fields) {
+                    if (field->kind != DeclKind::Field) { continue; }
                     u64 new_alignment = field->field.type->get_alignment();
                     alignment = (new_alignment > alignment) ? new_alignment : alignment;
                 }
@@ -535,6 +544,7 @@ namespace ariac {
                 u64 alignment = 0;
 
                 for (Decl* field : struct_specilization.resolved_decl->struct_specilization.source->struct_.fields) {
+                    if (field->kind != DeclKind::Field) { continue; }
                     u64 new_alignment = field->field.type->get_alignment();
                     alignment = (new_alignment > alignment) ? new_alignment : alignment;
                 }
@@ -640,7 +650,7 @@ namespace ariac {
             case TypeKind::Method: {
                 FunctionType ty = type->function;
 
-                str = "(self";
+                str = "fn (self";
 
                 for (size_t i = 0; i < ty.param_types.size; i++) {
                     str += ", ";
@@ -736,6 +746,14 @@ namespace ariac {
     bool StructSpecilizationType::needs_specilization() {
         for (TypeInfo* arg : arguments) {
             if (arg->is_generic()) { return false; }
+        }
+
+        return true;
+    }
+
+    bool StructSpecilizationType::is_generic() {
+        for (TypeInfo* arg : arguments) {
+            if (!arg->is_generic()) { return false; }
         }
 
         return true;

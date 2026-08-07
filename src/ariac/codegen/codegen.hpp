@@ -123,6 +123,7 @@ namespace ariac {
         llvm::Value* gen_typeinfo_expr(Expr* expr);
         llvm::Value* gen_member_expr(Expr* expr);
         llvm::Value* gen_builtin_member_expr(Expr* expr);
+        llvm::Value* gen_type_member_expr(Expr* expr);
         llvm::Value* gen_self_expr(Expr* expr);
         llvm::Value* gen_call_expr(Expr* expr);
         llvm::Value* gen_builtin_call_expr(Expr* expr);

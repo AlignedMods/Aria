@@ -157,13 +157,11 @@ namespace ariac {
         set_debug_loc(expr->loc);
         
         llvm::Value* val = gen_expr(mem.parent);
-        TypeInfo* type = mem.parent->type;
+        TypeInfo* type = TypeInfo::get_flattened(mem.parent->type);
 
         if (mem.implicit_deref) {
             type = mem.parent->type->pointer.base;
         }
-
-        while (type->kind == TypeKind::Typedef) { type = type->typedef_.base; }
 
         switch (type->kind) {
             case TypeKind::Typeid: {
@@ -221,6 +219,16 @@ namespace ariac {
             }
 
             default: ARIA_UNREACHABLE("Invalid type kind");
+        }
+    }
+
+    llvm::Value* Codegen::gen_type_member_expr(Expr* expr) {
+        TypeMemberExpr& mem = expr->type_member;
+
+        if (mem.member == "name") {
+            return get_string(mem.type->to_string());
+        } else if (mem.member == "size") {
+            return get_sz(mem.type->get_size());
         }
     }
 
@@ -313,6 +321,18 @@ namespace ariac {
             case TypeKind::Float:
             case TypeKind::Double:
             case TypeKind::Pointer: {
+                if (ct.arguments.size == 0) {
+                    return llvm::Constant::getNullValue(type);
+                }
+
+                if (ct.arguments.size == 1) {
+                    return gen_expr(ct.arguments.items[0]);
+                }
+
+                ARIA_UNREACHABLE("Invalid amount of args");
+            }
+
+            case TypeKind::Typeid: {
                 if (ct.arguments.size == 0) {
                     return llvm::Constant::getNullValue(type);
                 }
@@ -1152,6 +1172,7 @@ namespace ariac {
             case ExprKind::TypeInfo: return gen_typeinfo_expr(expr);
             case ExprKind::Member: return gen_member_expr(expr);
             case ExprKind::BuiltinMember: return gen_builtin_member_expr(expr);
+            case ExprKind::TypeMember: return gen_type_member_expr(expr);
             case ExprKind::Self: return gen_self_expr(expr);
             case ExprKind::Call: return gen_call_expr(expr);
             case ExprKind::BuiltinCall: return gen_builtin_call_expr(expr);
