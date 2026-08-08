@@ -81,7 +81,6 @@ namespace ariac {
         std::pair<TinyVector<Decl*>, TinyVector<TypeInfo*>> parse_function_params(VariadicKind* variadic);
         TinyVector<Decl*> parse_generic_params();
         Decl* parse_struct_decl();
-        Decl* parse_impl_decl();
         Decl* parse_extern_decl();
         Decl* parse_static_decl();
         Decl* parse_typedef_decl();

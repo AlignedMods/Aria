@@ -291,7 +291,7 @@ namespace ariac {
 
     TypeInfo* TypeInfo::get_char_ptr() {
         if (char_ptr_type) { return char_ptr_type; }
-        char_ptr_type = create_pointer(get_basic(TypeKind::Char), true);
+        char_ptr_type = create_pointer(get_basic(TypeKind::Char), false);
         return char_ptr_type;
     }
 
@@ -640,7 +640,7 @@ namespace ariac {
                 }
 
                 if (ty.variadic == VariadicKind::Unnamed) { str += ", ..."; }
-                else if (ty.variadic == VariadicKind::Named) { str += "..."; }
+                else if (ty.variadic == VariadicKind::Named) { str += ", any..."; }
 
                 str += ")";
                 str += fmt::format(" -> {}", type_info_to_string(ty.return_type, pretty));
@@ -658,7 +658,7 @@ namespace ariac {
                 }
 
                 if (ty.variadic == VariadicKind::Unnamed) { str += ", ..."; }
-                else if (ty.variadic == VariadicKind::Named) { str += "..."; }
+                else if (ty.variadic == VariadicKind::Named) { str += ", any..."; }
 
                 str += ")";
                 str += fmt::format(" -> {}", type_info_to_string(ty.return_type, pretty));

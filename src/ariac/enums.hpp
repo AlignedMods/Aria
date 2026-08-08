@@ -258,7 +258,6 @@ namespace ariac {
         FunctionSpecilization,
         Struct,
         StructSpecilization,
-        Impl,
         Typedef,
         Enum,
         EnumConstant,

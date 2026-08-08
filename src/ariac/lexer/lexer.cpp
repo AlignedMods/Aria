@@ -514,7 +514,6 @@ namespace ariac {
             { "return", TokenKind::Return },
             { "fn", TokenKind::Fn },
             { "struct", TokenKind::Struct },
-            { "impl", TokenKind::Impl },
             { "defer", TokenKind::Defer },
             { "extern", TokenKind::Extern },
             { "static", TokenKind::Static },

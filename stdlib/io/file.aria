@@ -5,9 +5,6 @@ import std::core;
 
 struct File {
     handle: *FILE;
-}
-
-impl File {
 
     fn read_entire_file(ss: *StringStream) {
         let buf: [1024]char;
@@ -26,7 +23,6 @@ impl File {
     fn close() {
         libc::fclose(handle);
     }
-
 }
 
 module std::io::File;

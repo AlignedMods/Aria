@@ -480,6 +480,7 @@ namespace ariac {
                 case TypeKind::Array: {
                     if (mem.member == "mem") {
                         member_type = TypeInfo::create_pointer(parent_type->array.base, false);
+                        expr->value_kind = ExprValueKind::RValue;
                         expr->kind = ExprKind::BuiltinMember;
                     } else if (mem.member == "len") {
                         member_type = TypeInfo::get_basic(TypeKind::Sz);
@@ -983,14 +984,15 @@ namespace ariac {
                 case DeclKind::Method: {
                     resolve_type(mc.callee->member.referenced_member->method.type);
                     FunctionType& fn_type = callee_type->function;
+                    size_t param_count = fn_type.variadic == VariadicKind::Named ? fn_type.param_types.size - 1 : fn_type.param_types.size;
 
-                    if (fn_type.param_types.size != mc.arguments.size) {
+                    if (param_count != mc.arguments.size) {
                         report_diag(expr->loc, fmt::format("Mismatched argument count, method expects {} but got {}", fn_type.param_types.size, mc.arguments.size));
                         for (size_t i = 0; i < mc.arguments.size; i++) {
                             resolve_expr(mc.arguments.items[i]);
                         }
                     } else {
-                        for (size_t i = 0; i < fn_type.param_types.size; i++) {
+                        for (size_t i = 0; i < param_count; i++) {
                             resolve_param_initializer(fn_type.param_types.items[i], mc.arguments.items[i]);
                         }
                     }

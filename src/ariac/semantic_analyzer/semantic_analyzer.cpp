@@ -27,8 +27,8 @@ namespace ariac {
         JumpTarget prevb = m_break_target;
         JumpTarget prevc = m_continue_target;
 
-        m_break_target = { b, m_functions.back().scopes.rbegin() };
-        m_continue_target = { c, m_functions.back().scopes.rbegin() };
+        m_break_target = { b, m_functions.back().scopes.size() - 1 };
+        m_continue_target = { c, m_functions.back().scopes.size() - 1 };
 
         return { prevb, prevc };
     }

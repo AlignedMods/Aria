@@ -156,6 +156,15 @@ namespace ariac {
             if (context.opts->triple.isWindowsMSVCEnvironment()) {
                 // Fix for undefined symbol '_fltused' on MSVC when not using CRT
                 llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, int32_type, false, llvm::GlobalValue::ExternalLinkage, llvm::Constant::getNullValue(int32_type), "_fltused");
+
+                // Fix for undefined symbol '__chkstk' on MSVC when not using CRT
+                // Note that this function is currently just a no op
+                llvm::Function* chkstk = llvm::Function::Create(llvm::FunctionType::get(void_type, false),
+                    llvm::GlobalValue::ExternalLinkage, "__chkstk", *m_active_module_context.module);
+
+                llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", chkstk);
+                m_active_module_context.builder->SetInsertPoint(bb);
+                m_active_module_context.builder->CreateRetVoid();
             }
 
             llvm::Function* main = llvm::Function::Create(llvm::FunctionType::get(int32_type, { int32_type, ptr_type}, false), llvm::GlobalValue::LinkageTypes::ExternalLinkage, "main", *m_active_module_context.module);
@@ -498,7 +507,10 @@ namespace ariac {
             if (!s) {
                 std::vector<llvm::Type*> types;
                 types.reserve(t->struct_.source_decl->struct_.fields.size);
-                for (Decl* field : t->struct_.source_decl->struct_.fields) { types.push_back(type_info_to_llvm_type(field->field.type)); }
+                for (Decl* field : t->struct_.source_decl->struct_.fields) {
+                    if (field->kind != DeclKind::Field) { continue; }
+                    types.push_back(type_info_to_llvm_type(field->field.type));
+                }
                 s = llvm::StructType::create(*m_active_module_context.context, types, name);
             }
 
@@ -565,7 +577,22 @@ namespace ariac {
         } else if (t->is_floating_point()) {
             dit = m_active_debug_context.builder->createBasicType(str_type, t->get_bit_size(), llvm::dwarf::DW_ATE_float);
         } else if (t->is_string()) {
-            dit = m_active_debug_context.builder->createStringType("string", t->get_size() * 8);
+            std::array<llvm::Metadata*, 2> elems{};
+
+            u64 offset_bits = 0;
+            elems[0] = m_active_debug_context.builder->createMemberType(m_active_debug_context.scope, "mem", 
+                m_active_debug_context.scope->getFile(), 0, TypeInfo::get_void_ptr()->get_bit_size(), (unsigned)TypeInfo::get_void_ptr()->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
+                type_info_to_debug_type(TypeInfo::get_char_ptr()));
+
+            offset_bits += TypeInfo::get_void_ptr()->get_bit_size();
+
+            elems[1] = m_active_debug_context.builder->createMemberType(m_active_debug_context.scope, "len", 
+                m_active_debug_context.scope->getFile(), 0, TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), (unsigned)TypeInfo::get_basic(TypeKind::Sz)->get_alignment() * 8, offset_bits, llvm::DINode::DIFlags::FlagExplicit,
+                type_info_to_debug_type(TypeInfo::get_basic(TypeKind::Sz)));
+
+            dit = m_active_debug_context.builder->createStructType(m_active_debug_context.scope,
+                str_type, m_active_debug_context.scope->getFile(), 0, (unsigned)t->get_size() * 8, (unsigned)t->get_alignment() * 8,
+                llvm::DINode::DIFlags::FlagExplicit, nullptr, m_active_debug_context.builder->getOrCreateArray(elems));
         } else if (t->is_typeid()) {
             std::array<llvm::Metadata*, 5> elems{};
 

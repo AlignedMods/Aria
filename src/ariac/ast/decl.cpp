@@ -53,25 +53,6 @@ namespace ariac {
                     copy->struct_.fields.append(dupped);
                 }
 
-                for (Decl* i : s.impls) {
-                    Decl* dupped = Decl::dup(i);
-                    dupped->impl.parent = copy;
-                    copy->struct_.impls.append(dupped);
-                }
-
-                break;
-            }
-
-            case DeclKind::Impl: {
-                ImplDecl& i = d->impl;
-                copy->impl.type = TypeInfo::dup(i.type);
-
-                for (Decl* f : i.fields) {
-                    Decl* dupped = Decl::dup(f);
-                    copy->impl.fields.append(dupped);
-                    dupped->method.parent = copy;
-                }
-
                 break;
             }
 

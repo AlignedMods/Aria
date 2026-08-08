@@ -146,7 +146,7 @@ namespace ariac {
                     struc->parent_module = g->parent_module;
                     struc->parent_unit = g->parent_unit;
 
-                    specilization = Decl::Create(g->loc, DeclKind::StructSpecilization, g->visibility, StructSpecilizationDecl(gi.arguments, struc, struc->struct_.impls, type->loc));
+                    specilization = Decl::Create(g->loc, DeclKind::StructSpecilization, g->visibility, StructSpecilizationDecl(gi.arguments, struc, type->loc));
                     specilization->parent_module = g->parent_module;
                     specilization->parent_unit = g->parent_unit;
                     g->generic.specilizations.append(specilization);
@@ -272,6 +272,7 @@ namespace ariac {
                     return cost;
                 }
 
+                // Check for *[100]int -> *int
                 if (src->pointer.base->is_array()) {
                     if (dst->pointer.base->is_void()) {
                         cost.kind = CastKind::BitCast;
@@ -279,14 +280,10 @@ namespace ariac {
                     }
 
                     ConversionCost base_cost = get_conversion_cost(dst->pointer.base, src->pointer.base->array.base);
-                    if (base_cost.cast_needed) {
-                        cost.explicit_cast_possible = false;
-                        cost.implicit_cast_possible = false;
+                    if (!base_cost.cast_needed) {
+                        cost.kind = CastKind::BitCast;
                         return cost;
                     }
-
-                    cost.kind = CastKind::BitCast;
-                    return cost;
                 }
 
                 if ((src->pointer.base->is_void() && !dst->pointer.base->is_void()) || (dst->pointer.base->is_void() && !src->pointer.base->is_void())) { // Allow void* conversions

@@ -147,9 +147,10 @@ namespace ariac {
                 llvm::BasicBlock* for_body = f.body->block.stmts.size == 0 ? 
                     llvm::BasicBlock::Create(*m_active_module_context.context, "for.step", m_active_module_context.function) : 
                     llvm::BasicBlock::Create(*m_active_module_context.context, "for.body", m_active_module_context.function);
+                llvm::BasicBlock* for_step = f.step ? create_block("for.step") : nullptr;
                 llvm::BasicBlock* for_end = llvm::BasicBlock::Create(*m_active_module_context.context, "for.end", m_active_module_context.function);
 
-                f.backend.continue_block = for_cond;
+                f.backend.continue_block = for_step ? for_step : for_cond;
                 f.backend.end_block = for_end;
 
                 m_active_module_context.builder->CreateBr(for_cond);
@@ -162,7 +163,14 @@ namespace ariac {
                     m_active_module_context.builder->SetInsertPoint(for_body);
                     gen_block_stmt(f.body);
 
-                    if (f.step) { gen_expr(f.step); }
+                    if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) {
+                        m_active_module_context.builder->CreateBr(reinterpret_cast<llvm::BasicBlock*>(f.backend.continue_block));
+                    }
+                }
+
+                if (for_step) {
+                    m_active_module_context.builder->SetInsertPoint(for_step);
+                    gen_expr(f.step);
                     m_active_module_context.builder->CreateBr(for_cond);
                 }
 

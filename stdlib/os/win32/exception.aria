@@ -25,7 +25,7 @@ fn exception_filter(exception_info: *ExceptionPointers) -> int {
     if code == 3221225477 {
         io::eprintfn("Access violation at %s\n", addr);
     } else {
-        io::eprintfn("Unhandled exception 0x%X at %p\n", code, addr);
+        io::eprintfn("Unhandled exception 0x%s at %s\n", code, addr);
     }
 
     if (prev_filter != null) {

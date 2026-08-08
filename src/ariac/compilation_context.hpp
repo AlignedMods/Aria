@@ -45,7 +45,6 @@ namespace ariac {
         std::vector<Decl*> globals;
         std::vector<Decl*> funcs;
         std::vector<Decl*> structs;
-        std::vector<Decl*> impls;
         std::vector<Decl*> typedefs;
         std::vector<Decl*> enums;
         std::vector<Decl*> imports;
@@ -60,7 +59,7 @@ namespace ariac {
 
     struct CompilationContext {
         inline CompilationContext()
-            : arena(new ArenaAllocator(10 * 1024 * 1024)) {}
+            : arena(new ArenaAllocator) {}
 
         inline CompilationContext(const CompilationContext& other) = delete; // Disallow copying
         inline CompilationContext(const CompilationContext&& other) = delete; // Disallow moving

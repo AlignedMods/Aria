@@ -173,88 +173,6 @@ namespace ariac {
         }
     }
 
-    void SemanticAnalyzer::resolve_impl_decl(Decl* decl) {
-        if (decl->resolve_status == ResolveStatus::Done) { return; }
-        decl->resolve_status = ResolveStatus::InProgress;
-
-        ImplDecl& i = decl->impl;
-
-        resolve_type(i.type);
-        if (i.type->is_error()) { decl->kind = DeclKind::Error; return; }
-
-        switch (i.type->kind) {
-            case TypeKind::Struct: {
-                i.parent = i.type->struct_.source_decl;
-                i.parent->struct_.impls.append(decl);
-                break;
-            }
-
-            case TypeKind::StructSpecilization: {
-                if (i.type->struct_specilization.is_generic()) {
-                    i.parent = i.type->struct_specilization.base->generic.resolved_decl;
-                    i.parent->generic.decl->struct_.impls.append(decl);
-                } else {
-                    i.parent = i.type->struct_specilization.resolved_decl;
-                    i.parent->struct_specilization.impls.append(decl);
-                }
-                break;
-            }
-
-            default: {
-                report_diag(decl->loc, fmt::format("'{}' is not a struct", type_info_to_string(i.type)));
-                decl->kind = DeclKind::Error;
-                return;
-            }
-        }
-
-        StructDecl& s = i.parent->kind == DeclKind::Struct ? i.parent->struct_ : i.parent->generic.decl->struct_;
-
-        for (Decl* field : i.fields) {
-            switch (field->kind) {
-                case DeclKind::Method: {
-                    resolve_type(field->method.type);
-
-                    if (s.field_lookup.contains(field->method.identifier)) {
-                        Decl* prev = i.field_lookup.at(field->method.identifier);
-
-                        if (prev->kind == DeclKind::Method) {
-                            report_diag(field->loc, fmt::format("Redeclaring method '{}'", field->method.identifier));
-                            report_diag(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
-                            continue;
-                        } else {
-                            report_diag(field->loc, fmt::format("Redeclaring field '{}' as method", field->method.identifier));
-                            report_diag(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
-                            continue;
-                        }
-                    }
-
-                    i.field_lookup.insert(field->method.identifier, field);
-                    s.field_lookup.insert(field->method.identifier, field);
-                    break;
-                }
-
-                case DeclKind::Destructor: {
-                    if (s.field_lookup.contains("~")) {
-                        Decl* prev = i.field_lookup.at("~");
-
-                        report_diag(field->loc, "Redeclaring destructor");
-                        report_diag(prev->loc, "Previous declaration here", CompilerDiagKind::Note);
-                        continue;
-                    }
-
-                    i.field_lookup.insert("~", field);
-                    s.field_lookup.insert("~", field);
-                    break;
-                }
-
-                default: ARIA_UNREACHABLE("Invalid field kind");
-            }
-        }
-
-        if (!s.type) { s.type = TypeInfo::create_struct(i.parent); }
-        decl->resolve_status = ResolveStatus::Done;
-    }
-
     void SemanticAnalyzer::resolve_typedef_decl(Decl* decl) {
         TypedefDecl& td = decl->typedef_;
         resolve_type(td.type);
@@ -344,18 +262,6 @@ namespace ariac {
         pop_scope();
         m_functions.pop_back();
         decl->resolve_status = ResolveStatus::Done;
-    }
-
-    void SemanticAnalyzer::resolve_impl_body(Decl* decl) {
-        ImplDecl& i = decl->impl;
-
-        for (Decl* method : i.fields) {
-            switch (method->kind) {
-                case DeclKind::Method: resolve_method_body(method); break;
-                case DeclKind::Destructor: resolve_destructor_body(method); break;
-                default: ARIA_UNREACHABLE("Invalid impl field");
-            }
-        }
     }
 
     void SemanticAnalyzer::resolve_struct_body(Decl* decl) {
@@ -546,7 +452,6 @@ namespace ariac {
             case DeclKind::Param: return resolve_param_decl(decl);
             case DeclKind::Function: return resolve_function_decl(decl);
             case DeclKind::Struct: return resolve_struct_decl(decl);
-            case DeclKind::Impl: return resolve_impl_decl(decl);
             case DeclKind::Typedef: return resolve_typedef_decl(decl);
             case DeclKind::Enum: return resolve_enum_decl(decl);
             case DeclKind::Generic: return resolve_generic_decl(decl);

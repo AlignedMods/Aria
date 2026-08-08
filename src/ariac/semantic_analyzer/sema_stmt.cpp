@@ -166,8 +166,8 @@ namespace ariac {
             m_functions.back().scopes.back().reaches_end = false;
             stmt->break_.target = m_break_target.target;
 
-            for (auto it = m_functions.back().scopes.rbegin(); it != m_break_target.scope; it++) {
-                auto& scope = *it;
+            for (size_t i = m_functions.back().scopes.size(); i > m_break_target.scope_idx; i--) {
+                auto& scope = m_functions.back().scopes[i - 1];
 
                 for (auto it2 = scope.defers.rbegin(); it2 != scope.defers.rend(); it2++) {
                     Stmt* d = *it2;
@@ -185,8 +185,8 @@ namespace ariac {
             m_functions.back().scopes.back().reaches_end = false;
             stmt->continue_.target = m_continue_target.target;
 
-            for (auto it = m_functions.back().scopes.rbegin(); it != m_continue_target.scope; it++) {
-                auto& scope = *it;
+            for (size_t i = m_functions.back().scopes.size(); i > m_continue_target.scope_idx; i--) {
+                auto& scope = m_functions.back().scopes[i - 1];
 
                 for (auto it2 = scope.defers.rbegin(); it2 != scope.defers.rend(); it2++) {
                     Stmt* d = *it2;

@@ -26,6 +26,7 @@ namespace ariac {
         "io/file.aria",
         "core/types.aria",
         "core/string_stream.aria",
+        "core/formatter.aria",
         "core/mem.aria",
         "core/list.aria",
         "core/any.aria",

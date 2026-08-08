@@ -262,19 +262,6 @@ namespace ariac {
         }
     }
 
-    void Codegen::gen_impl_decl(Decl* decl) {
-        ImplDecl& impl = decl->impl;
-
-        for (Decl* field : impl.fields) {
-            switch (field->kind) {
-                case DeclKind::Method: gen_method_decl(field); break;
-                case DeclKind::Destructor: gen_destructor_decl(field); break;
-                    
-                default: ARIA_UNREACHABLE("Invalid field kind");
-            }
-        }
-    }
-
     void Codegen::gen_method_decl(Decl* decl) {
         MethodDecl& m = decl->method;
 

@@ -134,6 +134,10 @@ namespace ariac {
     static BuildOptions handle_args(int argc, const char** argv) {
         BuildOptions opts;
         opts.triple = llvm::Triple(llvm::sys::getDefaultTargetTriple());
+        // if (opts.triple.isWindowsMSVCEnvironment()) {
+        //     opts.triple.setEnvironment(llvm::Triple::GNU);
+        // }
+
         opts.output_path = std::filesystem::path(".build") / "main.exe";
         opts.stdlib_path = "stdlib";
 

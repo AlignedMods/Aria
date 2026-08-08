@@ -35,7 +35,7 @@ namespace ariac {
 
         struct JumpTarget {
             Stmt* target = nullptr;
-            std::vector<Scope>::reverse_iterator scope;
+            size_t scope_idx = 0;
         };
 
         struct FunctionContext {
@@ -106,13 +106,11 @@ namespace ariac {
         void resolve_param_decl(Decl* decl);
         void resolve_function_decl(Decl* decl);
         void resolve_struct_decl(Decl* decl);
-        void resolve_impl_decl(Decl* decl);
         void resolve_typedef_decl(Decl* decl);
         void resolve_enum_decl(Decl* decl);
         void resolve_generic_decl(Decl* decl);
 
         void resolve_function_body(Decl* decl);
-        void resolve_impl_body(Decl* decl);
         void resolve_struct_body(Decl* decl);
         void resolve_method_body(Decl* decl);
         void resolve_destructor_body(Decl* decl);

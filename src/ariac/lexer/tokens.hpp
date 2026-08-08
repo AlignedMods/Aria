@@ -75,7 +75,6 @@ namespace ariac {
         Return,
         Fn,
         Struct,
-        Impl,
         Defer,
         Extern,
         Static,
@@ -203,7 +202,6 @@ namespace ariac {
             case TokenKind::Return: return "return";
             case TokenKind::Fn: return "fn";
             case TokenKind::Struct: return "struct";
-            case TokenKind::Impl: return "impl";
             case TokenKind::Defer: return "defer";
             case TokenKind::Extern: return "extern";
             case TokenKind::Static: return "static";

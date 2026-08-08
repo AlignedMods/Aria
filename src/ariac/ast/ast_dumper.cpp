@@ -39,10 +39,6 @@ namespace ariac {
             dump_decl(var, 4);
         }
 
-        for (Decl* impl : m_unit->impls) {
-            dump_decl(impl, 4);
-        }
-
         for (Decl* func : m_unit->funcs) {
             dump_decl(func, 4);
         }
@@ -336,7 +332,6 @@ namespace ariac {
                 for (Decl* field : decl->struct_.fields) {
                     dump_decl(field, indentation + 4);
                 }
-
                 return;
 
             case DeclKind::StructSpecilization: m_output += fmt::format("StructSpecilizationDecl {} instantiated at {}\n",
@@ -346,20 +341,6 @@ namespace ariac {
                 }
 
                 dump_decl(decl->struct_specilization.source, indentation + 4);
-
-                for (Decl* impl : decl->struct_specilization.impls) {
-                    dump_decl(impl, indentation + 4);
-                }
-
-                return;
-
-            case DeclKind::Impl: m_output += fmt::format("ImplDecl {} '{}'\n",
-                source_loc_to_string(decl->loc), type_info_to_string(decl->impl.type, false));
-
-                for (Decl* field : decl->impl.fields) {
-                    dump_decl(field, indentation + 4);
-                }
-
                 return;
 
             case DeclKind::Typedef: m_output += fmt::format("TypedefDecl {} '{}' '{}'\n",

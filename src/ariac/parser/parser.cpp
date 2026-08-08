@@ -543,6 +543,16 @@ namespace ariac {
             }
         }
 
+        if (!specifier && ident.string == "__FILE__") {
+            return Expr::Create(ident.loc, ExprKind::StringLiteral,
+                ExprValueKind::RValue, TypeInfo::get_string(),
+                StringLiteralExpr(context.active_comp_unit->filename));
+        } else if (!specifier && ident.string == "__LINE__") {
+            return Expr::Create(ident.loc, ExprKind::IntegerLiteral,
+                ExprValueKind::RValue, TypeInfo::get_basic(TypeKind::ULong),
+                IntegerLiteralExpr(ident.loc.line));
+        }
+
         return Expr::Create(first_loc + last_loc, ExprKind::DeclRef,
                        ExprValueKind::LValue, nullptr, 
                        DeclRefExpr(ident.string, specifier, generic_args, provides_generic_args));
@@ -1482,9 +1492,8 @@ namespace ariac {
                     *variadic = VariadicKind::Named;
 
                     TypeInfo* t = TypeInfo::get_basic(TypeKind::Any);
-
-                    params.append(Decl::Create(param_ident->loc, DeclKind::Param, DeclVisibility::Public, ParamDecl(param_ident->string, t, true)));
                     param_types.append(t);
+                    params.append(Decl::Create(param_ident->loc, DeclKind::Param, DeclVisibility::Public, ParamDecl(param_ident->string, t, true)));
 
                     if (match(TokenKind::Comma)) {
                         Token& c = consume();
@@ -1667,99 +1676,6 @@ namespace ariac {
         } else {
             Decl* g = Decl::Create(struc->loc, DeclKind::Generic, m_current_visibility, GenericDecl(generic_params, struc));
             context.active_comp_unit->structs.push_back(g);
-            return g;
-        }
-    }
-
-    Decl* Parser::parse_impl_decl() {
-        Token s = consume(); // consume "impl"
-        TypeInfo* type = nullptr;
-
-        TinyVector<Decl*> generic_params;
-        if (match(TokenKind::Less)) {
-            generic_params = parse_generic_params();
-        }
-
-        if (is_type()) {
-            type = parse_type();
-        } else {
-            context.report_compiler_diagnostic(peek()->loc, "Expected a type");
-            return &error_decl;
-        }
-        
-        Decl* impl = Decl::Create(s.loc + type->loc, DeclKind::Impl, m_current_visibility, ImplDecl(type, {}));
-        DeclVisibility visibility = DeclVisibility::Public;
-
-        try_consume(TokenKind::LeftCurly, "{");
-        while (peek() && !match(TokenKind::RightCurly)) {
-            SourceLoc loc = peek()->loc;
-
-            if (match(TokenKind::Identifier)) {
-                context.report_compiler_diagnostic(loc, "Unexpected identifier found, did you mean to put 'fn' before it?");
-                sync_local();
-            } else if (match(TokenKind::Squigly)) {
-                Token& s = consume();
-                try_consume(TokenKind::LeftParen, "(");
-                Token* rp = try_consume(TokenKind::RightParen, ")");
-
-                if (!rp) {
-                    sync_local();
-                    continue;
-                }
-
-                Stmt* body = parse_block();
-
-                impl->impl.fields.append(Decl::Create(s.loc + rp->loc, DeclKind::Destructor,
-                    visibility, DestructorDecl(impl, TypeInfo::get_void_method(), body)));
-            } else if (match(TokenKind::Fn)) {
-                consume();
-                SourceLoc end_loc;
-
-                Token* name = try_consume(TokenKind::Identifier, "identifier");
-                if (!name) { sync_local(); continue; }
-                
-                VariadicKind variadic = VariadicKind::None;
-                auto[params, param_types] = parse_function_params(&variadic);
-                end_loc = peek(-1)->loc;
-
-                TypeInfo* ret_type = TypeInfo::get_void();
-
-                if (match(TokenKind::Arrow)) {
-                    Token& a = consume();
-
-                    if (!is_type()) {
-                        context.report_compiler_diagnostic(peek()->loc, "Expected a type after '->'");
-                        sync_local();
-                        ret_type = TypeInfo::get_error();
-                        end_loc = a.loc;
-                    } else {
-                        ret_type = parse_type();
-                        end_loc = ret_type->loc;
-                    }
-                }
-
-                Stmt* body = parse_block();
-
-                TypeInfo* final_type = TypeInfo::create_function(TypeKind::Method, ret_type, param_types, variadic);
-                impl->impl.fields.append(Decl::Create(loc + end_loc, DeclKind::Method,
-                    visibility, MethodDecl(impl, name->string, final_type, params, body)));
-            } else if (match(TokenKind::HashPrivate)) {
-                context.report_compiler_diagnostic(loc + peek()->loc, "Impls do not support private fields");
-                consume();
-            } else {
-                context.report_compiler_diagnostic(loc, "Expected 'fn' or 'static'");
-                sync_local();
-                if (match(TokenKind::Semi)) { consume(); }
-            }
-        }
-        try_consume(TokenKind::RightCurly, "}");
-        
-        if (generic_params.size == 0) {
-            context.active_comp_unit->impls.push_back(impl);
-            return impl;
-        } else {
-            Decl* g = Decl::Create(impl->loc, DeclKind::Generic, m_current_visibility, GenericDecl(generic_params, impl));
-            context.active_comp_unit->impls.push_back(g);
             return g;
         }
     }
@@ -1956,9 +1872,6 @@ namespace ariac {
 
             case TokenKind::Struct:
                 return parse_struct_decl();
-
-            case TokenKind::Impl:
-                return parse_impl_decl();
 
             case TokenKind::Typedef:
                 return parse_typedef_decl();

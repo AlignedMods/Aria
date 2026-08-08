@@ -268,25 +268,6 @@ namespace ariac {
     void SemanticAnalyzer::resolve_unit_decls(Module* module, CompilationUnit* unit) {
         context.active_comp_unit = unit;
 
-        for (Decl* impl : unit->impls) {
-            impl->parent_module = module;
-            impl->parent_unit = unit;
-
-            switch (impl->kind) {
-                case DeclKind::Impl: {
-                    resolve_impl_decl(impl);
-                    break;
-                }
-
-                case DeclKind::Generic: {
-                    resolve_generic_decl(impl);
-                    break;
-                }
-
-                default: ARIA_UNREACHABLE("Invalid impl decl");
-            }
-        }
-
         for (Decl* global : unit->globals) {
             global->parent_module = module;
             global->parent_unit = unit;
@@ -429,19 +410,6 @@ namespace ariac {
 
         for (Decl* var : unit->globals) {
             resolve_var_decl(var);
-        }
-
-        for (Decl* impl : unit->impls) {
-            switch (impl->kind) {
-                case DeclKind::Impl: {
-                    resolve_impl_body(impl);
-                    break;
-                }
-
-                case DeclKind::Generic: break;
-
-                default: ARIA_UNREACHABLE("Invalid impl decl");
-            }
         }
 
         for (Decl* func : unit->funcs) {

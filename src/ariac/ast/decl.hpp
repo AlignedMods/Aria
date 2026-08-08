@@ -134,28 +134,16 @@ namespace ariac {
         std::string_view identifier;
         TinyVector<Decl*> fields;
         HTable<Decl*> field_lookup;
-        TinyVector<Decl*> impls;
         TypeInfo* type = nullptr;
     };
 
     struct StructSpecilizationDecl {
-        StructSpecilizationDecl(TinyVector<TypeInfo*> types, Decl* source, TinyVector<Decl*> impls, SourceLoc instantiation_loc)
-            : types(types), source(source), impls(impls), instantiation_loc(instantiation_loc) {}
+        StructSpecilizationDecl(TinyVector<TypeInfo*> types, Decl* source, SourceLoc instantiation_loc)
+            : types(types), source(source), instantiation_loc(instantiation_loc) {}
 
         TinyVector<TypeInfo*> types;
         Decl* source = nullptr;
-        TinyVector<Decl*> impls;
         SourceLoc instantiation_loc;
-    };
-
-    struct ImplDecl {
-        ImplDecl(TypeInfo* type, TinyVector<Decl*> fields)
-            : type(type), fields(fields) {}
-
-        TypeInfo* type;
-        TinyVector<Decl*> fields;
-        HTable<Decl*> field_lookup;
-        Decl* parent = nullptr;
     };
 
     struct TypedefDecl {
@@ -263,7 +251,6 @@ namespace ariac {
             FunctionSpecilizationDecl function_specilization;
             StructDecl struct_;
             StructSpecilizationDecl struct_specilization;
-            ImplDecl impl;
             TypedefDecl typedef_;
             EnumDecl enum_;
             EnumConstantDecl enum_constant;
@@ -300,9 +287,6 @@ namespace ariac {
 
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, StructSpecilizationDecl struc)
             : loc(loc), kind(kind), visibility(visibility), struct_specilization(struc) {}
-
-        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, ImplDecl impl)
-            : loc(loc), kind(kind), visibility(visibility), impl(impl) {}
 
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, TypedefDecl typedef_)
             : loc(loc), kind(kind), visibility(visibility), typedef_(typedef_) {}

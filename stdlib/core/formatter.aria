@@ -1,0 +1,63 @@
+module std::core;
+
+extern fn printf(fmt: *const char, ...) -> int;
+
+typedef *fn(buf: *void, c: char) as FormatOutFn;
+
+// Function which does nothing on character append
+fn null_out(buf: *void, c: char) {}
+
+// NOTE: The formatter doesn't do any heap allocations
+// You must provide the buffer which will be used
+struct Formatter {
+    data: *void;
+    out_fn: FormatOutFn;
+
+    fn vappendf(fmt: string, args: []any) -> sz {
+        if out_fn == null {
+            out_fn = &null_out;
+        }
+
+        let total_len: sz;
+        let var_idx: sz;
+
+        for (i: sz; i < fmt.len; i++) {
+            let c = fmt[i];
+
+            if c != '%' {
+                total_len += append_char(c);
+                continue;
+            }
+
+            i++;
+            assert(i < fmt.len, __FILE__, __LINE__, "Invalid format");
+
+            c = fmt[i];
+            if c == '%' {
+                total_len += append_char(c);
+                continue;
+            }
+        }
+
+        return total_len;
+    }
+
+    fn appendf(fmt: string, args...) -> sz {
+        return vappendf(fmt, args);
+    }
+
+    fn append_char(c: char) -> sz {
+        out_fn(data, c);
+        return 1;
+    }
+
+    fn append_string(s: string) -> sz {
+        let total_len: sz;
+
+        for (i: sz = 0; i < s.len; i++) {
+            total_len += append_char(s[i]);
+        }
+
+        return total_len;
+    }
+}

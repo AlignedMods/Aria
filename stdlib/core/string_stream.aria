@@ -4,9 +4,6 @@ struct StringStream {
     mem: *char;
     len: sz;
     capacity: sz;
-}
-
-impl StringStream {
 
     fn append_string(s: string) -> void {
         for (i: sz = 0; i < s.len; i++) {
@@ -47,6 +44,7 @@ impl StringStream {
     fn append_uint(u: ulong, base: uint) -> void {
         let buf: [32]char;
         let i: isz;
+        let past_10 = 'a' - 10;
 
         switch base {
             case 10: {
@@ -57,10 +55,12 @@ impl StringStream {
             }
 
             case 16: {
-                append_string("0x");
                 do {
                     let digit = char(u & 0xF);
-                    buf[i++] = '0' + digit;
+
+                    if digit < 10 { buf[i++] = '0' + digit; }
+                    else { buf[i++] = past_10 + digit; }
+
                     u >>= 4;
                 } while u > 0;
             }
@@ -111,7 +111,7 @@ impl StringStream {
             let val = core::any_cast::<sz>(arg);
             
             if val == 0 { append_string("(null)"); return; }
-
+            append_string("0x");
             append_int(val, 16);
             return;
         }
@@ -184,5 +184,4 @@ impl StringStream {
         mem = newData;
         capacity = cap;
     }
-
 }

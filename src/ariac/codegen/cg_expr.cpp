@@ -231,7 +231,14 @@ namespace ariac {
             return get_sz(mem.type->get_size());
         }
 
-        ARIA_UNREACHABLE("Should never be reached");
+        switch (mem.type->kind) {
+            case TypeKind::Enum: {
+                ARIA_ASSERT(mem.referenced_member && mem.referenced_member->kind == DeclKind::EnumConstant, "Invalid reference");
+                return get_int(mem.referenced_member->enum_constant.resolved_value, mem.type->enum_.source_decl->enum_.backing_type);
+            }
+
+            default: ARIA_UNREACHABLE("Should never be reached");
+        }
     }
 
     llvm::Value* Codegen::gen_self_expr(Expr* expr) {
