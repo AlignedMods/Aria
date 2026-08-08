@@ -335,6 +335,9 @@ namespace ariac {
         TypeInfo* parent_type = TypeInfo::get_flattened(mem.parent->type);
         TypeInfo* member_type = nullptr;
 
+        if (mem.parent->is_rvalue()) { insert_materialize_temporary_expr(mem.parent); }
+        expr->value_kind = mem.parent->value_kind;
+
         bool searching = true;
         bool implicit_deref = false;
         while (searching) {
@@ -1123,6 +1126,11 @@ namespace ariac {
         if (tos.len) { try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Sz), tos.len); }
     }
 
+    void SemanticAnalyzer::resolve_materialize_temporary_expr(Expr* expr) {
+        MaterializeTemporaryExpr& t = expr->materialize_temporary;
+        resolve_expr(t.expression);
+    }
+
     void SemanticAnalyzer::resolve_paren_expr(Expr* expr) {
         ParenExpr& paren = expr->paren;
         resolve_expr(paren.expression);
@@ -1221,10 +1229,8 @@ namespace ariac {
             case UnaryOperatorKind::RValueAddressOf: {
                 if (type->is_error()) { expr->type = type; break; }
 
-                if (unop.expression->value_kind != ExprValueKind::RValue) {
-                    report_diag(expr->loc, "RValue address of operation ('&&') requries an rvalue");
-                }
-
+                require_rvalue(unop.expression);
+                insert_materialize_temporary_expr(unop.expression);   
                 TypeInfo* new_type = TypeInfo::create_pointer(type, false);
                 expr->type = new_type;
                 break;
@@ -1257,27 +1263,10 @@ namespace ariac {
                 break;
             }
 
-            case UnaryOperatorKind::Increment: {
-                if (!unop.expression->type->is_error()) {
-                    if (!unop.expression->type->is_numeric()) {
-                        report_diag(unop.expression->loc, fmt::format("Expression must be of a numeric type but is of type '{}'", type_info_to_string(unop.expression->type)));
-                        expr->type = TypeInfo::get_error();
-                        break;
-                    }
-                }
-
-                if (unop.expression->value_kind != ExprValueKind::LValue) {
-                    report_diag(unop.expression->loc, "Expression must be a modifiable lvalue");
-                    expr->type = TypeInfo::get_error();
-                    break;
-                }
-
-                expr->type = unop.expression->type;
-                expr->value_kind = ExprValueKind::RValue;
-                break;
-            }
-
-            case UnaryOperatorKind::Decrement: {
+            case UnaryOperatorKind::PreIncrement:
+            case UnaryOperatorKind::PreDecrement:
+            case UnaryOperatorKind::PostIncrement:
+            case UnaryOperatorKind::PostDecrement: {
                 if (!unop.expression->type->is_error()) {
                     if (!unop.expression->type->is_numeric()) {
                         report_diag(unop.expression->loc, fmt::format("Expression must be of a numeric type but is of type '{}'", type_info_to_string(unop.expression->type)));
@@ -1459,6 +1448,7 @@ namespace ariac {
             case ExprKind::MethodCall: resolve_method_call_expr(expr); break;
             case ExprKind::ArraySubscript: resolve_array_subscript_expr(expr); break;
             case ExprKind::ToSlice: resolve_to_slice_expr(expr); break;
+            case ExprKind::MaterializeTemporary: resolve_materialize_temporary_expr(expr); break;
             case ExprKind::Paren: resolve_paren_expr(expr); break;
             case ExprKind::Cast: resolve_cast_expr(expr); break;
             case ExprKind::ImplicitCast: resolve_implicit_cast_expr(expr); break;
@@ -1790,8 +1780,10 @@ namespace ariac {
 
             case ExprKind::UnaryOperator: {
                 switch (expr->unary_operator.op) {
-                    case UnaryOperatorKind::Increment:
-                    case UnaryOperatorKind::Decrement: return true;
+                    case UnaryOperatorKind::PreIncrement:
+                    case UnaryOperatorKind::PreDecrement:
+                    case UnaryOperatorKind::PostIncrement:
+                    case UnaryOperatorKind::PostDecrement: return true;
 
                     case UnaryOperatorKind::Dereference: return !expr->unary_operator.expression->type->pointer.is_const;
 
@@ -1856,7 +1848,7 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::require_rvalue(Expr* expr) {
-        if (expr->value_kind == ExprValueKind::LValue) {
+        if (expr->is_lxvalue()) {
             if (expr->type->is_struct()) {
                 Expr* m = Expr::Create(expr->loc, ExprKind::Move, ExprValueKind::RValue, expr->type, MoveExpr(Expr::dup(expr)));
                 if (Decl* dtor = type_get_destructor(expr->type)) {
@@ -1991,6 +1983,11 @@ namespace ariac {
             type_info_to_string(lty), type_info_to_string(rty)));
         e->type = TypeInfo::get_error();
         return;
+    }
+
+    void SemanticAnalyzer::insert_materialize_temporary_expr(Expr* expr) {
+        Expr* temp = Expr::Create(expr->loc, ExprKind::MaterializeTemporary, ExprValueKind::XValue, expr->type, MaterializeTemporaryExpr(Expr::dup(expr)));
+        replace_expr(expr, temp);
     }
 
     void SemanticAnalyzer::insert_temporary_expr(Expr* expr, Decl* dtor) {

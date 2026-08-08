@@ -166,6 +166,19 @@ namespace ariac {
         Expr* expression = nullptr;
     };
 
+    // MaterializeTemporaryExpr
+    // Wraps an rvalue expression and turns it into an lvalue by creating a local variable
+    // This is mainly needed in cases where lvalues are needed but rvalues may also be allowed
+    // eg.
+    // fn foo() -> Foo;
+    // foo().x; -> '.x' requires an lvalue but 'foo()' creates an rvalue
+    struct MaterializeTemporaryExpr {
+        MaterializeTemporaryExpr(Expr* expr)
+            : expression(expr) {}
+
+        Expr* expression = nullptr;
+    };
+
     // TemporaryExpr
     // Wraps an expression along with a destructor that needs to be called
     struct TemporaryExpr {
@@ -221,12 +234,11 @@ namespace ariac {
     };
     
     struct UnaryOperatorExpr {
-        UnaryOperatorExpr(Expr* expr, UnaryOperatorKind op, bool infix)
-            : expression(expr), op(op), infix(infix) {}
+        UnaryOperatorExpr(Expr* expr, UnaryOperatorKind op)
+            : expression(expr), op(op) {}
 
         Expr* expression = nullptr;
         UnaryOperatorKind op = UnaryOperatorKind::Invalid;
-        bool infix = false;
     };
     
     struct BinaryOperatorExpr {
@@ -327,6 +339,7 @@ namespace ariac {
             ArraySubscriptExpr array_subscript;
             ToSliceExpr to_slice;
             MoveExpr move;
+            MaterializeTemporaryExpr materialize_temporary;
             TemporaryExpr temporary;
             ExprWithCleanups expr_with_cleanups;
             ParenExpr paren;
@@ -398,6 +411,9 @@ namespace ariac {
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, TemporaryExpr temp)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), temporary(temp) {}
 
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, MaterializeTemporaryExpr temp)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), materialize_temporary(temp) {}
+
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ExprWithCleanups ewc)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), expr_with_cleanups(ewc) {}
 
@@ -421,6 +437,11 @@ namespace ariac {
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ConstExpr const_)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), const_(const_) {}
+
+        inline bool is_lvalue() const { return value_kind == ExprValueKind::LValue; }
+        inline bool is_rvalue() const { return value_kind == ExprValueKind::RValue; }
+        inline bool is_xvalue() const { return value_kind == ExprValueKind::XValue; }
+        inline bool is_lxvalue() const { return value_kind != ExprValueKind::RValue; }
     };
 
     inline Expr error_expr = Expr(SourceLoc(), ExprKind::Error, ExprValueKind::RValue, nullptr, ErrorExpr());

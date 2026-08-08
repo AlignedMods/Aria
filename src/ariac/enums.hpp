@@ -34,6 +34,7 @@ namespace ariac {
         ArraySubscript,
         ToSlice,
         Move,
+        MaterializeTemporary,
         Temporary,
         ExprWithCleanups,
         Paren,
@@ -100,8 +101,10 @@ namespace ariac {
         AddressOf, // "&x"
         RValueAddressOf, // "&&x"
         Dereference, // "*ptr"
-        Increment, // ++i, i++
-        Decrement // --i, i--
+        PreIncrement, // ++i
+        PreDecrement, // --i
+        PostIncrement, // i++
+        PostDecrement // i++
     };
 
     inline const char* unary_op_kind_to_string(UnaryOperatorKind kind) {
@@ -113,8 +116,10 @@ namespace ariac {
             case UnaryOperatorKind::AddressOf: return "&";
             case UnaryOperatorKind::RValueAddressOf: return "&&";
             case UnaryOperatorKind::Dereference: return "*";
-            case UnaryOperatorKind::Increment: return "++";
-            case UnaryOperatorKind::Decrement: return "--";
+            case UnaryOperatorKind::PreIncrement: return "prefix ++";
+            case UnaryOperatorKind::PreDecrement: return "prefix --";
+            case UnaryOperatorKind::PostIncrement: return "postfix ++";
+            case UnaryOperatorKind::PostDecrement: return "postfix --";
 
             default: ARIA_UNREACHABLE("Invalid unary operator");
         }
@@ -227,13 +232,15 @@ namespace ariac {
 
     enum class ExprValueKind {
         LValue,
-        RValue
+        RValue,
+        XValue
     };
 
     inline const char* expr_value_kind_to_string(ExprValueKind type) {
         switch (type) {
             case ExprValueKind::LValue: return "lvalue";
             case ExprValueKind::RValue: return "rvalue";
+            case ExprValueKind::XValue: return "xvalue";
 
             default: ARIA_UNREACHABLE("Invalid expr value kind");
         }

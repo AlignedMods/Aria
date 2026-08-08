@@ -211,6 +211,12 @@ namespace ariac {
                 dump_expr(expr->temporary.expression, indentation + 4);
                 return;
 
+            case ExprKind::MaterializeTemporary: m_output += fmt::format("MaterializeTemporaryExpr {} '{}' {}\n",
+                source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
+
+                dump_expr(expr->materialize_temporary.expression, indentation + 4);
+                return;
+
             case ExprKind::ExprWithCleanups: m_output += fmt::format("ExprWithCleanups {} '{}' {}\n",
                 source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
@@ -236,8 +242,8 @@ namespace ariac {
                 dump_expr(expr->implicit_cast.expression, indentation + 4);
                 return;
 
-            case ExprKind::UnaryOperator: m_output += fmt::format("UnaryOperatorExpr {} '{}' {} '{}' {}\n",
-                source_loc_to_string(expr->loc), unary_op_kind_to_string(expr->unary_operator.op), expr->unary_operator.infix ? "infix" : "prefix",
+            case ExprKind::UnaryOperator: m_output += fmt::format("UnaryOperatorExpr {} '{}' '{}' {}\n",
+                source_loc_to_string(expr->loc), unary_op_kind_to_string(expr->unary_operator.op),
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
                 dump_expr(expr->unary_operator.expression, indentation + 4);

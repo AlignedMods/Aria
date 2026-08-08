@@ -153,6 +153,12 @@ namespace ariac {
                 break;
             }
 
+            case ExprKind::MaterializeTemporary: {
+                MaterializeTemporaryExpr& t = e->materialize_temporary;
+                copy->materialize_temporary.expression = Expr::dup(t.expression);
+                break;
+            }
+
             case ExprKind::Temporary: {
                 TemporaryExpr& t = e->temporary;
                 copy->temporary.expression = Expr::dup(t.expression);
@@ -189,7 +195,6 @@ namespace ariac {
             case ExprKind::UnaryOperator: {
                 UnaryOperatorExpr& u = e->unary_operator;
                 copy->unary_operator.expression = Expr::dup(u.expression);
-                copy->unary_operator.infix = u.infix;
                 copy->unary_operator.op = u.op;
                 break;
             }

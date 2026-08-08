@@ -230,6 +230,8 @@ namespace ariac {
         } else if (mem.member == "size") {
             return get_sz(mem.type->get_size());
         }
+
+        ARIA_UNREACHABLE("Should never be reached");
     }
 
     llvm::Value* Codegen::gen_self_expr(Expr* expr) {
@@ -583,6 +585,15 @@ namespace ariac {
         return m_active_module_context.builder->CreateLoad(ty, temp);
     }
 
+    llvm::Value* Codegen::gen_materialize_temporary_expr(Expr* expr) {
+        MaterializeTemporaryExpr& t = expr->materialize_temporary;
+
+        llvm::Value* val = gen_expr(t.expression);
+        llvm::Value* temp = alloca_at_entry(m_active_module_context.function, "tempaddr", t.expression->type);
+        m_active_module_context.builder->CreateStore(val, temp);
+        return temp;
+    }
+
     llvm::Value* Codegen::gen_expr_with_cleanups(Expr* expr) {
         ExprWithCleanups& e = expr->expr_with_cleanups;
 
@@ -747,16 +758,9 @@ namespace ariac {
                 return nullptr;
             }
 
-            case UnaryOperatorKind::AddressOf: {
-                return gen_expr(un.expression);
-            }
-
+            case UnaryOperatorKind::AddressOf:
             case UnaryOperatorKind::RValueAddressOf: {
-                llvm::Value* val = gen_expr(un.expression);
-                llvm::Value* temp = alloca_at_entry(m_active_module_context.function, "tempaddr", un.expression->type);
-                m_active_module_context.builder->CreateStore(val, temp);
-
-                return temp;
+                return gen_expr(un.expression);
             }
 
             case UnaryOperatorKind::Dereference: {
@@ -781,40 +785,60 @@ namespace ariac {
                 return val;
             }
 
-            case UnaryOperatorKind::Increment: {
+            case UnaryOperatorKind::PreIncrement: {
                 llvm::Value* start_val = gen_expr(un.expression);
                 llvm::Value* load = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(un.expression->type), start_val);
-                llvm::Value* inc = nullptr;
 
                 if (un.expression->type->is_integral()) {
-                    inc = m_active_module_context.builder->CreateAdd(load, m_active_module_context.builder->getIntN((unsigned)un.expression->type->get_bit_size(), 1), "inc");
+                    llvm::Value* inc = m_active_module_context.builder->CreateAdd(load, m_active_module_context.builder->getIntN((unsigned)un.expression->type->get_bit_size(), 1), "inc");
                     m_active_module_context.builder->CreateStore(inc, start_val);
                 } else {
                     ARIA_UNREACHABLE("Invalid expression type");
                 }
 
-                if (un.infix) { return load; }
-                else { return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(un.expression->type), start_val); }
-
-                ARIA_UNREACHABLE("Should be unreachable");
+                return m_active_module_context.builder->CreateLoad(load->getType(), start_val);
             }
 
-            case UnaryOperatorKind::Decrement: {
+            case UnaryOperatorKind::PreDecrement: {
                 llvm::Value* start_val = gen_expr(un.expression);
                 llvm::Value* load = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(un.expression->type), start_val);
-                llvm::Value* dec = nullptr;
 
                 if (un.expression->type->is_integral()) {
-                    dec = m_active_module_context.builder->CreateSub(load, m_active_module_context.builder->getIntN((unsigned)un.expression->type->get_bit_size(), 1), "dec");
+                    llvm::Value* dec = m_active_module_context.builder->CreateSub(load, m_active_module_context.builder->getIntN((unsigned)un.expression->type->get_bit_size(), 1), "dec");
                     m_active_module_context.builder->CreateStore(dec, start_val);
                 } else {
                     ARIA_UNREACHABLE("Invalid expression type");
                 }
 
-                if (un.infix) { return load; }
-                else { return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(un.expression->type), start_val); }
+                return m_active_module_context.builder->CreateLoad(load->getType(), start_val);
+            }
 
-                ARIA_UNREACHABLE("Should be unreachable");
+            case UnaryOperatorKind::PostIncrement: {
+                llvm::Value* start_val = gen_expr(un.expression);
+                llvm::Value* load = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(un.expression->type), start_val);
+
+                if (un.expression->type->is_integral()) {
+                    llvm::Value* inc = m_active_module_context.builder->CreateAdd(load, m_active_module_context.builder->getIntN((unsigned)un.expression->type->get_bit_size(), 1), "inc");
+                    m_active_module_context.builder->CreateStore(inc, start_val);
+                } else {
+                    ARIA_UNREACHABLE("Invalid expression type");
+                }
+
+                return load;
+            }
+
+            case UnaryOperatorKind::PostDecrement: {
+                llvm::Value* start_val = gen_expr(un.expression);
+                llvm::Value* load = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(un.expression->type), start_val);
+
+                if (un.expression->type->is_integral()) {
+                    llvm::Value* dec = m_active_module_context.builder->CreateSub(load, m_active_module_context.builder->getIntN((unsigned)un.expression->type->get_bit_size(), 1), "dec");
+                    m_active_module_context.builder->CreateStore(dec, start_val);
+                } else {
+                    ARIA_UNREACHABLE("Invalid expression type");
+                }
+
+                return load;
             }
 
             default: ARIA_UNREACHABLE("Invalid unary operator");
@@ -1016,7 +1040,7 @@ namespace ariac {
                 return m_active_module_context.builder->CreateICmpNE(rhs, lhs);
             }
 
-            default: ARIA_UNREACHABLE("Invalid binary operator");
+            default: ARIA_UNREACHABLE("Invalid binary operator"); return nullptr;
         }
     }
 
@@ -1183,6 +1207,7 @@ namespace ariac {
             case ExprKind::ToSlice: return gen_to_slice_expr(expr);
             case ExprKind::Move: return gen_move_expr(expr);
             case ExprKind::Temporary: return gen_temporary_expr(expr);
+            case ExprKind::MaterializeTemporary: return gen_materialize_temporary_expr(expr);
             case ExprKind::ExprWithCleanups: return gen_expr_with_cleanups(expr);
             case ExprKind::Paren: return gen_paren_expr(expr);
             case ExprKind::ImplicitCast: return gen_implicit_cast_expr(expr);

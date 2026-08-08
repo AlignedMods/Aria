@@ -235,15 +235,15 @@ namespace ariac {
         }
     }
 
-    UnaryOperatorKind Parser::get_unary_operator_from_token(Token* token) {
+    UnaryOperatorKind Parser::get_unary_operator_from_token(Token* token, bool pre) {
         switch (token->kind) {
             case TokenKind::Bang: return UnaryOperatorKind::Not;
             case TokenKind::Minus: return UnaryOperatorKind::Negate;
             case TokenKind::Ampersand: return UnaryOperatorKind::AddressOf;
             case TokenKind::DoubleAmpersand: return UnaryOperatorKind::RValueAddressOf;
             case TokenKind::Star: return UnaryOperatorKind::Dereference;
-            case TokenKind::PlusPlus: return UnaryOperatorKind::Increment;
-            case TokenKind::MinusMinus: return UnaryOperatorKind::Decrement;
+            case TokenKind::PlusPlus: return pre ? UnaryOperatorKind::PreIncrement : UnaryOperatorKind::PostIncrement;
+            case TokenKind::MinusMinus: return pre ? UnaryOperatorKind::PreDecrement : UnaryOperatorKind::PostDecrement;
             default: return UnaryOperatorKind::Invalid;
         }
     }
@@ -307,7 +307,7 @@ namespace ariac {
 
         return Expr::Create(op.loc + expr->loc, ExprKind::UnaryOperator,
             ExprValueKind::RValue, expr->type,
-            UnaryOperatorExpr(expr, get_unary_operator_from_token(&op), false));
+            UnaryOperatorExpr(expr, get_unary_operator_from_token(&op, true)));
     }
 
     Expr* Parser::parse_infix_unary(Expr* left) {
@@ -317,7 +317,7 @@ namespace ariac {
 
         return Expr::Create(left->loc + op.loc, ExprKind::UnaryOperator,
             ExprValueKind::RValue, left->type,
-            UnaryOperatorExpr(left, get_unary_operator_from_token(&op), true));
+            UnaryOperatorExpr(left, get_unary_operator_from_token(&op, false)));
     }
 
     Expr* Parser::parse_binary(Expr* left) {
@@ -1122,6 +1122,7 @@ namespace ariac {
             }
 
             case TokenKind::LeftParen:
+            case TokenKind::PlusPlus:
             case TokenKind::Minus:
             case TokenKind::Ampersand:
             case TokenKind::Less:

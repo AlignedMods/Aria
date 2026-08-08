@@ -90,6 +90,7 @@ namespace ariac {
         void resolve_method_call_expr(Expr* expr);
         void resolve_array_subscript_expr(Expr* expr);
         void resolve_to_slice_expr(Expr* expr);
+        void resolve_materialize_temporary_expr(Expr* expr);
         void resolve_paren_expr(Expr* expr);
         void resolve_cast_expr(Expr* expr);
         void resolve_implicit_cast_expr(Expr* expr);
@@ -158,6 +159,7 @@ namespace ariac {
         void require_rvalue(Expr* expr);
         void maybe_promote_to_int(Expr* expr);
         void insert_arithmetic_promotion(Expr* lhs, Expr* rhs, BinaryOperatorKind op, Expr* e);
+        void insert_materialize_temporary_expr(Expr* expr);
         void insert_temporary_expr(Expr* expr, Decl* dtor);
         void insert_expr_with_cleanups(Expr* expr);
         bool cast_needs_rvalue(CastKind kind);
