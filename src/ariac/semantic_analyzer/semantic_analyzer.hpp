@@ -92,6 +92,7 @@ namespace ariac {
         void resolve_to_slice_expr(Expr* expr);
         void resolve_materialize_temporary_expr(Expr* expr);
         void resolve_paren_expr(Expr* expr);
+        void resolve_ternary_expr(Expr* expr);
         void resolve_cast_expr(Expr* expr);
         void resolve_implicit_cast_expr(Expr* expr);
         void resolve_unary_operator_expr(Expr* expr);
@@ -127,6 +128,7 @@ namespace ariac {
         void resolve_switch_stmt(Stmt* stmt);
         void resolve_break_stmt(Stmt* stmt);
         void resolve_continue_stmt(Stmt* stmt);
+        void resolve_nextcase_stmt(Stmt* stmt);
         void resolve_return_stmt(Stmt* stmt);
         void resolve_defer_stmt(Stmt* stmt);
         void resolve_expr_stmt(Stmt* stmt);
@@ -149,6 +151,9 @@ namespace ariac {
 
         std::pair<JumpTarget, JumpTarget> set_break_targets(Stmt* b, Stmt* c);
         void restore_break_targets(std::pair<JumpTarget, JumpTarget> prev);
+
+        JumpTarget set_nextcase_target(Stmt* s);
+        void restore_nextcase_target(JumpTarget prev);
 
         ConversionCost get_conversion_cost(TypeInfo* dst, TypeInfo* src);
         void insert_implicit_cast(TypeInfo* dst_type, TypeInfo* src_type, Expr* src_expr, CastKind cast_kind);
@@ -200,6 +205,7 @@ namespace ariac {
 
         JumpTarget m_break_target;
         JumpTarget m_continue_target;
+        JumpTarget m_nextcase_target;
     };
 
 } // namespace ariac

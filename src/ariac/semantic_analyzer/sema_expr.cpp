@@ -975,61 +975,82 @@ namespace ariac {
 
         if (!callee_type->is_method() && !callee_type->is_error()) {
             report_diag(expr->loc, "Cannot call an object of non-method type");
+            expr->kind = ExprKind::Error;
             expr->type = TypeInfo::get_error();
             return;
         }
 
-        if (mc.callee->member.referenced_member->kind != DeclKind::Error) {
-            switch (mc.callee->member.referenced_member->kind) {
-                case DeclKind::Method: {
-                    resolve_type(mc.callee->member.referenced_member->method.type);
-                    FunctionType& fn_type = callee_type->function;
-                    size_t param_count = fn_type.variadic == VariadicKind::Named ? fn_type.param_types.size - 1 : fn_type.param_types.size;
+        switch (mc.callee->member.referenced_member->kind) {
+            case DeclKind::Error: {
+                expr->kind = ExprKind::Error;
+                expr->type = TypeInfo::get_error();
+                return;
+            }
 
-                    if (param_count != mc.arguments.size) {
-                        report_diag(expr->loc, fmt::format("Mismatched argument count, method expects {} but got {}", fn_type.param_types.size, mc.arguments.size));
-                        for (size_t i = 0; i < mc.arguments.size; i++) {
-                            resolve_expr(mc.arguments.items[i]);
+            case DeclKind::Method: {
+                resolve_type(mc.callee->member.referenced_member->method.type);
+                FunctionType& fn_type = callee_type->function;
+
+                switch (fn_type.variadic) {
+                    case VariadicKind::None: {
+                        if (mc.arguments.size != fn_type.param_types.size) {
+                            report_diag(expr->loc, fmt::format("Mismatched argument count, method expects {} but got {}", fn_type.param_types.size, mc.arguments.size));
+                            expr->kind = ExprKind::Error;
+                            expr->type = TypeInfo::get_error();
+                            break;
                         }
-                    } else {
-                        for (size_t i = 0; i < param_count; i++) {
+
+                        for (size_t i = 0; i < fn_type.param_types.size; i++) {
                             resolve_param_initializer(fn_type.param_types.items[i], mc.arguments.items[i]);
                         }
+                        break;
                     }
 
-                    expr->type = fn_type.return_type;
-                    expr->value_kind = ExprValueKind::RValue;
-
-                    if (m_sema_context.temporary) {
-                        if (Decl* dtor = type_get_destructor(expr->type)) {
-                            insert_temporary_expr(expr, dtor);
+                    case VariadicKind::Named: {
+                        if (mc.arguments.size < fn_type.param_types.size - 1) {
+                            report_diag(expr->loc, fmt::format("Mismatched argument count, method expects at least {} but got {}", fn_type.param_types.size - 1, mc.arguments.size));
+                            expr->kind = ExprKind::Error;
+                            expr->type = TypeInfo::get_error();
+                            break;
                         }
-                    }
 
-                    break;
-                }
+                        for (size_t i = 0; i < fn_type.param_types.size - 1; i++) {
+                            resolve_param_initializer(fn_type.param_types.items[i], mc.arguments.items[i]);
+                        }
 
-                case DeclKind::Destructor: {
-                    if (mc.arguments.size != 0) {
-                        report_diag(expr->loc, fmt::format("Mismatched argument count, destructor expects 0 but got {}", mc.arguments.size));
-                        for (size_t i = 0; i < mc.arguments.size; i++) {
+                        for (size_t i = fn_type.param_types.size - 1; i < mc.arguments.size; i++) {
                             resolve_expr(mc.arguments.items[i]);
+                            require_rvalue(mc.arguments.items[i]);
                         }
+                        break;
                     }
 
-                    expr->type = TypeInfo::get_void();
-                    expr->value_kind = ExprValueKind::RValue;
-                    break;
+                    default: ARIA_UNREACHABLE("Invalid variadic kind");
                 }
 
-                default: ARIA_UNREACHABLE("Invalid referenced member");
-            }
-        } else {
-            for (Expr* arg : mc.arguments) {
-                resolve_expr(arg);
+                expr->type = fn_type.return_type;
+
+                if (m_sema_context.temporary) {
+                    if (Decl* dtor = type_get_destructor(expr->type)) {
+                        insert_temporary_expr(expr, dtor);
+                    }
+                }
+                break;
             }
 
-            expr->type = TypeInfo::get_error();
+            case DeclKind::Destructor: {
+                if (mc.arguments.size != 0) {
+                    report_diag(expr->loc, fmt::format("Mismatched argument count, destructor expects 0 but got {}", mc.arguments.size));
+                    for (size_t i = 0; i < mc.arguments.size; i++) {
+                        resolve_expr(mc.arguments.items[i]);
+                    }
+                }
+
+                expr->type = TypeInfo::get_void();
+                break;
+            }
+
+            default: ARIA_UNREACHABLE("Invalid referenced member");
         }
     }
 
@@ -1143,6 +1164,25 @@ namespace ariac {
         if (expr->result_discarded) {
             report_diag(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
         }
+    }
+
+    void SemanticAnalyzer::resolve_ternary_expr(Expr* expr) {
+        TernaryExpr& t = expr->ternary;
+
+        resolve_expr(t.condition);
+        require_rvalue(t.condition);
+        if (!t.condition->type->is_boolean()) {
+            report_error(t.condition->loc, fmt::format("Expression must be of type 'bool' but is '{}'", t.condition->type->to_string()));
+        }
+
+        resolve_expr(t.first);
+        require_rvalue(t.first);
+
+        resolve_expr(t.second);
+        try_insert_implicit_cast(t.first->type, t.second);
+        require_rvalue(t.second);
+
+        expr->type = t.first->type;
     }
 
     void SemanticAnalyzer::resolve_cast_expr(Expr* expr) {
@@ -1452,6 +1492,7 @@ namespace ariac {
             case ExprKind::ToSlice: resolve_to_slice_expr(expr); break;
             case ExprKind::MaterializeTemporary: resolve_materialize_temporary_expr(expr); break;
             case ExprKind::Paren: resolve_paren_expr(expr); break;
+            case ExprKind::Ternary: resolve_ternary_expr(expr); break;
             case ExprKind::Cast: resolve_cast_expr(expr); break;
             case ExprKind::ImplicitCast: resolve_implicit_cast_expr(expr); break;
             case ExprKind::UnaryOperator: resolve_unary_operator_expr(expr); break;
@@ -1511,9 +1552,11 @@ namespace ariac {
             case ExprKind::DeclRef:
                 return expr->decl_ref.referenced_decl->kind == DeclKind::Var && expr->decl_ref.referenced_decl->var.const_var;
 
-            case ExprKind::Construct: {
+            case ExprKind::TypeMember:
+                return expr->type_member.type->is_enum();
+
+            case ExprKind::Construct:
                 return expr->construct.is_const;
-            }
 
             case ExprKind::Paren:
                 return is_const_expr(expr->paren.expression);
@@ -1546,6 +1589,9 @@ namespace ariac {
             case ExprKind::BooleanLiteral: 
                 return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Boolean, expr->boolean_literal.value));
 
+            case ExprKind::CharacterLiteral: 
+                return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Integer, static_cast<u64>(expr->character_literal.value)));
+
             case ExprKind::IntegerLiteral: 
                 return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Integer, expr->integer_literal.value));
 
@@ -1564,6 +1610,12 @@ namespace ariac {
 
             case ExprKind::TypeInfo:
                 return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Typeid, expr->type_info.type));
+
+            case ExprKind::TypeMember: {
+                ARIA_ASSERT(expr->type_member.referenced_member, "Invalid type member expression");
+                ARIA_ASSERT(expr->type_member.referenced_member->kind == DeclKind::EnumConstant, "Invalid type member expression");
+                return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Integer, expr->type_member.referenced_member->enum_constant.resolved_value));
+            }
 
             case ExprKind::Construct:
                 for (Expr*& arg : expr->construct.arguments) {

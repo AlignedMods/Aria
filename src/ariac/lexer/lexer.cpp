@@ -38,6 +38,7 @@ namespace ariac {
                 case '}': add_token(TokenKind::RightCurly, get_loc(1), "}"); break;
                 case '~': add_token(TokenKind::Squigly, get_loc(1), "~"); break;
                 case ',': add_token(TokenKind::Comma, get_loc(1), ","); break;
+                case '?': add_token(TokenKind::Question, get_loc(1), "?"); break;
                 case ':': {
                     if (try_consume(':')) { add_token(TokenKind::ColonColon, get_loc(2), "::"); break; }
                     else { add_token(TokenKind::Colon, get_loc(1), ":"); break; }
@@ -511,6 +512,7 @@ namespace ariac {
             { "case", TokenKind::Case },
             { "break", TokenKind::Break },
             { "continue", TokenKind::Continue },
+            { "nextcase", TokenKind::Nextcase },
             { "return", TokenKind::Return },
             { "fn", TokenKind::Fn },
             { "struct", TokenKind::Struct },

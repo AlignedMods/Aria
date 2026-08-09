@@ -7,6 +7,14 @@ typedef *fn(buf: *void, c: char) as FormatOutFn;
 // Function which does nothing on character append
 fn null_out(buf: *void, c: char) {}
 
+// Static buffer used for integer formatting
+const APPEND_INT_BUF_SIZE = 128;
+
+struct FormatFlags {
+    uppercase: bool;
+    base: char;
+}
+
 // NOTE: The formatter doesn't do any heap allocations
 // You must provide the buffer which will be used
 struct Formatter {
@@ -37,6 +45,38 @@ struct Formatter {
                 total_len += append_char(c);
                 continue;
             }
+
+            assert(var_idx < args.len, __FILE__, __LINE__, "Missing argument");
+            let arg = args[var_idx++];
+
+            let flags: FormatFlags;
+
+            switch c {
+                case 's': {
+                    total_len += append_any(arg);
+                    continue;
+                }
+
+                case 'd': {
+                    flags.base = 10;
+                }
+
+                case 'X': {
+                    flags.uppercase = true;
+                    nextcase;
+                }
+                case 'x': {
+                    flags.base = 16;
+                }
+            }
+
+            if arg.type.kind == TypeKind.SIGNED_INT {
+                append_int(any_to_int::<long>(&arg), flags);
+                continue;
+            } else if arg.type.kind == TypeKind.UNSIGNED_INT {
+                append_uint(any_to_int::<ulong>(&arg), flags);
+                continue;
+            }
         }
 
         return total_len;
@@ -59,5 +99,76 @@ struct Formatter {
         }
 
         return total_len;
+    }
+
+    fn append_buf_reverse(b: []char) -> sz {
+        let len = b.len;
+
+        while len > 0 { append_char(b[--len]); }
+
+        return b.len;
+    }
+
+    fn append_bool(b: bool) -> sz {
+        if b {
+            return append_string("true");
+        } else {
+            return append_string("false");
+        }
+    }
+
+    fn append_int(i: long, flags: FormatFlags) -> sz {
+        if (i < 0) {
+            append_char('-');
+            return append_uint(-i, flags);
+        } else {
+            return append_uint(i, flags);
+        }
+    }
+
+    fn append_uint(u: ulong, flags: FormatFlags) -> sz {
+        let buf: [APPEND_INT_BUF_SIZE]char;
+        let i: isz;
+        let past_10 = (flags.uppercase ? 'A' : 'a') - 10;
+
+        switch flags.base {
+            case 10: {
+                do {
+                    buf[i++] = '0' + (u % 10u);
+                    u /= 10u;
+                } while u > 0;
+            }
+
+            case 16: {
+                do {
+                    let digit = char(u & 0xF);
+
+                    if digit < 10 { buf[i++] = '0' + digit; }
+                    else { buf[i++] = past_10 + digit; }
+
+                    u >>= 4;
+                } while u > 0;
+            }
+        }
+
+        return append_buf_reverse(buf[:i]);
+    }
+
+    fn append_any(a: any) -> sz {
+        switch a.type.kind {
+            case TypeKind.BOOL: {
+                return append_bool(any_cast::<bool>(&a));
+            }
+
+            case TypeKind.SIGNED_INT: {
+                return append_int(any_to_int::<long>(&a), FormatFlags(false, 10));
+            }
+
+            case TypeKind.UNSIGNED_INT: {
+                return append_uint(any_to_int::<ulong>(&a), FormatFlags(false, 10));
+            }
+        }
+
+        return 0;
     }
 }

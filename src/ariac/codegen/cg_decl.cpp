@@ -359,7 +359,11 @@ namespace ariac {
             gen_block_stmt(m.body);
         
             if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) {
-                m_active_module_context.builder->CreateRetVoid();
+                if (m.type->function.return_type->is_void()) {
+                    m_active_module_context.builder->CreateRetVoid();
+                } else {
+                    m_active_module_context.builder->CreateUnreachable();
+                }
             }
         
             m_active_module_context.alloca_marker->eraseFromParent();

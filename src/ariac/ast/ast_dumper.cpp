@@ -483,6 +483,9 @@ namespace ariac {
             case StmtKind::Continue: m_output += fmt::format("ContinueStmt {} {}\n", source_loc_to_string(stmt->loc), reinterpret_cast<void*>(stmt->continue_.target));
                 return;
 
+            case StmtKind::Nextcase: m_output += fmt::format("NextcaseStmt {} {}\n", source_loc_to_string(stmt->loc), reinterpret_cast<void*>(stmt->nextcase.target));
+                return;
+
             case StmtKind::Return: m_output += fmt::format("ReturnStmt {}\n", source_loc_to_string(stmt->loc));
                 if (stmt->return_.value) { dump_expr(stmt->return_.value, indentation + 4); }
                 return;

@@ -178,6 +178,14 @@ namespace ariac {
                 break;
             }
 
+            case ExprKind::Ternary: {
+                TernaryExpr& t = e->ternary;
+                copy->ternary.condition = Expr::dup(t.condition);
+                copy->ternary.first = Expr::dup(t.first);
+                copy->ternary.second = Expr::dup(t.second);
+                break;
+            }
+
             case ExprKind::Cast: {
                 CastExpr& c = e->cast;
                 copy->cast.expression = Expr::dup(c.expression);

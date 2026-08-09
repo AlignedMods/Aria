@@ -475,6 +475,8 @@ namespace ariac {
 
             case TypeKind::Typedef: return typedef_.base->get_bit_size();
 
+            case TypeKind::Enum: return enum_.source_decl->enum_.backing_type->get_bit_size();
+
             default: ARIA_UNREACHABLE("Invalid type kind");
         }
     }

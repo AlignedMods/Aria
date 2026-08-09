@@ -221,9 +221,9 @@ namespace ariac {
             return;
         }
 
-        if (s.expression->type->is_typeid()) {
-            analyze_switch_cases(s);
+        analyze_switch_cases(s);
 
+        if (s.expression->type->is_typeid()) {
             size_t i = 0;
             for (Stmt* case_ : s.cases) {
                 CaseStmt& c = case_->case_;
@@ -258,7 +258,7 @@ namespace ariac {
             ARIA_ASSERT(case_->kind == StmtKind::Case, "Invalid case stmt");
             CaseStmt& c = case_->case_;
 
-            llvm::BasicBlock* switch_case = create_block("switch.case");
+            llvm::BasicBlock* switch_case = reinterpret_cast<llvm::BasicBlock*>(c.backend.entry_block);
             
             m_active_module_context.builder->SetInsertPoint(switch_case);
             gen_block_stmt(c.body);
@@ -300,6 +300,14 @@ namespace ariac {
 
         gen_stmt_chain(stmt->continue_.cleanup);
         ARIA_ASSERT(block, "Block must be set");
+        m_active_module_context.builder->CreateBr(reinterpret_cast<llvm::BasicBlock*>(block));
+    }
+
+    void Codegen::gen_nextcase_stmt(Stmt* stmt) {
+        ARIA_ASSERT(stmt->nextcase.target->kind == StmtKind::Case, "Invalid nextcase target");
+        void* block = stmt->nextcase.target->case_.backend.entry_block;
+        ARIA_ASSERT(block, "block must be set");
+        gen_stmt_chain(stmt->continue_.cleanup);
         m_active_module_context.builder->CreateBr(reinterpret_cast<llvm::BasicBlock*>(block));
     }
 
@@ -371,6 +379,7 @@ namespace ariac {
             case StmtKind::Switch: return gen_switch_stmt(stmt);
             case StmtKind::Break: return gen_break_stmt(stmt);
             case StmtKind::Continue: return gen_continue_stmt(stmt);
+            case StmtKind::Nextcase: return gen_nextcase_stmt(stmt);
             case StmtKind::Return: return gen_return_stmt(stmt);
             case StmtKind::Defer: return gen_defer_stmt(stmt);
             case StmtKind::Expr: return gen_expr_stmt(stmt);
@@ -404,8 +413,13 @@ namespace ariac {
     void Codegen::analyze_switch_cases(SwitchStmt& s) {
         for (Stmt* case_ : s.cases) {
             case_->case_.backend.entry_block = create_block("switch.case");
-            case_->case_.backend.body_block = create_block("switch.case.body");
+
+            if (s.expression->type->is_typeid()) {
+                case_->case_.backend.body_block = create_block("switch.case.body");
+            }
         }
+
+        if (!s.expression->type->is_typeid()) { return; }
 
         size_t i = 0;
         for (Stmt* case_ : s.cases) {

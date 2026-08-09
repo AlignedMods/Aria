@@ -210,6 +210,18 @@ namespace ariac {
         Expr* expression = nullptr;
     };
 
+    // TernaryExpr
+    // Represent a ternary expression
+    // eg. true ? 1 : 0;
+    struct TernaryExpr {
+        TernaryExpr(Expr* cond, Expr* first, Expr* second)
+            : condition(cond), first(first), second(second) {}
+
+        Expr* condition = nullptr;
+        Expr* first = nullptr;
+        Expr* second = nullptr;
+    };
+
     // CastExpr
     // Represents an explicit cast in the original source code
     // This node should never represent an implicit cast, for that use ImplicitCastExpr
@@ -343,6 +355,7 @@ namespace ariac {
             TemporaryExpr temporary;
             ExprWithCleanups expr_with_cleanups;
             ParenExpr paren;
+            TernaryExpr ternary;
             CastExpr cast;
             ImplicitCastExpr implicit_cast;
             UnaryOperatorExpr unary_operator;
@@ -419,6 +432,9 @@ namespace ariac {
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ParenExpr paren)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), paren(paren) {}
+
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, TernaryExpr ternary)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), ternary(ternary) {}
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, CastExpr cast)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), cast(cast) {}

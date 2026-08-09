@@ -116,14 +116,22 @@ namespace ariac {
             report_diag(ifs.condition->loc, fmt::format("Expression must be of type 'bool' but is '{}'", type_info_to_string(ifs.condition->type)));
         }
 
+        bool main_reaches_end = true;
+        bool else_reaches_end = true;
         push_scope();
         resolve_block_stmt(ifs.body);
+        main_reaches_end = m_functions.back().scopes.back().reaches_end;
         pop_scope();
 
         if (ifs.else_body) {
             push_scope();
             resolve_block_stmt(ifs.else_body);
+            else_reaches_end = m_functions.back().scopes.back().reaches_end;
             pop_scope();
+        }
+
+        if (!main_reaches_end && !else_reaches_end) {
+            m_functions.back().scopes.back().reaches_end = false;
         }
     }
 
@@ -134,13 +142,15 @@ namespace ariac {
         require_rvalue(s.expression);
         insert_expr_with_cleanups(s.expression);
 
-        if (!s.expression->type->is_integral() && !s.expression->type->is_typeid()) {
+        if (!s.expression->type->is_integral() && !s.expression->type->is_typeid() && !s.expression->type->is_enum()) {
             report_diag(s.expression->loc, fmt::format("Expression must be of an integral type but is '{}'", type_info_to_string(s.expression->type)));
         }
 
-        for (Stmt* case_ : s.cases) {
+        for (size_t i = 0; i < s.cases.size; i++) {
+            Stmt* case_ = s.cases.items[i];
             ARIA_ASSERT(case_->kind == StmtKind::Case, "Invalid case stmt");
             CaseStmt& c = case_->case_;
+            auto prev = set_nextcase_target(i + 1 < s.cases.size ? s.cases.items[i + 1] : nullptr);
 
             resolve_expr(c.condition);
             try_insert_implicit_cast(s.expression->type, c.condition);
@@ -156,6 +166,7 @@ namespace ariac {
             push_scope();
             resolve_block_stmt(c.body);
             pop_scope();
+            restore_nextcase_target(prev);
         }
     }
 
@@ -192,6 +203,25 @@ namespace ariac {
                     Stmt* d = *it2;
                     d->next = stmt->continue_.cleanup;
                     stmt->continue_.cleanup = d;
+                }
+            }
+        }
+    }
+
+    void SemanticAnalyzer::resolve_nextcase_stmt(Stmt* stmt) {
+        if (!m_nextcase_target.target) {
+            report_diag(stmt->loc, "Cannot use 'nextcase' here");
+        } else {
+            m_functions.back().scopes.back().reaches_end = false;
+            stmt->nextcase.target = m_nextcase_target.target;
+
+            for (size_t i = m_functions.back().scopes.size(); i > m_nextcase_target.scope_idx; i--) {
+                auto& scope = m_functions.back().scopes[i - 1];
+
+                for (auto it2 = scope.defers.rbegin(); it2 != scope.defers.rend(); it2++) {
+                    Stmt* d = *it2;
+                    d->next = stmt->nextcase.cleanup;
+                    stmt->nextcase.cleanup = d;
                 }
             }
         }
@@ -273,6 +303,7 @@ namespace ariac {
             case StmtKind::Switch: return resolve_switch_stmt(stmt);
             case StmtKind::Break: return resolve_break_stmt(stmt);
             case StmtKind::Continue: return resolve_continue_stmt(stmt);
+            case StmtKind::Nextcase: return resolve_nextcase_stmt(stmt);
             case StmtKind::Return: return resolve_return_stmt(stmt);
             case StmtKind::Defer: return resolve_defer_stmt(stmt);
             case StmtKind::Expr: return resolve_expr_stmt(stmt);

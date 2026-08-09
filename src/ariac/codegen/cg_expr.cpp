@@ -620,6 +620,36 @@ namespace ariac {
         return gen_expr(p.expression);
     }
 
+    // TODO: Optimize certain cases to a 'select' instruction
+    // This should only be done if both expression have no side effects
+    // Expressions like calls do have side effects while integer literals do not
+    llvm::Value* Codegen::gen_ternary_expr(Expr* expr) {
+        TernaryExpr& t = expr->ternary;
+        set_debug_loc(expr->loc);
+
+        llvm::BasicBlock* true_block = create_block("ternary.true");
+        llvm::BasicBlock* false_block = create_block("ternary.false");
+        llvm::BasicBlock* end_block = create_block("ternary.end");
+
+        llvm::Value* cond = gen_cond(t.condition);
+        m_active_module_context.builder->CreateCondBr(cond, true_block, false_block);
+
+        m_active_module_context.builder->SetInsertPoint(true_block);
+        llvm::Value* first = gen_expr(t.first);
+        m_active_module_context.builder->CreateBr(end_block);
+
+        m_active_module_context.builder->SetInsertPoint(false_block);
+        llvm::Value* second = gen_expr(t.second);
+        m_active_module_context.builder->CreateBr(end_block);
+
+        m_active_module_context.builder->SetInsertPoint(end_block);
+        llvm::PHINode* phi = m_active_module_context.builder->CreatePHI(first->getType(), 2);
+        phi->addIncoming(first, true_block);
+        phi->addIncoming(second, false_block);
+
+        return phi;
+    }
+
     llvm::Value* Codegen::gen_implicit_cast_expr(Expr* expr) {
         ImplicitCastExpr& ic = expr->implicit_cast;
         set_debug_loc(expr->loc);
@@ -1217,6 +1247,7 @@ namespace ariac {
             case ExprKind::MaterializeTemporary: return gen_materialize_temporary_expr(expr);
             case ExprKind::ExprWithCleanups: return gen_expr_with_cleanups(expr);
             case ExprKind::Paren: return gen_paren_expr(expr);
+            case ExprKind::Ternary: return gen_ternary_expr(expr);
             case ExprKind::ImplicitCast: return gen_implicit_cast_expr(expr);
             case ExprKind::Cast: return gen_cast_expr(expr);
             case ExprKind::UnaryOperator: return gen_unary_operator_expr(expr);

@@ -38,6 +38,16 @@ namespace ariac {
         m_continue_target = prev.second;
     }
 
+    SemanticAnalyzer::JumpTarget SemanticAnalyzer::set_nextcase_target(Stmt* s) {
+        JumpTarget prev = m_nextcase_target;
+        m_nextcase_target = { s, m_functions.back().scopes.size() - 1 };
+        return prev;
+    }
+
+    void SemanticAnalyzer::restore_nextcase_target(JumpTarget prev) {
+        m_nextcase_target = prev;
+    }
+
     TypeInfo* SemanticAnalyzer::get_typeinfo(Expr* e) {
         if (!e->type->is_typeid()) { return nullptr; }
         if (!is_const_expr(e)) { return nullptr; }

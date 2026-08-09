@@ -43,6 +43,7 @@ namespace ariac {
         Bang, BangEq,
         Less, LessEq,
         Greater, GreaterEq,
+        Question,
         // ^^^ Operators ^^^ //
 
         // VVV Literals and constants VVV //
@@ -72,6 +73,7 @@ namespace ariac {
         Case,
         Break,
         Continue,
+        Nextcase,
         Return,
         Fn,
         Struct,
@@ -199,6 +201,7 @@ namespace ariac {
             case TokenKind::Switch: return "switch";
             case TokenKind::Break: return "break";
             case TokenKind::Continue: return "continue";
+            case TokenKind::Nextcase: return "nextcase";
             case TokenKind::Return: return "return";
             case TokenKind::Fn: return "fn";
             case TokenKind::Struct: return "struct";

@@ -137,6 +137,7 @@ namespace ariac {
         llvm::Value* gen_materialize_temporary_expr(Expr* expr);
         llvm::Value* gen_expr_with_cleanups(Expr* expr);
         llvm::Value* gen_paren_expr(Expr* expr);
+        llvm::Value* gen_ternary_expr(Expr* expr);
         llvm::Value* gen_implicit_cast_expr(Expr* expr);
         llvm::Value* gen_cast_expr(Expr* expr);
         llvm::Value* gen_unary_operator_expr(Expr* expr);
@@ -168,6 +169,7 @@ namespace ariac {
         void gen_switch_stmt(Stmt* stmt);
         void gen_break_stmt(Stmt* stmt);
         void gen_continue_stmt(Stmt* stmt);
+        void gen_nextcase_stmt(Stmt* stmt);
         void gen_return_stmt(Stmt* stmt);
         void gen_defer_stmt(Stmt* stmt);
         void gen_expr_stmt(Stmt* stmt);

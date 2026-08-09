@@ -118,6 +118,11 @@ namespace ariac {
         Stmt* cleanup = nullptr;
     };
     
+    struct NextcaseStmt {
+        Stmt* target = nullptr;
+        Stmt* cleanup = nullptr;
+    };
+
     struct ReturnStmt {
         ReturnStmt(Expr* value)
             : value(value) {}
@@ -156,6 +161,7 @@ namespace ariac {
             CaseStmt case_;
             BreakStmt break_;
             ContinueStmt continue_;
+            NextcaseStmt nextcase;
             ReturnStmt return_;
             DeferStmt defer;
             Expr* expr;
@@ -191,6 +197,9 @@ namespace ariac {
 
         Stmt(StmtKind kind, SourceLoc loc, ContinueStmt c)
             : kind(kind), loc(loc), continue_(c) {}
+
+        Stmt(StmtKind kind, SourceLoc loc, NextcaseStmt n)
+            : kind(kind), loc(loc), nextcase(n) {}
 
         Stmt(StmtKind kind, SourceLoc loc, ReturnStmt ret)
             : kind(kind), loc(loc), return_(ret) {}

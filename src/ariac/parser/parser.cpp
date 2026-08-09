@@ -39,6 +39,7 @@ namespace ariac {
         m_expr_rules[TokenKind::LeftBracket] =       { BIND_PARSE_RULE(parse_type_expr), BIND_PARSE_RULE(parse_array_subscript), PREC_CALL };
         m_expr_rules[TokenKind::Dot] =               { nullptr, BIND_PARSE_RULE(parse_member), PREC_CALL };
         m_expr_rules[TokenKind::Bang] =              { BIND_PARSE_RULE(parse_unary), nullptr, PREC_CALL };
+        m_expr_rules[TokenKind::Question] =          { nullptr, BIND_PARSE_RULE(parse_ternary), PREC_CALL };
         m_expr_rules[TokenKind::PlusPlus] =          { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_infix_unary), PREC_CALL };
         m_expr_rules[TokenKind::MinusMinus] =        { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_infix_unary), PREC_CALL };
 
@@ -223,6 +224,19 @@ namespace ariac {
         return Expr::Create(left->loc + rp->loc, ExprKind::Call,
             ExprValueKind::RValue, nullptr, 
             CallExpr(left, args));
+    }
+
+    Expr* Parser::parse_ternary(Expr* left) {
+        ARIA_ASSERT(left, "Parser::parse_ternary() expects a left side");
+
+        Token& q = consume(); // consume "?"
+        Expr* first = parse_expression();
+        try_consume(TokenKind::Colon, ":");
+        Expr* second = parse_expression();
+
+        return Expr::Create(q.loc + peek(-1)->loc, ExprKind::Ternary,
+            ExprValueKind::RValue, nullptr,
+            TernaryExpr(left, first, second));
     }
 
     BuiltinCallKind Parser::get_builtin_call_from_token(Token* token) {
@@ -1086,9 +1100,15 @@ namespace ariac {
     }
 
     Stmt* Parser::parse_continue() {
-        Token& b = consume(); // consume "continue"
+        Token& c = consume(); // consume "continue"
         try_consume(TokenKind::Semi, ";");
-        return Stmt::Create(b.loc, StmtKind::Continue, ErrorStmt());
+        return Stmt::Create(c.loc, StmtKind::Continue, ErrorStmt());
+    }
+
+    Stmt* Parser::parse_nextcase() {
+        Token& n = consume(); // consume "nextcase"
+        try_consume(TokenKind::Semi, ";");
+        return Stmt::Create(n.loc, StmtKind::Nextcase, ErrorStmt());
     }
 
     Stmt* Parser::parse_return() {
@@ -1193,6 +1213,9 @@ namespace ariac {
 
             case TokenKind::Continue:
                 return parse_continue();
+
+            case TokenKind::Nextcase:
+                return parse_nextcase();
 
             case TokenKind::Return:
                 return parse_return();
