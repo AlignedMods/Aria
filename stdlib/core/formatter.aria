@@ -5,14 +5,15 @@ extern fn printf(fmt: *const char, ...) -> int;
 typedef *fn(buf: *void, c: char) as FormatOutFn;
 
 // Function which does nothing on character append
-fn null_out(buf: *void, c: char) {}
+fn out_null(buf: *void, c: char) {}
 
 // Static buffer used for integer formatting
 const APPEND_INT_BUF_SIZE = 128;
 
 struct FormatFlags {
+    width: ulong;
+    pad_char: char;
     uppercase: bool;
-    base: char;
 }
 
 // NOTE: The formatter doesn't do any heap allocations
@@ -20,10 +21,11 @@ struct FormatFlags {
 struct Formatter {
     data: *void;
     out_fn: FormatOutFn;
+    flags: FormatFlags;
 
     fn vappendf(fmt: string, args: []any) -> sz {
         if out_fn == null {
-            out_fn = &null_out;
+            out_fn = &out_null;
         }
 
         let total_len: sz;
@@ -49,7 +51,8 @@ struct Formatter {
             assert(var_idx < args.len, __FILE__, __LINE__, "Missing argument");
             let arg = args[var_idx++];
 
-            let flags: FormatFlags;
+            flags = FormatFlags();
+            let base: uint;
 
             switch c {
                 case 's': {
@@ -58,7 +61,7 @@ struct Formatter {
                 }
 
                 case 'd': {
-                    flags.base = 10;
+                    base = 10;
                 }
 
                 case 'X': {
@@ -66,15 +69,21 @@ struct Formatter {
                     nextcase;
                 }
                 case 'x': {
-                    flags.base = 16;
+                    base = 16;
+                }
+
+                case 'p': {
+                    base = 16;
+                    flags.width = 16;
+                    flags.pad_char = '0';
                 }
             }
 
             if arg.type.kind == TypeKind.SIGNED_INT {
-                append_int(any_to_int::<long>(&arg), flags);
+                append_int(any_to_int::<long>(&arg), base);
                 continue;
-            } else if arg.type.kind == TypeKind.UNSIGNED_INT {
-                append_uint(any_to_int::<ulong>(&arg), flags);
+            } else if arg.type.kind == TypeKind.UNSIGNED_INT || arg.type.kind == TypeKind.POINTER {
+                append_uint(any_to_int::<ulong>(&arg), base);
                 continue;
             }
         }
@@ -103,9 +112,7 @@ struct Formatter {
 
     fn append_buf_reverse(b: []char) -> sz {
         let len = b.len;
-
         while len > 0 { append_char(b[--len]); }
-
         return b.len;
     }
 
@@ -117,21 +124,21 @@ struct Formatter {
         }
     }
 
-    fn append_int(i: long, flags: FormatFlags) -> sz {
+    fn append_int(i: long, base: uint) -> sz {
         if (i < 0) {
             append_char('-');
-            return append_uint(-i, flags);
+            return append_uint(-i, base);
         } else {
-            return append_uint(i, flags);
+            return append_uint(i, base);
         }
     }
 
-    fn append_uint(u: ulong, flags: FormatFlags) -> sz {
+    fn append_uint(u: ulong, base: uint) -> sz {
         let buf: [APPEND_INT_BUF_SIZE]char;
         let i: isz;
         let past_10 = (flags.uppercase ? 'A' : 'a') - 10;
 
-        switch flags.base {
+        switch base {
             case 10: {
                 do {
                     buf[i++] = '0' + (u % 10u);
@@ -151,6 +158,18 @@ struct Formatter {
             }
         }
 
+        // Handle zero padding
+        while i < flags.width {
+            buf[i++] = flags.pad_char;
+        }
+
+        switch base {
+            case 16: {
+                buf[i++] = flags.uppercase ? 'X' : 'x';
+                buf[i++] = '0';
+            }
+        }
+
         return append_buf_reverse(buf[:i]);
     }
 
@@ -161,11 +180,42 @@ struct Formatter {
             }
 
             case TypeKind.SIGNED_INT: {
-                return append_int(any_to_int::<long>(&a), FormatFlags(false, 10));
+                return append_int(any_to_int::<long>(&a), 10);
             }
 
             case TypeKind.UNSIGNED_INT: {
-                return append_uint(any_to_int::<ulong>(&a), FormatFlags(false, 10));
+                return append_uint(any_to_int::<ulong>(&a), 10);
+            }
+
+            case TypeKind.STRING: {
+                return append_string(any_cast::<string>(&a));   
+            }
+
+            case TypeKind.ANY: {
+                return append_any(any_cast::<any>(&a));
+            }
+
+            case TypeKind.POINTER: {
+                let width = flags.width;
+                let pad_char = flags.pad_char;
+                defer {
+                    flags.width = width; 
+                    flags.pad_char = pad_char;
+                }
+
+                flags.width = 16;
+                flags.pad_char = '0';
+                return append_uint(any_to_int::<ulong>(&a), 16);
+            }
+
+            case TypeKind.ARRAY: {
+                append_char('[');
+                for (i: sz = 0; i < a.type.len; i++) {
+                    if i > 0 { append_string(", "); }
+                    let val = any_index(&a, i);
+                    append_any(val);
+                }
+                append_char(']');
             }
         }
 

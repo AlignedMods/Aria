@@ -23,137 +23,13 @@ struct StringStream {
         len += 1;
     }
 
-    fn append_bool(b: bool) -> void {
-        if b {
-            append_string("true");
-        } else {
-            append_string("false");
-        }
-    }
-
-    // Integer formatting
-    fn append_int(l: long, base: uint) -> void {
-        if (l < 0) {
-            append_char('-');
-            append_uint(-l, base);
-        } else {
-            append_uint(l, base);
-        }
-    }
-
-    fn append_uint(u: ulong, base: uint) -> void {
-        let buf: [32]char;
-        let i: isz;
-        let past_10 = 'a' - 10;
-
-        switch base {
-            case 10: {
-                do {
-                    buf[i++] = '0' + (u % 10u);
-                    u /= 10u;
-                } while u > 0;
-            }
-
-            case 16: {
-                do {
-                    let digit = char(u & 0xF);
-
-                    if digit < 10 { buf[i++] = '0' + digit; }
-                    else { buf[i++] = past_10 + digit; }
-
-                    u >>= 4;
-                } while u > 0;
-            }
-        }
-
-        for (j: isz = 1; j < i + 1; j++) {
-            append_char(buf[i - j]);
-        }
-    }
-
-    fn append_any(arg: *any) {
-        if arg.type == char {
-            append_char(core::any_cast::<char>(arg));
-            return;
-        }
-
-        if arg.type == ichar {
-            append_char(core::any_cast::<ichar>(arg));
-            return;
-        }
-
-        if arg.type == bool {
-            append_bool(core::any_cast::<bool>(arg));
-            return;
-        }
-
-        if arg.type.kind == TypeKind.SIGNED_INT {
-            append_int(core::any_to_int::<long>(arg), 10);
-            return;
-        }
-
-        if arg.type.kind == TypeKind.UNSIGNED_INT {
-            append_uint(core::any_to_int::<ulong>(arg), 10);
-            return;
-        }
-
-        if arg.type == string {
-            append_string(core::any_cast::<string>(arg));
-            return;
-        }
-
-        if arg.type == any {
-            append_any(&&core::any_cast::<any>(arg));
-            return;
-        }
-
-        if arg.type.kind == TypeKind.POINTER {
-            let val = core::any_cast::<sz>(arg);
-            
-            if val == 0 { append_string("(null)"); return; }
-            append_string("0x");
-            append_int(val, 16);
-            return;
-        }
-
-        if arg.type.kind == TypeKind.ARRAY {
-            append_char('[');
-            for (i: sz = 0; i < arg.type.len; i++) {
-                if i > 0 { append_string(", "); }
-                let val = any_index(arg, i);
-                append_any(&val);
-            }
-            append_char(']');
-            return;
-        }
-
-        append_string("<UNKNOWN>");
-    }
-
     fn appendf(fmt: string, args...) -> void {
         vappendf(fmt, args);
     }
 
     fn vappendf(fmt: string, args: []any) -> void {
-        let var_idx = 0;
-
-        for (i: sz = 0; i < fmt.len; i++) {
-            if fmt[i] == '%' {
-                i++;
-                if fmt[i] == '%' {
-                    append_char('%');
-                } else if fmt[i] == 's' {
-                    if var_idx < args.len {
-                        let arg = &args[var_idx++];
-                        append_any(arg);
-                    } else {
-                        append_string("<MISSING>");
-                    }
-                }
-            } else {
-                append_char(fmt[i]);
-            }
-        }
+        let f = Formatter(self, &out_stringstream);
+        f.vappendf(fmt, args);
     }
 
     fn to_string() -> string { return to_slice(); }
@@ -184,4 +60,9 @@ struct StringStream {
         mem = newData;
         capacity = cap;
     }
+}
+
+fn out_stringstream(data: *void, c: char) {
+    let s: *StringStream = data;
+    s.append_char(c);
 }

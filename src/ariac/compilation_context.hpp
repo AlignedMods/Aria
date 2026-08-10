@@ -6,6 +6,8 @@
 #include "ariac/lexer/tokens.hpp"
 #include "ariac/enums.hpp"
 
+#include <chrono>
+
 namespace ariac {
 
     struct Expr;
@@ -133,6 +135,8 @@ namespace ariac {
         void analyze();
         void codegen();
 
+        void print_compilation_time();
+
         Module* find_or_create_module(std::string_view name);
 
     public:
@@ -152,6 +156,7 @@ namespace ariac {
         bool has_errors = false;
 
         std::vector<CompilerDiagnostic> diagnostics;
+        std::chrono::high_resolution_clock::time_point start_time;
     };
 
     extern CompilationContext context;

@@ -315,8 +315,8 @@ namespace ariac {
         ReturnStmt& ret = stmt->return_;
 
         if (ret.value) {
-            gen_stmt_chain(ret.cleanup);
             llvm::Value* val = gen_expr(ret.value);
+            gen_stmt_chain(ret.cleanup);
 
             switch (m_ret_type_abi.kind) {
                 case ABIRetKind::Direct: {

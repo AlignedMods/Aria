@@ -19,9 +19,32 @@ fn fprintfn(file: File, fmt: string, args...) { internal_vprintf(file.handle, fm
 
 #private
 
+const PUTCHAR_BUF_SIZE = 32 * 1024;
+
+struct PutcharBuffer {
+    data: [PUTCHAR_BUF_SIZE]char;
+    len: sz;
+    file: *FILE;
+    should_flush: bool;
+
+    fn write() {
+        fwrite(&data, 1, len, file);
+        len = 0;
+        if should_flush { fflush(file); }
+    }
+}
+
+fn out_putchar_buffer(data: *void, c: char) {
+    let buf: *PutcharBuffer = data;
+    buf.data[buf.len++] = c;
+    if c == '\n' { buf.should_flush = true; }
+    if buf.len == buf.data.len { buf.write(); }
+}
+
 fn internal_vprintf(file: *FILE, fmt: string, args: []any, add_newline: bool) {
-    let s: core::StringStream;
-    s.vappendf(fmt, args);
-    if add_newline { s.append_char('\n'); }
-    libc::fputs(s.to_ptr(), file);
+    let buf: PutcharBuffer;
+    buf.file = file;
+    let f = core::Formatter(&buf, &out_putchar_buffer);
+    f.vappendf(fmt, args);
+    buf.write();
 }

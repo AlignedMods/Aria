@@ -16,28 +16,18 @@ namespace ariac {
     }
 
     void Codegen::gen_impl() {
-        setup_env();
+        if (!setup_env()) { report_error(m_error); }
 
-        try {
-            for (Module* mod : context.modules) {
-                gen_mod_to_ir(mod);
-                gen_mod_to_obj(mod);
+        for (Module* mod : context.modules) {
+            if (!gen_mod_to_ir(mod)) { report_error(m_error); }
+            if (!gen_mod_to_obj(mod)) { report_error(m_error); }
 
-                if (context.opts->emit_llvm) {
-                    gen_mod_ir_dump(mod);
-                }
-            }
-
-            link();
-        } catch (std::exception& e) {
-            bool is_tty = isatty(fileno(stdout));
-
-            if (is_tty) {
-                fmt::print(fmt::fg(fmt::color::pale_violet_red), "Codegen failed: {}\n", e.what());
-            } else {
-                fmt::print(stderr, "Codegen failed: {}\n", e.what());
+            if (context.opts->emit_llvm) {
+                if (!gen_mod_ir_dump(mod)) { report_error(m_error); }
             }
         }
+
+        if (!link()) { report_error(m_error); }
     }
 
     void Codegen::gen_builtin_types() {
@@ -54,7 +44,7 @@ namespace ariac {
         llvm::StructType::create({ ptr_type, ptr_type }, "$builtin_any");
     }
 
-    void Codegen::setup_env() {
+    bool Codegen::setup_env() {
         llvm::InitializeAllTargetInfos();
         llvm::InitializeAllTargets();
         llvm::InitializeAllTargetMCs();
@@ -65,16 +55,18 @@ namespace ariac {
         const llvm::Target* target = llvm::TargetRegistry::lookupTarget(context.opts->triple.str(), error);
 
         if (!target) {
-            throw std::runtime_error(fmt::format("{}", error));
+            m_error = fmt::format("{}", error);
+            return false;
         }
 
         m_target = target;
 
         llvm::TargetOptions opts;
         m_machine = m_target->createTargetMachine(context.opts->triple.str(), "generic", "", opts, llvm::Reloc::PIC_);
+        return true;
     }
 
-    void Codegen::gen_mod_to_ir(Module* mod) {
+    bool Codegen::gen_mod_to_ir(Module* mod) {
         ModuleContext ctx;
         ctx.context = new llvm::LLVMContext();
         ctx.module = new llvm::Module(llvm::StringRef(mod->name), *ctx.context);
@@ -288,11 +280,15 @@ namespace ariac {
 
             m_active_module_context.alloca_marker->eraseFromParent();
             m_active_module_context.alloca_marker = nullptr;
-            if (llvm::verifyFunction(*main, &llvm::errs())) { throw std::exception(); }
+            if (llvm::verifyFunction(*main, &llvm::errs())) {
+                m_error = fmt::format("Main function failed verification", mod->name);
+                return false;
+            }
         }
 
         if (llvm::verifyModule(*m_active_module_context.module, &llvm::errs())) {
-            throw std::runtime_error(fmt::format("Module '{}' failed verification", mod->name));
+            m_error = fmt::format("Module '{}' failed verification", mod->name);
+            return false;
         }
 
         m_active_module_context.module->setDataLayout(m_machine->createDataLayout());
@@ -302,22 +298,26 @@ namespace ariac {
         for (auto& [_, b] : m_active_module_context.debug_contexts) {
             b.builder->finalize();
         }
+
+        return true;
     }
 
-    void Codegen::gen_mod_to_obj(Module* mod) {
+    bool Codegen::gen_mod_to_obj(Module* mod) {
         std::string output = fmt::format(".build\\{}.o", valid_module_name(mod->name));
         std::error_code ec;
         llvm::raw_fd_ostream stream(output, ec, llvm::sys::fs::OF_None);
         
         if (ec) {
-            throw std::runtime_error(fmt::format("Could not open file for output '{}': {}", output, ec.message()));
+            m_error = fmt::format("Could not open file for output '{}': {}", output, ec.message());
+            return false;
         }
 
         llvm::legacy::PassManager pass;
         llvm::CodeGenFileType file_type = llvm::CodeGenFileType::ObjectFile;
 
         if (m_machine->addPassesToEmitFile(pass, stream, nullptr, file_type)) {
-            throw std::runtime_error("llvm::TargetMachine couldn't emit a file of this type");
+            m_error = "llvm::TargetMachine couldn't emit a file of this type";
+            return false;
         }
 
         pass.run(*m_active_module_context.module);
@@ -325,30 +325,44 @@ namespace ariac {
 
         fmt::println("Generated output file '{}'", output);
         m_object_files.push_back(output);
+        return true;
     }
 
-    void Codegen::gen_mod_ir_dump(Module* mod) {
+    bool Codegen::gen_mod_ir_dump(Module* mod) {
         std::string output = fmt::format(".build\\{}.ll", valid_module_name(mod->name));
         std::error_code ec;
         llvm::raw_fd_ostream stream(output, ec, llvm::sys::fs::OF_None);
         
         if (ec) {
-            throw std::runtime_error(fmt::format("Could not open file for output '{}': {}\n", output, ec.message()));
+            m_error = fmt::format("Could not open file for output '{}': {}\n", output, ec.message());
+            return false;
         }
 
         m_active_module_context.module->print(stream, nullptr);
         fmt::println("Generated LLVM IR file '{}'", output);
+        return true;
     }
 
-    void Codegen::link() {
+    bool Codegen::link() {
         if (context.opts->triple.isOSWindows()) {
-            link_windows();
+            return link_windows();
         } else {
             ARIA_UNREACHABLE("Invalid OS");
         }
     }
 
-    void Codegen::link_windows() {
+    void Codegen::report_error(const std::string& error) {
+        bool is_tty = isatty(fileno(stdout));
+
+        if (is_tty) {
+            fmt::print(fmt::fg(fmt::color::pale_violet_red), "Codegen error: ");
+            fmt::println("{}", error);
+        } else {
+            fmt::println(stderr, "Codegen error: {}", error);
+        }
+    }
+
+    bool Codegen::link_windows() {
         std::vector<llvm::StringRef> args;
 
         std::vector<std::string> libs;
@@ -381,20 +395,25 @@ namespace ariac {
 
         llvm::ErrorOr<std::string> clang_path = llvm::sys::findProgramByName("clang");
         if (std::error_code ec = clang_path.getError()) {
-            throw std::runtime_error(fmt::format("Failed to find clang: '{}'", ec.message()));
+            m_error = fmt::format("Failed to find clang: '{}'", ec.message());
+            return false;
         }
 
         std::string err;
         int code = llvm::sys::ExecuteAndWait(clang_path.get(), args, {}, {}, 0, 0, &err);
 
         if (code == -1) {
-            throw std::runtime_error(fmt::format("Could not invoke linker: {}", err));
+            m_error = fmt::format("Could not invoke linker: {}", err);
+            return false;
         } else if (code == -2) {
-            throw std::runtime_error(fmt::format("Failed to run linker: {}", err));
+            m_error = fmt::format("Failed to run linker: {}", err);
+            return false;
         } else if (code > 0) {
-            throw std::runtime_error(fmt::format("Linker failed with exit code {}", code));
+            m_error = fmt::format("Linker failed with exit code {}", code);
+            return false;
         } else {
             fmt::println("Generated executable '{}'", ".build\\main.exe");
+            return true;
         }
     }
 

@@ -104,13 +104,15 @@ namespace ariac {
         void gen_impl();
         void gen_builtin_types();
 
-        void setup_env();
-        void gen_mod_to_ir(Module* mod);
-        void gen_mod_to_obj(Module* mod);
-        void gen_mod_ir_dump(Module* mod);
-        void link();
+        bool setup_env();
+        bool gen_mod_to_ir(Module* mod);
+        bool gen_mod_to_obj(Module* mod);
+        bool gen_mod_ir_dump(Module* mod);
+        bool link();
 
-        void link_windows();
+        void report_error(const std::string& error);
+
+        bool link_windows();
 
         llvm::Value* gen_boolean_literal_expr(Expr* expr);
         llvm::Value* gen_character_literal_expr(Expr* expr);
@@ -223,6 +225,8 @@ namespace ariac {
 
         llvm::AllocaInst* m_self_value = nullptr;
         ABIRetTypeInfo m_ret_type_abi;
+
+        std::string m_error;
     };
 
 } // namespace ariac

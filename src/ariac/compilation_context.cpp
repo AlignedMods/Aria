@@ -48,6 +48,7 @@ namespace ariac {
     }
 
     void CompilationContext::compile_files(BuildOptions* opts) {
+        start_time = std::chrono::high_resolution_clock::now();
         this->opts = opts;
 
         if (!std::filesystem::exists(".build")) {
@@ -101,29 +102,33 @@ namespace ariac {
             print_diag(&diag);
         }
 
-        if (!has_errors && !opts->no_codegen) {
-            codegen();
+        if (!has_errors) {
+            if (opts->no_codegen) {
+                print_compilation_time();
+            } else {
+                codegen();
+                print_compilation_time();
 
-            if (opts->run_after_compile) {
-                fmt::println("Running executable '{}'\n", opts->output_path.string());
+                if (opts->run_after_compile) {
+                    fmt::println("Running executable '{}'\n", opts->output_path.string());
 
-                std::vector<llvm::StringRef> args;
-                std::string out = opts->output_path.string();
-                args.push_back(out);
-                for (auto& arg : opts->args) { args.push_back(arg); }
-                std::string err;
-                int code = llvm::sys::ExecuteAndWait(opts->output_path.string(), args, {}, {}, 0, 0, &err);
+                    std::vector<llvm::StringRef> args;
+                    std::string out = opts->output_path.string();
+                    args.push_back(out);
+                    for (auto& arg : opts->args) { args.push_back(arg); }
+                    std::string err;
+                    int code = llvm::sys::ExecuteAndWait(opts->output_path.string(), args, {}, {}, 0, 0, &err);
 
-                if (code == -1) {
-                    fmt::println("Could not run executable after compilation: {}", err);
-                } else if (code == -2) {
-                    fmt::println("Failed to run executable after compilation: {}", err);
-                } else {
-                    fmt::println("Program finished with exit code: {}", code);
+                    if (code == -1) {
+                        fmt::println("Could not run executable after compilation: {}", err);
+                    } else if (code == -2) {
+                        fmt::println("Failed to run executable after compilation: {}", err);
+                    } else {
+                        fmt::println("Program finished with exit code: {}", code);
+                    }
                 }
             }
         }
-
     }
 
     void CompilationContext::print_diag(CompilerDiagnostic* diag) {
@@ -179,6 +184,12 @@ namespace ariac {
     void CompilationContext::parse() { Parser p; }
     void CompilationContext::analyze() { SemanticAnalyzer s; }
     void CompilationContext::codegen() { Codegen c; }
+
+    void CompilationContext::print_compilation_time() {
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+        fmt::println("Compilation finished in {}ms", duration);
+    }
 
     Module* CompilationContext::find_or_create_module(std::string_view name) {
         for (Module* mod : modules) {
