@@ -245,9 +245,25 @@ namespace ariac {
             }
 
             if (!m_functions.empty() && m_functions.back().struct_type) {
-                Decl* struc = m_functions.back().struct_type->kind == TypeKind::Struct ? m_functions.back().struct_type->struct_.source_decl : m_functions.back().struct_type->struct_specilization.resolved_decl->generic.decl;
-                if (struc->struct_.field_lookup.contains(dr.identifier)) {
-                    Decl* field = struc->struct_.field_lookup.at(dr.identifier);
+                TypeInfo* struct_type = m_functions.back().struct_type;
+                HTable<Decl*> field_lookup;
+                
+                switch (struct_type->kind) {
+                    case TypeKind::Struct: {
+                        field_lookup = struct_type->struct_.get_field_lookup();
+                        break;
+                    }
+
+                    case TypeKind::StructSpecilization: {
+                        field_lookup = struct_type->struct_specilization.get_field_lookup();
+                        break;
+                    }
+
+                    default: ARIA_UNREACHABLE("Invalid self type kind");
+                }
+
+                if (field_lookup.contains(dr.identifier)) {
+                    Decl* field = field_lookup.at(dr.identifier);
                     TypeInfo* mem_type = nullptr;
 
                     switch (field->kind) {

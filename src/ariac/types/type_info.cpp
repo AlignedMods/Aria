@@ -417,7 +417,8 @@ namespace ariac {
                 u64 size = 0;
                 u64 alignment = get_alignment();
 
-                for (Decl* field : struct_specilization.resolved_decl->struct_.fields) {
+                for (Decl* field : struct_specilization.resolved_decl->struct_specilization.source->struct_.fields) {
+                    if (field->kind != DeclKind::Field) { continue; }
                     size += align_value(field->field.type->get_size(), alignment);
                 }
 
@@ -745,6 +746,14 @@ namespace ariac {
         return str;
     }
 
+    TinyVector<Decl*>& StructType::get_fields() {
+        return source_decl->struct_.fields;
+    }
+
+    HTable<Decl*>& StructType::get_field_lookup() {
+        return source_decl->struct_.field_lookup;
+    }
+
     bool StructSpecilizationType::needs_specilization() {
         for (TypeInfo* arg : arguments) {
             if (arg->is_generic()) { return false; }
@@ -759,6 +768,22 @@ namespace ariac {
         }
 
         return true;
+    }
+
+    TinyVector<Decl*>& StructSpecilizationType::get_fields() {
+        if (is_generic()) {
+            return base->generic_decl.generic->generic.decl->struct_.fields;
+        } else {
+            return resolved_decl->struct_.fields;
+        }
+    }
+
+    HTable<Decl*>& StructSpecilizationType::get_field_lookup() {
+        if (is_generic()) {
+            return base->generic_decl.generic->generic.decl->struct_.field_lookup;
+        } else {
+            return resolved_decl->struct_.field_lookup;
+        }
     }
 
 } // namespace ariac 

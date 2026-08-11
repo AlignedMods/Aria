@@ -278,6 +278,7 @@ namespace ariac {
             case DeclKind::Function: return "Function";
             case DeclKind::FunctionSpecilization: return "FunctionSpecilization";
             case DeclKind::Struct: return "Struct";
+            case DeclKind::StructSpecilization: return "StructSpecilization";
             case DeclKind::Typedef: return "Typedef";
             case DeclKind::Enum: return "Enum";
             case DeclKind::EnumConstant: return "EnumConstant";

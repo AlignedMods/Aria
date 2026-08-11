@@ -326,8 +326,10 @@ namespace ariac {
                 dump_decl(decl->function_specilization.source, indentation + 4);
                 return;
 
-            case DeclKind::Struct: m_output += fmt::format("StructDecl {} '{}'\n",
-                source_loc_to_string(decl->loc), decl->struct_.identifier);
+            case DeclKind::Struct: m_output += fmt::format("StructDecl {} '{}'{}\n",
+                source_loc_to_string(decl->loc), decl->struct_.identifier,
+                decl->struct_.parent ? fmt::format(" parent {} {}", decl_kind_to_string(decl->struct_.parent->kind), 
+                                                                   reinterpret_cast<void*>(decl->struct_.parent)) : "");
 
                 for (Decl* field : decl->struct_.fields) {
                     dump_decl(field, indentation + 4);

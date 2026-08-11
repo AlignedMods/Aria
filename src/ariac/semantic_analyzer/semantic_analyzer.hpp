@@ -45,6 +45,7 @@ namespace ariac {
         };
 
         struct GenericInstantationContext {
+            Decl* generic_decl = nullptr;
             std::unordered_map<std::string_view, TypeInfo*> generic_types;
             SourceLoc loc;
         };
@@ -167,6 +168,7 @@ namespace ariac {
         void insert_expr_with_cleanups(Expr* expr);
         bool cast_needs_rvalue(CastKind kind);
         TypeInfo* type_from_decl(Decl* decl);
+        TypeInfo* type_for_self(Decl* decl);
         Decl* type_get_destructor(TypeInfo* t);
 
         // Gets the compile time type from an expression

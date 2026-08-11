@@ -134,7 +134,7 @@ namespace ariac {
         std::string_view identifier;
         TinyVector<Decl*> fields;
         HTable<Decl*> field_lookup;
-        TypeInfo* type = nullptr;
+        Decl* parent = nullptr; // Could be null, a GenericDecl or a StructSpecilizationDecl
     };
 
     struct StructSpecilizationDecl {

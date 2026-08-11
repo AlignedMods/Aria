@@ -81,6 +81,26 @@ namespace ariac {
                 break;
             }
 
+            case TypeKind::GenericDecl: {
+                GenericDeclType& g = type->generic_decl;
+                if (m_generic_instantations.empty()) { break; }
+
+                if (m_generic_instantations.back().generic_decl) {
+                    if (m_generic_instantations.back().generic_decl != g.generic) { break; }
+                    TinyVector<TypeInfo*> types;
+
+                    for (Decl* p : g.generic->generic.parameters) {
+                        ARIA_ASSERT(p->kind == DeclKind::GenericParameter, "Invalid generic parameter");
+                        ARIA_ASSERT(m_generic_instantations.back().generic_types.contains(p->generic_parameter.identifier), "Invalid generic instantiation");
+                        types.append(m_generic_instantations.back().generic_types.at(p->generic_parameter.identifier));
+                    }
+
+                    TypeInfo::create_generic_instantation(TypeInfo::dup(type), types);
+                }
+
+                break;
+            }
+
             case TypeKind::StructSpecilization: {
                 StructSpecilizationType& gi = type->struct_specilization;
 
@@ -131,6 +151,7 @@ namespace ariac {
 
                 if (!specilization) {
                     GenericInstantationContext ctx;
+                    ctx.generic_decl = g;
                     ctx.loc = type->loc;
 
                     for (size_t i = 0; i < gi.arguments.size; i++) {
@@ -150,6 +171,7 @@ namespace ariac {
                     specilization->parent_module = g->parent_module;
                     specilization->parent_unit = g->parent_unit;
                     g->generic.specilizations.append(specilization);
+                    struc->struct_.parent = specilization;
 
                     resolve_struct_decl(struc);
                     resolve_struct_body(struc);
@@ -581,6 +603,37 @@ namespace ariac {
 
             default: ARIA_UNREACHABLE("Invalid decl");
         }
+    }
+
+    TypeInfo* SemanticAnalyzer::type_for_self(Decl* decl) {
+        ARIA_ASSERT(decl->kind == DeclKind::Struct, "Invalid self type");
+
+        StructDecl& s = decl->struct_;
+        TypeInfo* base = type_from_decl(decl);
+
+        if (s.parent) {
+            switch (s.parent->kind) {
+                case DeclKind::StructSpecilization: {
+                    base = TypeInfo::create_generic_instantation(TypeInfo::dup(base), s.parent->struct_specilization.types);
+                    break;
+                }
+
+                case DeclKind::Generic: {
+                    TinyVector<TypeInfo*> types;
+                    for (Decl* p : s.parent->generic.parameters) {
+                        ARIA_ASSERT(p->kind == DeclKind::GenericParameter, "Invalid generic parameter");
+                        types.append(TypeInfo::create_generic(p->generic_parameter.identifier));
+                    }
+                    base = TypeInfo::create_generic_decl(s.parent);
+                    base = TypeInfo::create_generic_instantation(TypeInfo::dup(base), types);
+                    break;
+                }
+
+                default: ARIA_UNREACHABLE("Invalid struct parent");
+            }
+        }
+
+        return base;
     }
 
     Decl* SemanticAnalyzer::type_get_destructor(TypeInfo* t) {

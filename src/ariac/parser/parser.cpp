@@ -1699,6 +1699,7 @@ namespace ariac {
         } else {
             Decl* g = Decl::Create(struc->loc, DeclKind::Generic, m_current_visibility, GenericDecl(generic_params, struc));
             context.active_comp_unit->structs.push_back(g);
+            struc->struct_.parent = g;
             return g;
         }
     }

@@ -283,7 +283,7 @@ namespace ariac {
         
         FunctionContext ctx;
         ctx.return_type = m.type->function.return_type;
-        ctx.struct_type = type_from_decl(m.parent);
+        ctx.struct_type = type_for_self(m.parent);
         m_functions.push_back(ctx);
         
         push_scope();
@@ -309,12 +309,21 @@ namespace ariac {
 
         FunctionContext ctx;
         ctx.return_type = TypeInfo::get_void();
-        ctx.struct_type = type_from_decl(d.parent);
+        ctx.struct_type = type_for_self(d.parent);
         m_functions.push_back(ctx);
 
         push_scope();
 
-        for (Decl* field : ctx.struct_type->struct_.source_decl->struct_.fields) {
+        TinyVector<Decl*> fields;
+
+        switch (ctx.struct_type->kind) {
+            case TypeKind::Struct: fields = ctx.struct_type->struct_.get_fields(); break;
+            case TypeKind::StructSpecilization: fields = ctx.struct_type->struct_specilization.get_fields(); break;
+
+            default: ARIA_UNREACHABLE("Invalid self type");
+        }
+
+        for (Decl* field : fields) {
             if (field->kind != DeclKind::Field) { continue; }
 
             if (Decl* dtor = type_get_destructor(field->field.type)) {

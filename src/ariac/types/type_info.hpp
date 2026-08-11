@@ -2,6 +2,7 @@
 
 #include "ariac/core.hpp"
 #include "ariac/core/vector.hpp"
+#include "ariac/core/htable.hpp"
 #include "ariac/core/source_location.hpp"
 #include "ariac/types.hpp"
 #include "ariac/enums.hpp"
@@ -56,6 +57,10 @@ namespace ariac {
         StructType(std::string_view identifer, Decl* source)
             : identifier(identifer), source_decl(source) {}
 
+        // Get the fields for this struct
+        TinyVector<Decl*>& get_fields();
+        HTable<Decl*>& get_field_lookup();
+
         std::string_view identifier;
         Decl* source_decl = nullptr;
     };
@@ -102,6 +107,10 @@ namespace ariac {
         // Checks if this specilization is fully generic
         // eg. Foo<T, T2> -> Where 'T' and 'T2' are generic parameters
         bool is_generic();
+
+        // Get the fields for this struct specilization
+        TinyVector<Decl*>& get_fields();
+        HTable<Decl*>& get_field_lookup();
 
         TypeInfo* base = nullptr;
         TinyVector<TypeInfo*> arguments;

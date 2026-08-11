@@ -5,6 +5,10 @@ struct StringStream {
     len: sz;
     capacity: sz;
 
+    ~() {
+        free();
+    }
+
     fn append_string(s: string) -> void {
         for (i: sz = 0; i < s.len; i++) {
             append_char(s[i]);
