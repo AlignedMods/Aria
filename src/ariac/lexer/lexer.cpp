@@ -521,7 +521,6 @@ namespace ariac {
             { "static", TokenKind::Static },
             { "typedef", TokenKind::Typedef },
             { "enum", TokenKind::Enum },
-            { "as", TokenKind::As },
             { "const", TokenKind::Const },
             { "self", TokenKind::Self },
 

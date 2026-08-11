@@ -384,7 +384,6 @@ namespace ariac {
         Enum,
 
         Generic,
-        GenericDecl,
         StructSpecilization,
 
         Unresolved,

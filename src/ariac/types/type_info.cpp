@@ -87,19 +87,13 @@ namespace ariac {
         return t;
     }
 
-    TypeInfo* TypeInfo::create_generic_decl(Decl* d, SourceLoc loc) {
-        TypeInfo* t = create_basic(TypeKind::GenericDecl, loc);
-        t->generic_decl = GenericDeclType(d->generic.decl->struct_.identifier, d);
-        return t;
-    }
-
     TypeInfo* TypeInfo::create_generic(std::string_view name, SourceLoc loc) {
         TypeInfo* t = create_basic(TypeKind::Generic, loc);
         t->generic = GenericType(name);
         return t;
     }
 
-    TypeInfo* TypeInfo::create_generic_instantation(TypeInfo* base, TinyVector<TypeInfo*> args, SourceLoc loc) {
+    TypeInfo* TypeInfo::create_struct_instantation(TypeInfo* base, TinyVector<TypeInfo*> args, SourceLoc loc) {
         TypeInfo* t = create_basic(TypeKind::StructSpecilization, loc);
         t->struct_specilization = StructSpecilizationType(base, args);
         return t;
@@ -188,12 +182,6 @@ namespace ariac {
             case TypeKind::Generic: {
                 t->generic.identifier = type->generic.identifier;
                 t->generic.resolved_decl = type->generic.resolved_decl;
-                break;
-            }
-
-            case TypeKind::GenericDecl: {
-                t->generic_decl.identifier = type->generic_decl.identifier;
-                t->generic_decl.generic = type->generic_decl.generic;
                 break;
             }
 
@@ -342,6 +330,11 @@ namespace ariac {
 
             default: ARIA_UNREACHABLE("Invalid type kind");
         }
+    }
+
+    bool TypeInfo::is_generic_decl() const {
+        if (kind != TypeKind::Struct) { return false; }
+        return struct_.source_decl->struct_.parent && struct_.source_decl->struct_.parent->kind == DeclKind::Generic;
     }
 
     u64 TypeInfo::get_size() const {
@@ -707,17 +700,6 @@ namespace ariac {
                 break;
             }
 
-            case TypeKind::GenericDecl: {
-                GenericDeclType ty = type->generic_decl;
-
-                if (pretty) {
-                    str = fmt::format("{}", ty.identifier);
-                } else {
-                    str = (ty.generic && ty.generic->parent_module) ? fmt::format("{}::{}", ty.generic->parent_module->name, ty.identifier) : fmt::format("{}", ty.identifier);
-                }
-                break;
-            }
-
             case TypeKind::StructSpecilization: {
                 str = fmt::format("{}<", type_info_to_string(type->struct_specilization.base, pretty));
 
@@ -772,7 +754,7 @@ namespace ariac {
 
     TinyVector<Decl*>& StructSpecilizationType::get_fields() {
         if (is_generic()) {
-            return base->generic_decl.generic->generic.decl->struct_.fields;
+            return base->struct_.source_decl->struct_.fields;
         } else {
             return resolved_decl->struct_.fields;
         }
@@ -780,7 +762,7 @@ namespace ariac {
 
     HTable<Decl*>& StructSpecilizationType::get_field_lookup() {
         if (is_generic()) {
-            return base->generic_decl.generic->generic.decl->struct_.field_lookup;
+            return base->struct_.source_decl->struct_.field_lookup;
         } else {
             return resolved_decl->struct_.field_lookup;
         }

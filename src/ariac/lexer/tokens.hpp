@@ -82,7 +82,6 @@ namespace ariac {
         Static,
         Typedef,
         Enum,
-        As,
         Const,
         Self,
         HashPrivate, // #private
@@ -210,7 +209,6 @@ namespace ariac {
             case TokenKind::Static: return "static";
             case TokenKind::Typedef: return "typedef";
             case TokenKind::Enum: return "enum";
-            case TokenKind::As: return "as";
             case TokenKind::Const: return "const";
             case TokenKind::Self: return "self";
             case TokenKind::HashPrivate: return "#private";

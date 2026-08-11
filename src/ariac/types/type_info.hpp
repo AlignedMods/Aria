@@ -87,14 +87,6 @@ namespace ariac {
         Decl* resolved_decl = nullptr;
     };
 
-    struct GenericDeclType {
-        GenericDeclType(std::string_view identifier, Decl* source)
-            : identifier(identifier), generic(source) {}
-
-        std::string_view identifier;
-        Decl* generic = nullptr;
-    };
-
     struct StructSpecilizationType {
         StructSpecilizationType(TypeInfo* base, TinyVector<TypeInfo*> args)
             : base(base), arguments(args) {}
@@ -137,7 +129,6 @@ namespace ariac {
             TypedefType typedef_;
             EnumType enum_;
             GenericType generic;
-            GenericDeclType generic_decl;
             StructSpecilizationType struct_specilization;
             UnresolvedType unresolved;
             TypeofType typeof;
@@ -154,9 +145,8 @@ namespace ariac {
         static TypeInfo* create_struct(std::string_view name, Decl* d, SourceLoc loc = {});
         static TypeInfo* create_typedef(Decl* d, SourceLoc loc = {});
         static TypeInfo* create_enum(Decl* d, SourceLoc loc = {});
-        static TypeInfo* create_generic_decl(Decl* d, SourceLoc loc = {});
         static TypeInfo* create_generic(std::string_view name, SourceLoc loc = {});
-        static TypeInfo* create_generic_instantation(TypeInfo* base, TinyVector<TypeInfo*> args, SourceLoc loc = {});
+        static TypeInfo* create_struct_instantation(TypeInfo* base, TinyVector<TypeInfo*> args, SourceLoc loc = {});
         static TypeInfo* create_unresolved(Expr* e, SourceLoc loc = {});
 
         static TypeInfo* get_error();
@@ -253,6 +243,8 @@ namespace ariac {
         bool is_generic() const {
             return kind == TypeKind::Generic;
         }
+
+        bool is_generic_decl() const;
 
         bool is_struct_specilization() const {
             return kind == TypeKind::StructSpecilization;

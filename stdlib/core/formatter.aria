@@ -2,7 +2,7 @@ module std::core;
 
 extern fn printf(fmt: *const char, ...) -> int;
 
-typedef *fn(buf: *void, c: char) as FormatOutFn;
+typedef FormatOutFn = *fn(buf: *void, c: char);
 
 // Function which does nothing on character append
 fn out_null(buf: *void, c: char) {}

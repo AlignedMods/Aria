@@ -192,7 +192,7 @@ namespace ariac {
 
                         case DeclKind::Struct: {
                             if (dr.provides_generic_args) {
-                                TypeInfo* gi = TypeInfo::create_generic_instantation(type_from_decl(sym), dr.generic_arguments, expr->loc);
+                                TypeInfo* gi = TypeInfo::create_struct_instantation(type_from_decl(sym), dr.generic_arguments, expr->loc);
                                 resolve_type(gi);
                                 replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, TypeInfo::get_typeid(), TypeInfoExpr(gi)));
                             } else {

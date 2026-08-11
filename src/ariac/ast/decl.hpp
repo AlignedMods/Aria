@@ -72,14 +72,13 @@ namespace ariac {
     };
 
     struct ImportDecl {
-        ImportDecl(std::string_view name, std::string_view alias)
-            : name(name), alias(alias) {}
+        ImportDecl(std::string_view name)
+            : name(name) {}
 
         ImportDecl(std::string_view name, Module* mod, bool implicit)
             : name(name), resolved_module(mod), implicit(implicit) {}
 
         std::string_view name;
-        std::string_view alias;
         Module* resolved_module = nullptr;
         bool implicit = false;
     };

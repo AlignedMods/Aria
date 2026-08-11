@@ -1346,16 +1346,9 @@ namespace ariac {
         Token& imp = consume(); // consume "import"
 
         std::string_view path = parse_module_path();
-        std::string_view alias;
-
-        if (match(TokenKind::As)) {
-            consume();
-            alias = parse_module_path();
-        }
-
         try_consume(TokenKind::Semi, ";");
 
-        Decl* import = Decl::Create(imp.loc + peek(-1)->loc, DeclKind::Import, DeclVisibility::Public, ImportDecl(path, alias));
+        Decl* import = Decl::Create(imp.loc + peek(-1)->loc, DeclKind::Import, DeclVisibility::Public, ImportDecl(path));
         context.active_comp_unit->imports.push_back(import);
         return import;
     }
@@ -1737,28 +1730,23 @@ namespace ariac {
     Decl* Parser::parse_typedef_decl() {
         Token& td = consume(); // consume "typedef"
 
-        if (is_type()) {
-            TypeInfo* type = parse_type();
-            try_consume(TokenKind::As, "as");
-
-            Token* name = try_consume(TokenKind::Identifier, "identifier");
-            if (!name) {
-                sync_global();
-                return &error_decl;
-            }
-
-            TinyVector<DeclAttribute> attrs = parse_decl_attributes(DeclKind::Typedef);
-
-            try_consume(TokenKind::Semi, ";");
-
-            Decl* d = Decl::Create(td.loc + peek(-1)->loc, DeclKind::Typedef, m_current_visibility, TypedefDecl(type, name->string));
-            d->attributes = attrs;
-            context.active_comp_unit->typedefs.push_back(d);
-            return d;
+        Token* name = try_consume(TokenKind::Identifier, "identifier");
+        if (!name) {
+            sync_global();
+            return &error_decl;
         }
 
-        error_expected("type", peek()->loc);
-        return &error_decl;
+        try_consume(TokenKind::Eq, "=");
+
+        TypeInfo* type = parse_type();
+        TinyVector<DeclAttribute> attrs = parse_decl_attributes(DeclKind::Typedef);
+
+        try_consume(TokenKind::Semi, ";");
+
+        Decl* d = Decl::Create(td.loc + peek(-1)->loc, DeclKind::Typedef, m_current_visibility, TypedefDecl(type, name->string));
+        d->attributes = attrs;
+        context.active_comp_unit->typedefs.push_back(d);
+        return d;
     }
 
     Decl* Parser::parse_enum_decl() {

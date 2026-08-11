@@ -14,7 +14,7 @@ struct ExceptionPointers {
     context_record: *void;
 }
 
-typedef *fn (exception_info: *ExceptionPointers) -> int as UnhandledExceptionFilter;
+typedef UnhandledExceptionFilter = *fn (exception_info: *ExceptionPointers) -> int;
 
 extern fn SetUnhandledExceptionFilter(filter: UnhandledExceptionFilter) -> UnhandledExceptionFilter;
 

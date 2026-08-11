@@ -1,6 +1,6 @@
 module libc;
 
-typedef void as FILE;
+typedef FILE = void;
 
 // stdlib.h
 
