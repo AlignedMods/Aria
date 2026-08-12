@@ -665,9 +665,9 @@ namespace ariac {
                 StructType ty = type->struct_;
                 
                 if (pretty) {
-                    str = fmt::format("{}", ty.identifier);
+                    str = fmt::format("{}::{}", ty.source_decl->parent_module->name, ty.identifier);
                 } else {
-                    str = (ty.source_decl && ty.source_decl->parent_module) ? fmt::format("struct {}::{}", ty.source_decl->parent_module->name, ty.identifier) : fmt::format("struct {}", ty.identifier);
+                    str = fmt::format("struct {}::{}", ty.source_decl->parent_module->name, ty.identifier);
                 }
                 break;
             }
@@ -676,9 +676,9 @@ namespace ariac {
                 TypedefType ty = type->typedef_;
 
                 if (pretty) {
-                    str = fmt::format("{}", ty.identifier);
+                    str = fmt::format("{}::{} (aka '{}')", ty.source_decl->parent_module->name, ty.identifier, ty.base->to_string());
                 } else {
-                    str = (ty.source_decl && ty.source_decl->parent_module) ? fmt::format("typedef {}::{}", ty.source_decl->parent_module->name, ty.identifier) : fmt::format("typedef {}", ty.identifier);
+                    str = fmt::format("{}::{}'{}'", ty.source_decl->parent_module->name, ty.identifier, ty.base->to_string(false));
                 }
 
                 break;
@@ -688,9 +688,9 @@ namespace ariac {
                 EnumType ty = type->enum_;
 
                 if (pretty) {
-                    str = fmt::format("{}", ty.identifier);
+                    str = fmt::format("{}::{}", ty.source_decl->parent_module->name, ty.identifier);
                 } else {
-                    str = (ty.source_decl && ty.source_decl->parent_module) ? fmt::format("enum {}::{}", ty.source_decl->parent_module->name, ty.identifier) : fmt::format("enum {}", ty.identifier);
+                    str = fmt::format("enum {}::{}", ty.source_decl->parent_module->name, ty.identifier);
                 }
                 break;
             }
