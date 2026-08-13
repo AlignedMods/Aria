@@ -48,7 +48,7 @@ namespace ariac {
 
     inline const char* linkage_kind_to_string(LinkageKind kind) {
         switch (kind) {
-            case LinkageKind::None: return "";
+            case LinkageKind::None: return "default";
             case LinkageKind::Extern: return "extern";
             case LinkageKind::Static: return "static";
 
@@ -114,16 +114,8 @@ namespace ariac {
         TinyVector<Decl*> parameters;
         Stmt* body = nullptr;
         LinkageKind linkage_kind = LinkageKind::None;
-    };
-
-    struct FunctionSpecilizationDecl {
-        FunctionSpecilizationDecl(TinyVector<TypeInfo*> types, TypeInfo* t, SourceLoc instantiation_loc)
-            : types(types), type(t), instantiation_loc(instantiation_loc) {}
-
-        TinyVector<TypeInfo*> types;
-        TypeInfo* type = nullptr;
-        Decl* source = nullptr;
-        SourceLoc instantiation_loc;
+        bool is_specilization = false;
+        FunctionSpecilizationInfo specilization_info;
     };
 
     struct StructDecl {
@@ -247,7 +239,6 @@ namespace ariac {
             VarDecl var;
             ParamDecl param;
             FunctionDecl function;
-            FunctionSpecilizationDecl function_specilization;
             StructDecl struct_;
             StructSpecilizationDecl struct_specilization;
             TypedefDecl typedef_;
@@ -277,9 +268,6 @@ namespace ariac {
 
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, FunctionDecl function)
             : loc(loc), kind(kind), visibility(visibility), function(function) {}
-
-        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, FunctionSpecilizationDecl function)
-            : loc(loc), kind(kind), visibility(visibility), function_specilization(function) {}
 
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, StructDecl struc)
             : loc(loc), kind(kind), visibility(visibility), struct_(struc) {}

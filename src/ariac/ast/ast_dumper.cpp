@@ -91,10 +91,15 @@ namespace ariac {
                 source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind)); 
                 return;
 
-            case ExprKind::DeclRef: m_output += fmt::format("DeclRefExpr {} '{}' {} {} '{}' {}\n", 
+            case ExprKind::DeclRef: m_output += fmt::format("DeclRefExpr {} '{}' {} {}{} '{}' {}\n", 
                 source_loc_to_string(expr->loc), expr->decl_ref.identifier,
                 decl_kind_to_string(expr->decl_ref.referenced_decl->kind), reinterpret_cast<void*>(expr->decl_ref.referenced_decl),
+                expr->decl_ref.provides_generic_args ? " provides_generic_args" : "", 
                 type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
+
+                for (TypeInfo* t : expr->decl_ref.generic_arguments) {
+                    dump_type(t, indentation + 4);
+                }
 
                 if (expr->decl_ref.name_specifier) {
                     dump_specifier(expr->decl_ref.name_specifier, indentation + 4);
@@ -303,8 +308,16 @@ namespace ariac {
                 source_loc_to_string(decl->loc), decl->param.identifier, type_info_to_string(decl->param.type, false), decl->param.variadic ? " variadic" : "");
                 return;
 
-            case DeclKind::Function: m_output += fmt::format("FunctionDecl {} '{}' {} '{}' {}\n",
-                source_loc_to_string(decl->loc), decl->function.identifier, decl_visibility_to_string(decl->visibility), type_info_to_string(decl->function.type, false), linkage_kind_to_string(decl->function.linkage_kind));
+            case DeclKind::Function: m_output += fmt::format("FunctionDecl {} '{}' {} '{}' linkage={}{}\n",
+                source_loc_to_string(decl->loc), decl->function.identifier, decl_visibility_to_string(decl->visibility), 
+                type_info_to_string(decl->function.type, false), linkage_kind_to_string(decl->function.linkage_kind),
+                decl->function.is_specilization ? fmt::format(" instantiated at {}", source_loc_to_string(decl->function.specilization_info.instantiation_loc)) : "");
+
+                if (decl->function.is_specilization) {
+                    for (TypeInfo* t : decl->function.specilization_info.types) {
+                        dump_type(t, indentation + 4);
+                    }
+                }
 
                 dump_attributes(decl->attributes, indentation + 4);
                 
@@ -315,15 +328,6 @@ namespace ariac {
                 if (decl->function.body) {
                     dump_stmt(decl->function.body, indentation + 4);
                 }
-                return;
-
-            case DeclKind::FunctionSpecilization: m_output += fmt::format("FunctionSpecilizationDecl {} instantiated at {}\n",
-                source_loc_to_string(decl->loc), source_loc_to_string(decl->function_specilization.instantiation_loc));
-                for (TypeInfo* t : decl->struct_specilization.types) {
-                    dump_type(t, indentation + 4);
-                }
-
-                dump_decl(decl->function_specilization.source, indentation + 4);
                 return;
 
             case DeclKind::Struct: m_output += fmt::format("StructDecl {} '{}'{}\n",

@@ -56,7 +56,7 @@ namespace ariac {
         DeclRefExpr& dr = expr->decl_ref;
         set_debug_loc(expr->loc);
             
-        if (dr.referenced_decl->kind == DeclKind::Function || dr.referenced_decl->kind == DeclKind::FunctionSpecilization) {
+        if (dr.referenced_decl->kind == DeclKind::Function) {
             if (!m_active_module_context.functions.contains(dr.referenced_decl)) {
                 gen_function_prototype(dr.referenced_decl);
             }

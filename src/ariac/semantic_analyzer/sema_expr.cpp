@@ -135,11 +135,12 @@ namespace ariac {
 
                             Decl* specilization = nullptr;
                             for (Decl* i : sym->generic.specilizations) {
-                                ARIA_ASSERT(i->kind == DeclKind::FunctionSpecilization, "Invalid generic specilization");
+                                ARIA_ASSERT(i->kind == DeclKind::Function, "Invalid generic specilization");
+                                ARIA_ASSERT(i->function.is_specilization, "Function should be a specilization");
 
                                 bool failed = false;
                                 for (size_t idx = 0; idx < dr.generic_arguments.size; idx++) {
-                                    if (!type_is_equal(dr.generic_arguments.items[idx], i->function_specilization.types.items[idx])) { failed = true; break; }
+                                    if (!type_is_equal(dr.generic_arguments.items[idx], i->function.specilization_info.types.items[idx])) { failed = true; break; }
                                 }
 
                                 if (!failed) { specilization = i; }
@@ -169,24 +170,21 @@ namespace ariac {
 
                                 TypeInfo* new_type = TypeInfo::dup(sym->generic.decl->function.type);
                                 resolve_type(new_type);
-                                specilization = Decl::Create(sym->loc, DeclKind::FunctionSpecilization, sym->visibility, FunctionSpecilizationDecl(dr.generic_arguments, new_type, expr->loc));
+                                specilization = Decl::dup(sym->generic.decl);
                                 specilization->parent_module = sym->parent_module;
                                 specilization->parent_unit = sym->parent_unit;
-
-                                Decl* func = Decl::dup(sym->generic.decl);
-                                func->parent_module = sym->parent_module;
-                                func->parent_unit = sym->parent_unit;
-
-                                func->function.type = specilization->function_specilization.type;
-                                specilization->function_specilization.source = func;
-                                resolve_function_body(func);
+                                specilization->function.type = new_type;
+                                specilization->function.is_specilization = true;
+                                specilization->function.specilization_info.types = dr.generic_arguments;
+                                specilization->function.specilization_info.instantiation_loc = expr->loc;
+                                resolve_function_body(specilization);
 
                                 sym->generic.specilizations.append(specilization);
                                 m_generic_instantations.pop_back();
                             }
 
                             dr.referenced_decl = specilization;
-                            expr->type = specilization->function_specilization.type;
+                            expr->type = specilization->function.type;
                             return;
                         }
 

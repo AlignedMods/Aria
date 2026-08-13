@@ -1410,6 +1410,12 @@ namespace ariac {
     Decl* Parser::parse_function_decl(LinkageKind linkage) {
         SourceLoc loc = peek()->loc;
         Token fn = consume(); // consume "fn"
+
+        TinyVector<Decl*> generic_params;
+        if (match(TokenKind::Less)) {
+            generic_params = parse_generic_params();
+        }
+
         TypeInfo* ret_type = TypeInfo::get_void();
 
         if (is_primitive_type()) {
@@ -1421,11 +1427,6 @@ namespace ariac {
         if (!ident) {
             sync_local();
             return &error_decl;
-        }
-
-        TinyVector<Decl*> generic_params;
-        if (match(TokenKind::Less)) {
-            generic_params = parse_generic_params();
         }
 
         VariadicKind variadic = VariadicKind::None;
@@ -1594,16 +1595,17 @@ namespace ariac {
 
     Decl* Parser::parse_struct_decl() {
         Token s = consume(); // consume "struct"
+
+        TinyVector<Decl*> generic_params;
+        if (match(TokenKind::Less)) {
+            generic_params = parse_generic_params();
+        }
+
         Token* ident = try_consume(TokenKind::Identifier, "identifier");
         if (!ident) { return &error_decl; }
         
         Decl* struc = Decl::Create(s.loc + ident->loc, DeclKind::Struct, m_current_visibility, StructDecl(ident->string, {}));
-        TinyVector<Decl*> generic_params;
         DeclVisibility visibility = DeclVisibility::Public;
-
-        if (match(TokenKind::Less)) {
-            generic_params = parse_generic_params();
-        }
 
         try_consume(TokenKind::LeftCurly, "{");
         while (!match(TokenKind::RightCurly)) {

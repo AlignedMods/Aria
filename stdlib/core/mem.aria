@@ -10,23 +10,23 @@ fn set(ptr: *void, val: char, len: sz) {
     @memset(ptr, val, len, false);
 }
 
-fn alloc<T>() -> *T {
+fn<T> alloc() -> *T {
     return libc::calloc(1, @sizeof(T));
 }
 
-fn new<T>(init: T) -> *T {
+fn<T> new(init: T) -> *T {
     let ptr = libc::malloc(@sizeof(T));
     *(*T)(ptr) = init;
     return ptr;
 }
 
 // Allocates a new array on the heap of size 'len' and does NOT zero initialize it
-fn alloc_array<T>(len: sz) -> []T {
+fn<T> alloc_array(len: sz) -> []T {
     return (*T)(libc::malloc(len * @sizeof(T)))[:len];
 }
 
 // Allocates a new array on the heap of size 'len' and zero initializes it
-fn new_array<T>(len: sz) -> []T {
+fn<T> new_array(len: sz) -> []T {
     return (*T)(libc::calloc(len, @sizeof(T)))[:len];
 }
 

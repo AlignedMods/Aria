@@ -256,7 +256,6 @@ namespace ariac {
         Var,
         Param,
         Function,
-        FunctionSpecilization,
         Struct,
         StructSpecilization,
         Typedef,
@@ -276,7 +275,6 @@ namespace ariac {
             case DeclKind::Var: return "Var";
             case DeclKind::Param: return "Param";
             case DeclKind::Function: return "Function";
-            case DeclKind::FunctionSpecilization: return "FunctionSpecilization";
             case DeclKind::Struct: return "Struct";
             case DeclKind::StructSpecilization: return "StructSpecilization";
             case DeclKind::Typedef: return "Typedef";

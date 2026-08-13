@@ -2,11 +2,11 @@ module std::core;
 
 import libc;
 
-fn any_cast<T>(a: *any) -> T {
+fn<T> any_cast(a: *any) -> T {
     return *(*T)(a.value);
 }
 
-fn any_to_int<T>(a: *any) -> T {
+fn<T> any_to_int(a: *any) -> T {
     switch a.type.kind {
         case TypeKind.SIGNED_INT: {
             switch a.type {

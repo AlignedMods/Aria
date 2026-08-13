@@ -1,6 +1,6 @@
 module std::core;
 
-struct List<T> {
+struct<T> List {
     items: *T;
     len: sz;
     capacity: sz;
