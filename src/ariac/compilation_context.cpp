@@ -28,7 +28,7 @@ namespace ariac {
         "core/string_stream.aria",
         "core/formatter.aria",
         "core/mem.aria",
-        "core/list.aria",
+        "core/vec.aria",
         "core/any.aria",
         "core/assert.aria",
         "process/process.aria",

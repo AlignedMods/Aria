@@ -1,0 +1,32 @@
+module std::core;
+
+const VEC_INIT_CAPACITY = 32;
+
+struct<T> Vec {
+    items: *T;
+    len: sz;
+    capacity: sz;
+
+    ~() {
+        mem::free::<T>(items);
+        len = 0;
+        capacity = 0;
+    }
+
+    fn append(t: T) {
+        if capacity == 0 {
+            capacity = VEC_INIT_CAPACITY;
+            items = mem::new_array::<T>(capacity);
+        }
+
+        if len >= capacity {
+            capacity *= 2;
+            let new_items = mem::new_array::<T>(capacity);
+            mem::copy(new_items, items, @sizeof(T) * len);
+            mem::free::<T>(items);
+            items = new_items;
+        }
+
+        items[len++] = t;
+    }
+}

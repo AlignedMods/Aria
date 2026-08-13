@@ -1,7 +1,0 @@
-module std::core;
-
-struct<T> List {
-    items: *T;
-    len: sz;
-    capacity: sz;
-}

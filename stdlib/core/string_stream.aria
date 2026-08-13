@@ -48,7 +48,7 @@ struct StringStream {
     }
 
     fn free() -> void {
-        mem::free(mem);
+        mem::free::<char>(mem);
         len = 0;
         capacity = 0;
     }
@@ -58,7 +58,7 @@ struct StringStream {
         
         if (mem != null) {
             mem::copy(newData, mem, len);
-            mem::free(mem);
+            mem::free::<char>(mem);
         }
         
         mem = newData;

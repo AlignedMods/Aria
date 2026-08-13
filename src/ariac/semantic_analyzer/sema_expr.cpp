@@ -50,6 +50,12 @@ namespace ariac {
             report_diag(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
         }
 
+        if (dr.provides_generic_args) {
+            for (TypeInfo* t : dr.generic_arguments) {
+                resolve_type(t);
+            } 
+        }
+
         auto resolve_symbol = [&](Decl* sym) {
             switch (sym->kind) {
                 case DeclKind::Var: {
