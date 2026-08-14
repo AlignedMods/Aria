@@ -114,14 +114,21 @@ namespace ariac {
                                     { fmt::format("Did you mean to write '&{}'", pretty_ident) });
                             }
 
+                            // We let the call analysis handle this
+                            if (m_sema_context.call) {
+                                expr->type = TypeInfo::create_deducable_generic(sym, dr.generic_arguments);
+                                return;
+                            }
+
                             if (!dr.provides_generic_args) {
-                                report_diag(expr->loc, fmt::format("Missing generic arguments for generic function '{}'", pretty_ident));
+                                report_error(expr->loc, fmt::format("Missing generic arguments for generic function '{}'", pretty_ident));
                                 replace_expr(expr, &error_expr);
                                 return;
                             }
 
                             if (dr.generic_arguments.size != sym->generic.parameters.size) {
-                                report_diag(expr->loc, fmt::format("Incorrect amount of generic argments, expected {} but got {}", 
+                                report_error(expr->loc, fmt::format("Too {} generic argments provided, expected {} but got {}",
+                                    sym->generic.parameters.size < dr.generic_arguments.size ? "many" : "few",
                                     sym->generic.parameters.size, dr.generic_arguments.size));
 
                                 replace_expr(expr, &error_expr);
@@ -144,68 +151,7 @@ namespace ariac {
                                 return;
                             }
 
-                            Decl* specilization = nullptr;
-                            for (Decl* i : sym->generic.specilizations) {
-                                ARIA_ASSERT(i->kind == DeclKind::Function, "Invalid generic specilization");
-                                ARIA_ASSERT(i->function.is_specilization, "Function should be a specilization");
-
-                                bool failed = false;
-                                for (size_t idx = 0; idx < dr.generic_arguments.size; idx++) {
-                                    if (!type_is_equal(dr.generic_arguments.items[idx], i->function.specilization_info.types.items[idx])) { failed = true; break; }
-                                }
-
-                                if (!failed) { specilization = i; }
-                            }
-
-                            // Create specilization if needed
-                            if (!specilization) {
-                                // Resolve the body for the generic function if it isn't yet resolved
-                                if (sym->generic.decl->resolve_status == ResolveStatus::NotStarted) {
-                                    GenericContext ctx;
-                                    for (Decl* p : sym->generic.parameters) {
-                                        ctx[p->generic_parameter.identifier] = p;
-                                    }
-                                    m_generics.push_back(ctx);
-
-                                    CompilationUnit* unit = context.active_comp_unit;
-                                    context.active_comp_unit = sym->parent_unit;
-                                    resolve_function_body(sym->generic.decl);
-                                    context.active_comp_unit = unit;
-
-                                    m_generics.pop_back();
-                                }
-
-                                GenericInstantationContext ctx;
-                                ctx.loc = expr->loc;
-
-                                for (size_t i = 0; i < dr.generic_arguments.size; i++) {
-                                    Decl* gen_param = sym->generic.parameters.items[i];
-                                    TypeInfo* gen_arg = dr.generic_arguments.items[i];
-                                    ARIA_ASSERT(gen_param->kind == DeclKind::GenericParameter, "Invalid generic parameter");
-                                    ctx.generic_types[gen_param] = gen_arg;
-                                }
-
-                                m_generic_instantations.push_back(ctx);
-
-                                TypeInfo* new_type = TypeInfo::dup(sym->generic.decl->function.type);
-                                resolve_type(new_type);
-                                specilization = Decl::dup(sym->generic.decl);
-                                specilization->parent_module = sym->parent_module;
-                                specilization->parent_unit = sym->parent_unit;
-                                specilization->function.type = new_type;
-                                specilization->function.is_specilization = true;
-                                specilization->function.specilization_info.types = dr.generic_arguments;
-                                specilization->function.specilization_info.instantiation_loc = expr->loc;
-
-                                CompilationUnit* unit = context.active_comp_unit;
-                                context.active_comp_unit = specilization->parent_unit;
-                                resolve_function_body(specilization);
-                                context.active_comp_unit = unit;
-
-                                sym->generic.specilizations.append(specilization);
-                                m_generic_instantations.pop_back();
-                            }
-
+                            Decl* specilization = specialize_generic_func(expr->loc, sym, dr.generic_arguments);
                             dr.referenced_decl = specilization;
                             expr->type = specilization->function.type;
                             return;
@@ -708,7 +654,9 @@ namespace ariac {
             expr->type = TypeInfo::get_error();
             expr->kind = ExprKind::Error;
             return;
-        } else if (TypeInfo* t = get_typeinfo(call.callee)) {
+        }
+        
+        if (TypeInfo* t = get_typeinfo(call.callee)) {
             expr->kind = ExprKind::Construct;
             expr->type = t;
             expr->construct.arguments = call.arguments;
@@ -733,7 +681,7 @@ namespace ariac {
 
             case TypeKind::Pointer: {
                 if (!searching_type->pointer.base->is_function()) {
-                    report_diag(call.callee->loc, fmt::format("Only function pointers may be called"));
+                    report_diag(call.callee->loc, fmt::format("Only pointers to functions may be called"));
                     expr->type = TypeInfo::get_error();
                     for (Expr* arg : call.arguments) {
                         resolve_expr(arg);
@@ -755,12 +703,18 @@ namespace ariac {
                 return;
             }
 
+            case TypeKind::DeducableGeneric: {
+                resolve_generic_call_expr(searching_type->deducable_generic.generic, searching_type->deducable_generic.args, expr->loc, call.arguments, 
+                    &call.callee->decl_ref.referenced_decl, &call.callee->type);
+
+                fn_type = &call.callee->type->function;
+                break;
+            }
+
             default: {
-                report_diag(call.callee->loc, "Only functions or function pointers may be called");
+                report_error(call.callee->loc, fmt::format("Expression must be of a callable type but is '{}'", call.callee->type->to_string()));
+                expr->kind = ExprKind::Error;
                 expr->type = TypeInfo::get_error();
-                for (Expr* arg : call.arguments) {
-                    resolve_expr(arg);
-                }
                 return;
             }
         }
@@ -769,20 +723,103 @@ namespace ariac {
             m_functions.back().scopes.back().reaches_end = false;
         }
 
-        if (fn_type->param_types.size != call.arguments.size && !fn_type->is_variadic()) {
-            report_diag(expr->loc, fmt::format("Mismatched argument count, function expects {} but got {}", fn_type->param_types.size, call.arguments.size));
-            for (size_t i = 0; i < call.arguments.size; i++) {
-                resolve_expr(call.arguments.items[i]);
-            }
+        if (!resolve_call_arity(expr->loc, *fn_type, call.arguments)) {
+            expr->kind = ExprKind::Error;
+            expr->type = TypeInfo::get_error();
+            return;
+        }
+
+        resolve_call_args(*fn_type, call.arguments);
+
+        if (fn_type->return_type->is_never()) {
+            expr->type = TypeInfo::get_void();
         } else {
-            for (size_t i = 0; i < fn_type->param_types.size; i++) {
-                if (fn_type->variadic == VariadicKind::Named && i == fn_type->param_types.size - 1) { break; }
-                resolve_param_initializer(fn_type->param_types.items[i], call.arguments.items[i]);
+            expr->type = fn_type->return_type;
+        }
+
+        expr->value_kind = ExprValueKind::RValue;
+    }
+
+    void SemanticAnalyzer::resolve_generic_call_expr(Decl* generic, TinyVector<TypeInfo*> generic_args, SourceLoc loc, TinyVector<Expr*> args, Decl** callee, TypeInfo** callee_type) {
+        ARIA_ASSERT(generic->kind == DeclKind::Generic, "Invalid parameter");
+        ARIA_ASSERT(generic->generic.decl->kind == DeclKind::Function, "Invalid parameter");
+
+        GenericDecl& g = generic->generic;
+
+        bool is_any_generic = false;
+        for (TypeInfo* arg : generic_args) {
+            resolve_type(arg);
+
+            // If we have any non expanded generic parameters, don't create any instantiations
+            if (arg->is_generic()) {
+                is_any_generic = true;
+            }
+        }
+
+        if (is_any_generic) {
+            *callee = generic;
+            *callee_type = (*callee)->generic.decl->function.type;
+            return;
+        }
+        
+        if (g.parameters.size == generic_args.size) { // Exact amount of arguments, no need for deduction
+            *callee = specialize_generic_func(loc, generic, generic_args);
+            *callee_type = (*callee)->function.type;
+            return;
+        }
+
+        ARIA_TODO("");
+    }
+
+    bool SemanticAnalyzer::resolve_call_arity(SourceLoc loc, FunctionType& fn_type, TinyVector<Expr*> args) {
+        switch (fn_type.variadic) {
+            case VariadicKind::None: {
+                if (args.size != fn_type.param_types.size) {
+                    report_error(loc, fmt::format("Mismatched argument count, expected {} but got {}", fn_type.param_types.size, args.size));
+                    return false;
+                }
+
+                return true;
             }
 
-            if (fn_type->variadic == VariadicKind::Unnamed) {
-                for (size_t i = fn_type->param_types.size; i < call.arguments.size; i++) {
-                    Expr* arg = call.arguments.items[i];
+            case VariadicKind::Unnamed: {
+                if (args.size < fn_type.param_types.size) {
+                    report_error(loc, fmt::format("Mismatched argument count, expected at least {} but got {}", fn_type.param_types.size, args.size));
+                    return false;
+                }
+
+                return true;
+            }
+
+            case VariadicKind::Named: {
+                if (args.size < fn_type.param_types.size - 1) {
+                    report_error(loc, fmt::format("Mismatched argument count, expected at least {} but got {}", fn_type.param_types.size - 1, args.size));
+                    return false;
+                }
+
+                return true;
+            }
+
+            default: ARIA_UNREACHABLE("Invalid variadic kind");
+        }
+    }
+
+    void SemanticAnalyzer::resolve_call_args(FunctionType& fn_type, TinyVector<Expr*> args) {
+        switch (fn_type.variadic) {
+            case VariadicKind::None: {
+                for (size_t i = 0; i < args.size; i++) {
+                    resolve_param_initializer(fn_type.param_types[i], args[i]);
+                }
+                break;
+            }
+
+            case VariadicKind::Unnamed: {
+                for (size_t i = 0; i < fn_type.param_types.size; i++) {
+                    resolve_param_initializer(fn_type.param_types[i], args[i]);
+                }
+
+                for (size_t i = fn_type.param_types.size; i < args.size; i++) {
+                    Expr* arg = args[i];
                     resolve_expr(arg);
 
                     if (arg->type->is_integral()) {
@@ -803,22 +840,26 @@ namespace ariac {
                         report_diag(arg->loc, fmt::format("Passing argument of non-trivial type ('{}') is not allowed", type_info_to_string(arg->type)));
                     }
                 }
-            } else if (fn_type->variadic == VariadicKind::Named) {
-                for (size_t i = fn_type->param_types.size - 1; i < call.arguments.size; i++) {
-                    Expr* arg = call.arguments.items[i];
+
+                break;
+            }
+
+            case VariadicKind::Named: {
+                for (size_t i = 0; i < fn_type.param_types.size - 1; i++) {
+                    resolve_param_initializer(fn_type.param_types[i], args[i]);
+                }
+
+                for (size_t i = fn_type.param_types.size - 1; i < args.size; i++) {
+                    Expr* arg = args[i];
                     resolve_expr(arg);
                     require_rvalue(arg);
                 }
+
+                break;
             }
-        }
 
-        if (fn_type->return_type->is_never()) {
-            expr->type = TypeInfo::get_void();
-        } else {
-            expr->type = fn_type->return_type;
+            default: ARIA_UNREACHABLE("Invalid variadic kind");
         }
-
-        expr->value_kind = ExprValueKind::RValue;
     }
 
     void SemanticAnalyzer::resolve_builtin_call_expr(Expr* expr) {
@@ -1084,43 +1125,13 @@ namespace ariac {
                 resolve_type(mc.callee->member.referenced_member->method.type);
                 FunctionType& fn_type = callee_type->function;
 
-                switch (fn_type.variadic) {
-                    case VariadicKind::None: {
-                        if (mc.arguments.size != fn_type.param_types.size) {
-                            report_diag(expr->loc, fmt::format("Mismatched argument count, method expects {} but got {}", fn_type.param_types.size, mc.arguments.size));
-                            expr->kind = ExprKind::Error;
-                            expr->type = TypeInfo::get_error();
-                            break;
-                        }
-
-                        for (size_t i = 0; i < fn_type.param_types.size; i++) {
-                            resolve_param_initializer(fn_type.param_types.items[i], mc.arguments.items[i]);
-                        }
-                        break;
-                    }
-
-                    case VariadicKind::Named: {
-                        if (mc.arguments.size < fn_type.param_types.size - 1) {
-                            report_diag(expr->loc, fmt::format("Mismatched argument count, method expects at least {} but got {}", fn_type.param_types.size - 1, mc.arguments.size));
-                            expr->kind = ExprKind::Error;
-                            expr->type = TypeInfo::get_error();
-                            break;
-                        }
-
-                        for (size_t i = 0; i < fn_type.param_types.size - 1; i++) {
-                            resolve_param_initializer(fn_type.param_types.items[i], mc.arguments.items[i]);
-                        }
-
-                        for (size_t i = fn_type.param_types.size - 1; i < mc.arguments.size; i++) {
-                            resolve_expr(mc.arguments.items[i]);
-                            require_rvalue(mc.arguments.items[i]);
-                        }
-                        break;
-                    }
-
-                    default: ARIA_UNREACHABLE("Invalid variadic kind");
+                if (!resolve_call_arity(expr->loc, fn_type, mc.arguments)) {
+                    expr->kind = ExprKind::Error;
+                    expr->type = TypeInfo::get_error();
+                    return;
                 }
 
+                resolve_call_args(fn_type, mc.arguments);
                 expr->type = fn_type.return_type;
 
                 if (m_sema_context.temporary) {

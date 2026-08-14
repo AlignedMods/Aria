@@ -1,5 +1,7 @@
 #pragma once
 
+#include "ariac/core.hpp"
+
 #include <cstring>
 
 namespace ariac {
@@ -31,6 +33,11 @@ namespace ariac {
     
             items[size] = t;
             size++;
+        }
+
+        inline T& operator[](size_t idx) {
+            ARIA_ASSERT(idx < size, "Invalid TinyVector index");
+            return items[idx];
         }
 
         inline iterator begin() { return items; }

@@ -91,6 +91,9 @@ namespace ariac {
         void resolve_dependent_member_expr(Expr* expr);
         void resolve_self_expr(Expr* expr);
         void resolve_call_expr(Expr* expr);
+        void resolve_generic_call_expr(Decl* generic, TinyVector<TypeInfo*> generic_args, SourceLoc loc, TinyVector<Expr*> args, Decl** callee, TypeInfo** callee_type);
+        bool resolve_call_arity(SourceLoc loc, FunctionType& fn_type, TinyVector<Expr*> args);
+        void resolve_call_args(FunctionType& fn_type, TinyVector<Expr*> args);
         void resolve_builtin_call_expr(Expr* expr);
         void resolve_construct_expr(Expr* expr);
         void resolve_array_literal_expr(Expr* expr);
@@ -122,6 +125,8 @@ namespace ariac {
         void resolve_struct_body(Decl* decl);
         void resolve_method_body(Decl* decl);
         void resolve_destructor_body(Decl* decl);
+
+        Decl* specialize_generic_func(SourceLoc loc, Decl* g, TinyVector<TypeInfo*> args);
 
         void resolve_decl_attributes(Decl* decl, TinyVector<DeclAttribute> attrs, bool* erase_decl);
 

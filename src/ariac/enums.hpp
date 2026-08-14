@@ -389,6 +389,7 @@ namespace ariac {
 
         Unresolved,
         Dependent,
+        DeducableGeneric,
         Typeof,
 
         // Never is a special type which is only available for function return types

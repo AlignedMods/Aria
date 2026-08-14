@@ -106,6 +106,12 @@ namespace ariac {
         return t;
     }
 
+    TypeInfo* TypeInfo::create_deducable_generic(Decl* generic, TinyVector<TypeInfo*> args, SourceLoc loc) {
+        TypeInfo* t = create_basic(TypeKind::DeducableGeneric, loc);
+        t->deducable_generic = DeducableGenericType(generic, args);
+        return t;
+    }
+
     TypeInfo* TypeInfo::dup(TypeInfo* type) {
         if (type == nullptr) { return nullptr; }
 
@@ -200,6 +206,16 @@ namespace ariac {
 
             case TypeKind::Unresolved: {
                 t->unresolved.ident = type->unresolved.ident;
+                break;
+            }
+
+            case TypeKind::DeducableGeneric: {
+                t->deducable_generic.generic = type->deducable_generic.generic;
+                
+                for (TypeInfo* a : type->deducable_generic.args) {
+                    t->deducable_generic.args.append(TypeInfo::dup(a));
+                }
+
                 break;
             }
 
@@ -332,6 +348,7 @@ namespace ariac {
             case TypeKind::Generic:
             case TypeKind::StructSpecilization:
             case TypeKind::Dependent:
+            case TypeKind::DeducableGeneric:
                 return t;
 
             case TypeKind::Typedef: return t->typedef_.base;
@@ -720,12 +737,9 @@ namespace ariac {
                 break;
             }
 
-            case TypeKind::Unresolved: {
-                str = "unresolved";
-                break;
-            }
-
+            case TypeKind::Unresolved: str = "<unresolved_type>"; break;
             case TypeKind::Dependent: str = "<dependent_type>"; break;
+            case TypeKind::DeducableGeneric: str = "<deducable_generic_type>"; break;
 
             case TypeKind::Never: {
                 str = "!";

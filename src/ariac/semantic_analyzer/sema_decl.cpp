@@ -351,6 +351,72 @@ namespace ariac {
         m_functions.pop_back();
     }
 
+    Decl* SemanticAnalyzer::specialize_generic_func(SourceLoc loc, Decl* g, TinyVector<TypeInfo*> args) {
+        Decl* specilization = nullptr;
+        for (Decl* i : g->generic.specilizations) {
+            ARIA_ASSERT(i->kind == DeclKind::Function, "Invalid generic specilization");
+            ARIA_ASSERT(i->function.is_specilization, "Function should be a specilization");
+        
+            bool failed = false;
+            for (size_t idx = 0; idx < args.size; idx++) {
+                if (!type_is_equal(args.items[idx], i->function.specilization_info.types.items[idx])) { failed = true; break; }
+            }
+        
+            if (!failed) { specilization = i; }
+        }
+        
+        // Create specilization if needed
+        if (!specilization) {
+            // Resolve the body for the generic function if it isn't yet resolved
+            if (g->generic.decl->resolve_status == ResolveStatus::NotStarted) {
+                GenericContext ctx;
+                for (Decl* p : g->generic.parameters) {
+                    ctx[p->generic_parameter.identifier] = p;
+                }
+                m_generics.push_back(ctx);
+        
+                CompilationUnit* unit = context.active_comp_unit;
+                context.active_comp_unit = g->parent_unit;
+                resolve_function_body(g->generic.decl);
+                context.active_comp_unit = unit;
+        
+                m_generics.pop_back();
+            }
+        
+            GenericInstantationContext ctx;
+            ctx.loc = loc;
+        
+            for (size_t i = 0; i < args.size; i++) {
+                Decl* gen_param = g->generic.parameters.items[i];
+                TypeInfo* gen_arg = args.items[i];
+                ARIA_ASSERT(gen_param->kind == DeclKind::GenericParameter, "Invalid generic parameter");
+                ctx.generic_types[gen_param] = gen_arg;
+            }
+        
+            m_generic_instantations.push_back(ctx);
+        
+            TypeInfo* new_type = TypeInfo::dup(g->generic.decl->function.type);
+            resolve_type(new_type);
+            specilization = Decl::dup(g->generic.decl);
+            specilization->parent_module = g->parent_module;
+            specilization->parent_unit = g->parent_unit;
+            specilization->function.type = new_type;
+            specilization->function.is_specilization = true;
+            specilization->function.specilization_info.types = args;
+            specilization->function.specilization_info.instantiation_loc = loc;
+        
+            CompilationUnit* unit = context.active_comp_unit;
+            context.active_comp_unit = specilization->parent_unit;
+            resolve_function_body(specilization);
+            context.active_comp_unit = unit;
+        
+            g->generic.specilizations.append(specilization);
+            m_generic_instantations.pop_back();
+        }
+
+        return specilization;
+    }
+
     void SemanticAnalyzer::resolve_decl_attributes(Decl* decl, TinyVector<DeclAttribute> attrs, bool* erase_decl) {
         for (auto& attr : attrs) {
             switch (attr.kind) {

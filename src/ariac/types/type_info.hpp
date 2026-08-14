@@ -113,6 +113,11 @@ namespace ariac {
         Expr* ident = nullptr;
     };
 
+    struct DeducableGenericType {
+        Decl* generic = nullptr;
+        TinyVector<TypeInfo*> args;
+    };
+
     struct TypeofType {
         Expr* expr = nullptr;
     };
@@ -131,6 +136,7 @@ namespace ariac {
             GenericType generic;
             StructSpecilizationType struct_specilization;
             UnresolvedType unresolved;
+            DeducableGenericType deducable_generic;
             TypeofType typeof;
 
             u64 _initializer = 0; // Hack so the compiler doesn't complain about 'no default constructor'
@@ -148,6 +154,7 @@ namespace ariac {
         static TypeInfo* create_generic(Decl* d, SourceLoc loc = {});
         static TypeInfo* create_struct_instantation(TypeInfo* base, TinyVector<TypeInfo*> args, SourceLoc loc = {});
         static TypeInfo* create_unresolved(Expr* e, SourceLoc loc = {});
+        static TypeInfo* create_deducable_generic(Decl* generic, TinyVector<TypeInfo*> args, SourceLoc loc = {});
 
         static TypeInfo* get_error();
         static TypeInfo* get_void();
