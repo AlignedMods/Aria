@@ -500,6 +500,10 @@ namespace ariac {
                 dump_stmt(stmt->defer.statement, indentation + 4);
                 return;
 
+            case StmtKind::CompileIf: m_output += fmt::format("CompileIfStmt {} unresolved\n", source_loc_to_string(stmt->loc));
+                dump_expr(stmt->if_.condition, indentation + 4);
+                return;
+
             default: ARIA_UNREACHABLE("Invalid stmt kind");
         }
     }

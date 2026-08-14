@@ -87,11 +87,13 @@ namespace ariac {
         HashPrivate, // #private
         AtIf, // @if
         AtBuiltin, // @builtin
-        AtInit,
+        AtInit, // @init
         AtSizeof, // @sizeof
         AtTypeof, // @typeof
         AtMemcpy, // @memcpy
         AtMemset, // @memset
+        AtDefined, // @defined
+        DollarIf, // $if
         // ^^^ Keywords ^^^ //
 
         // VVV Types VVV //
@@ -219,6 +221,7 @@ namespace ariac {
             case TokenKind::AtTypeof: return "@typeof";
             case TokenKind::AtMemcpy: return "@memcpy";
             case TokenKind::AtMemset: return "@memset";
+            case TokenKind::AtDefined: return "@defined";
             // ^^^ Keywords ^^^ //
             
             // VVV Types VVV //

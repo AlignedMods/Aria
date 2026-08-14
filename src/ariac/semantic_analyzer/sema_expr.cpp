@@ -440,7 +440,7 @@ namespace ariac {
 
                     if (!gi.resolved_decl) {
                         expr->kind = ExprKind::DependentMember;
-                        member_type = TypeInfo::get_error();
+                        member_type = TypeInfo::get_dependent();
                         searching = false;
                         break;
                     }
@@ -493,6 +493,13 @@ namespace ariac {
                         report_diag(fd->loc, "Declared here", CompilerDiagKind::Note);
                     }
 
+                    searching = false;
+                    break;
+                }
+
+                case TypeKind::Generic: {
+                    expr->kind = ExprKind::DependentMember;
+                    member_type = TypeInfo::get_dependent();
                     searching = false;
                     break;
                 }
@@ -628,10 +635,34 @@ namespace ariac {
         MemberExpr& m = expr->member;
         resolve_expr(m.parent);
 
-        ARIA_ASSERT(m.parent->type->is_struct_specilization(), "Invalid parent type");
-        if (m.parent->type->struct_specilization.resolved_decl) {
-            expr->kind = ExprKind::Member;
-            resolve_member_expr(expr);
+        TypeInfo* parent_type = m.parent->type;
+        
+        if (m.implicit_deref) {
+            parent_type = parent_type->pointer.base;
+        }
+
+        switch (parent_type->kind) {
+            case TypeKind::Generic: return;
+
+            case TypeKind::StructSpecilization: {
+                if (!parent_type->struct_specilization.resolved_decl) { return; }
+
+                expr->kind = ExprKind::Member;
+                resolve_member_expr(expr);
+                return;
+            }
+
+            case TypeKind::Struct: {
+                expr->kind = ExprKind::Member;
+                resolve_member_expr(expr);
+                return;
+            }
+
+            default: {
+                expr->type = TypeInfo::get_error();
+                report_error(expr->loc, fmt::format("Invalid type '{}' to '.' operator", m.parent->type->to_string()));
+                return;
+            }
         }
     }
 
@@ -699,8 +730,9 @@ namespace ariac {
                 break;
             }
 
-            case TypeKind::Error: {
-                expr->type = TypeInfo::get_error();
+            case TypeKind::Error:
+            case TypeKind::Dependent: {
+                expr->type = searching_type;
                 for (Expr* arg : call.arguments) {
                     resolve_expr(arg);
                 }
@@ -824,6 +856,31 @@ namespace ariac {
                 try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Char), b.arguments.items[1]); require_rvalue(b.arguments.items[1]);
                 try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Sz), b.arguments.items[2]); require_rvalue(b.arguments.items[2]);
                 try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Bool), b.arguments.items[3]); require_rvalue(b.arguments.items[3]);
+                break;
+            }
+
+            case BuiltinCallKind::Defined: {
+                expr->type = TypeInfo::get_basic(TypeKind::Bool);
+                expr->value_kind = ExprValueKind::RValue;
+                m_error_captures.emplace_back();
+
+                bool is_any_dependent = false;
+                for (Expr* arg : b.arguments) {
+                    resolve_expr(arg);
+                    if (arg->type->is_dependent()) { is_any_dependent = true; }
+                }
+
+                CaptureErrorContext& c = m_error_captures.back();
+
+                if (!is_any_dependent) {
+                    expr->kind = ExprKind::Const;
+                    expr->const_.kind = ConstExprKind::Boolean;
+                    expr->const_.boolean = !c.has_error;
+                } else {
+                    expr->type = TypeInfo::get_dependent();
+                }
+
+                m_error_captures.pop_back();
                 break;
             }
 
@@ -1574,6 +1631,9 @@ namespace ariac {
 
             case ExprKind::TypeMember:
                 return expr->type_member.type->is_enum();
+
+            case ExprKind::BuiltinCall:
+                return expr->builtin_call.kind == BuiltinCallKind::Defined;
 
             case ExprKind::Construct:
                 return expr->construct.is_const;

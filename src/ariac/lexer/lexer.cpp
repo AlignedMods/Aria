@@ -142,6 +142,12 @@ namespace ariac {
                     break;
                 }
 
+                case '$': {
+                    backtrack();
+                    parse_dollar_symbol();
+                    break;
+                }
+
                 // Literals and constants
                 case '\'': {
                     parse_char_literal();
@@ -467,7 +473,8 @@ namespace ariac {
             { "@sizeof", TokenKind::AtSizeof },
             { "@typeof", TokenKind::AtTypeof },
             { "@memcpy", TokenKind::AtMemcpy },
-            { "@memset", TokenKind::AtMemset }
+            { "@memset", TokenKind::AtMemset },
+            { "@defined", TokenKind::AtDefined }
         };
 
         std::string_view str = scratch_buffer_to_str();
@@ -477,6 +484,36 @@ namespace ariac {
         }
         
         context.report_compiler_diagnostic(loc, "Unknown identifier following '@'");
+    }
+
+    void Lexer::parse_dollar_symbol() {
+        SourceLoc loc = get_current_loc();
+        scratch_buffer_clear();
+
+        scratch_buffer_append('$');
+        consume();
+
+        while (true) {
+            if (std::isalpha(peek())) {
+                loc.len++;
+                scratch_buffer_append(peek());
+                consume();
+            } else {
+                break;
+            }
+        }
+
+        static std::unordered_map<std::string_view, TokenKind> kws = {
+            { "$if", TokenKind::DollarIf }
+        };
+
+        std::string_view str = scratch_buffer_to_str();
+        if (kws.contains(str)) {
+            add_token(kws.at(str), loc, str);
+            return;
+        }
+        
+        context.report_compiler_diagnostic(loc, "Unknown identifier following '$'");
     }
 
     void Lexer::parse_identifier() {

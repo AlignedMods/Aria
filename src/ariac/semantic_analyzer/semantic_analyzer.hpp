@@ -50,6 +50,10 @@ namespace ariac {
             SourceLoc loc;
         };
 
+        struct CaptureErrorContext {
+            bool has_error = false;
+        };
+
     public:
         SemanticAnalyzer();
 
@@ -132,6 +136,7 @@ namespace ariac {
         void resolve_nextcase_stmt(Stmt* stmt);
         void resolve_return_stmt(Stmt* stmt);
         void resolve_defer_stmt(Stmt* stmt);
+        void resolve_compile_if_stmt(Stmt* stmt);
         void resolve_expr_stmt(Stmt* stmt);
         void resolve_decl_stmt(Stmt* stmt);
 
@@ -178,6 +183,7 @@ namespace ariac {
 
         void replace_expr(Expr* src, Expr* new_expr);
         void replace_decl(Decl* src, Decl* new_decl);
+        void replace_stmt(Stmt* src, Stmt* new_stmt);
 
         std::string_view get_parent_path(std::string_view path);
         std::string_view get_bottom_path(std::string_view path);
@@ -203,6 +209,7 @@ namespace ariac {
 
         std::vector<FunctionContext> m_functions;
         std::vector<GenericInstantationContext> m_generic_instantations;
+        std::vector<CaptureErrorContext> m_error_captures;
         std::vector<Decl*> m_generic_types;
 
         JumpTarget m_break_target;

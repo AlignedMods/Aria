@@ -371,6 +371,7 @@ namespace ariac {
         if (!stmt->reached) { return; } // Statement is never reached via control flow
 
         switch (stmt->kind) {
+            case StmtKind::Nop: return;
             case StmtKind::Block: return gen_block_stmt(stmt);
             case StmtKind::While: return gen_while_stmt(stmt);
             case StmtKind::DoWhile: return gen_do_while_stmt(stmt);

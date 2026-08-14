@@ -69,6 +69,10 @@ namespace ariac {
         *src = *new_decl;
     }
 
+    void SemanticAnalyzer::replace_stmt(Stmt* src, Stmt* new_stmt) {
+        *src = *new_stmt;
+    }
+
     std::string_view SemanticAnalyzer::get_parent_path(std::string_view path) {
         size_t i = path.rfind("::");
         if (i == std::string_view::npos) { return {}; }
@@ -100,6 +104,12 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::report_diag_with_notes(SourceLoc loc, const std::string& error, std::initializer_list<std::string> notes, CompilerDiagKind kind) {
+        // If we are capturing errors, don't emit an actual error
+        if (!m_error_captures.empty() && kind == CompilerDiagKind::Error) {
+            m_error_captures.back().has_error = true;
+            return;
+        }
+
         context.report_compiler_diagnostic_with_notes(loc, error, notes, kind);
 
         for (auto it = m_generic_instantations.rbegin(); it != m_generic_instantations.rend(); it++) {

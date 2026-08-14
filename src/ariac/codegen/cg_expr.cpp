@@ -97,6 +97,7 @@ namespace ariac {
 
                 if (mem.implicit_deref) {
                     type = mem.parent->type->pointer.base;
+
                     if (mem.parent->value_kind == ExprValueKind::LValue) {
                         val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr()), val);
                     }

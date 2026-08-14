@@ -51,6 +51,7 @@ namespace ariac {
         Sizeof,
         Memcpy,
         Memset,
+        Defined
     };
 
     inline const char* builtin_call_kind_to_string(BuiltinCallKind kind) {
@@ -58,6 +59,7 @@ namespace ariac {
             case BuiltinCallKind::Sizeof: return "sizeof";
             case BuiltinCallKind::Memcpy: return "memcpy";
             case BuiltinCallKind::Memset: return "memset";
+            case BuiltinCallKind::Defined: return "defined";
 
             default: ARIA_UNREACHABLE("Invalid built in call");
         }
@@ -329,6 +331,7 @@ namespace ariac {
         Nextcase,
         Return,
         Defer,
+        CompileIf,
         Expr,
         Decl
     };
@@ -385,6 +388,7 @@ namespace ariac {
         StructSpecilization,
 
         Unresolved,
+        Dependent,
         Typeof,
 
         // Never is a special type which is only available for function return types

@@ -106,6 +106,7 @@ namespace ariac {
         m_expr_rules[TokenKind::AtSizeof] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE };
         m_expr_rules[TokenKind::AtMemcpy] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE};
         m_expr_rules[TokenKind::AtMemset] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE};
+        m_expr_rules[TokenKind::AtDefined] =         { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE};
 
         m_expr_rules[TokenKind::Void] =        { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
         m_expr_rules[TokenKind::Bool] =        { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
@@ -244,6 +245,7 @@ namespace ariac {
             case TokenKind::AtSizeof: return BuiltinCallKind::Sizeof;
             case TokenKind::AtMemcpy: return BuiltinCallKind::Memcpy;
             case TokenKind::AtMemset: return BuiltinCallKind::Memset;
+            case TokenKind::AtDefined: return BuiltinCallKind::Defined;
 
             default: ARIA_UNREACHABLE("Invalid builtin call kind");
         }
@@ -401,12 +403,18 @@ namespace ariac {
         ARIA_ASSERT(left, "Parser::parse_member() expects a left side");
 
         Token d = consume(); // consume "."
-        Token* ident = try_consume(TokenKind::Identifier, "identifier");
-        if (!ident) { return &error_expr; }
 
-        return Expr::Create(left->loc + ident->loc, ExprKind::Member,
+        std::string_view mem;
+        if (match(TokenKind::Identifier) || match(TokenKind::Squigly)) {
+            mem = consume().string;
+        } else {
+            context.report_compiler_diagnostic(peek()->loc, "Expected 'identifier' or '~'");
+            return &error_expr;
+        }
+
+        return Expr::Create(left->loc + peek(-1)->loc, ExprKind::Member,
             ExprValueKind::LValue, nullptr,
-            MemberExpr(ident->string, left));
+            MemberExpr(mem, left));
     }
 
     Expr* Parser::parse_primary(Expr* left) {
@@ -1093,6 +1101,21 @@ namespace ariac {
         return Stmt::Create(s.loc + expr->loc, StmtKind::Switch, SwitchStmt(expr, cases));
     }
 
+    Stmt* Parser::parse_compile_if() {
+        Token i = consume(); // consume "$if"
+
+        Expr* condition = parse_expression();
+        Stmt* body = parse_block_inline();
+        Stmt* else_body = nullptr;
+
+        if (match(TokenKind::Else)) {
+            consume();
+            else_body = parse_block_inline();
+        }
+        
+        return Stmt::Create(i.loc + condition->loc, StmtKind::CompileIf, IfStmt(condition, body, else_body));
+    }
+
     Stmt* Parser::parse_break() {
         Token& b = consume(); // consume "break"
         try_consume(TokenKind::Semi, ";");
@@ -1234,6 +1257,9 @@ namespace ariac {
                 if (!decl_ok(d)) { return &error_stmt; }
                 return Stmt::Create(d->loc, StmtKind::Decl, d);
             }
+
+            case TokenKind::DollarIf:
+                return parse_compile_if();
 
             case TokenKind::Else: {
                 Token& tok = consume();

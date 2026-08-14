@@ -24,6 +24,7 @@ namespace ariac {
     static TypeInfo* typeid_type;
     static TypeInfo* any_type;
     static TypeInfo* typekind_type;
+    static TypeInfo* dependent_type;
     static TypeInfo* void_ptr_type;
     static TypeInfo* char_ptr_type;
     static TypeInfo* char_slice_type;
@@ -129,6 +130,7 @@ namespace ariac {
             case TypeKind::String:
             case TypeKind::Typeid:
             case TypeKind::Any:
+            case TypeKind::Dependent:
             case TypeKind::Never: break;
 
             case TypeKind::Pointer: {
@@ -254,6 +256,7 @@ namespace ariac {
             TYPE(String, string_type)
             TYPE(Typeid, typeid_type)
             TYPE(Any, any_type)
+            TYPE(Dependent, dependent_type)
 
             default: ARIA_UNREACHABLE("Invalid type kind");
         }
@@ -269,6 +272,10 @@ namespace ariac {
             
         typekind_type = TypeInfo::get_basic(TypeKind::Char);
         return typekind_type;
+    }
+
+    TypeInfo* TypeInfo::get_dependent() {
+        return get_basic(TypeKind::Dependent);
     }
 
     TypeInfo* TypeInfo::get_void_ptr() {
@@ -324,6 +331,7 @@ namespace ariac {
             case TypeKind::Enum:
             case TypeKind::Generic:
             case TypeKind::StructSpecilization:
+            case TypeKind::Dependent:
                 return t;
 
             case TypeKind::Typedef: return t->typedef_.base;
@@ -716,6 +724,8 @@ namespace ariac {
                 str = "unresolved";
                 break;
             }
+
+            case TypeKind::Dependent: str = "<dependent_type>"; break;
 
             case TypeKind::Never: {
                 str = "!";

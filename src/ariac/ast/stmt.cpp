@@ -21,7 +21,8 @@ namespace ariac {
                 break;
             }
 
-            case StmtKind::If: {
+            case StmtKind::If:
+            case StmtKind::CompileIf: {
                 IfStmt& i = s->if_;
 
                 copy->if_.condition = Expr::dup(i.condition);

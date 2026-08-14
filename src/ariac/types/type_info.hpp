@@ -156,6 +156,7 @@ namespace ariac {
         static TypeInfo* get_typeid();
         static TypeInfo* get_basic(TypeKind kind);
         static TypeInfo* get_typekind();
+        static TypeInfo* get_dependent();
         static TypeInfo* get_void_ptr();
         static TypeInfo* get_char_ptr();
         static TypeInfo* get_char_slice();
@@ -252,6 +253,10 @@ namespace ariac {
 
         bool is_unresolved() const {
             return kind == TypeKind::Unresolved;
+        }
+
+        bool is_dependent() const {
+            return kind == TypeKind::Dependent;
         }
 
         bool is_never() const {

@@ -264,6 +264,57 @@ namespace ariac {
         m_functions.back().scopes.back().defers.push_back(defer.statement);
     }
 
+    void SemanticAnalyzer::resolve_compile_if_stmt(Stmt* stmt) {
+        IfStmt& i = stmt->if_;
+
+        resolve_expr(i.condition);
+        require_rvalue(i.condition);
+        insert_expr_with_cleanups(i.condition);
+
+        if (i.condition->type->is_dependent()) {
+            return;
+        }
+
+        if (!i.condition->type->is_boolean()) {
+            report_diag(i.condition->loc, fmt::format("Expression must be of type 'bool' but is '{}'", type_info_to_string(i.condition->type)));
+            stmt->kind = StmtKind::Error;
+            return;
+        }
+
+        if (!is_const_expr(i.condition)) {
+            report_error(i.condition->loc, "Expression must be a compile time constant");
+            stmt->kind = StmtKind::Error;
+            return;
+        }
+
+        i.condition = eval_const_expr(i.condition);
+        ARIA_ASSERT(i.condition->const_.kind == ConstExprKind::Boolean, "Invalid const expr");
+        
+        if (i.condition->const_.boolean) {
+            push_scope();
+            resolve_block_stmt(i.body);
+            bool reaches_end = m_functions.back().scopes.back().reaches_end;
+            pop_scope();
+
+            replace_stmt(stmt, i.body);
+
+            m_functions.back().scopes.back().reaches_end = reaches_end;
+        } else {
+            if (i.else_body) {
+                push_scope();
+                resolve_block_stmt(i.else_body);
+                bool reaches_end = m_functions.back().scopes.back().reaches_end;
+                pop_scope();
+
+                replace_stmt(stmt, i.else_body);
+
+                m_functions.back().scopes.back().reaches_end = reaches_end;
+            } else {
+                replace_stmt(stmt, Stmt::Create(stmt->loc, StmtKind::Nop, ErrorStmt()));
+            }
+        }
+    }
+
     void SemanticAnalyzer::resolve_expr_stmt(Stmt* stmt) {
         m_sema_context.temporary = true;
         resolve_expr(stmt->expr);
@@ -306,6 +357,7 @@ namespace ariac {
             case StmtKind::Nextcase: return resolve_nextcase_stmt(stmt);
             case StmtKind::Return: return resolve_return_stmt(stmt);
             case StmtKind::Defer: return resolve_defer_stmt(stmt);
+            case StmtKind::CompileIf: return resolve_compile_if_stmt(stmt);
             case StmtKind::Expr: return resolve_expr_stmt(stmt);
             case StmtKind::Decl: return resolve_decl_stmt(stmt);
 
