@@ -48,7 +48,7 @@ namespace ariac {
                 copy->decl_ref.provides_generic_args = d.provides_generic_args;
 
                 for (TypeInfo* arg : d.generic_arguments) {
-                    copy->decl_ref.generic_arguments.append(arg);
+                    copy->decl_ref.generic_arguments.append(TypeInfo::dup(arg));
                 }
                 break;
             }

@@ -226,13 +226,13 @@ namespace ariac {
     void SemanticAnalyzer::resolve_generic_decl(Decl* decl) {
         GenericDecl& gen = decl->generic;
         
-        size_t i = m_generic_types.size();
-        for (Decl* t : gen.parameters) {
-            m_generic_types.push_back(t);
+        GenericContext ctx;
+        for (Decl* p : gen.parameters) {
+            ctx[p->generic_parameter.identifier] = p;
         }
-
+        m_generics.push_back(ctx);
         resolve_decl(gen.decl);
-        m_generic_types.resize(i);
+        m_generics.pop_back();
     }
 
     void SemanticAnalyzer::resolve_function_body(Decl* decl) {

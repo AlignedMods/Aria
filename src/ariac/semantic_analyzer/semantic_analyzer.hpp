@@ -44,9 +44,11 @@ namespace ariac {
             std::vector<Scope> scopes;
         };
 
+        using GenericContext = std::unordered_map<std::string_view, Decl*>;
+
         struct GenericInstantationContext {
             Decl* generic_decl = nullptr;
-            std::unordered_map<std::string_view, TypeInfo*> generic_types;
+            std::unordered_map<Decl*, TypeInfo*> generic_types;
             SourceLoc loc;
         };
 
@@ -208,9 +210,9 @@ namespace ariac {
         } m_sema_context;
 
         std::vector<FunctionContext> m_functions;
+        std::vector<GenericContext> m_generics;
         std::vector<GenericInstantationContext> m_generic_instantations;
         std::vector<CaptureErrorContext> m_error_captures;
-        std::vector<Decl*> m_generic_types;
 
         JumpTarget m_break_target;
         JumpTarget m_continue_target;

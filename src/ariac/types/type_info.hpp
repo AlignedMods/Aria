@@ -145,7 +145,7 @@ namespace ariac {
         static TypeInfo* create_struct(std::string_view name, Decl* d, SourceLoc loc = {});
         static TypeInfo* create_typedef(Decl* d, SourceLoc loc = {});
         static TypeInfo* create_enum(Decl* d, SourceLoc loc = {});
-        static TypeInfo* create_generic(std::string_view name, SourceLoc loc = {});
+        static TypeInfo* create_generic(Decl* d, SourceLoc loc = {});
         static TypeInfo* create_struct_instantation(TypeInfo* base, TinyVector<TypeInfo*> args, SourceLoc loc = {});
         static TypeInfo* create_unresolved(Expr* e, SourceLoc loc = {});
 

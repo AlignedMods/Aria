@@ -30,10 +30,21 @@ fn<T> new_array(len: sz) -> []T {
     return (*T)(libc::calloc(len, @sizeof(T)))[:len];
 }
 
+fn<T> call_dtor(ptr: *T) {
+    $if @defined(ptr.~) {
+        ptr.~();
+    }
+}
+
 fn<T> free(ptr: *T) {
+    call_dtor::<T>(ptr);
     libc::free(ptr);
 }
 
-fn<T> free_arr(arr: []T) {
-    free::<T>(arr);
+fn<T> free_array(arr: []T) {
+    for (i: sz; i < arr.len; i++) {
+        call_dtor::<T>(&arr[i]);
+    }
+
+    libc::free(arr.mem);
 }

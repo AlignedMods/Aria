@@ -69,9 +69,9 @@ namespace ariac {
                 GenericType& g = type->generic;
 
                 if (m_generic_instantations.empty()) { break; }
+                if (!m_generic_instantations.back().generic_types.contains(g.resolved_decl)) { break; }
 
-                ARIA_ASSERT(m_generic_instantations.back().generic_types.contains(g.identifier), "Invalid generic specilization type");
-                *type = *m_generic_instantations.back().generic_types.at(g.identifier);
+                *type = *m_generic_instantations.back().generic_types.at(g.resolved_decl);
                 break;
             }
 
@@ -132,7 +132,7 @@ namespace ariac {
                         Decl* gen_param = g->generic.parameters.items[i];
                         TypeInfo* gen_arg = gi.arguments.items[i];
                         ARIA_ASSERT(gen_param->kind == DeclKind::GenericParameter, "Invalid generic parameter");
-                        ctx.generic_types[gen_param->generic_parameter.identifier] = gen_arg;
+                        ctx.generic_types[gen_param] = gen_arg;
                     }
 
                     m_generic_instantations.push_back(ctx);
@@ -572,7 +572,7 @@ namespace ariac {
             }
 
             case DeclKind::GenericParameter: {
-                return TypeInfo::create_generic(decl->generic_parameter.identifier);
+                return TypeInfo::create_generic(decl);
             }
 
             default: ARIA_UNREACHABLE("Invalid decl");
@@ -596,7 +596,7 @@ namespace ariac {
                     TinyVector<TypeInfo*> types;
                     for (Decl* p : s.parent->generic.parameters) {
                         ARIA_ASSERT(p->kind == DeclKind::GenericParameter, "Invalid generic parameter");
-                        types.append(TypeInfo::create_generic(p->generic_parameter.identifier));
+                        types.append(TypeInfo::create_generic(p));
                     }
                     base = TypeInfo::create_struct_instantation(TypeInfo::dup(base), types);
                     break;

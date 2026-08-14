@@ -301,9 +301,13 @@ namespace ariac {
             FunctionDecl& f = func->function;
 
             if (generic) {
-                for (Decl* p : unit->funcs[i]->generic.parameters) { m_generic_types.push_back(p); }
+                GenericContext ctx;
+                for (Decl* p : unit->funcs[i]->generic.parameters) {
+                    ctx[p->generic_parameter.identifier] = p;
+                }
+                m_generics.push_back(ctx);
                 resolve_type(f.type);
-                m_generic_types.clear();
+                m_generics.pop_back();
             } else {
                 resolve_type(f.type);
             }
@@ -391,10 +395,13 @@ namespace ariac {
 
                 case DeclKind::Generic: {
                     if (struc->generic.decl->resolve_status == ResolveStatus::NotStarted) {
-                        size_t size = m_generic_types.size();
-                        for (Decl* p : struc->generic.parameters) { m_generic_types.push_back(p); }
+                        GenericContext ctx;
+                        for (Decl* p : struc->generic.parameters) {
+                            ctx[p->generic_parameter.identifier] = p;
+                        }
+                        m_generics.push_back(ctx);
                         resolve_struct_body(struc->generic.decl);
-                        m_generic_types.resize(size);
+                        m_generics.pop_back();
                     }
                     break;
                 }
@@ -421,10 +428,13 @@ namespace ariac {
 
                 case DeclKind::Generic: {
                     if (func->generic.decl->resolve_status == ResolveStatus::NotStarted) {
-                        size_t size = m_generic_types.size();
-                        for (Decl* p : func->generic.parameters) { m_generic_types.push_back(p); }
+                        GenericContext ctx;
+                        for (Decl* p : func->generic.parameters) {
+                            ctx[p->generic_parameter.identifier] = p;
+                        }
+                        m_generics.push_back(ctx);
                         resolve_function_body(func->generic.decl);
-                        m_generic_types.resize(size);
+                        m_generics.pop_back();
                     }
                     break;
                 }

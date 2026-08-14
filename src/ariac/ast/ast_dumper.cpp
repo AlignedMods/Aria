@@ -230,6 +230,14 @@ namespace ariac {
                 dump_expr(expr->paren.expression, indentation + 4);
                 return;
 
+            case ExprKind::Ternary: m_output += fmt::format("TernaryExpr {} '{}' {}\n",
+                source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
+
+                dump_expr(expr->ternary.condition, indentation + 4);
+                dump_expr(expr->ternary.first, indentation + 4);
+                dump_expr(expr->ternary.second, indentation + 4);
+                return;
+
             case ExprKind::Cast: m_output += fmt::format("CastExpr {} '{}' {}\n",
                 source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
@@ -628,6 +636,8 @@ namespace ariac {
             for (TypeInfo* t : type->struct_specilization.arguments) {
                 dump_type(t, indentation + 4);
             }
+        } else if (type->is_generic()) {
+            m_output += fmt::format("GenericType '{}'\n", type->generic.identifier);
         } else {
             ARIA_UNREACHABLE("Invalid type kind");
         }

@@ -128,15 +128,20 @@ namespace ariac {
                                 return;
                             }
 
+                            bool is_any_generic = false;
                             for (TypeInfo* t : dr.generic_arguments) {
                                 resolve_type(t);
 
                                 // If we have any non expanded generic parameters, don't create any instantiations
                                 if (t->is_generic()) {
-                                    dr.referenced_decl = sym;
-                                    expr->type = sym->generic.decl->function.type;
-                                    return;
+                                    is_any_generic = true;
                                 }
+                            }
+
+                            if (is_any_generic) {
+                                dr.referenced_decl = sym;
+                                expr->type = sym->generic.decl->function.type;
+                                return;
                             }
 
                             Decl* specilization = nullptr;
@@ -156,10 +161,18 @@ namespace ariac {
                             if (!specilization) {
                                 // Resolve the body for the generic function if it isn't yet resolved
                                 if (sym->generic.decl->resolve_status == ResolveStatus::NotStarted) {
-                                    size_t size = m_generic_types.size();
-                                    for (Decl* p : sym->generic.parameters) { m_generic_types.push_back(p); }
+                                    GenericContext ctx;
+                                    for (Decl* p : sym->generic.parameters) {
+                                        ctx[p->generic_parameter.identifier] = p;
+                                    }
+                                    m_generics.push_back(ctx);
+
+                                    CompilationUnit* unit = context.active_comp_unit;
+                                    context.active_comp_unit = sym->parent_unit;
                                     resolve_function_body(sym->generic.decl);
-                                    m_generic_types.resize(size);
+                                    context.active_comp_unit = unit;
+
+                                    m_generics.pop_back();
                                 }
 
                                 GenericInstantationContext ctx;
@@ -169,7 +182,7 @@ namespace ariac {
                                     Decl* gen_param = sym->generic.parameters.items[i];
                                     TypeInfo* gen_arg = dr.generic_arguments.items[i];
                                     ARIA_ASSERT(gen_param->kind == DeclKind::GenericParameter, "Invalid generic parameter");
-                                    ctx.generic_types[gen_param->generic_parameter.identifier] = gen_arg;
+                                    ctx.generic_types[gen_param] = gen_arg;
                                 }
 
                                 m_generic_instantations.push_back(ctx);
@@ -183,7 +196,11 @@ namespace ariac {
                                 specilization->function.is_specilization = true;
                                 specilization->function.specilization_info.types = dr.generic_arguments;
                                 specilization->function.specilization_info.instantiation_loc = expr->loc;
+
+                                CompilationUnit* unit = context.active_comp_unit;
+                                context.active_comp_unit = specilization->parent_unit;
                                 resolve_function_body(specilization);
+                                context.active_comp_unit = unit;
 
                                 sym->generic.specilizations.append(specilization);
                                 m_generic_instantations.pop_back();
@@ -292,11 +309,10 @@ namespace ariac {
                 }
             }
 
-            for (Decl* type : m_generic_types) {
-                ARIA_ASSERT(type->kind == DeclKind::GenericParameter, "Invalid generic parameter");
-
-                if (type->generic_parameter.identifier == dr.identifier) {
-                    replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, TypeInfo::get_typeid(), TypeInfoExpr(type_from_decl(type))));
+            if (!m_generics.empty()) {
+                if (m_generics.back().contains(dr.identifier)) {
+                    Decl* g = m_generics.back().at(dr.identifier);
+                    replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, TypeInfo::get_typeid(), TypeInfoExpr(type_from_decl(g))));
                     return;
                 }
             }

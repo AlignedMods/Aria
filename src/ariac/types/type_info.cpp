@@ -88,9 +88,9 @@ namespace ariac {
         return t;
     }
 
-    TypeInfo* TypeInfo::create_generic(std::string_view name, SourceLoc loc) {
+    TypeInfo* TypeInfo::create_generic(Decl* d, SourceLoc loc) {
         TypeInfo* t = create_basic(TypeKind::Generic, loc);
-        t->generic = GenericType(name);
+        t->generic = GenericType(d->generic_parameter.identifier, d);
         return t;
     }
 
