@@ -786,13 +786,7 @@ namespace ariac {
             return;
         }
 
-        struct ResolvedGenericArg {
-            TypeInfo* type = nullptr;
-            bool is_deduced = false;
-            SourceLoc loc;
-        };
-
-        std::unordered_map<Decl*, ResolvedGenericArg> deduced_args;
+        ResolvedGenericMap deduced_args;
 
         // Add the provided explicit generic args
         for (size_t i = 0; i < generic_args.size; i++) {
@@ -800,29 +794,10 @@ namespace ariac {
         }
 
         for (size_t i = 0; i < g.decl->function.parameters.size; i++) {
-            ParamDecl& param = g.decl->function.parameters[i]->param;
             Expr* arg = args[i];
-
             resolve_expr(arg);
-            
-            // If the parameter doesn't use a generic type, it is not suitable for deduction
-            if (!param.type->is_generic()) { continue; }
-
-            if (deduced_args.contains(param.type->generic.resolved_decl)) {
-                ResolvedGenericArg& deduced_arg = deduced_args.at(param.type->generic.resolved_decl);
-
-                if (deduced_arg.is_deduced) {
-                    ConversionCost cost = get_conversion_cost(deduced_arg.type, arg->type);
-
-                    // We don't allow any conversions in deduced args
-                    if (cost.cast_needed) {
-                        report_error(arg->loc, fmt::format("Expected argument to be of type '{}' but is '{}'", deduced_arg.type->to_string(), arg->type->to_string()));
-                        report_note(deduced_arg.loc, "Type for generic deduced from this argument");
-                        arg->type = TypeInfo::get_error();
-                    }
-                }
-            } else { // Deduce the type
-                deduced_args[param.type->generic.resolved_decl] = ResolvedGenericArg(arg->type, true, arg->loc);
+            if (!deduce_generic_type(arg->loc, g.decl->function.parameters[i]->param.type, arg->type, deduced_args)) {
+                arg->type = TypeInfo::get_error();
             }
         }
 
@@ -1446,8 +1421,11 @@ namespace ariac {
             case UnaryOperatorKind::RValueAddressOf: {
                 if (type->is_error()) { expr->type = type; break; }
 
-                require_rvalue(unop.expression);
-                insert_materialize_temporary_expr(unop.expression);   
+                if (!unop.expression->is_xvalue()) {
+                    require_rvalue(unop.expression);
+                    insert_materialize_temporary_expr(unop.expression);
+                }
+
                 TypeInfo* new_type = TypeInfo::create_pointer(type, false);
                 expr->type = new_type;
                 break;

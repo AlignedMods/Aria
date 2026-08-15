@@ -137,6 +137,21 @@ namespace ariac {
 
                     m_generic_instantations.push_back(ctx);
 
+                    if (g->generic.decl->struct_.body_resolve_status == ResolveStatus::NotStarted) {
+                        GenericContext ctx;
+                        for (Decl* p : g->generic.parameters) {
+                            ctx[p->generic_parameter.identifier] = p;
+                        }
+                        m_generics.push_back(ctx);
+        
+                        CompilationUnit* unit = context.active_comp_unit;
+                        context.active_comp_unit = g->parent_unit;
+                        resolve_struct_body(g->generic.decl);
+                        context.active_comp_unit = unit;
+        
+                        m_generics.pop_back();
+                    }
+
                     Decl* struc = Decl::dup(g->generic.decl);
                     struc->parent_module = g->parent_module;
                     struc->parent_unit = g->parent_unit;

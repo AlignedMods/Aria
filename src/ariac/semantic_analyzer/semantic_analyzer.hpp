@@ -52,6 +52,13 @@ namespace ariac {
             SourceLoc loc;
         };
 
+        struct ResolvedGenericArg {
+            TypeInfo* type = nullptr;
+            bool is_deduced = false;
+            SourceLoc loc;
+        };
+        using ResolvedGenericMap = std::unordered_map<Decl*, ResolvedGenericArg>;
+
         struct CaptureErrorContext {
             bool has_error = false;
         };
@@ -187,6 +194,8 @@ namespace ariac {
         // eg. e = int, this function would return 'int'
         // eg. e = 5, function returns nullptr
         TypeInfo* get_typeinfo(Expr* e);
+
+        bool deduce_generic_type(SourceLoc loc, TypeInfo* param_type, TypeInfo* arg_type, ResolvedGenericMap& deduced_args);
 
         void replace_expr(Expr* src, Expr* new_expr);
         void replace_decl(Decl* src, Decl* new_decl);

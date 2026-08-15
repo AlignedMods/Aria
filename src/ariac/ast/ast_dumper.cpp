@@ -641,18 +641,6 @@ namespace ariac {
         } else {
             ARIA_UNREACHABLE("Invalid type kind");
         }
-
-        switch (type->kind) {
-            case TypeKind::Error: {
-                m_output += "ErrorType";
-                break;
-            }
-
-            case TypeKind::Bool: {
-                m_output += "ErrorType";
-                break;
-            }
-        }
     }
 
     std::string ASTDumper::source_loc_to_string(SourceLoc loc) {

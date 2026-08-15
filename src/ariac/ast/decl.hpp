@@ -126,6 +126,7 @@ namespace ariac {
         TinyVector<Decl*> fields;
         HTable<Decl*> field_lookup;
         Decl* parent = nullptr; // Could be null, a GenericDecl or a StructSpecilizationDecl
+        ResolveStatus body_resolve_status = ResolveStatus::NotStarted;
     };
 
     struct StructSpecilizationDecl {

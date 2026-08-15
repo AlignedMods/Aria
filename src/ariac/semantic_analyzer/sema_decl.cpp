@@ -266,6 +266,7 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_struct_body(Decl* decl) {
         StructDecl& s = decl->struct_;
+        s.body_resolve_status = ResolveStatus::InProgress;
 
         for (Decl* f : s.fields) {
             switch (f->kind) {
@@ -276,6 +277,8 @@ namespace ariac {
                 default: ARIA_UNREACHABLE("Invalid struct field");
             }
         }
+
+        s.body_resolve_status = ResolveStatus::Done;
     }
 
     void SemanticAnalyzer::resolve_method_body(Decl* decl) {
