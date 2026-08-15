@@ -664,16 +664,28 @@ namespace ariac {
             return;
         }
 
-        if (call.callee->type->is_method()) {
-            expr->kind = ExprKind::MethodCall;
-            resolve_method_call_expr(expr);
-            return;
-        }
-
         FunctionType* fn_type = nullptr;
         TypeInfo* searching_type = TypeInfo::get_flattened(call.callee->type);
 
         switch (searching_type->kind) {
+            case TypeKind::Method: {
+                expr->kind = ExprKind::MethodCall;
+                return resolve_method_call_expr(expr);
+            }
+
+            case TypeKind::DeducableGeneric: {
+                resolve_generic_call_expr(searching_type->deducable_generic.generic, searching_type->deducable_generic.args, expr->loc, call.arguments, 
+                    &call.callee->decl_ref.referenced_decl, &call.callee->type);
+
+                if (call.callee->type->is_error()) {
+                    expr->type = call.callee->type;
+                    return;
+                }
+
+                fn_type = &call.callee->type->function;
+                break;
+            }
+
             case TypeKind::Function: {
                 fn_type = &searching_type->function;
                 break;
@@ -701,14 +713,6 @@ namespace ariac {
                     resolve_expr(arg);
                 }
                 return;
-            }
-
-            case TypeKind::DeducableGeneric: {
-                resolve_generic_call_expr(searching_type->deducable_generic.generic, searching_type->deducable_generic.args, expr->loc, call.arguments, 
-                    &call.callee->decl_ref.referenced_decl, &call.callee->type);
-
-                fn_type = &call.callee->type->function;
-                break;
             }
 
             default: {
@@ -768,7 +772,74 @@ namespace ariac {
             return;
         }
 
-        ARIA_TODO("");
+        if (g.parameters.size < generic_args.size) { // Too many arguments, report error
+            report_error(loc, fmt::format("Too many generic arguments provided, expected {}, got {}", g.parameters.size, generic_args.size));
+            *callee = &error_decl;
+            *callee_type = TypeInfo::get_error();
+            return;
+        }
+
+        // First check arity, we cannot deduce anything with an incorrect argument count
+        if (!resolve_call_arity(loc, g.decl->function.type->function, args)) {
+            *callee = &error_decl;
+            *callee_type = TypeInfo::get_error();
+            return;
+        }
+
+        struct ResolvedGenericArg {
+            TypeInfo* type = nullptr;
+            bool is_deduced = false;
+            SourceLoc loc;
+        };
+
+        std::unordered_map<Decl*, ResolvedGenericArg> deduced_args;
+
+        // Add the provided explicit generic args
+        for (size_t i = 0; i < generic_args.size; i++) {
+            deduced_args[g.parameters[i]] = { generic_args[i], false };
+        }
+
+        for (size_t i = 0; i < g.decl->function.parameters.size; i++) {
+            ParamDecl& param = g.decl->function.parameters[i]->param;
+            Expr* arg = args[i];
+
+            resolve_expr(arg);
+            
+            // If the parameter doesn't use a generic type, it is not suitable for deduction
+            if (!param.type->is_generic()) { continue; }
+
+            if (deduced_args.contains(param.type->generic.resolved_decl)) {
+                ResolvedGenericArg& deduced_arg = deduced_args.at(param.type->generic.resolved_decl);
+
+                if (deduced_arg.is_deduced) {
+                    ConversionCost cost = get_conversion_cost(deduced_arg.type, arg->type);
+
+                    // We don't allow any conversions in deduced args
+                    if (cost.cast_needed) {
+                        report_error(arg->loc, fmt::format("Expected argument to be of type '{}' but is '{}'", deduced_arg.type->to_string(), arg->type->to_string()));
+                        report_note(deduced_arg.loc, "Type for generic deduced from this argument");
+                        arg->type = TypeInfo::get_error();
+                    }
+                }
+            } else { // Deduce the type
+                deduced_args[param.type->generic.resolved_decl] = ResolvedGenericArg(arg->type, true, arg->loc);
+            }
+        }
+
+        // Create the instantiation
+        TinyVector<TypeInfo*> final_args;
+        for (Decl* p : g.parameters) {
+            if (!deduced_args.contains(p)) {
+                report_error(loc, fmt::format("Could not deduce generic argument '{}'", p->generic_parameter.identifier));
+                deduced_args[p] = ResolvedGenericArg(TypeInfo::get_error(), true, loc);
+            }
+
+            final_args.append(deduced_args.at(p).type);
+        }
+
+        *callee = specialize_generic_func(loc, generic, final_args);
+        *callee_type = (*callee)->function.type;
+        return;
     }
 
     bool SemanticAnalyzer::resolve_call_arity(SourceLoc loc, FunctionType& fn_type, TinyVector<Expr*> args) {
