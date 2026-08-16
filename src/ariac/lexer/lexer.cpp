@@ -130,12 +130,6 @@ namespace ariac {
                     else { add_token(TokenKind::Greater, get_loc(1), ">"); break; }
                 }
 
-                case '#': {
-                    backtrack();
-                    parse_hash_symbol();
-                    break;
-                }
-
                 case '@': {
                     backtrack();
                     parse_at_symbol();
@@ -427,28 +421,6 @@ namespace ariac {
         add_token(TokenKind::StrLit, loc, scratch_buffer_to_str());
     }
 
-    void Lexer::parse_hash_symbol() {
-        SourceLoc loc = get_current_loc();
-        scratch_buffer_clear();
-
-        scratch_buffer_append('#');
-        consume();
-
-        while (true) {
-            if (std::isalpha(peek())) {
-                loc.len++;
-                scratch_buffer_append(peek());
-                consume();
-            } else {
-                break;
-            }
-        }
-
-        if (scratch_buffer_cmp("#private")) { add_token(TokenKind::HashPrivate, loc, "#private"); return; }
-
-        context.report_compiler_diagnostic(loc, "Unknown identifier following '#'");
-    }
-
     void Lexer::parse_at_symbol() {
         SourceLoc loc = get_current_loc();
         scratch_buffer_clear();
@@ -560,6 +532,8 @@ namespace ariac {
             { "enum", TokenKind::Enum },
             { "const", TokenKind::Const },
             { "self", TokenKind::Self },
+            { "public", TokenKind::Public },
+            { "private", TokenKind::Private },
 
             { "void", TokenKind::Void },
             { "bool", TokenKind::Bool },

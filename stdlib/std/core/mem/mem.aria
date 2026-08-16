@@ -37,13 +37,13 @@ fn<T> call_dtor(ptr: *T) {
 }
 
 fn<T> free(ptr: *T) {
-    call_dtor::<T>(ptr);
+    call_dtor(ptr);
     libc::free(ptr);
 }
 
 fn<T> free_array(arr: []T) {
     for (i: sz; i < arr.len; i++) {
-        call_dtor::<T>(&arr[i]);
+        call_dtor(&arr[i]);
     }
 
     libc::free(arr.mem);

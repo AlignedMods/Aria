@@ -7,7 +7,7 @@ fn assert(cond: bool, file: string, line: ulong, fmt: string, args...) @builtin(
     if !cond { assert_fail(file, line, fmt, args); }
 }
 
-#private
+private:
 
 fn assert_fail(file: string, line: ulong, fmt: string, args: []any) {
     io::eprintf("%s:%s: Assertion failed: ", file, line);

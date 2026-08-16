@@ -1,0 +1,9 @@
+module std::os::win32 @if(env::WIN32);
+
+typedef BOOL = int;
+typedef BOOLEAN = BYTE;
+typedef BYTE = char;
+typedef DWORD = uint;
+typedef DWORDLONG = ulong;
+typedef HANDLE = PVOID;
+typedef PVOID = *void;

@@ -17,7 +17,7 @@ fn veprintfn(fmt: string, args: []any) { internal_vprintf(libc::stderr(), fmt, a
 fn fprintf(file: File, fmt: string, args...) { internal_vprintf(file.handle, fmt, args, false); }
 fn fprintfn(file: File, fmt: string, args...) { internal_vprintf(file.handle, fmt, args, true); }
 
-#private
+private:
 
 const PUTCHAR_BUF_SIZE = 32 * 1024;
 

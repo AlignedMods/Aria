@@ -19,8 +19,7 @@ struct StringStream {
         if capacity == 0 { increase_capacity(32); }
 
         if len + 1 >= capacity {
-            let newCap = capacity + 1;
-            increase_capacity(((newCap + 32 - 1) / 32) * 32); // Align the new capacity to 32 bytes
+            increase_capacity(capacity * 2); 
         }
 
         mem[len] = c;
@@ -48,7 +47,7 @@ struct StringStream {
     }
 
     fn free() -> void {
-        mem::free::<char>(mem);
+        mem::free(mem);
         len = 0;
         capacity = 0;
     }
@@ -58,7 +57,7 @@ struct StringStream {
         
         if (mem != null) {
             mem::copy(newData, mem, len);
-            mem::free::<char>(mem);
+            mem::free(mem);
         }
         
         mem = newData;

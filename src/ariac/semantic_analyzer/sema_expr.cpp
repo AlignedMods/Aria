@@ -56,6 +56,13 @@ namespace ariac {
             } 
         }
 
+        auto check_visibility = [&](Decl* sym, std::string_view decl_kind) {
+            if (sym->visibility == DeclVisibility::Private && sym->parent_module != context.active_comp_unit->parent) {
+                report_error(expr->loc, fmt::format("{} '{}' is private and cannot be accessed", decl_kind, pretty_ident));
+                report_note(sym->loc, "Declared here");
+            }  
+        };
+
         auto resolve_symbol = [&](Decl* sym) {
             switch (sym->kind) {
                 case DeclKind::Var: {
@@ -68,6 +75,8 @@ namespace ariac {
                     context.active_comp_unit = sym->parent_unit;
                     resolve_var_decl(sym);
                     context.active_comp_unit = c;
+
+                    check_visibility(sym, "variable");
 
                     expr->type = sym->var.type;
                     return;
@@ -94,6 +103,8 @@ namespace ariac {
                             { fmt::format("Did you mean to write '&{}'", pretty_ident) });
                     }
 
+                    check_visibility(sym, "function");
+
                     resolve_function_decl(sym);
                     expr->type = sym->function.type;
                     return;
@@ -102,6 +113,8 @@ namespace ariac {
                 case DeclKind::Struct:
                 case DeclKind::Typedef:
                 case DeclKind::Enum: {
+                    check_visibility(sym, "type");
+
                     replace_expr(expr, Expr::Create(expr->loc, ExprKind::TypeInfo, ExprValueKind::RValue, TypeInfo::get_typeid(), TypeInfoExpr(type_from_decl(sym))));
                     return;
                 }
@@ -109,6 +122,8 @@ namespace ariac {
                 case DeclKind::Generic: {
                     switch (sym->generic.decl->kind) {
                         case DeclKind::Function: {
+                            check_visibility(sym, "generic function");
+
                             if (!m_sema_context.call && !m_sema_context.address_of) {
                                 report_diag_with_notes(expr->loc, fmt::format("Cannot use generic function '{}' as a value", pretty_ident),
                                     { fmt::format("Did you mean to write '&{}'", pretty_ident) });
@@ -158,6 +173,8 @@ namespace ariac {
                         }
 
                         case DeclKind::Struct: {
+                            check_visibility(sym, "generic type");
+
                             if (dr.provides_generic_args) {
                                 TypeInfo* gi = TypeInfo::create_struct_instantation(type_from_decl(sym), dr.generic_arguments, expr->loc);
                                 resolve_type(gi);
@@ -182,11 +199,6 @@ namespace ariac {
             if (mod->symbols.contains(dr.identifier)) {
                 Decl* sym = mod->symbols.at(dr.identifier);
                 dr.referenced_decl = sym;
-                
-                if (sym->visibility == DeclVisibility::Private) {
-                    report_diag(expr->loc, fmt::format("{} is private and cannot be accessed", pretty_ident));
-                    report_diag(sym->loc, "Defined here", CompilerDiagKind::Note);
-                }
 
                 resolve_symbol(sym);
             } else {
@@ -317,7 +329,6 @@ namespace ariac {
         TypeInfo* parent_type = TypeInfo::get_flattened(mem.parent->type);
         TypeInfo* member_type = nullptr;
 
-        if (mem.parent->is_rvalue()) { insert_materialize_temporary_expr(mem.parent); }
         expr->value_kind = mem.parent->value_kind;
 
         bool searching = true;
@@ -539,6 +550,7 @@ namespace ariac {
             }
         }
         
+        if (mem.parent->is_rvalue() && !implicit_deref) { insert_materialize_temporary_expr(mem.parent); }
 
         if (!member_type) {
             report_diag(expr->loc, fmt::format("Unknown member '{}' in '{}'", mem.member, type_info_to_string(parent_type)));
@@ -750,20 +762,22 @@ namespace ariac {
 
         GenericDecl& g = generic->generic;
 
-        bool is_any_generic = false;
-        for (TypeInfo* arg : generic_args) {
-            resolve_type(arg);
+        {
+            bool is_any_generic = false;
+            for (TypeInfo* arg : generic_args) {
+                resolve_type(arg);
 
-            // If we have any non expanded generic parameters, don't create any instantiations
-            if (arg->is_generic()) {
-                is_any_generic = true;
+                // If we have any non expanded generic parameters, don't create any instantiations
+                if (arg->is_generic()) {
+                    is_any_generic = true;
+                }
             }
-        }
 
-        if (is_any_generic) {
-            *callee = generic;
-            *callee_type = (*callee)->generic.decl->function.type;
-            return;
+            if (is_any_generic) {
+                *callee = generic;
+                *callee_type = (*callee)->generic.decl->function.type;
+                return;
+            }
         }
         
         if (g.parameters.size == generic_args.size) { // Exact amount of arguments, no need for deduction
@@ -803,13 +817,26 @@ namespace ariac {
 
         // Create the instantiation
         TinyVector<TypeInfo*> final_args;
+        bool is_any_generic = false;
         for (Decl* p : g.parameters) {
             if (!deduced_args.contains(p)) {
                 report_error(loc, fmt::format("Could not deduce generic argument '{}'", p->generic_parameter.identifier));
                 deduced_args[p] = ResolvedGenericArg(TypeInfo::get_error(), true, loc);
             }
 
+            auto& deduced = deduced_args.at(p);
+
+            if (deduced.type->is_generic()) {
+                is_any_generic = true;
+            }
+
             final_args.append(deduced_args.at(p).type);
+        }
+
+        if (is_any_generic) {
+            *callee = generic;
+            *callee_type = (*callee)->generic.decl->function.type;
+            return;
         }
 
         *callee = specialize_generic_func(loc, generic, final_args);

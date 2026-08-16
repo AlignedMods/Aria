@@ -20,21 +20,6 @@ namespace ariac {
 
     CompilationContext context;
 
-    static const char* stdlib_files[] = {
-        "libc.aria",
-        "io/io.aria",
-        "io/file.aria",
-        "core/types.aria",
-        "core/string_stream.aria",
-        "core/formatter.aria",
-        "core/mem.aria",
-        "core/vec.aria",
-        "core/any.aria",
-        "core/assert.aria",
-        "process/process.aria",
-        "os/win32/exception.aria",
-    };
-
     inline static std::string get_line(const std::string& str, size_t line) {
         std::vector<std::string> lines;
         std::stringstream ss(str);
@@ -82,8 +67,10 @@ namespace ariac {
     }
 
     void CompilationContext::compile_stdlib() {
-        for (const char* file : stdlib_files) {
-            compile_file((opts->stdlib_path / file).string(), true);
+        for (auto& file : std::filesystem::recursive_directory_iterator(opts->stdlib_path)) {
+            if (file.path().extension() == ".aria") {
+                compile_file(file.path().string(), true);
+            }
         }
     }
 

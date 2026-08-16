@@ -1365,6 +1365,9 @@ namespace ariac {
             }
         }
 
+        // Reset visibility to public
+        m_current_visibility = DeclVisibility::Public;
+
         return Decl::Create(mod.loc + peek(-1)->loc, DeclKind::Module, DeclVisibility::Public, ModuleDecl(path));
     }
 
@@ -1703,7 +1706,7 @@ namespace ariac {
 
                 struc->struct_.fields.append(Decl::Create(loc + rp->loc, DeclKind::Destructor,
                     visibility, DestructorDecl(struc, TypeInfo::get_void_method(), body)));
-            } else if (match(TokenKind::HashPrivate)) {
+            } else if (match(TokenKind::Private)) {
                 context.report_compiler_diagnostic(loc + peek()->loc, "Structs do not support private fields");
                 consume();
             } else {
@@ -1931,8 +1934,16 @@ namespace ariac {
                 return &error_decl;
             }
 
-            case TokenKind::HashPrivate: {
+            case TokenKind::Public: {
                 consume();
+                try_consume(TokenKind::Colon, ":");
+                m_current_visibility = DeclVisibility::Public;
+                return &error_decl;
+            }
+
+            case TokenKind::Private: {
+                consume();
+                try_consume(TokenKind::Colon, ":");
                 m_current_visibility = DeclVisibility::Private;
                 return &error_decl;
             }

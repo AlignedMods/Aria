@@ -762,7 +762,7 @@ namespace ariac {
 
     bool StructSpecilizationType::needs_specilization() {
         for (TypeInfo* arg : arguments) {
-            if (arg->is_generic()) { return false; }
+            if (arg->get_bottom_type()->is_generic()) { return false; }
         }
 
         return true;
@@ -770,7 +770,7 @@ namespace ariac {
 
     bool StructSpecilizationType::is_generic() {
         for (TypeInfo* arg : arguments) {
-            if (!arg->is_generic()) { return false; }
+            if (!arg->get_bottom_type()->is_generic()) { return false; }
         }
 
         return true;
