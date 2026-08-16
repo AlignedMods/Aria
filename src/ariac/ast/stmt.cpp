@@ -11,11 +11,11 @@ namespace ariac {
             case StmtKind::Error:
             case StmtKind::Nop: break;
 
-            case StmtKind::Block: {
-                BlockStmt& b = s->block;
+            case StmtKind::Compound: {
+                CompoundStmt& b = s->compound;
 
                 for (Stmt* st : b.stmts) {
-                    copy->block.stmts.append(Stmt::dup(st));
+                    copy->compound.stmts.append(Stmt::dup(st));
                 }
 
                 break;

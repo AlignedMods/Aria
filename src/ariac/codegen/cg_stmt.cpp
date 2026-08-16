@@ -2,8 +2,8 @@
 
 namespace ariac {
 
-    void Codegen::gen_block_stmt(Stmt* stmt) {
-        BlockStmt& block = stmt->block;
+    void Codegen::gen_compound_stmt(Stmt* stmt) {
+        CompoundStmt& block = stmt->compound;
 
         for (Stmt* stmt : block.stmts) {
             gen_stmt(stmt);
@@ -31,7 +31,7 @@ namespace ariac {
             }
 
             case LoopKind::Always: {
-                llvm::BasicBlock* while_body = wh.body->block.stmts.size == 0 ? nullptr : llvm::BasicBlock::Create(*m_active_module_context.context, "while.body", m_active_module_context.function);
+                llvm::BasicBlock* while_body = wh.body->compound.stmts.size == 0 ? nullptr : llvm::BasicBlock::Create(*m_active_module_context.context, "while.body", m_active_module_context.function);
                 llvm::BasicBlock* while_end = llvm::BasicBlock::Create(*m_active_module_context.context, "while.end", m_active_module_context.function);
 
                 wh.backend.continue_block = while_body;
@@ -40,7 +40,7 @@ namespace ariac {
                 if (while_body) {
                     m_active_module_context.builder->CreateBr(while_body);
                     m_active_module_context.builder->SetInsertPoint(while_body);
-                    gen_block_stmt(wh.body);
+                    gen_compound_stmt(wh.body);
 
                     if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) {
                         m_active_module_context.builder->CreateBr(while_body);
@@ -53,7 +53,7 @@ namespace ariac {
 
             case LoopKind::Normal: {
                 llvm::BasicBlock* while_cond = llvm::BasicBlock::Create(*m_active_module_context.context, "while.cond", m_active_module_context.function);
-                llvm::BasicBlock* while_body = wh.body->block.stmts.size == 0 ? nullptr : llvm::BasicBlock::Create(*m_active_module_context.context, "while.body", m_active_module_context.function);
+                llvm::BasicBlock* while_body = wh.body->compound.stmts.size == 0 ? nullptr : llvm::BasicBlock::Create(*m_active_module_context.context, "while.body", m_active_module_context.function);
                 llvm::BasicBlock* while_end = llvm::BasicBlock::Create(*m_active_module_context.context, "while.end", m_active_module_context.function);
 
                 wh.backend.continue_block = while_cond;
@@ -66,7 +66,7 @@ namespace ariac {
 
                 if (while_body) {
                     m_active_module_context.builder->SetInsertPoint(while_body);
-                    gen_block_stmt(wh.body);
+                    gen_compound_stmt(wh.body);
 
                     if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) {
                         m_active_module_context.builder->CreateBr(while_cond);
@@ -90,7 +90,7 @@ namespace ariac {
         m_active_module_context.builder->CreateBr(do_body);
 
         m_active_module_context.builder->SetInsertPoint(do_body);
-        gen_block_stmt(d.body);
+        gen_compound_stmt(d.body);
 
         llvm::Value* cond = gen_cond(d.condition);
         m_active_module_context.builder->CreateCondBr(cond, do_body, do_end);
@@ -121,7 +121,7 @@ namespace ariac {
             }
 
             case LoopKind::Always: {
-                llvm::BasicBlock* for_body = f.body->block.stmts.size == 0 ? 
+                llvm::BasicBlock* for_body = f.body->compound.stmts.size == 0 ? 
                     llvm::BasicBlock::Create(*m_active_module_context.context, "for.step", m_active_module_context.function) : 
                     llvm::BasicBlock::Create(*m_active_module_context.context, "for.body", m_active_module_context.function);
                 llvm::BasicBlock* for_end = llvm::BasicBlock::Create(*m_active_module_context.context, "for.end", m_active_module_context.function);
@@ -131,7 +131,7 @@ namespace ariac {
 
                 m_active_module_context.builder->CreateBr(for_body);
                 m_active_module_context.builder->SetInsertPoint(for_body);
-                gen_block_stmt(f.body);
+                gen_compound_stmt(f.body);
 
                 if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) {
                     if (f.step) { gen_expr(f.step); }
@@ -144,7 +144,7 @@ namespace ariac {
 
             case LoopKind::Normal: {
                 llvm::BasicBlock* for_cond = llvm::BasicBlock::Create(*m_active_module_context.context, "for.cond", m_active_module_context.function);
-                llvm::BasicBlock* for_body = f.body->block.stmts.size == 0 ? 
+                llvm::BasicBlock* for_body = f.body->compound.stmts.size == 0 ? 
                     llvm::BasicBlock::Create(*m_active_module_context.context, "for.step", m_active_module_context.function) : 
                     llvm::BasicBlock::Create(*m_active_module_context.context, "for.body", m_active_module_context.function);
                 llvm::BasicBlock* for_step = f.step ? create_block("for.step") : nullptr;
@@ -161,7 +161,7 @@ namespace ariac {
 
                 if (for_body) {
                     m_active_module_context.builder->SetInsertPoint(for_body);
-                    gen_block_stmt(f.body);
+                    gen_compound_stmt(f.body);
 
                     if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) {
                         m_active_module_context.builder->CreateBr(reinterpret_cast<llvm::BasicBlock*>(f.backend.continue_block));
@@ -197,12 +197,12 @@ namespace ariac {
         }
 
         m_active_module_context.builder->SetInsertPoint(if_body);
-        gen_block_stmt(i.body);
+        gen_compound_stmt(i.body);
         if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) { m_active_module_context.builder->CreateBr(if_end); }
 
         if (else_body) {
             m_active_module_context.builder->SetInsertPoint(else_body);
-            gen_block_stmt(i.else_body);
+            gen_compound_stmt(i.else_body);
             if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) { m_active_module_context.builder->CreateBr(if_end); }
         }
 
@@ -242,7 +242,7 @@ namespace ariac {
 
                 m_active_module_context.builder->SetInsertPoint(switch_body);
 
-                gen_block_stmt(c.body);
+                gen_compound_stmt(c.body);
                 if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) { m_active_module_context.builder->CreateBr(switch_end); }
 
                 i++;
@@ -261,7 +261,7 @@ namespace ariac {
             llvm::BasicBlock* switch_case = reinterpret_cast<llvm::BasicBlock*>(c.backend.entry_block);
             
             m_active_module_context.builder->SetInsertPoint(switch_case);
-            gen_block_stmt(c.body);
+            gen_compound_stmt(c.body);
             if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) {
                 m_active_module_context.builder->CreateBr(switch_end);
             }
@@ -372,7 +372,7 @@ namespace ariac {
 
         switch (stmt->kind) {
             case StmtKind::Nop: return;
-            case StmtKind::Block: return gen_block_stmt(stmt);
+            case StmtKind::Compound: return gen_compound_stmt(stmt);
             case StmtKind::While: return gen_while_stmt(stmt);
             case StmtKind::DoWhile: return gen_do_while_stmt(stmt);
             case StmtKind::For: return gen_for_stmt(stmt);

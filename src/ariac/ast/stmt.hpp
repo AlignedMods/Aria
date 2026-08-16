@@ -20,9 +20,9 @@ namespace ariac {
         ErrorStmt() = default;
     };
 
-    struct BlockStmt {
-        BlockStmt() = default;
-        BlockStmt(TinyVector<Stmt*> stmts)
+    struct CompoundStmt {
+        CompoundStmt() = default;
+        CompoundStmt(TinyVector<Stmt*> stmts)
             : stmts(stmts) {}
 
         TinyVector<Stmt*> stmts;
@@ -152,7 +152,7 @@ namespace ariac {
 
         union {
             ErrorStmt error;
-            BlockStmt block;
+            CompoundStmt compound;
             WhileStmt while_;
             DoWhileStmt do_while;
             ForStmt for_;
@@ -171,8 +171,8 @@ namespace ariac {
         Stmt(StmtKind kind, SourceLoc loc, ErrorStmt error)
             : kind(kind), loc(loc), error(error) {}
 
-        Stmt(StmtKind kind, SourceLoc loc, BlockStmt block)
-            : kind(kind), loc(loc), block(block) {}
+        Stmt(StmtKind kind, SourceLoc loc, CompoundStmt compound)
+            : kind(kind), loc(loc), compound(compound) {}
 
         Stmt(StmtKind kind, SourceLoc loc, WhileStmt wh)
             : kind(kind), loc(loc), while_(wh) {}

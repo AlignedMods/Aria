@@ -151,7 +151,7 @@ namespace ariac {
                     llvm::DILocation::get(*m_active_module_context.context, (unsigned)decl->loc.line, (unsigned)decl->loc.col, sp), m_active_module_context.builder->GetInsertBlock());
             }
 
-            gen_block_stmt(fn->body);
+            gen_compound_stmt(fn->body);
 
             if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) {
                 m_active_module_context.builder->CreateRetVoid();
@@ -351,7 +351,7 @@ namespace ariac {
                     llvm::DILocation::get(*m_active_module_context.context, (unsigned)decl->loc.line, (unsigned)decl->loc.col, sp), m_active_module_context.builder->GetInsertBlock());
             }
         
-            gen_block_stmt(m.body);
+            gen_compound_stmt(m.body);
         
             if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) {
                 if (m.type->function.return_type->is_void()) {
@@ -401,7 +401,7 @@ namespace ariac {
         m_self_value = s;
         m_active_module_context.builder->CreateStore(function->getArg(0), s);
 
-        gen_block_stmt(d.body);
+        gen_compound_stmt(d.body);
         
         if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) {
             m_active_module_context.builder->CreateRetVoid();

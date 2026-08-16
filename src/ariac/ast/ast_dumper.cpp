@@ -444,9 +444,9 @@ namespace ariac {
             case StmtKind::Nop: m_output += fmt::format("NopStmt {}\n", source_loc_to_string(stmt->loc));
                 return;
 
-            case StmtKind::Block: m_output += fmt::format("BlockStmt {}\n",
+            case StmtKind::Compound: m_output += fmt::format("CompoundStmt {}\n",
                 source_loc_to_string(stmt->loc));
-                for (Stmt* stmt : stmt->block.stmts) {
+                for (Stmt* stmt : stmt->compound.stmts) {
                     dump_stmt(stmt, indentation + 4);
                 }
                 return;

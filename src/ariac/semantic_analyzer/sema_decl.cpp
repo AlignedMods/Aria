@@ -249,7 +249,7 @@ namespace ariac {
             resolve_param_decl(p);
         }
         
-        resolve_block_stmt(fn.body);
+        resolve_compound_stmt(fn.body);
 
         if (m_functions.back().scopes.back().reaches_end) {
             if (fn.type->function.return_type->is_never()) {
@@ -295,7 +295,7 @@ namespace ariac {
             resolve_param_decl(p);
         }
         
-        resolve_block_stmt(m.body);
+        resolve_compound_stmt(m.body);
         
         if (m_functions.back().scopes.back().reaches_end) {
             if (!m.type->function.return_type->is_void()) {
@@ -349,7 +349,7 @@ namespace ariac {
             }
         }
 
-        resolve_block_stmt(d.body);
+        resolve_compound_stmt(d.body);
         pop_scope();
         m_functions.pop_back();
     }

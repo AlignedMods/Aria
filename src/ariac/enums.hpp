@@ -319,7 +319,7 @@ namespace ariac {
 
         Error,
         Nop,
-        Block,
+        Compound,
         While,
         DoWhile,
         For,

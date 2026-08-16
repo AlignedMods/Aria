@@ -163,7 +163,7 @@ namespace ariac {
 
         void gen_decl(Decl* decl);
 
-        void gen_block_stmt(Stmt* stmt);
+        void gen_compound_stmt(Stmt* stmt);
         void gen_while_stmt(Stmt* stmt);
         void gen_do_while_stmt(Stmt* stmt);
         void gen_for_stmt(Stmt* stmt);

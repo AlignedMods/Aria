@@ -139,7 +139,7 @@ namespace ariac {
 
         void resolve_decl(Decl* decl);
 
-        void resolve_block_stmt(Stmt* stmt);
+        void resolve_compound_stmt(Stmt* stmt);
         void resolve_while_stmt(Stmt* stmt);
         void resolve_do_while_stmt(Stmt* stmt);
         void resolve_for_stmt(Stmt* stmt);

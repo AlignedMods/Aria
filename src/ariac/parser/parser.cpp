@@ -975,7 +975,7 @@ namespace ariac {
 
         try_consume(TokenKind::RightCurly, "}");
 
-        return Stmt::Create(l->loc, StmtKind::Block, BlockStmt(stmts));
+        return Stmt::Create(l->loc, StmtKind::Compound, CompoundStmt(stmts));
     }
 
     Stmt* Parser::parse_block_inline() {
@@ -988,7 +988,7 @@ namespace ariac {
             TinyVector<Stmt*> stmts;
             stmts.append(stmt);
 
-            return Stmt::Create(stmt->loc, StmtKind::Block, BlockStmt(stmts));
+            return Stmt::Create(stmt->loc, StmtKind::Compound, CompoundStmt(stmts));
         }
     }
 

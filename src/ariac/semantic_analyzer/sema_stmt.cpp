@@ -2,10 +2,10 @@
 
 namespace ariac {
 
-    void SemanticAnalyzer::resolve_block_stmt(Stmt* stmt) {
-        BlockStmt& block = stmt->block;
+    void SemanticAnalyzer::resolve_compound_stmt(Stmt* stmt) {
+        CompoundStmt& compound = stmt->compound;
 
-        for (Stmt* s : block.stmts) {
+        for (Stmt* s : compound.stmts) {
             resolve_stmt(s);
         }
 
@@ -14,8 +14,8 @@ namespace ariac {
 
             for (auto it = scope.defers.rbegin(); it != scope.defers.rend(); it++) {
                 Stmt* d = *it;
-                d->next = block.cleanup;
-                block.cleanup = d;
+                d->next = compound.cleanup;
+                compound.cleanup = d;
             }
         }
     }
@@ -32,7 +32,7 @@ namespace ariac {
         } else if (is_const_expr(wh.condition)) {
             wh.condition = eval_const_expr(wh.condition);
 
-            if (wh.condition->const_.boolean && wh.body->block.stmts.size == 0) {
+            if (wh.condition->const_.boolean && wh.body->compound.stmts.size == 0) {
                 m_functions.back().scopes.back().reaches_end = false;
                 wh.infinite = true;
             }
@@ -40,7 +40,7 @@ namespace ariac {
 
         auto prev = set_break_targets(stmt, stmt);
         push_scope();
-        resolve_block_stmt(wh.body);
+        resolve_compound_stmt(wh.body);
         pop_scope();
         restore_break_targets(prev);
     }
@@ -57,7 +57,7 @@ namespace ariac {
         } else if (is_const_expr(wh.condition)) {
             wh.condition = eval_const_expr(wh.condition);
 
-            if (wh.condition->const_.boolean && wh.body->block.stmts.size == 0) {
+            if (wh.condition->const_.boolean && wh.body->compound.stmts.size == 0) {
                 m_functions.back().scopes.back().reaches_end = false;
                 wh.infinite = true;
             }
@@ -65,7 +65,7 @@ namespace ariac {
 
         auto prev = set_break_targets(stmt, stmt);
         push_scope();
-        resolve_block_stmt(wh.body);
+        resolve_compound_stmt(wh.body);
         pop_scope();
         restore_break_targets(prev);
     }
@@ -87,20 +87,20 @@ namespace ariac {
             } else if (is_const_expr(fs.condition)) {
                 fs.condition = eval_const_expr(fs.condition);
 
-                if (fs.condition->const_.boolean && fs.body->block.stmts.size == 0) {
+                if (fs.condition->const_.boolean && fs.body->compound.stmts.size == 0) {
                     m_functions.back().scopes.at(m_functions.back().scopes.size() - 2).reaches_end = false;
                     fs.infinite = true;
                 }
             }
         } else {
-            if (fs.body->block.stmts.size == 0) {
+            if (fs.body->compound.stmts.size == 0) {
                 m_functions.back().scopes.at(m_functions.back().scopes.size() - 2).reaches_end = false;
                 fs.infinite = true;
             }
         }
 
         if (fs.step) { resolve_expr(fs.step); }
-        resolve_block_stmt(fs.body);
+        resolve_compound_stmt(fs.body);
         pop_scope();
         restore_break_targets(prev);
     }
@@ -119,13 +119,13 @@ namespace ariac {
         bool main_reaches_end = true;
         bool else_reaches_end = true;
         push_scope();
-        resolve_block_stmt(ifs.body);
+        resolve_compound_stmt(ifs.body);
         main_reaches_end = m_functions.back().scopes.back().reaches_end;
         pop_scope();
 
         if (ifs.else_body) {
             push_scope();
-            resolve_block_stmt(ifs.else_body);
+            resolve_compound_stmt(ifs.else_body);
             else_reaches_end = m_functions.back().scopes.back().reaches_end;
             pop_scope();
         }
@@ -164,7 +164,7 @@ namespace ariac {
             c.condition = eval_const_expr(c.condition);
 
             push_scope();
-            resolve_block_stmt(c.body);
+            resolve_compound_stmt(c.body);
             pop_scope();
             restore_nextcase_target(prev);
         }
@@ -292,7 +292,7 @@ namespace ariac {
         
         if (i.condition->const_.boolean) {
             push_scope();
-            resolve_block_stmt(i.body);
+            resolve_compound_stmt(i.body);
             bool reaches_end = m_functions.back().scopes.back().reaches_end;
             pop_scope();
 
@@ -302,7 +302,7 @@ namespace ariac {
         } else {
             if (i.else_body) {
                 push_scope();
-                resolve_block_stmt(i.else_body);
+                resolve_compound_stmt(i.else_body);
                 bool reaches_end = m_functions.back().scopes.back().reaches_end;
                 pop_scope();
 
@@ -336,9 +336,9 @@ namespace ariac {
             case StmtKind::Error:
             case StmtKind::Nop: return;
 
-            case StmtKind::Block: {
+            case StmtKind::Compound: {
                 push_scope();
-                resolve_block_stmt(stmt);
+                resolve_compound_stmt(stmt);
 
                 if (!m_functions.back().scopes.back().reaches_end) {
                     m_functions.back().scopes[m_functions.back().scopes.size() - 2].reaches_end = false;
