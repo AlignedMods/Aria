@@ -11,14 +11,16 @@
 
 static constexpr size_t PREC_NONE = 0;
 static constexpr size_t PREC_ASSIGNMENT = 10;
-static constexpr size_t PREC_OR = 20;
-static constexpr size_t PREC_AND = 30;
-static constexpr size_t PREC_RELATIONAL = 40;
-static constexpr size_t PREC_ADDITIVE = 50;
-static constexpr size_t PREC_BIT = 60;
-static constexpr size_t PREC_SHIFT = 70;
-static constexpr size_t PREC_MULTIPLICATIVE = 80;
-static constexpr size_t PREC_CALL = 90;
+static constexpr size_t PREC_TERNARY = 20;
+static constexpr size_t PREC_OR = 30;
+static constexpr size_t PREC_AND = 40;
+static constexpr size_t PREC_RELATIONAL = 50;
+static constexpr size_t PREC_ADDITIVE = 60;
+static constexpr size_t PREC_BIT = 70;
+static constexpr size_t PREC_SHIFT = 80;
+static constexpr size_t PREC_MULTIPLICATIVE = 90;
+static constexpr size_t PREC_CALL = 100;
+static constexpr size_t PREC_PRIMARY = 110;
 
 namespace ariac {
 
@@ -34,19 +36,56 @@ namespace ariac {
     void Parser::add_expr_rules() {
         m_expr_rules.reserve(static_cast<size_t>(TokenKind::Last));
 
+        // PREC_PRIMARY
+        // Note that precedences for primary expressions don't really matter
+        // Since prefix rules don't check precedence                                
+        m_expr_rules[TokenKind::True] =              { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::False] =             { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::CharLit] =           { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::IntLit] =            { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::UIntLit] =           { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::LongLit] =           { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::ULongLit] =          { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::NumLit] =            { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::StrLit] =            { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::Null] =              { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::Identifier] =        { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::Self] =              { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::Env] =               { BIND_PARSE_RULE(parse_env),           nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::AtSizeof] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::AtMemcpy] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::AtMemset] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::AtDefined] =         { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::Void] =              { BIND_PARSE_RULE(parse_type_expr),     nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::Bool] =              { BIND_PARSE_RULE(parse_type_expr),     nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::Char] =              { BIND_PARSE_RULE(parse_type_expr),     nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::IChar] =             { BIND_PARSE_RULE(parse_type_expr),     nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::Short] =             { BIND_PARSE_RULE(parse_type_expr),     nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::UShort] =            { BIND_PARSE_RULE(parse_type_expr),     nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::Int] =               { BIND_PARSE_RULE(parse_type_expr),     nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::UInt] =              { BIND_PARSE_RULE(parse_type_expr),     nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::Long] =              { BIND_PARSE_RULE(parse_type_expr),     nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::ULong] =             { BIND_PARSE_RULE(parse_type_expr),     nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::Sz] =                { BIND_PARSE_RULE(parse_type_expr),     nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::Isz] =               { BIND_PARSE_RULE(parse_type_expr),     nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::Float] =             { BIND_PARSE_RULE(parse_type_expr),     nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::Double] =            { BIND_PARSE_RULE(parse_type_expr),     nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::String] =            { BIND_PARSE_RULE(parse_type_expr),     nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::Typeid] =            { BIND_PARSE_RULE(parse_type_expr),     nullptr, PREC_PRIMARY };
+        m_expr_rules[TokenKind::Any] =               { BIND_PARSE_RULE(parse_type_expr),     nullptr, PREC_PRIMARY };
+
         // PREC_CALL
-        m_expr_rules[TokenKind::LeftParen] =         { BIND_PARSE_RULE(parse_grouping), BIND_PARSE_RULE(parse_call), PREC_CALL };
+        m_expr_rules[TokenKind::LeftParen] =         { BIND_PARSE_RULE(parse_grouping),  BIND_PARSE_RULE(parse_call),            PREC_CALL };
         m_expr_rules[TokenKind::LeftBracket] =       { BIND_PARSE_RULE(parse_type_expr), BIND_PARSE_RULE(parse_array_subscript), PREC_CALL };
-        m_expr_rules[TokenKind::Dot] =               { nullptr, BIND_PARSE_RULE(parse_member), PREC_CALL };
-        m_expr_rules[TokenKind::Bang] =              { BIND_PARSE_RULE(parse_unary), nullptr, PREC_CALL };
-        m_expr_rules[TokenKind::Question] =          { nullptr, BIND_PARSE_RULE(parse_ternary), PREC_CALL };
-        m_expr_rules[TokenKind::PlusPlus] =          { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_infix_unary), PREC_CALL };
-        m_expr_rules[TokenKind::MinusMinus] =        { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_infix_unary), PREC_CALL };
+        m_expr_rules[TokenKind::Dot] =               { nullptr,                          BIND_PARSE_RULE(parse_member),          PREC_CALL };
+        m_expr_rules[TokenKind::Bang] =              { BIND_PARSE_RULE(parse_unary),     nullptr,                                PREC_CALL };
+        m_expr_rules[TokenKind::PlusPlus] =          { BIND_PARSE_RULE(parse_unary),     BIND_PARSE_RULE(parse_infix_unary),     PREC_CALL };
+        m_expr_rules[TokenKind::MinusMinus] =        { BIND_PARSE_RULE(parse_unary),     BIND_PARSE_RULE(parse_infix_unary),     PREC_CALL };
 
         // PREC_MULTIPLICATIVE
         m_expr_rules[TokenKind::Star] =              { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_binary), PREC_MULTIPLICATIVE };
-        m_expr_rules[TokenKind::Slash] =             { nullptr, BIND_PARSE_RULE(parse_binary), PREC_MULTIPLICATIVE };
-        m_expr_rules[TokenKind::Percent] =           { nullptr, BIND_PARSE_RULE(parse_binary), PREC_MULTIPLICATIVE };
+        m_expr_rules[TokenKind::Slash] =             { nullptr,                      BIND_PARSE_RULE(parse_binary), PREC_MULTIPLICATIVE };
+        m_expr_rules[TokenKind::Percent] =           { nullptr,                      BIND_PARSE_RULE(parse_binary), PREC_MULTIPLICATIVE };
 
         // PREC_SHIFT
         m_expr_rules[TokenKind::LessLess] =          { nullptr, BIND_PARSE_RULE(parse_binary), PREC_SHIFT };
@@ -54,11 +93,11 @@ namespace ariac {
 
         // PREC_BIT
         m_expr_rules[TokenKind::Ampersand] =         { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_binary), PREC_BIT };
-        m_expr_rules[TokenKind::Pipe] =              { nullptr, BIND_PARSE_RULE(parse_binary), PREC_BIT };
-        m_expr_rules[TokenKind::UpArrow] =           { nullptr, BIND_PARSE_RULE(parse_binary), PREC_BIT };
+        m_expr_rules[TokenKind::Pipe] =              { nullptr,                      BIND_PARSE_RULE(parse_binary), PREC_BIT };
+        m_expr_rules[TokenKind::UpArrow] =           { nullptr,                      BIND_PARSE_RULE(parse_binary), PREC_BIT };
 
         // PREC_ADDITIVE
-        m_expr_rules[TokenKind::Plus] =              { nullptr, BIND_PARSE_RULE(parse_binary), PREC_ADDITIVE };
+        m_expr_rules[TokenKind::Plus] =              { nullptr,                      BIND_PARSE_RULE(parse_binary), PREC_ADDITIVE };
         m_expr_rules[TokenKind::Minus] =             { BIND_PARSE_RULE(parse_unary), BIND_PARSE_RULE(parse_binary), PREC_ADDITIVE };
 
         // PREC_RELATIONAL
@@ -74,9 +113,12 @@ namespace ariac {
 
         // PREC_OR
         m_expr_rules[TokenKind::DoublePipe] =        { nullptr, BIND_PARSE_RULE(parse_binary), PREC_OR };
+
+        // PREC_TERNARY
+        m_expr_rules[TokenKind::Question] =          { nullptr,  BIND_PARSE_RULE(parse_ternary), PREC_TERNARY };
                
         // PREC_ASSIGNMENT
-        m_expr_rules[TokenKind::Eq] =                { nullptr, BIND_PARSE_RULE(parse_binary), PREC_ASSIGNMENT };
+        m_expr_rules[TokenKind::Eq] =                { nullptr, BIND_PARSE_RULE(parse_binary),              PREC_ASSIGNMENT };
         m_expr_rules[TokenKind::PlusEq] =            { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
         m_expr_rules[TokenKind::MinusEq] =           { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
         m_expr_rules[TokenKind::StarEq] =            { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
@@ -87,44 +129,6 @@ namespace ariac {
         m_expr_rules[TokenKind::UpArrowEq] =         { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
         m_expr_rules[TokenKind::LessLessEq] =        { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
         m_expr_rules[TokenKind::GreaterGreaterEq] =  { nullptr, BIND_PARSE_RULE(parse_compound_assignment), PREC_ASSIGNMENT };
-
-        // PREC_NONE                                     
-        m_expr_rules[TokenKind::True] =              { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::False] =             { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::CharLit] =           { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::IntLit] =            { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::UIntLit] =           { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::LongLit] =           { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::ULongLit] =          { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::NumLit] =            { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::StrLit] =            { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Null] =              { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Identifier] =        { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Self] =              { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Env] =               { BIND_PARSE_RULE(parse_env),           nullptr, PREC_NONE };
-
-        m_expr_rules[TokenKind::AtSizeof] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::AtMemcpy] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE};
-        m_expr_rules[TokenKind::AtMemset] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE};
-        m_expr_rules[TokenKind::AtDefined] =         { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_NONE};
-
-        m_expr_rules[TokenKind::Void] =        { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Bool] =        { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Char] =        { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::IChar] =       { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Short] =       { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::UShort] =      { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Int] =         { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::UInt] =        { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Long] =        { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::ULong] =       { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Sz] =          { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Isz] =         { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Float] =       { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Double] =      { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::String] =      { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Typeid] =      { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
-        m_expr_rules[TokenKind::Any] =         { BIND_PARSE_RULE(parse_type_expr), nullptr, PREC_NONE };
     }
 
     void Parser::parse_impl() {
