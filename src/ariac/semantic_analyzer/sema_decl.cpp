@@ -271,6 +271,14 @@ namespace ariac {
 
         pop_scope();
         m_functions.pop_back();
+
+        for (Decl* p : fn.type->function.params) {
+            if (!p->used && p->param.identifier[0] != '_') {
+                report_warning(p->loc, fmt::format("Unused parameter '{}'", p->param.identifier));
+                report_note(p->loc, "If this is intentional, prefix the name with '_'");
+            }
+        }
+
         decl->resolve_status = ResolveStatus::Done;
     }
 

@@ -235,6 +235,7 @@ namespace ariac {
         SourceLoc loc;
 
         ResolveStatus resolve_status = ResolveStatus::NotStarted;
+        bool used = false;
 
         Module* parent_module = nullptr;
         CompilationUnit* parent_unit = nullptr;

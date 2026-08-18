@@ -89,6 +89,7 @@ namespace ariac {
                         expr->type = sym->param.type;
                     }
                 
+                    sym->used = true;
                     return;
                 }
 

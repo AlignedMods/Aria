@@ -5,7 +5,7 @@ extern fn printf(fmt: *const char, ...) -> int;
 typedef FormatOutFn = *fn(buf: *void, c: char);
 
 // Function which does nothing on character append
-fn out_null(buf: *void, c: char) {}
+fn out_null(_buf: *void, _c: char) {}
 
 // Static buffer used for integer formatting
 const APPEND_INT_BUF_SIZE = 128;
