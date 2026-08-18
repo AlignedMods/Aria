@@ -255,7 +255,7 @@ namespace ariac {
 
         for (size_t i = 0; i < call.arguments.size; i++) {
             // Check if we are handlng a named variadic parameter
-            if (call.callee->type->function.variadic == VariadicKind::Named && i == call.callee->type->function.param_types.size - 1) {
+            if (call.callee->type->function.variadic == VariadicKind::Named && i == call.callee->type->function.params.size - 1) {
                 break;
             }
 
@@ -267,7 +267,7 @@ namespace ariac {
             std::vector<llvm::Value*> vals;
             std::vector<TypeInfo*> types;
 
-            for (size_t i = call.callee->type->function.param_types.size - 1; i < call.arguments.size; i++) {
+            for (size_t i = call.callee->type->function.params.size - 1; i < call.arguments.size; i++) {
                 vals.push_back(gen_expr(call.arguments.items[i]));
                 types.push_back(call.arguments.items[i]->type);
             }
@@ -452,7 +452,7 @@ namespace ariac {
 
         for (size_t i = 0; i < mc.arguments.size; i++) {
             // Check if we are handlng a named variadic parameter
-            if (mc.callee->type->function.variadic == VariadicKind::Named && i == mc.callee->type->function.param_types.size - 1) {
+            if (mc.callee->type->function.variadic == VariadicKind::Named && i == mc.callee->type->function.params.size - 1) {
                 break;
             }
 
@@ -464,7 +464,7 @@ namespace ariac {
             std::vector<llvm::Value*> vals;
             std::vector<TypeInfo*> types;
 
-            for (size_t i = mc.callee->type->function.param_types.size - 1; i < mc.arguments.size; i++) {
+            for (size_t i = mc.callee->type->function.params.size - 1; i < mc.arguments.size; i++) {
                 vals.push_back(gen_expr(mc.arguments.items[i]));
                 types.push_back(mc.arguments.items[i]->type);
             }
@@ -613,6 +613,11 @@ namespace ariac {
         m_active_module_context.temps.clear();
 
         return val;
+    }
+
+    llvm::Value* Codegen::gen_default_arg_expr(Expr* expr) {
+        DefaultArgExpr& d = expr->default_arg;
+        return gen_expr(d.argument);
     }
 
     llvm::Value* Codegen::gen_paren_expr(Expr* expr) {
@@ -1247,6 +1252,7 @@ namespace ariac {
             case ExprKind::Temporary: return gen_temporary_expr(expr);
             case ExprKind::MaterializeTemporary: return gen_materialize_temporary_expr(expr);
             case ExprKind::ExprWithCleanups: return gen_expr_with_cleanups(expr);
+            case ExprKind::DefaultArg: return gen_default_arg_expr(expr);
             case ExprKind::Paren: return gen_paren_expr(expr);
             case ExprKind::Ternary: return gen_ternary_expr(expr);
             case ExprKind::ImplicitCast: return gen_implicit_cast_expr(expr);

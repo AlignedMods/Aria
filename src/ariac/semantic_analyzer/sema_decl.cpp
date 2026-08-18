@@ -23,7 +23,7 @@ namespace ariac {
 
             // If we are in a function, we can insert a defer
             if (m_functions.size() > 0) {
-                TypeInfo* type = TypeInfo::create_function(TypeKind::Method, TypeInfo::get_void(), {}, VariadicKind::None);
+                TypeInfo* type = TypeInfo::get_void_method();
                 Expr* ref = Expr::Create(decl->loc, ExprKind::DeclRef, ExprValueKind::LValue, var.type, DeclRefExpr(var.identifier, nullptr, decl));
                 Expr* mem = Expr::Create(decl->loc, ExprKind::Member, ExprValueKind::LValue, type, MemberExpr("~", ref, dtor));
                 Expr* call = Expr::Create(decl->loc, ExprKind::MethodCall, ExprValueKind::RValue, type->function.return_type, CallExpr(mem, {}));
@@ -50,6 +50,8 @@ namespace ariac {
         ParamDecl& param = decl->param;
         resolve_type(param.type);
 
+        resolve_param_default_arg(decl);
+
         if (param.type->is_void()) {
             report_diag(decl->loc, "Cannot declare parameter of type 'void'");
         } else if (param.type->is_function()) {
@@ -68,6 +70,10 @@ namespace ariac {
         decl->resolve_status = ResolveStatus::InProgress;
         FunctionDecl fn = decl->function;
         resolve_type(fn.type);
+
+        for (Decl* p : fn.type->function.params) {
+            resolve_param_default_arg(p);
+        }
 
         std::string ident = fmt::format("{}", fn.identifier);
         
@@ -237,6 +243,10 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_function_body(Decl* decl) {
         FunctionDecl& fn = decl->function;
+        resolve_function_decl(decl);
+
+        if (!decl->function.body) { return; }
+
         decl->resolve_status = ResolveStatus::InProgress;
 
         FunctionContext ctx;
@@ -245,7 +255,7 @@ namespace ariac {
 
         push_scope();
         
-        for (Decl* p : fn.parameters) {
+        for (Decl* p : fn.type->function.params) {
             resolve_param_decl(p);
         }
         
@@ -291,7 +301,7 @@ namespace ariac {
         
         push_scope();
         
-        for (Decl* p : m.parameters) {
+        for (Decl* p : m.type->function.params) {
             resolve_param_decl(p);
         }
         
@@ -338,7 +348,7 @@ namespace ariac {
                 field_member->member.implicit_deref = true;
 
                 Expr* field_dtor = Expr::Create(decl->loc, ExprKind::Member, ExprValueKind::LValue,
-                    TypeInfo::create_function(TypeKind::Method, TypeInfo::get_void(), {}, VariadicKind::None),
+                    TypeInfo::get_void_method(),
                     MemberExpr("~", field_member, dtor));
 
                 Expr* dtor_call = Expr::Create(decl->loc, ExprKind::MethodCall, ExprValueKind::RValue, TypeInfo::get_void(),
@@ -455,14 +465,14 @@ namespace ariac {
 
                         FunctionDecl& fn = decl->function;
 
-                        TinyVector<TypeInfo*> param_types;
-                        param_types.append(TypeInfo::get_basic(TypeKind::Bool));
-                        param_types.append(TypeInfo::get_string());
-                        param_types.append(TypeInfo::get_basic(TypeKind::ULong));
-                        param_types.append(TypeInfo::get_string());
-                        param_types.append(TypeInfo::get_basic(TypeKind::Any));
+                        TinyVector<Decl*> params;
+                        params.append(Decl::Create({}, DeclKind::Param, DeclVisibility::Public, ParamDecl("condition", TypeInfo::get_basic(TypeKind::Bool), nullptr, false)));
+                        params.append(Decl::Create({}, DeclKind::Param, DeclVisibility::Public, ParamDecl("file", TypeInfo::get_string(), nullptr, false)));
+                        params.append(Decl::Create({}, DeclKind::Param, DeclVisibility::Public, ParamDecl("line", TypeInfo::get_basic(TypeKind::ULong), nullptr, false)));
+                        params.append(Decl::Create({}, DeclKind::Param, DeclVisibility::Public, ParamDecl("format", TypeInfo::get_string(), nullptr, false)));
+                        params.append(Decl::Create({}, DeclKind::Param, DeclVisibility::Public, ParamDecl("args", TypeInfo::get_basic(TypeKind::Any), nullptr, true)));
 
-                        TypeInfo* fn_ty = TypeInfo::create_function(TypeKind::Function, TypeInfo::get_void(), param_types, VariadicKind::Named);
+                        TypeInfo* fn_ty = TypeInfo::create_function(TypeKind::Function, TypeInfo::get_void(), params, params.size, VariadicKind::Named);
 
                         if (!type_is_equal(fn_ty, fn.type)) {
                             report_diag(decl->loc, fmt::format("Builtin for 'assert' must have signature '{}'", type_info_to_string(fn_ty)));
@@ -504,7 +514,7 @@ namespace ariac {
                     }
 
                     FunctionDecl& fn = decl->function;
-                    TypeInfo* fn_ty = TypeInfo::create_function(TypeKind::Function, TypeInfo::get_void(), {}, VariadicKind::None);
+                    TypeInfo* fn_ty = TypeInfo::create_function(TypeKind::Function, TypeInfo::get_void(), {}, 0, VariadicKind::None);
 
                     if (!type_is_equal(fn_ty, fn.type)) {
                         report_diag(decl->loc, fmt::format("Function marked '@init' must have signature '{}'", type_info_to_string(fn_ty)));

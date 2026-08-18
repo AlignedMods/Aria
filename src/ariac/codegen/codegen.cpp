@@ -179,7 +179,7 @@ namespace ariac {
 
             llvm::Value* ret = nullptr;
             
-            if (context.main_func->function.parameters.size == 1) {
+            if (context.main_func->function.type->function.params.size == 1) {
                 llvm::Value* list = alloca_at_entry(main, "list", ptr_type);
                 llvm::Value* i = alloca_at_entry(main, "i", int32_type);
 
@@ -204,7 +204,7 @@ namespace ariac {
                     strlen_fn = llvm::Function::Create(fn_type, llvm::GlobalValue::ExternalLinkage, "strlen", *m_active_module_context.module);
                 }
 
-                llvm::Value* elem_size = m_active_module_context.builder->getInt64(context.main_func->function.parameters.items[0]->param.type->get_size());
+                llvm::Value* elem_size = m_active_module_context.builder->getInt64(context.main_func->function.type->function.params[0]->param.type->get_size());
                 llvm::Value* elem_count = m_active_module_context.builder->CreateSExt(main->getArg(0), int64_type, "sext");
                 llvm::Value* calloc_result = m_active_module_context.builder->CreateCall(calloc_fn, { elem_size, elem_count });
 
@@ -267,7 +267,7 @@ namespace ariac {
                     m_active_module_context.builder->CreateCall(free_fn, list_val);
                 }
             } else {
-                ARIA_ASSERT(context.main_func->function.parameters.size == 0, "Invalid parameter count for main function");
+                ARIA_ASSERT(context.main_func->function.type->function.params.size == 0, "Invalid parameter count for main function");
                 ret = m_active_module_context.builder->CreateCall(callee, {});
             }
 
@@ -472,12 +472,12 @@ namespace ariac {
                 params.push_back(llvm::PointerType::get(*m_active_module_context.context, 0)); // self
             }
 
-            for (size_t i = 0; i < t->function.param_types.size; i++) {
-                if (t->function.variadic == VariadicKind::Named && i == t->function.param_types.size - 1) {
+            for (size_t i = 0; i < t->function.params.size; i++) {
+                if (t->function.variadic == VariadicKind::Named && i == t->function.params.size - 1) {
                     break;
                 }
 
-                TypeInfo* type = t->function.param_types.items[i];
+                TypeInfo* type = t->function.params.items[i]->param.type;
                 ABIParamTypeInfo info = get_param_abi_type_info(type);
 
                 switch (info.kind) {

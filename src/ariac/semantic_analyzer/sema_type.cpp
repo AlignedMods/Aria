@@ -57,8 +57,8 @@ namespace ariac {
             case TypeKind::Method: {
                 FunctionType& fn = type->function;
 
-                for (TypeInfo* param : fn.param_types) {
-                    resolve_type(param);
+                for (Decl* param : fn.params) {
+                    resolve_type(param->param.type);
                 }
 
                 resolve_type(fn.return_type);
@@ -388,14 +388,14 @@ namespace ariac {
                 return cost;
             }
 
-            if (src->function.param_types.size != dst->function.param_types.size) {
+            if (src->function.params.size != dst->function.params.size) {
                 cost.implicit_cast_possible = false;
                 cost.explicit_cast_possible = false;
                 return cost;
             }
 
-            for (size_t i = 0; i < src->function.param_types.size; i++) {
-                ConversionCost pcost = get_conversion_cost(dst->function.param_types.items[i], src->function.param_types.items[i]);
+            for (size_t i = 0; i < src->function.params.size; i++) {
+                ConversionCost pcost = get_conversion_cost(dst->function.params.items[i]->param.type, src->function.params.items[i]->param.type);
 
                 if (pcost.cast_needed) {
                     cost.implicit_cast_possible = false;
@@ -482,10 +482,10 @@ namespace ariac {
             FunctionType& fRhs = rhs->function;
 
             if (!type_is_equal(fLhs.return_type, fRhs.return_type)) { return false; }
-            if (fLhs.param_types.size != fRhs.param_types.size) { return false; }
+            if (fLhs.params.size != fRhs.params.size) { return false; }
 
-            for (size_t i = 0; i < fLhs.param_types.size; i++) {
-                if (!type_is_equal(fLhs.param_types.items[i], fRhs.param_types.items[i])) { return false; }
+            for (size_t i = 0; i < fLhs.params.size; i++) {
+                if (!type_is_equal(fLhs.params.items[i]->param.type, fRhs.params.items[i]->param.type)) { return false; }
             }
 
             return true;

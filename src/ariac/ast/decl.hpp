@@ -97,21 +97,25 @@ namespace ariac {
     };
 
     struct ParamDecl {
-        ParamDecl(std::string_view identifier, TypeInfo* type, bool variadic)
-            : identifier(identifier), type(type), variadic(variadic) {}
+        ParamDecl(std::string_view identifier, TypeInfo* type, Expr* default_arg, bool variadic)
+            : identifier(identifier), type(type), default_arg(default_arg), variadic(variadic) {}
 
         std::string_view identifier;
-        TypeInfo* type = nullptr;
+        TypeInfo* type;
+        Expr* default_arg;
+        bool resolved_default_arg = false;
         bool variadic;
     };
 
+    // FunctionDecl
+    // Used to represent function declarations and generic function specilizations
+    // The parameters are stored in the type
     struct FunctionDecl {
-        FunctionDecl(std::string_view identifier, TypeInfo* type, TinyVector<Decl*> params, Stmt* body, LinkageKind linkage)
-            : identifier(identifier), type(type), parameters(params), body(body), linkage_kind(linkage) {}
+        FunctionDecl(std::string_view identifier, TypeInfo* type, Stmt* body, LinkageKind linkage)
+            : identifier(identifier), type(type), body(body), linkage_kind(linkage) {}
 
         std::string_view identifier;
         TypeInfo* type = nullptr;
-        TinyVector<Decl*> parameters;
         Stmt* body = nullptr;
         LinkageKind linkage_kind = LinkageKind::None;
         bool is_specilization = false;
@@ -176,14 +180,16 @@ namespace ariac {
         TypeInfo* type = nullptr;
     };
 
+    // MethodDecl
+    // Used to represent method declarations and generic method specilizations
+    // The parameters are stored in the type
     struct MethodDecl {
-        MethodDecl(Decl* parent, std::string_view identifier, TypeInfo* type, TinyVector<Decl*> parameters, Stmt* body)
-            : parent(parent), identifier(identifier), type(type), parameters(parameters), body(body) {}
+        MethodDecl(Decl* parent, std::string_view identifier, TypeInfo* type, Stmt* body)
+            : parent(parent), identifier(identifier), type(type), body(body) {}
 
         Decl* parent = nullptr;
         std::string_view identifier;
         TypeInfo* type = nullptr;
-        TinyVector<Decl*> parameters;
         Stmt* body = nullptr;
     };
 

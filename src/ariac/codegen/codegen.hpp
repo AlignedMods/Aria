@@ -138,6 +138,7 @@ namespace ariac {
         llvm::Value* gen_temporary_expr(Expr* expr);
         llvm::Value* gen_materialize_temporary_expr(Expr* expr);
         llvm::Value* gen_expr_with_cleanups(Expr* expr);
+        llvm::Value* gen_default_arg_expr(Expr* expr);
         llvm::Value* gen_paren_expr(Expr* expr);
         llvm::Value* gen_ternary_expr(Expr* expr);
         llvm::Value* gen_implicit_cast_expr(Expr* expr);

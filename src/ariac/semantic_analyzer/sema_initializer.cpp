@@ -27,13 +27,24 @@ namespace ariac {
         }
     }
 
-    void SemanticAnalyzer::resolve_param_initializer(TypeInfo* param_type, Expr* arg) {
+    void SemanticAnalyzer::resolve_param_initializer(Decl* decl, Expr* arg) {
         bool prev_val = m_sema_context.temporary;
         m_sema_context.temporary = true;
         resolve_expr(arg);
-        try_insert_implicit_cast(param_type, arg);
+        try_insert_implicit_cast(decl->param.type, arg);
         require_rvalue(arg);
         m_sema_context.temporary = prev_val;
+    }
+
+    void SemanticAnalyzer::resolve_param_default_arg(Decl* decl) {
+        ParamDecl& p = decl->param;
+
+        if (p.default_arg && !p.resolved_default_arg) {
+            resolve_expr(p.default_arg);
+            try_insert_implicit_cast(p.type, p.default_arg, "parameter");
+            require_rvalue(p.default_arg);
+            p.resolved_default_arg = true;
+        }
     }
 
 } // namespace ariac

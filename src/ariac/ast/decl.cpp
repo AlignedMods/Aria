@@ -27,6 +27,9 @@ namespace ariac {
                 ParamDecl& p = d->param;
                 copy->param.identifier = p.identifier;
                 copy->param.type = TypeInfo::dup(p.type);
+
+                copy->param.resolved_default_arg = p.resolved_default_arg;
+                if (p.default_arg) { copy->param.default_arg = Expr::dup(p.default_arg); }
                 break;
             }
 
@@ -34,11 +37,6 @@ namespace ariac {
                 FunctionDecl& f = d->function;
                 copy->function.identifier = f.identifier;
                 copy->function.type = TypeInfo::dup(f.type);
-
-                for (Decl* p : f.parameters) {
-                    copy->function.parameters.append(Decl::dup(p));
-                }
-
                 if (f.body) { copy->function.body = Stmt::dup(f.body); }
                 copy->function.linkage_kind = f.linkage_kind;
                 break;
@@ -65,15 +63,10 @@ namespace ariac {
 
             case DeclKind::Method: {
                 MethodDecl& m = d->method;
+                copy->method.parent = m.parent;
                 copy->method.identifier = m.identifier;
                 copy->method.type = TypeInfo::dup(m.type);
-
-                for (Decl* p : m.parameters) {
-                    copy->method.parameters.append(Decl::dup(p));
-                }
-
                 copy->method.body = Stmt::dup(m.body);
-                copy->method.parent = m.parent;
                 break;
             }
 

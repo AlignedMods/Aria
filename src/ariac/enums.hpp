@@ -37,6 +37,7 @@ namespace ariac {
         MaterializeTemporary,
         Temporary,
         ExprWithCleanups,
+        DefaultArg,
         Paren,
         Ternary,
         Cast,

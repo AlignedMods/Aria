@@ -861,8 +861,10 @@ namespace ariac {
 
                 TypeInfo* ret_type = TypeInfo::get_void();
 
-                VariadicKind var = VariadicKind::None;
-                auto[_, param_types] = parse_function_params(&var);
+                TinyVector<Decl*> params;
+                size_t required_arg_count = 0;
+                VariadicKind variadic = VariadicKind::None;
+                parse_function_params(&params, &required_arg_count, &variadic);
 
                 if (match(TokenKind::Arrow)) {
                     consume();
@@ -875,7 +877,7 @@ namespace ariac {
                 }
 
                 type->kind = TypeKind::Function;
-                type->function = FunctionType(ret_type, param_types, var);
+                type->function = FunctionType(ret_type, params, required_arg_count, variadic);
                 break;
             }
 
@@ -1462,8 +1464,10 @@ namespace ariac {
             return &error_decl;
         }
 
+        TinyVector<Decl*> params;
+        size_t required_arg_count = 0;
         VariadicKind variadic = VariadicKind::None;
-        auto[params, param_types] = parse_function_params(&variadic);
+        parse_function_params(&params, &required_arg_count, &variadic);
 
         if (match(TokenKind::Arrow)) {
             consume();
@@ -1488,9 +1492,9 @@ namespace ariac {
             try_consume(TokenKind::Semi, ";");
         }
 
-        TypeInfo* final_type = TypeInfo::create_function(TypeKind::Function, ret_type, param_types, variadic);
+        TypeInfo* final_type = TypeInfo::create_function(TypeKind::Function, ret_type, params, required_arg_count, variadic);
 
-        Decl* f = Decl::Create(loc + end_loc, DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, final_type, params, body, linkage));
+        Decl* f = Decl::Create(loc + end_loc, DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, final_type, body, linkage));
         f->attributes = attrs;
 
         if (generic_params.size == 0) {
@@ -1503,11 +1507,11 @@ namespace ariac {
         }
     }
 
-    std::pair<TinyVector<Decl*>, TinyVector<TypeInfo*>> Parser::parse_function_params(VariadicKind* variadic) {
-        TinyVector<Decl*> params;
-        TinyVector<TypeInfo*> param_types;
-
+    void Parser::parse_function_params(TinyVector<Decl*>* params, size_t* required_arg_count, VariadicKind* variadic) {
         try_consume(TokenKind::LeftParen, "(");
+
+        bool has_variadic = false;
+        bool has_default_value = false;
 
         while (!match(TokenKind::RightParen)) {
             if (is_primitive_type()) {
@@ -1519,16 +1523,14 @@ namespace ariac {
             if (match(TokenKind::TripleDot)) {
                 Token& triple = consume();
                 *variadic = VariadicKind::Unnamed;
+                has_variadic = true;
 
-                if (match(TokenKind::Comma)) {
-                    Token& c = consume();
-                    context.report_compiler_diagnostic(c.loc, "Cannot declare parameters after '...'");
-                } else if (match(TokenKind::RightParen)) {
-                    break;
-                } else {
-                    context.report_compiler_diagnostic(peek()->loc, "Expected ')'");
-                    sync_params();
-                }
+                if (match(TokenKind::Comma)) { consume(); continue; }
+                if (match(TokenKind::RightParen)) { break; }
+
+                context.report_compiler_diagnostic(peek()->loc, "Expected either ')'");
+                sync_params();
+                continue;
             } else {
                 Token* param_ident = try_consume(TokenKind::Identifier, "identifier");
             
@@ -1540,48 +1542,52 @@ namespace ariac {
                 if (match(TokenKind::TripleDot)) {
                     Token& triple = consume();
                     *variadic = VariadicKind::Named;
+                    has_variadic = true;
 
                     TypeInfo* t = TypeInfo::get_basic(TypeKind::Any);
-                    param_types.append(t);
-                    params.append(Decl::Create(param_ident->loc, DeclKind::Param, DeclVisibility::Public, ParamDecl(param_ident->string, t, true)));
+                    params->append(Decl::Create(param_ident->loc, DeclKind::Param, DeclVisibility::Public, ParamDecl(param_ident->string, t, nullptr, true)));
 
-                    if (match(TokenKind::Comma)) {
-                        Token& c = consume();
-                        context.report_compiler_diagnostic(c.loc, "Cannot declare parameters after '...'");
-                        continue;
-                    } else if (match(TokenKind::RightParen)) {
-                        break;
-                    } else {
-                        context.report_compiler_diagnostic(peek()->loc, "Expected ')'");
-                        sync_params();
-                        continue;
-                    }
-                }
+                    if (match(TokenKind::Comma)) { consume(); continue; }
+                    if (match(TokenKind::RightParen)) { break; }
 
-                try_consume(TokenKind::Colon, ":");
-
-                if (!is_type()) {
-                    context.report_compiler_diagnostic(peek()->loc, "Expected a type");
+                    context.report_compiler_diagnostic(peek()->loc, "Expected either ')'");
                     sync_params();
                     continue;
                 }
 
-                TypeInfo* paramType = parse_type();
+                try_consume(TokenKind::Colon, ":");
+                TypeInfo* param_type = parse_type();
+                Expr* default_arg = nullptr;
+
+                if (match(TokenKind::Eq)) {
+                    consume();
+                    default_arg = parse_expression();
+                    has_default_value = true;
+                } else {
+                    if (has_default_value) {
+                        context.report_compiler_diagnostic(param_ident->loc, "Missing default value for parameter");
+                        default_arg = &error_expr;
+                    } else {
+                        (*required_arg_count)++;
+                    }
+                }
                 
-                params.append(Decl::Create(param_ident->loc, DeclKind::Param, DeclVisibility::Public, ParamDecl(param_ident->string, paramType, false)));
-                param_types.append(paramType);
+                if (has_variadic) {
+                    context.report_compiler_diagnostic(param_ident->loc, "Cannot declare parameters after a variadic parameter");
+                } else {
+                    params->append(Decl::Create(param_ident->loc, DeclKind::Param, DeclVisibility::Public, ParamDecl(param_ident->string, param_type, default_arg, false)));
+                }                
 
                 if (match(TokenKind::Comma)) { consume(); continue; }
                 if (match(TokenKind::RightParen)) { break; }
 
                 context.report_compiler_diagnostic(peek()->loc, "Expected either ',' or ')'");
                 sync_params();
+                continue;
             }
         }
 
         try_consume(TokenKind::RightParen, ")");
-
-        return { params, param_types };
     }
 
     TinyVector<Decl*> Parser::parse_generic_params() {
@@ -1671,8 +1677,10 @@ namespace ariac {
                 Token* name = try_consume(TokenKind::Identifier, "identifier");
                 if (!name) { sync_local(); continue; }
                 
+                TinyVector<Decl*> params;
+                size_t required_arg_count = 0;
                 VariadicKind variadic = VariadicKind::None;
-                auto[params, param_types] = parse_function_params(&variadic);
+                parse_function_params(&params, &required_arg_count, &variadic);
                 end_loc = peek(-1)->loc;
 
                 TypeInfo* ret_type = TypeInfo::get_void();
@@ -1693,9 +1701,9 @@ namespace ariac {
 
                 Stmt* body = parse_block();
 
-                TypeInfo* final_type = TypeInfo::create_function(TypeKind::Method, ret_type, param_types, variadic);
+                TypeInfo* final_type = TypeInfo::create_function(TypeKind::Method, ret_type, params, required_arg_count, variadic);
                 struc->struct_.fields.append(Decl::Create(loc + end_loc, DeclKind::Method,
-                    visibility, MethodDecl(struc, name->string, final_type, params, body)));
+                    visibility, MethodDecl(struc, name->string, final_type, body)));
             } else if (match(TokenKind::Squigly)) {
                 Token& s = consume();
                 try_consume(TokenKind::LeftParen, "(");

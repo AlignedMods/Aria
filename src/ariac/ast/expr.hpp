@@ -199,6 +199,20 @@ namespace ariac {
         Expr* expression = nullptr;
     };
 
+    // DefaultArgExpr
+    // Represents an argument to a function call which was not explicitly written in the source code
+    // AKA a default argument
+    // eg.
+    // fn foo(x: int = 0) {}
+    // foo(); -> DefaultArgExpr for 'x' in the function call
+    struct DefaultArgExpr {
+        DefaultArgExpr(Expr* arg, Decl* param)
+            : argument(arg), parameter(param) {}
+
+        Expr* argument;
+        Decl* parameter;
+    };
+
     // ParenExpr
     // At its core it just wraps an expression
     // These kinds of expressions are usually from the actual source code
@@ -354,6 +368,7 @@ namespace ariac {
             MaterializeTemporaryExpr materialize_temporary;
             TemporaryExpr temporary;
             ExprWithCleanups expr_with_cleanups;
+            DefaultArgExpr default_arg;
             ParenExpr paren;
             TernaryExpr ternary;
             CastExpr cast;
@@ -429,6 +444,9 @@ namespace ariac {
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ExprWithCleanups ewc)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), expr_with_cleanups(ewc) {}
+
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, DefaultArgExpr da)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), default_arg(da) {}
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ParenExpr paren)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), paren(paren) {}

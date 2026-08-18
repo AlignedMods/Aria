@@ -224,6 +224,12 @@ namespace ariac {
                 dump_expr(expr->expr_with_cleanups.expression, indentation + 4);
                 return;
 
+            case ExprKind::DefaultArg: m_output += fmt::format("DefaultArgExpr '{}' {} Param {}\n",
+                expr->type->to_string(), expr_value_kind_to_string(expr->value_kind), reinterpret_cast<void*>(expr->default_arg.parameter));
+
+                dump_expr(expr->default_arg.argument, indentation + 4);
+                return;
+
             case ExprKind::Paren: m_output += fmt::format("ParenExpr {} '{}' {}\n",
                 source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
@@ -314,6 +320,10 @@ namespace ariac {
 
             case DeclKind::Param: m_output += fmt::format("ParamDecl {} '{}' '{}'{}\n",
                 source_loc_to_string(decl->loc), decl->param.identifier, type_info_to_string(decl->param.type, false), decl->param.variadic ? " variadic" : "");
+
+                if (decl->param.default_arg) {
+                    dump_expr(decl->param.default_arg, indentation + 4);
+                }
                 return;
 
             case DeclKind::Function: m_output += fmt::format("FunctionDecl {} '{}' {} '{}' linkage={}{}\n",
@@ -329,7 +339,7 @@ namespace ariac {
 
                 dump_attributes(decl->attributes, indentation + 4);
                 
-                for (Decl* param : decl->function.parameters) {
+                for (Decl* param : decl->function.type->function.params) {
                     dump_decl(param, indentation + 4);
                 }
 
@@ -388,7 +398,7 @@ namespace ariac {
             case DeclKind::Method: m_output += fmt::format("MethodDecl {} '{}' '{}'\n",
                 source_loc_to_string(decl->loc), decl->method.identifier, type_info_to_string(decl->method.type, false));
 
-                for (Decl* param : decl->method.parameters) {
+                for (Decl* param : decl->method.type->function.params) {
                     dump_decl(param, indentation + 4);
                 }
 
@@ -614,15 +624,15 @@ namespace ariac {
             m_output += fmt::format("FunctionType '{}'\n", type->to_string(false));
             dump_type(type->function.return_type, indentation + 4);
 
-            for (TypeInfo* t : type->function.param_types) {
-                dump_type(t, indentation + 4);
+            for (Decl* p : type->function.params) {
+                dump_decl(p, indentation + 4);
             }
         } else if (type->is_method()) {
             m_output += fmt::format("MethodType '{}'\n", type->to_string(false));
             dump_type(type->function.return_type, indentation + 4);
 
-            for (TypeInfo* t : type->function.param_types) {
-                dump_type(t, indentation + 4);
+            for (Decl* p : type->function.params) {
+                dump_decl(p, indentation + 4);
             }
         } else if (type->is_struct()) {
             m_output += fmt::format("StructType '{}'\n", type->to_string(false));

@@ -312,10 +312,6 @@ namespace ariac {
                 resolve_type(f.type);
             }
 
-            for (size_t i = 0; i < f.parameters.size; i++) {
-                f.parameters.items[i]->param.type = f.type->function.param_types.items[i];
-            }
-
             bool erase = false;
             resolve_decl_attributes(func, func->attributes, &erase);
             
@@ -339,14 +335,14 @@ namespace ariac {
                     continue;
                 }
 
-                if (f.parameters.size > 1) {
+                if (f.type->function.params.size > 1) {
                     report_diag(func->loc, "Main function must have one or zero parameters");
                 }
 
-                if (f.parameters.size >= 1) {
+                if (f.type->function.params.size >= 1) {
                     TypeInfo* type = TypeInfo::create_slice(TypeInfo::get_string());
-                    if (!type_is_equal(f.parameters.items[0]->param.type, type)) {
-                        report_diag(f.parameters.items[0]->loc, fmt::format("First parameter of 'main' function must be of type '{}'", type_info_to_string(type)));
+                    if (!type_is_equal(f.type->function.params.items[0]->param.type, type)) {
+                        report_diag(f.type->function.params.items[0]->loc, fmt::format("First parameter of 'main' function must be of type '{}'", type_info_to_string(type)));
                     }
                 }
 
@@ -422,7 +418,7 @@ namespace ariac {
         for (Decl* func : unit->funcs) {
             switch (func->kind) {
                 case DeclKind::Function: {
-                    if (func->function.body) { resolve_function_body(func); }
+                    resolve_function_body(func);
                     break;
                 }
 

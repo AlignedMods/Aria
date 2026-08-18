@@ -89,7 +89,7 @@ namespace ariac {
 
             m_active_module_context.alloca_marker = m_active_module_context.builder->CreateAlloca(m_active_module_context.builder->getInt8Ty());
 
-            for (Decl* param : fn->parameters) {
+            for (Decl* param : fn->type->function.params) {
                 TypeInfo* param_type = param->param.variadic ? TypeInfo::create_slice(param->param.type) : param->param.type;
                 ABIParamTypeInfo info = get_param_abi_type_info(param_type);
 
@@ -291,7 +291,7 @@ namespace ariac {
             m_self_value = s;
             m_active_module_context.builder->CreateStore(function->getArg(idx++), s);
         
-            for (Decl* param : m.parameters) {
+            for (Decl* param : m.type->function.params) {
                 TypeInfo* param_type = param->param.variadic ? TypeInfo::create_slice(param->param.type) : param->param.type;
                 ABIParamTypeInfo info = get_param_abi_type_info(param->param.type);
         

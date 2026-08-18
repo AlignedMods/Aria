@@ -43,13 +43,14 @@ namespace ariac {
     };
 
     struct FunctionType {
-        FunctionType(TypeInfo* ret, TinyVector<TypeInfo*> params, VariadicKind var)
-            : return_type(ret), param_types(params), variadic(var) {}
+        FunctionType(TypeInfo* ret, TinyVector<Decl*> params, size_t required_arg_count, VariadicKind var)
+            : return_type(ret), params(params), required_arg_count(required_arg_count), variadic(var) {}
 
         bool is_variadic() const { return variadic == VariadicKind::Unnamed || variadic == VariadicKind::Named; }
 
-        TypeInfo* return_type = nullptr;
-        TinyVector<TypeInfo*> param_types;
+        TypeInfo* return_type;
+        TinyVector<Decl*> params;
+        size_t required_arg_count;
         VariadicKind variadic;
     };
 
@@ -146,7 +147,7 @@ namespace ariac {
         static TypeInfo* create_pointer(TypeInfo* base, bool is_const, SourceLoc loc = {});
         static TypeInfo* create_array(TypeInfo* base, u64 size, SourceLoc loc = {});
         static TypeInfo* create_slice(TypeInfo* base, SourceLoc loc = {});
-        static TypeInfo* create_function(TypeKind kind, TypeInfo* ret, TinyVector<TypeInfo*> params, VariadicKind variadic, SourceLoc loc = {});
+        static TypeInfo* create_function(TypeKind kind, TypeInfo* ret, TinyVector<Decl*> params, size_t required_arg_count, VariadicKind variadic, SourceLoc loc = {});
         static TypeInfo* create_struct(Decl* d, SourceLoc loc = {});
         static TypeInfo* create_struct(std::string_view name, Decl* d, SourceLoc loc = {});
         static TypeInfo* create_typedef(Decl* d, SourceLoc loc = {});

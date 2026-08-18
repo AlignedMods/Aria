@@ -56,11 +56,11 @@ namespace ariac {
         return t;
     }
 
-    TypeInfo* TypeInfo::create_function(TypeKind kind, TypeInfo* ret, TinyVector<TypeInfo*> params, VariadicKind variadic, SourceLoc loc) {
+    TypeInfo* TypeInfo::create_function(TypeKind kind, TypeInfo* ret, TinyVector<Decl*> params, size_t required_arg_count, VariadicKind variadic, SourceLoc loc) {
         TypeInfo* t = context.allocate<TypeInfo>();
         t->kind = kind;
         t->loc = loc;
-        t->function = FunctionType(ret, params, variadic);
+        t->function = FunctionType(ret, params, required_arg_count, variadic);
         return t;
     }
 
@@ -159,8 +159,8 @@ namespace ariac {
 
             case TypeKind::Function:
             case TypeKind::Method: {
-                for (TypeInfo* ty : type->function.param_types) {
-                    t->function.param_types.append(TypeInfo::dup(ty));
+                for (Decl* p : type->function.params) {
+                    t->function.params.append(Decl::dup(p));
                 }
 
                 t->function.return_type = TypeInfo::dup(type->function.return_type);
@@ -314,7 +314,7 @@ namespace ariac {
 
     TypeInfo* TypeInfo::get_void_method() {
         if (void_method) { return void_method; }
-        void_method = create_function(TypeKind::Method, get_void(), {}, VariadicKind::None);
+        void_method = create_function(TypeKind::Method, get_void(), {}, 0, VariadicKind::None);
         return void_method;
     }
 
@@ -648,38 +648,28 @@ namespace ariac {
                 break;
             }
 
-            case TypeKind::Function: {
+            case TypeKind::Function:
+            case TypeKind::Method: {
                 FunctionType ty = type->function;
 
                 str = "fn (";
 
-                for (size_t i = 0; i < ty.param_types.size; i++) {
-                    str += type_info_to_string(ty.param_types.items[i], pretty);
-                    if (i != ty.param_types.size - 1) {
+                if (type->kind == TypeKind::Method) {
+                    str += "self";
+                }
+
+                for (size_t i = 0; i < ty.params.size; i++) {
+                    Decl* p = ty.params[i];
+                    ARIA_ASSERT(p->kind == DeclKind::Param, "Invalid parameter");
+
+                    str += fmt::format("{}{}: {}", p->param.identifier, p->param.variadic ? "..." : "", type_info_to_string(p->param.type, pretty));
+
+                    if (i != ty.params.size - 1) {
                         str += ", ";
                     }
                 }
 
                 if (ty.variadic == VariadicKind::Unnamed) { str += ", ..."; }
-                else if (ty.variadic == VariadicKind::Named) { str += ", any..."; }
-
-                str += ")";
-                str += fmt::format(" -> {}", type_info_to_string(ty.return_type, pretty));
-                break;
-            }
-
-            case TypeKind::Method: {
-                FunctionType ty = type->function;
-
-                str = "fn (self";
-
-                for (size_t i = 0; i < ty.param_types.size; i++) {
-                    str += ", ";
-                    str += type_info_to_string(ty.param_types.items[i], pretty);
-                }
-
-                if (ty.variadic == VariadicKind::Unnamed) { str += ", ..."; }
-                else if (ty.variadic == VariadicKind::Named) { str += ", any..."; }
 
                 str += ")";
                 str += fmt::format(" -> {}", type_info_to_string(ty.return_type, pretty));

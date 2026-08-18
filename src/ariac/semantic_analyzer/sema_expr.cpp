@@ -807,10 +807,10 @@ namespace ariac {
             deduced_args[g.parameters[i]] = { generic_args[i], false };
         }
 
-        for (size_t i = 0; i < g.decl->function.parameters.size; i++) {
+        for (size_t i = 0; i < g.decl->function.type->function.params.size; i++) {
             Expr* arg = args[i];
             resolve_expr(arg);
-            if (!deduce_generic_type(arg->loc, g.decl->function.parameters[i]->param.type, arg->type, deduced_args)) {
+            if (!deduce_generic_type(arg->loc, g.decl->function.type->function.params[i]->param.type, arg->type, deduced_args)) {
                 arg->type = TypeInfo::get_error();
             }
         }
@@ -847,8 +847,13 @@ namespace ariac {
     bool SemanticAnalyzer::resolve_call_arity(SourceLoc loc, FunctionType& fn_type, TinyVector<Expr*> args) {
         switch (fn_type.variadic) {
             case VariadicKind::None: {
-                if (args.size != fn_type.param_types.size) {
-                    report_error(loc, fmt::format("Mismatched argument count, expected {} but got {}", fn_type.param_types.size, args.size));
+                if (args.size < fn_type.required_arg_count) {
+                    report_error(loc, fmt::format("Too few arguments provided, expected {} but got {}", fn_type.required_arg_count, args.size));
+                    return false;
+                }
+
+                if (args.size > fn_type.params.size) {
+                    report_error(loc, fmt::format("Too many arguments provided, expected {} but got {}", fn_type.required_arg_count, args.size));
                     return false;
                 }
 
@@ -856,8 +861,8 @@ namespace ariac {
             }
 
             case VariadicKind::Unnamed: {
-                if (args.size < fn_type.param_types.size) {
-                    report_error(loc, fmt::format("Mismatched argument count, expected at least {} but got {}", fn_type.param_types.size, args.size));
+                if (args.size < fn_type.required_arg_count) {
+                    report_error(loc, fmt::format("Too few arguments provided, expected at least {} but got {}", fn_type.required_arg_count, args.size));
                     return false;
                 }
 
@@ -865,8 +870,8 @@ namespace ariac {
             }
 
             case VariadicKind::Named: {
-                if (args.size < fn_type.param_types.size - 1) {
-                    report_error(loc, fmt::format("Mismatched argument count, expected at least {} but got {}", fn_type.param_types.size - 1, args.size));
+                if (args.size < fn_type.required_arg_count) {
+                    report_error(loc, fmt::format("Too few arguments provided, expected at least {} but got {}", fn_type.required_arg_count, args.size));
                     return false;
                 }
 
@@ -877,21 +882,34 @@ namespace ariac {
         }
     }
 
-    void SemanticAnalyzer::resolve_call_args(FunctionType& fn_type, TinyVector<Expr*> args) {
+    void SemanticAnalyzer::resolve_call_args(FunctionType& fn_type, TinyVector<Expr*>& args) {
         switch (fn_type.variadic) {
             case VariadicKind::None: {
                 for (size_t i = 0; i < args.size; i++) {
-                    resolve_param_initializer(fn_type.param_types[i], args[i]);
+                    resolve_param_initializer(fn_type.params[i], args[i]);
                 }
+
+                // Default args
+                for (size_t i = args.size; i < fn_type.params.size; i++) {
+                    Decl* p = fn_type.params[i];
+                    args.append(Expr::Create({}, ExprKind::DefaultArg, ExprValueKind::RValue, p->param.type, DefaultArgExpr(p->param.default_arg, p)));
+                }
+
                 break;
             }
 
             case VariadicKind::Unnamed: {
-                for (size_t i = 0; i < fn_type.param_types.size; i++) {
-                    resolve_param_initializer(fn_type.param_types[i], args[i]);
+                for (size_t i = 0; i < std::min(fn_type.params.size, args.size); i++) {
+                    resolve_param_initializer(fn_type.params[i], args[i]);
                 }
 
-                for (size_t i = fn_type.param_types.size; i < args.size; i++) {
+                // Default args
+                for (size_t i = args.size; i < fn_type.params.size; i++) {
+                    Decl* p = fn_type.params[i];
+                    args.append(Expr::Create({}, ExprKind::DefaultArg, ExprValueKind::RValue, p->param.type, DefaultArgExpr(p->param.default_arg, p)));
+                }
+
+                for (size_t i = fn_type.params.size; i < args.size; i++) {
                     Expr* arg = args[i];
                     resolve_expr(arg);
 
@@ -918,11 +936,17 @@ namespace ariac {
             }
 
             case VariadicKind::Named: {
-                for (size_t i = 0; i < fn_type.param_types.size - 1; i++) {
-                    resolve_param_initializer(fn_type.param_types[i], args[i]);
+                for (size_t i = 0; i < std::min(fn_type.params.size - 1, args.size); i++) {
+                    resolve_param_initializer(fn_type.params[i], args[i]);
                 }
 
-                for (size_t i = fn_type.param_types.size - 1; i < args.size; i++) {
+                // Default args
+                for (size_t i = args.size; i < fn_type.params.size - 1; i++) {
+                    Decl* p = fn_type.params[i];
+                    args.append(Expr::Create({}, ExprKind::DefaultArg, ExprValueKind::RValue, p->param.type, DefaultArgExpr(p->param.default_arg, p)));
+                }
+
+                for (size_t i = fn_type.params.size - 1; i < args.size; i++) {
                     Expr* arg = args[i];
                     resolve_expr(arg);
                     require_rvalue(arg);
