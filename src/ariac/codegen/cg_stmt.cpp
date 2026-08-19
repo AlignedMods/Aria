@@ -252,7 +252,7 @@ namespace ariac {
             return;
         }
 
-        llvm::SwitchInst* si = m_active_module_context.builder->CreateSwitch(val, switch_end, s.cases.size);
+        llvm::SwitchInst* si = m_active_module_context.builder->CreateSwitch(val, switch_end, static_cast<unsigned>(s.cases.size));
 
         for (Stmt* case_ : s.cases) {
             ARIA_ASSERT(case_->kind == StmtKind::Case, "Invalid case stmt");

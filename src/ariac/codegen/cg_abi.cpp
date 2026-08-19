@@ -92,7 +92,7 @@ namespace ariac {
         return info;
     }
 
-    void Codegen::gen_call_param(std::vector<llvm::Value*>* args, llvm::Value* val, TypeInfo* type) {
+    void Codegen::gen_call_param(llvm::SmallVector<llvm::Value*, 4>* args, llvm::Value* val, TypeInfo* type) {
         ABIParamTypeInfo info = get_param_abi_type_info(type);
 
         switch (info.kind) {
@@ -123,7 +123,7 @@ namespace ariac {
         }
     }
 
-    void Codegen::gen_call_variadic(std::vector<llvm::Value*>* args, const std::vector<llvm::Value*>& vals, const std::vector<TypeInfo*>& types) {
+    void Codegen::gen_call_variadic(llvm::SmallVector<llvm::Value*, 4>* args, llvm::ArrayRef<llvm::Value*> vals, llvm::ArrayRef<TypeInfo*> types) {
         ARIA_ASSERT(vals.size() == types.size(), "Sizes must be same");
 
         llvm::Type* slice_type = llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice");
@@ -175,35 +175,35 @@ namespace ariac {
         }
     }
 
-    llvm::Value* Codegen::gen_call_raw(std::vector<llvm::Value*>& args, llvm::Value* func, TypeInfo* type) {
+    llvm::Value* Codegen::gen_call_raw(llvm::SmallVector<llvm::Value*, 4>* args, llvm::Value* func, TypeInfo* type) {
         TypeInfo* ret_type = type->function.return_type;
         llvm::FunctionType* llvm_ty = llvm::dyn_cast<llvm::FunctionType>(type_info_to_llvm_type(type));
         ABIRetTypeInfo ret_info = get_ret_abi_type_info(ret_type);
         switch (ret_info.kind) {
             case ABIRetKind::Direct: {
-                return m_active_module_context.builder->CreateCall(llvm_ty, func, args, ret_type->is_void() ? "" : "call");
+                return m_active_module_context.builder->CreateCall(llvm_ty, func, *args, ret_type->is_void() ? "" : "call");
             }
 
             case ABIRetKind::Pointer: {
                 llvm::Type* ret_type = type_info_to_llvm_type(ret_info.type);
                 llvm::Value* ret_val = alloca_at_entry(m_active_module_context.function, "ptrret", ret_type);
-                args.insert(args.begin(), ret_val);
+                args->insert(args->begin(), ret_val);
 
-                m_active_module_context.builder->CreateCall(llvm_ty, func, args);
+                m_active_module_context.builder->CreateCall(llvm_ty, func, *args);
                 return m_active_module_context.builder->CreateLoad(ret_type, ret_val);
             }
 
             case ABIRetKind::Integer: {
                 llvm::Type* ret_type = type_info_to_llvm_type(ret_info.type);
                 llvm::Value* temp = alloca_at_entry(m_active_module_context.function, "intret", ret_type);
-                llvm::Value* call = m_active_module_context.builder->CreateCall(llvm_ty, func, args, "call");
+                llvm::Value* call = m_active_module_context.builder->CreateCall(llvm_ty, func, *args, "call");
 
                 m_active_module_context.builder->CreateStore(call, temp);
                 return m_active_module_context.builder->CreateLoad(ret_type, temp);
             }
 
             case ABIRetKind::Noreturn: {
-                llvm::Value* call = m_active_module_context.builder->CreateCall(llvm_ty, func, args);
+                llvm::Value* call = m_active_module_context.builder->CreateCall(llvm_ty, func, *args);
                 m_active_module_context.builder->CreateUnreachable();
                 return call;
             }

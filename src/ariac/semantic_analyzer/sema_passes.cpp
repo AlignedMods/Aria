@@ -276,6 +276,14 @@ namespace ariac {
 
             VarDecl& var = global->var;
 
+            if (module->symbols.contains(var.identifier)) {
+                Decl* d = module->symbols.at(var.identifier);
+                report_diag(global->loc, fmt::format("Redefining symbol '{}'", var.identifier));
+                report_diag(d->loc, "Previous declaration here", CompilerDiagKind::Note);
+                global->kind = DeclKind::Error;
+                continue;
+            }
+
             module->symbols[var.identifier] = global;    
         }
 
@@ -348,6 +356,7 @@ namespace ariac {
 
                 if (!f.type->function.return_type->is_void() && f.type->function.return_type->kind != TypeKind::Int) {
                     report_diag(func->loc, "Return type of 'main' function must be 'void' or 'int'");
+                    continue;
                 }
 
                 module->symbols[f.identifier] = func;
@@ -357,22 +366,10 @@ namespace ariac {
 
             if (module->symbols.contains(f.identifier)) {
                 Decl* d = module->symbols.at(f.identifier);
-
-                if (d->kind == DeclKind::Function) {
-                    report_diag(func->loc, fmt::format("Redefining function '{}'", f.identifier));
-                    report_diag(func->loc, "Previous declaration here", CompilerDiagKind::Note);
-                } else if (d->kind == DeclKind::Var) {
-                    report_diag(func->loc, fmt::format("Redefining global variable '{}' as function", f.identifier));
-                    report_diag(func->loc, "Previous declaration here", CompilerDiagKind::Note);
-                } else if (d->kind == DeclKind::Struct) {
-                    report_diag(func->loc, fmt::format("Redefining struct '{}' as function", f.identifier));
-                    report_diag(func->loc, "Previous declaration here", CompilerDiagKind::Note);
-                } else {
-                    ARIA_UNREACHABLE("Invalid decl kind");
-                }
-
+                report_diag(func->loc, fmt::format("Redefining symbol '{}'", f.identifier));
+                report_diag(d->loc, "Previous declaration here", CompilerDiagKind::Note);
                 func->kind = DeclKind::Error;
-                return;
+                continue;
             }
 
             module->symbols[f.identifier] = unit->funcs[i];
@@ -412,11 +409,14 @@ namespace ariac {
         }
 
         for (Decl* var : unit->globals) {
+            if (var->kind == DeclKind::Error) { continue; }
             resolve_var_decl(var);
         }
 
         for (Decl* func : unit->funcs) {
             switch (func->kind) {
+                case DeclKind::Error: break;
+
                 case DeclKind::Function: {
                     resolve_function_body(func);
                     break;

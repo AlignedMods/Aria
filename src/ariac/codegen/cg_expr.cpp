@@ -145,7 +145,7 @@ namespace ariac {
             }
 
             case DeclKind::EnumConstant: {
-                return m_active_module_context.builder->getIntN(expr->type->enum_.source_decl->enum_.backing_type->get_bit_size(), 
+                return m_active_module_context.builder->getIntN(static_cast<unsigned>(expr->type->enum_.source_decl->enum_.backing_type->get_bit_size()), 
                     mem.referenced_member->enum_constant.resolved_value);
             }
 
@@ -251,7 +251,7 @@ namespace ariac {
         CallExpr& call = expr->call;
         set_debug_loc(expr->loc);
         
-        std::vector<llvm::Value*> args;
+        llvm::SmallVector<llvm::Value*, 4> args;
 
         for (size_t i = 0; i < call.arguments.size; i++) {
             // Check if we are handlng a named variadic parameter
@@ -264,8 +264,8 @@ namespace ariac {
         }
 
         if (call.callee->type->function.variadic == VariadicKind::Named) {
-            std::vector<llvm::Value*> vals;
-            std::vector<TypeInfo*> types;
+            llvm::SmallVector<llvm::Value*, 4> vals;
+            llvm::SmallVector<TypeInfo*, 4> types;
 
             for (size_t i = call.callee->type->function.params.size - 1; i < call.arguments.size; i++) {
                 vals.push_back(gen_expr(call.arguments.items[i]));
@@ -279,7 +279,7 @@ namespace ariac {
         ARIA_ASSERT(callee, "Invalid function callee");
 
         TypeInfo* callee_type = TypeInfo::get_flattened(call.callee->type);
-        llvm::Value* c = gen_call_raw(args, callee, callee_type->is_pointer() ? callee_type->pointer.base : callee_type);
+        llvm::Value* c = gen_call_raw(&args, callee, callee_type->is_pointer() ? callee_type->pointer.base : callee_type);
         return c;
     }
 
@@ -356,7 +356,7 @@ namespace ariac {
 
             case TypeKind::Array: {
                 if (ct.is_const) {
-                    std::vector<llvm::Constant*> fields;
+                    llvm::SmallVector<llvm::Constant*, 8> fields;
                     for (Expr* arg : ct.arguments) {
                         fields.push_back(llvm::dyn_cast<llvm::Constant>(gen_expr(arg)));
                     }
@@ -387,7 +387,7 @@ namespace ariac {
             case TypeKind::Struct:
             case TypeKind::StructSpecilization: {
                 if (ct.is_const) {
-                    std::vector<llvm::Constant*> fields;
+                    llvm::SmallVector<llvm::Constant*, 8> fields;
                     for (Expr* arg : ct.arguments) {
                         fields.push_back(llvm::dyn_cast<llvm::Constant>(gen_expr(arg)));
                     }
@@ -419,7 +419,7 @@ namespace ariac {
         llvm::Type* type = type_info_to_llvm_type(expr->type);
 
         if (lit.is_const) {
-            std::vector<llvm::Constant*> fields;
+            llvm::SmallVector<llvm::Constant*, 8> fields;
             for (Expr* arg : lit.arguments) {
                 fields.push_back(llvm::dyn_cast<llvm::Constant>(gen_expr(arg)));
             }
@@ -447,7 +447,7 @@ namespace ariac {
         CallExpr& mc = expr->call;
         set_debug_loc(expr->loc);
 
-        std::vector<llvm::Value*> args;
+        llvm::SmallVector<llvm::Value*, 4> args;
         args.push_back(gen_expr(mc.callee->member.parent)); // push self
 
         for (size_t i = 0; i < mc.arguments.size; i++) {
@@ -461,8 +461,8 @@ namespace ariac {
         }
 
         if (mc.callee->type->function.variadic == VariadicKind::Named) {
-            std::vector<llvm::Value*> vals;
-            std::vector<TypeInfo*> types;
+            llvm::SmallVector<llvm::Value*, 4> vals;
+            llvm::SmallVector<TypeInfo*, 4> types;
 
             for (size_t i = mc.callee->type->function.params.size - 1; i < mc.arguments.size; i++) {
                 vals.push_back(gen_expr(mc.arguments.items[i]));
@@ -475,7 +475,7 @@ namespace ariac {
         llvm::Value* callee = gen_expr(mc.callee);
         ARIA_ASSERT(callee, "Invalid function callee");
 
-        return gen_call_raw(args, callee, mc.callee->type);
+        return gen_call_raw(&args, callee, mc.callee->type);
     }
 
     llvm::Value* Codegen::gen_array_subscript_expr(Expr* expr) {
@@ -907,7 +907,6 @@ namespace ariac {
                 }
 
                 ARIA_UNREACHABLE("Should be unreachable");
-                break;
             }
 
             case BinaryOperatorKind::Sub: {
@@ -921,7 +920,6 @@ namespace ariac {
                 }
 
                 ARIA_UNREACHABLE("Should be unreachable");
-                break;
             }
 
             case BinaryOperatorKind::Mul: {
@@ -935,7 +933,6 @@ namespace ariac {
                 }
 
                 ARIA_UNREACHABLE("Should be unreachable");
-                break;
             }
 
             case BinaryOperatorKind::Div: {
@@ -957,7 +954,6 @@ namespace ariac {
                 }
 
                 ARIA_UNREACHABLE("Should be unreachable");
-                break;
             }
 
             case BinaryOperatorKind::Mod: {
@@ -975,7 +971,6 @@ namespace ariac {
                 }
 
                 ARIA_UNREACHABLE("Should be unreachable");
-                break;
             }
 
             case BinaryOperatorKind::Less: {
@@ -993,7 +988,6 @@ namespace ariac {
                 }
 
                 ARIA_UNREACHABLE("Should be unreachable");
-                break;
             }
 
             case BinaryOperatorKind::Greater: {
@@ -1011,7 +1005,6 @@ namespace ariac {
                 }
 
                 ARIA_UNREACHABLE("Should be unreachable");
-                break;
             }
 
             case BinaryOperatorKind::GreaterOrEq: {
@@ -1027,15 +1020,13 @@ namespace ariac {
                 }
 
                 ARIA_UNREACHABLE("Should be unreachable");
-                break;
             }
 
             case BinaryOperatorKind::BitAnd: {
                 llvm::Value* lhs = gen_expr(bin.lhs);
                 llvm::Value* rhs = gen_expr(bin.rhs);
 
-                m_active_module_context.builder->CreateAnd(lhs, rhs, "and");
-                break;
+                return m_active_module_context.builder->CreateAnd(lhs, rhs, "and");
             }
 
             case BinaryOperatorKind::LogOr: {
@@ -1085,6 +1076,8 @@ namespace ariac {
 
             default: ARIA_UNREACHABLE("Invalid binary operator"); return nullptr;
         }
+
+        ARIA_UNREACHABLE("Should not be reached");
     }
 
     llvm::Value* Codegen::gen_compound_assign_expr(Expr* expr) {
@@ -1207,7 +1200,7 @@ namespace ariac {
             }
 
             case ConstExprKind::Struct: {
-                std::vector<llvm::Constant*> vals;
+                llvm::SmallVector<llvm::Constant*, 8> vals;
 
                 for (Expr* val : c.values) {
                     vals.push_back(llvm::dyn_cast<llvm::Constant>(gen_expr(val)));

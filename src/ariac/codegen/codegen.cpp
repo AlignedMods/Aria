@@ -931,11 +931,11 @@ namespace ariac {
         return m_active_module_context.functions.at(context.assert_func);
     }
 
-    void Codegen::call_assert(llvm::Value* cond, u64 line, const std::string& fmt, const std::vector<llvm::Value*>& args, const std::vector<TypeInfo*>& types) {
+    void Codegen::call_assert(llvm::Value* cond, u64 line, const std::string& fmt, llvm::ArrayRef<llvm::Value*> args, const std::vector<TypeInfo*>& types) {
         llvm::Function* fn = get_assert_func();
         if (!fn) { return; }
 
-        std::vector<llvm::Value*> aargs;
+        llvm::SmallVector<llvm::Value*, 4> aargs;
         gen_call_param(&aargs, cond, TypeInfo::get_basic(TypeKind::Bool));
         gen_call_param(&aargs, get_string(context.active_comp_unit->filename, ".file"), TypeInfo::get_string());
         gen_call_param(&aargs, get_i64(line), TypeInfo::get_basic(TypeKind::ULong));

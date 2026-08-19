@@ -204,15 +204,15 @@ namespace ariac {
 
         // Returns nullptr if there is no assert function
         llvm::Function* get_assert_func();
-        void call_assert(llvm::Value* cond, u64 line, const std::string& fmt, const std::vector<llvm::Value*>& args = {}, const std::vector<TypeInfo*>& types = {});
+        void call_assert(llvm::Value* cond, u64 line, const std::string& fmt, llvm::ArrayRef<llvm::Value*> args = {}, const std::vector<TypeInfo*>& types = {});
 
         llvm::BasicBlock* create_block(std::string_view name);
 
         ABIParamTypeInfo get_param_abi_type_info(TypeInfo* t);
         ABIRetTypeInfo get_ret_abi_type_info(TypeInfo* t);
-        void gen_call_param(std::vector<llvm::Value*>* args, llvm::Value* arg, TypeInfo* type);
-        void gen_call_variadic(std::vector<llvm::Value*>* args, const std::vector<llvm::Value*>& vals, const std::vector<TypeInfo*>& types);
-        llvm::Value* gen_call_raw(std::vector<llvm::Value*>& args, llvm::Value* func, TypeInfo* type);
+        void gen_call_param(llvm::SmallVector<llvm::Value*, 4>* args, llvm::Value* arg, TypeInfo* type);
+        void gen_call_variadic(llvm::SmallVector<llvm::Value*, 4>* args, llvm::ArrayRef<llvm::Value*> vals, llvm::ArrayRef<TypeInfo*> types);
+        llvm::Value* gen_call_raw(llvm::SmallVector<llvm::Value*, 4>* args, llvm::Value* func, TypeInfo* type);
 
         void set_debug_loc(const SourceLoc& loc);
 
