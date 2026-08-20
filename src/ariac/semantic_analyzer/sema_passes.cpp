@@ -202,15 +202,15 @@ namespace ariac {
             struc->parent_module = module;
             struc->parent_unit = unit;
 
+            StructDecl* s = nullptr;
             switch (struc->kind) {
                 case DeclKind::Struct: {
-                    module->symbols[struc->struct_.identifier] = struc;
+                    s = &struc->struct_;
                     break;
                 }
 
                 case DeclKind::Generic: {
-                    module->symbols[struc->generic.decl->struct_.identifier] = struc;
-
+                    s = &struc->generic.decl->struct_;
                     struc->generic.decl->parent_module = module;
                     struc->generic.decl->parent_unit = unit;
                     break;
@@ -218,6 +218,16 @@ namespace ariac {
 
                 default: ARIA_UNREACHABLE("Invalid struct decl");
             }
+
+            if (module->symbols.contains(s->identifier)) {
+                Decl* d = module->symbols.at(s->identifier);
+                report_diag(struc->loc, fmt::format("Redefining symbol '{}'", s->identifier));
+                report_diag(d->loc, "Previous declaration here", CompilerDiagKind::Note);
+                struc->kind = DeclKind::Error;
+                continue;
+            }
+
+            module->symbols[s->identifier] = struc;
         }
 
         for (size_t i = 0; i < unit->typedefs.size(); i++) {
@@ -227,7 +237,6 @@ namespace ariac {
             td->parent_unit = unit;
 
             TypedefDecl& t = td->typedef_;
-            std::string_view ident = t.identifier;
 
             bool erase = false;
             resolve_decl_attributes(td, td->attributes, &erase);
@@ -239,7 +248,15 @@ namespace ariac {
                 continue;
             }
 
-            module->symbols[ident] = td;
+            if (module->symbols.contains(t.identifier)) {
+                Decl* d = module->symbols.at(t.identifier);
+                report_diag(td->loc, fmt::format("Redefining symbol '{}'", t.identifier));
+                report_diag(d->loc, "Previous declaration here", CompilerDiagKind::Note);
+                td->kind = DeclKind::Error;
+                continue;
+            }
+
+            module->symbols[t.identifier] = td;
         }
 
         for (size_t i = 0; i < unit->enums.size(); i++) {
@@ -249,7 +266,6 @@ namespace ariac {
             en->parent_unit = unit;
 
             EnumDecl& e = en->enum_;
-            std::string_view ident = e.identifier;
 
             bool erase = false;
             resolve_decl_attributes(en, en->attributes, &erase);
@@ -261,7 +277,15 @@ namespace ariac {
                 continue;
             }
 
-            module->symbols[ident] = en;
+            if (module->symbols.contains(e.identifier)) {
+                Decl* d = module->symbols.at(e.identifier);
+                report_diag(en->loc, fmt::format("Redefining symbol '{}'", e.identifier));
+                report_diag(d->loc, "Previous declaration here", CompilerDiagKind::Note);
+                en->kind = DeclKind::Error;
+                continue;
+            }
+
+            module->symbols[e.identifier] = en;
         }
     }
 
@@ -381,6 +405,8 @@ namespace ariac {
 
         for (Decl* struc : unit->structs) {
             switch (struc->kind) {
+                case DeclKind::Error: break;
+
                 case DeclKind::Struct: {
                     resolve_struct_body(struc);
                     break;
