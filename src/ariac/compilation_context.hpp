@@ -23,9 +23,8 @@ namespace ariac {
 
     struct Module {
         std::unordered_map<std::string_view, Decl*> symbols;
-        std::unordered_map<std::string_view, Decl*> private_symbols;
         std::vector<CompilationUnit*> units;
-        std::string_view name;
+        std::string_view name; // The name of just this submodule
 
         Module* top_module = nullptr;
         Module* parent = nullptr;
@@ -137,7 +136,7 @@ namespace ariac {
 
         void print_compilation_time();
 
-        Module* find_or_create_module(std::string_view name);
+        Module* find_or_create_module(Module* parent, std::string_view name);
 
     public:
         ArenaAllocator* arena = nullptr;
@@ -148,9 +147,10 @@ namespace ariac {
         BuildOptions* opts = nullptr;
 
         std::vector<Module*> modules;
-        Module* std_core_module = nullptr;
+        std::unordered_map<std::string_view, Module*> module_lookup;
+
         Decl* main_func = nullptr;
-        Decl* assert_func = nullptr;
+        Decl* panic_func = nullptr;
         Decl* typekind_type = nullptr;
 
         bool has_errors = false;

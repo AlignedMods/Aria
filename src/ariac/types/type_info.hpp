@@ -176,7 +176,7 @@ namespace ariac {
         bool is_error() const { return kind == TypeKind::Error; }
 
         bool is_primitive() const {
-            return is_error() || is_void() || is_boolean() || is_numeric() || is_string() || is_typeid() || is_any();
+            return is_error() || is_void() || is_boolean() || is_numeric() || is_string() || is_typeid() || is_any() || is_never();
         }
 
         bool is_void() const {

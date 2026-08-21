@@ -924,25 +924,32 @@ namespace ariac {
         return llvm::dyn_cast<llvm::Constant>(inttoptr);
     }
 
-    llvm::Function* Codegen::get_assert_func() {
-        if (!context.assert_func) { return nullptr; }
+    llvm::Function* Codegen::get_panic_func() {
+        if (!context.panic_func) { return nullptr; }
 
-        if (!m_active_module_context.functions.contains(context.assert_func)) { gen_function_prototype(context.assert_func); }
-        return m_active_module_context.functions.at(context.assert_func);
+        if (!m_active_module_context.functions.contains(context.panic_func)) { gen_function_prototype(context.panic_func); }
+        return m_active_module_context.functions.at(context.panic_func);
     }
 
     void Codegen::call_assert(llvm::Value* cond, u64 line, const std::string& fmt, llvm::ArrayRef<llvm::Value*> args, const std::vector<TypeInfo*>& types) {
-        llvm::Function* fn = get_assert_func();
+        llvm::Function* fn = get_panic_func();
         if (!fn) { return; }
 
+        llvm::BasicBlock* fail_block = create_block("panic.fail");
+        llvm::BasicBlock* pass_block = create_block("panic.pass");
+
+        m_active_module_context.builder->CreateCondBr(cond, pass_block, fail_block);
+
+        m_active_module_context.builder->SetInsertPoint(fail_block);
         llvm::SmallVector<llvm::Value*, 4> aargs;
-        gen_call_param(&aargs, cond, TypeInfo::get_basic(TypeKind::Bool));
         gen_call_param(&aargs, get_string(context.active_comp_unit->filename, ".file"), TypeInfo::get_string());
         gen_call_param(&aargs, get_i64(line), TypeInfo::get_basic(TypeKind::ULong));
-        gen_call_param(&aargs, get_string(fmt, ".assert_msg"), TypeInfo::get_string());
+        gen_call_param(&aargs, get_string(fmt, ".panic_msg"), TypeInfo::get_string());
         gen_call_variadic(&aargs, args, types);
-
         m_active_module_context.builder->CreateCall(fn, aargs);
+        m_active_module_context.builder->CreateUnreachable();
+
+        m_active_module_context.builder->SetInsertPoint(pass_block);
     }
 
     llvm::BasicBlock* Codegen::create_block(std::string_view name) {

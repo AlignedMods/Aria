@@ -1347,10 +1347,37 @@ namespace ariac {
 
     Decl* Parser::parse_module_decl() {
         Token& mod = consume(); // consume "module"
-        
-        std::string_view path = parse_module_path();
-        TinyVector<DeclAttribute> attrs = parse_decl_attributes(DeclKind::Module);
+        Module* current_mod = nullptr;
+        Module* top_mod = nullptr;
 
+        for (;;) {
+            Token* tok = try_consume(TokenKind::Identifier, "identifier");
+            if (!tok) { break; }
+
+            Module* new_mod = context.find_or_create_module(current_mod, tok->string);
+
+            if (current_mod) {
+                new_mod->parent = current_mod;
+                new_mod->top_module = top_mod;
+                current_mod->children.push_back(new_mod);
+                current_mod->child_lookup[new_mod->name] = new_mod;
+                new_mod->top_module = top_mod;
+            } else {
+                top_mod = new_mod;
+                new_mod->top_module = new_mod;
+            }
+
+            current_mod = new_mod;
+
+            if (match(TokenKind::ColonColon)) {
+                consume();
+                continue;
+            }
+
+            break;
+        }
+
+        TinyVector<DeclAttribute> attrs = parse_decl_attributes(DeclKind::Module);
         try_consume(TokenKind::Semi, ";");
 
         if (m_declared_module) {
@@ -1361,9 +1388,8 @@ namespace ariac {
 
         m_declared_module = true;
 
-        Module* module = context.find_or_create_module(path);
-        context.active_comp_unit->parent = module;
-        module->units.push_back(context.active_comp_unit);
+        context.active_comp_unit->parent = current_mod;
+        current_mod->units.push_back(context.active_comp_unit);
 
         for (auto& attr : attrs) {
             if (attr.kind == DeclAttributeKind::If) {
@@ -1373,19 +1399,39 @@ namespace ariac {
 
         // Reset visibility to public
         m_current_visibility = DeclVisibility::Public;
-
-        return Decl::Create(mod.loc + peek(-1)->loc, DeclKind::Module, DeclVisibility::Public, ModuleDecl(path));
+        return Decl::Create(mod.loc + peek(-1)->loc, DeclKind::Module, DeclVisibility::Public, ModuleDecl(current_mod->name));
     }
 
     Decl* Parser::parse_import_decl() {
         Token& imp = consume(); // consume "import"
 
-        std::string_view path = parse_module_path();
+        Decl* i = nullptr;
+
+        if (Token* ident = try_consume(TokenKind::Identifier, "identifier")) {
+            i = Decl::Create(ident->loc, DeclKind::Import, DeclVisibility::Public, ImportDecl(nullptr, ident->string));
+        } else {
+            return &error_decl;
+        }
+
+        while (match(TokenKind::ColonColon)) {
+            consume();
+
+            Token* ident = try_consume(TokenKind::Identifier, "identifier");
+            if (!ident) { return &error_decl; }
+
+            i = Decl::Create(ident->loc, DeclKind::Import, DeclVisibility::Public, ImportDecl(i, ident->string));
+
+            if (match(TokenKind::ColonColon)) {
+                continue;
+            } else {
+                break;
+            }
+        }
+
         try_consume(TokenKind::Semi, ";");
 
-        Decl* import = Decl::Create(imp.loc + peek(-1)->loc, DeclKind::Import, DeclVisibility::Public, ImportDecl(path));
-        context.active_comp_unit->imports.push_back(import);
-        return import;
+        context.active_comp_unit->imports.push_back(i);
+        return i;
     }
 
     Decl* Parser::parse_let_decl() {

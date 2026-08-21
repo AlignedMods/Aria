@@ -1,16 +1,15 @@
 module std::core;
 
-import std::io;
-import libc;
-
-fn assert(cond: bool, file: string, line: ulong, fmt: string, args...) @builtin("assert") {
-    if !cond { assert_fail(file, line, fmt, args); }
+fn assert_raw(cond: bool, file: string, line: ulong, fmt: string, args...) {
+    if !cond { vpanicf(file, line, fmt, args); }
 }
 
-private:
+fn panicf(file: string, line: ulong, fmt: string, args...) -> ! @builtin("panic") {
+    vpanicf(file, line, fmt, args);
+}
 
-fn assert_fail(file: string, line: ulong, fmt: string, args: []any) {
-    io::eprintf("%s:%s: Assertion failed: ", file, line);
+fn vpanicf(file: string, line: ulong, fmt: string, args: []any) -> ! {
+    io::eprintf("%s:%s: PANIC: ", file, line);
     io::veprintfn(fmt, args);
-    libc::abort();
+    process::abort();
 }

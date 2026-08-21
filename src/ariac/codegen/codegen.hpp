@@ -202,8 +202,8 @@ namespace ariac {
         llvm::Constant* get_string(std::string_view s, std::string_view name = ".str");
         llvm::Constant* get_typeid(TypeInfo* t);
 
-        // Returns nullptr if there is no assert function
-        llvm::Function* get_assert_func();
+        // Returns nullptr if there is no panic function
+        llvm::Function* get_panic_func();
         void call_assert(llvm::Value* cond, u64 line, const std::string& fmt, llvm::ArrayRef<llvm::Value*> args = {}, const std::vector<TypeInfo*>& types = {});
 
         llvm::BasicBlock* create_block(std::string_view name);

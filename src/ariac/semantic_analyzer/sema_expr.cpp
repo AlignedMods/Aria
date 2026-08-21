@@ -204,7 +204,7 @@ namespace ariac {
                 resolve_symbol(sym);
             } else {
                 dr.referenced_decl = &error_decl;
-                report_diag(expr->loc, fmt::format("Undeclared identifier '{}'", pretty_ident));
+                report_diag(expr->loc, fmt::format("Undeclared identifier '{}' in '{}'", dr.identifier, mod->name));
                 expr->type = TypeInfo::get_error();
             }
         };

@@ -40,7 +40,7 @@ struct Formatter {
             }
 
             i++;
-            assert(i < fmt.len, __FILE__, __LINE__, "Invalid format");
+            assert_raw(i < fmt.len, __FILE__, __LINE__, "Invalid format");
 
             c = fmt[i];
             if c == '%' {
@@ -48,7 +48,7 @@ struct Formatter {
                 continue;
             }
 
-            assert(var_idx < args.len, __FILE__, __LINE__, "Missing argument");
+            assert_raw(var_idx < args.len, __FILE__, __LINE__, "Missing argument");
             let arg = args[var_idx++];
 
             flags = FormatFlags();

@@ -2,6 +2,59 @@
 
 namespace ariac {
 
+    void SemanticAnalyzer::resolve_import_decl(Decl* decl) {
+        ImportDecl& i = decl->import;
+
+        auto handle_import = [&](Module* mod) {
+            decl->import.resolved_module = mod;
+            context.active_comp_unit->imported_modules[mod->name] = mod;
+
+            for (Module* c : mod->children) {
+                context.active_comp_unit->local_modules[c->name] = c;
+            }
+
+            {
+                Module* m = mod->parent;
+                while (m) {
+                    context.active_comp_unit->imported_modules[m->name] = m;
+
+                    // Add their children too
+                    for (Module* c : m->children) {
+                        context.active_comp_unit->local_modules[c->name] = c;
+                    }
+
+                    m = m->parent;
+                }
+            }
+        };
+
+        if (i.parent) {
+            resolve_import_decl(i.parent);
+
+            if (i.parent->kind == DeclKind::Error) {
+                decl->kind = DeclKind::Error;
+                return;
+            }
+
+            if (i.parent->import.resolved_module->child_lookup.contains(i.name)) {
+                handle_import(i.parent->import.resolved_module->child_lookup.at(i.name));
+                return;
+            }
+
+            context.report_compiler_diagnostic(decl->loc, fmt::format("No such module '{}' in '{}'", i.name, i.parent->import.name));
+            decl->kind = DeclKind::Error;
+            return;
+        }
+
+        if (!context.module_lookup.contains(i.name)) {
+            context.report_compiler_diagnostic(decl->loc, fmt::format("No such module '{}' in global scope", i.name));
+            decl->kind = DeclKind::Error;
+            return;
+        }
+
+        handle_import(context.module_lookup.at(i.name));
+    }
+
     void SemanticAnalyzer::resolve_var_decl(Decl* decl) {
         if (decl->resolve_status == ResolveStatus::Done || decl->resolve_status == ResolveStatus::InProgress) { return; }
         decl->resolve_status = ResolveStatus::InProgress;
@@ -460,34 +513,33 @@ namespace ariac {
                 }
 
                 case DeclAttributeKind::Builtin: {
-                    if (attr.string == "assert") {
-                        if (context.assert_func) {
-                            report_diag(decl->loc, "A function for assert is already declared, please remove '@builtin(\"assert\")'");
+                    if (attr.string == "panic") {
+                        if (context.panic_func) {
+                            report_diag(decl->loc, "A function for panic is already declared, please remove '@builtin(\"panic\")'");
                             break;
                         }
 
                         if (decl->kind != DeclKind::Function) {
-                            report_diag(decl->loc, "Builtin for 'assert' must be a function");
+                            report_diag(decl->loc, "Builtin for 'panic' must be a function");
                             break;
                         }
 
                         FunctionDecl& fn = decl->function;
 
                         TinyVector<Decl*> params;
-                        params.append(Decl::Create({}, DeclKind::Param, DeclVisibility::Public, ParamDecl("condition", TypeInfo::get_basic(TypeKind::Bool), nullptr, false)));
                         params.append(Decl::Create({}, DeclKind::Param, DeclVisibility::Public, ParamDecl("file", TypeInfo::get_string(), nullptr, false)));
                         params.append(Decl::Create({}, DeclKind::Param, DeclVisibility::Public, ParamDecl("line", TypeInfo::get_basic(TypeKind::ULong), nullptr, false)));
                         params.append(Decl::Create({}, DeclKind::Param, DeclVisibility::Public, ParamDecl("format", TypeInfo::get_string(), nullptr, false)));
                         params.append(Decl::Create({}, DeclKind::Param, DeclVisibility::Public, ParamDecl("args", TypeInfo::get_basic(TypeKind::Any), nullptr, true)));
 
-                        TypeInfo* fn_ty = TypeInfo::create_function(TypeKind::Function, TypeInfo::get_void(), params, params.size, VariadicKind::Named);
+                        TypeInfo* fn_ty = TypeInfo::create_function(TypeKind::Function, TypeInfo::get_basic(TypeKind::Never), params, params.size, VariadicKind::Named);
 
                         if (!type_is_equal(fn_ty, fn.type)) {
-                            report_diag(decl->loc, fmt::format("Builtin for 'assert' must have signature '{}'", type_info_to_string(fn_ty)));
+                            report_diag(decl->loc, fmt::format("Builtin for 'panic' must have signature '{}'", type_info_to_string(fn_ty)));
                             break;
                         }
 
-                        context.assert_func = decl;
+                        context.panic_func = decl;
                     } else if (attr.string == "TypeKind") {
                         if (context.typekind_type) {
                             report_diag(decl->loc, "A type for TypeKind is already declared, please remove '@builtin(\"TypeKind\")'");

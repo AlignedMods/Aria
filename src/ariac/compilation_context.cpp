@@ -178,20 +178,29 @@ namespace ariac {
         fmt::println("Compilation finished in {}ms", duration);
     }
 
-    Module* CompilationContext::find_or_create_module(std::string_view name) {
-        for (Module* mod : modules) {
-            if (mod->name == name) {
-                return mod;
+    Module* CompilationContext::find_or_create_module(Module* parent, std::string_view name) {
+        if (parent) {
+            if (parent->child_lookup.contains(name)) {
+                return parent->child_lookup.at(name);
             }
+
+            Module* new_mod = new Module();
+            new_mod->name = name;
+            parent->children.push_back(new_mod);
+            parent->child_lookup[name] = new_mod;
+            modules.push_back(new_mod);
+            return new_mod;
         }
 
-        Module* mod = new Module();
-        mod->name = name;
-        modules.push_back(mod);
+        if (module_lookup.contains(name)) {
+            return module_lookup.at(name);
+        }
 
-        if (name == "std::core") { std_core_module = mod; }
-
-        return mod;
+        Module* new_mod = new Module();
+        new_mod->name = name;
+        modules.push_back(new_mod);
+        module_lookup[name] = new_mod;
+        return new_mod;
     }
 
 } // namespace ariac

@@ -307,8 +307,11 @@ namespace ariac {
                 decl->module.name);
                 return;
 
-            case DeclKind::Import: m_output += fmt::format("ImportDecl {} '{}'{}\n",
-                source_loc_to_string(decl->loc), decl->import.name, decl->import.implicit ? " implicit" : "");
+            case DeclKind::Import: m_output += fmt::format("ImportDecl {} '{}'\n",
+                source_loc_to_string(decl->loc), decl->import.name);
+                if (decl->import.parent) {
+                    dump_decl(decl->import.parent, indentation + 4);
+                }
                 return;
 
             case DeclKind::Var: m_output += fmt::format("VarDecl {} {}{}'{}' '{}'\n",

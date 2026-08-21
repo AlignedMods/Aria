@@ -72,15 +72,12 @@ namespace ariac {
     };
 
     struct ImportDecl {
-        ImportDecl(std::string_view name)
-            : name(name) {}
+        ImportDecl(Decl* parent, std::string_view name)
+            : parent(parent), name(name) {}
 
-        ImportDecl(std::string_view name, Module* mod, bool implicit)
-            : name(name), resolved_module(mod), implicit(implicit) {}
-
+        Decl* parent;
         std::string_view name;
         Module* resolved_module = nullptr;
-        bool implicit = false;
     };
 
     struct VarDecl {

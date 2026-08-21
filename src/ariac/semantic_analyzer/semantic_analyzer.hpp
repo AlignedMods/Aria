@@ -120,6 +120,7 @@ namespace ariac {
 
         void resolve_name_specifier(Specifier* specifier);
 
+        void resolve_import_decl(Decl* decl);
         void resolve_var_decl(Decl* decl);
         void resolve_param_decl(Decl* decl);
         void resolve_function_decl(Decl* decl);
@@ -201,9 +202,6 @@ namespace ariac {
         void replace_expr(Expr* src, Expr* new_expr);
         void replace_decl(Decl* src, Decl* new_decl);
         void replace_stmt(Stmt* src, Stmt* new_stmt);
-
-        std::string_view get_parent_path(std::string_view path);
-        std::string_view get_bottom_path(std::string_view path);
 
         bool type_is_equal(TypeInfo* lhs, TypeInfo* rhs);
         bool type_is_trivial(TypeInfo* t);

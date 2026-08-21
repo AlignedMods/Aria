@@ -73,20 +73,6 @@ namespace ariac {
         *src = *new_stmt;
     }
 
-    std::string_view SemanticAnalyzer::get_parent_path(std::string_view path) {
-        size_t i = path.rfind("::");
-        if (i == std::string_view::npos) { return {}; }
-
-        return path.substr(0, i);
-    }
-
-    std::string_view SemanticAnalyzer::get_bottom_path(std::string_view path) {
-        size_t i = path.rfind("::");
-        if (i == std::string_view::npos) { return path; }
-
-        return path.substr(i + 2);
-    }
-
     void SemanticAnalyzer::report_error(SourceLoc loc, const std::string& error) {
         report_diag(loc, error, CompilerDiagKind::Error);
     }

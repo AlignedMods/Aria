@@ -24,6 +24,7 @@ namespace ariac {
     static TypeInfo* typeid_type;
     static TypeInfo* any_type;
     static TypeInfo* typekind_type;
+    static TypeInfo* never_type;
     static TypeInfo* dependent_type;
     static TypeInfo* void_ptr_type;
     static TypeInfo* char_ptr_type;
@@ -272,6 +273,7 @@ namespace ariac {
             TYPE(String, string_type)
             TYPE(Typeid, typeid_type)
             TYPE(Any, any_type)
+            TYPE(Never, never_type)
             TYPE(Dependent, dependent_type)
 
             default: ARIA_UNREACHABLE("Invalid type kind");

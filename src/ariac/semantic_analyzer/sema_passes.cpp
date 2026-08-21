@@ -4,7 +4,6 @@ namespace ariac {
 
     void SemanticAnalyzer::pass_module_heirarchy() {
         for (Module* mod : context.modules) {
-            if (mod->parent) { continue; }
             resolve_module_heirarchy(mod);
         }
     }
@@ -64,42 +63,44 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_module_heirarchy(Module* module) {
-        std::string_view parent = get_parent_path(module->name);
 
-        // No parent
-        if (parent.length() == 0) { module->top_module = module; return; }
 
-        for (Module* mod : context.modules) {
-            if (mod->name == parent) {
-                // We have found the parent
-                module->parent = mod;
-                mod->children.push_back(module);
-                mod->child_lookup[get_bottom_path(module->name)] = module;
-
-                // Set top module
-                Module* top = mod;
-                while (top->parent) {
-                    top = top->parent;
-                }
-                module->top_module = top;
-                return;
-            }
-        }
-
-        // No parent module exists so we create one
-        Module* mod = context.find_or_create_module(parent);
-        module->parent = mod;
-        mod->children.push_back(module);
-        mod->child_lookup[get_bottom_path(module->name)] = module;
-
-        // Set top module
-        Module* top = mod;
-        while (top->parent) {
-            top = top->parent;
-        }
-        module->top_module = top;
-
-        resolve_module_heirarchy(mod);
+        // std::string_view parent = get_parent_path(module->name);
+        // 
+        // // No parent
+        // if (parent.length() == 0) { module->top_module = module; return; }
+        // 
+        // for (Module* mod : context.modules) {
+        //     if (mod->name == parent) {
+        //         // We have found the parent
+        //         module->parent = mod;
+        //         mod->children.push_back(module);
+        //         mod->child_lookup[get_bottom_path(module->name)] = module;
+        // 
+        //         // Set top module
+        //         Module* top = mod;
+        //         while (top->parent) {
+        //             top = top->parent;
+        //         }
+        //         module->top_module = top;
+        //         return;
+        //     }
+        // }
+        // 
+        // // No parent module exists so we create one
+        // Module* mod = context.find_or_create_module(parent);
+        // module->parent = mod;
+        // mod->children.push_back(module);
+        // mod->child_lookup[get_bottom_path(module->name)] = module;
+        // 
+        // // Set top module
+        // Module* top = mod;
+        // while (top->parent) {
+        //     top = top->parent;
+        // }
+        // module->top_module = top;
+        // 
+        // resolve_module_heirarchy(mod);
     }
 
     void SemanticAnalyzer::add_unit_to_module(Module* module, CompilationUnit* unit) {
@@ -118,13 +119,12 @@ namespace ariac {
         // Add top level modules
         for (Module* m : context.modules) {
             Module* top = m->top_module;
-
             unit->local_modules[top->name] = top;
         }
 
         // Add the current module's children
         for (Module* c : module->children) {
-            unit->local_modules[get_bottom_path(c->name)] = c;
+            unit->local_modules[c->name] = c;
         }
 
         // Implicitly import the parent modules
@@ -133,9 +133,9 @@ namespace ariac {
             while (m) {
                 unit->imported_modules[m->name] = m;
 
-                // Add thier children too
+                // Add their children too
                 for (Module* c : m->children) {
-                    unit->local_modules[get_bottom_path(c->name)] = c;
+                    unit->local_modules[c->name] = c;
                 }
 
                 m = m->parent;
@@ -144,52 +144,10 @@ namespace ariac {
 
         for (size_t i = 0; i < unit->imports.size(); i++) {
             Decl* decl = unit->imports[i];
-
-            if (decl->kind == DeclKind::Error) { return; }
+            if (decl->kind == DeclKind::Error) { continue; }
             ARIA_ASSERT(decl->kind == DeclKind::Import, "Invalid stmt in Imports");
 
-            if (decl->import.name == module->name) {
-                report_diag(decl->loc, "Including self is not allowed");
-                decl->kind = DeclKind::Error;
-                return;
-            }
-
-            Module* resolvedModule = nullptr;
-
-            for (size_t i = 0; i < context.modules.size(); i++) {
-                Module* mod = context.modules[i];
-
-                if (mod->name == decl->import.name) {
-                    resolvedModule = mod;
-                    break;
-                }
-            }
-
-            if (!resolvedModule) {
-                report_diag(decl->loc, fmt::format("Could not find module '{}'", decl->import.name));
-                continue;
-            }
-
-            decl->import.resolved_module = resolvedModule;
-            unit->imported_modules[resolvedModule->name] = resolvedModule;
-
-            for (Module* c : resolvedModule->children) {
-                unit->local_modules[get_bottom_path(c->name)] = c;
-            }
-
-            {
-                Module* m = resolvedModule->parent;
-                while (m) {
-                    unit->imported_modules[m->name] = m;
-
-                    // Add thier children too
-                    for (Module* c : m->children) {
-                        unit->local_modules[get_bottom_path(c->name)] = c;
-                    }
-
-                    m = m->parent;
-                }
-            }
+            resolve_import_decl(decl);
         }
 
         add_unit_to_module(module, unit);
@@ -368,6 +326,7 @@ namespace ariac {
                 }
 
                 if (f.type->function.params.size > 1) {
+                    ARIA_ASSERT(func, "Func was null");
                     report_diag(func->loc, "Main function must have one or zero parameters");
                 }
 
