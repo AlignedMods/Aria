@@ -267,8 +267,8 @@ namespace ariac {
         Field,
         Method,
         Destructor,
-        Generic,
-        GenericParameter
+        Template,
+        TemplateParam
     };
 
     inline const char* decl_kind_to_string(DeclKind kind) {
@@ -286,9 +286,8 @@ namespace ariac {
             case DeclKind::Field: return "Field";
             case DeclKind::Method: return "Method";
             case DeclKind::Destructor: return "Destructor";
-            case DeclKind::Generic: return "Generic";
-
-            case DeclKind::GenericParameter: return "GenericParameter";
+            case DeclKind::Template: return "Template";
+            case DeclKind::TemplateParam: return "TemplateParam";
 
             default: ARIA_UNREACHABLE("Invalid decl kind");
         }
@@ -314,6 +313,28 @@ namespace ariac {
         Builtin,
         Init
     };
+
+    enum class ResolveStatus {
+        NotStarted,
+        InProgress,
+        Done
+    };
+
+    enum class LinkageKind {
+        None,
+        Extern,
+        Static
+    };
+
+    inline const char* linkage_kind_to_string(LinkageKind kind) {
+        switch (kind) {
+            case LinkageKind::None: return "default";
+            case LinkageKind::Extern: return "extern";
+            case LinkageKind::Static: return "static";
+
+            default: ARIA_UNREACHABLE("Invalid linkage kind");
+        }
+    }
 
     enum class StmtKind {
         Invalid = 0,
@@ -385,12 +406,12 @@ namespace ariac {
         Typedef,
         Enum,
 
-        Generic,
+        Template,
         StructSpecilization,
 
         Unresolved,
         Dependent,
-        DeducableGeneric,
+        DeducableTemplate,
         Typeof,
 
         // Never is a special type which is only available for function return types

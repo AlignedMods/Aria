@@ -65,13 +65,13 @@ namespace ariac {
                 break;
             }
 
-            case TypeKind::Generic: {
-                GenericType& g = type->generic;
+            case TypeKind::Template: {
+                TemplateType& t = type->template_;
 
                 if (m_generic_instantations.empty()) { break; }
-                if (!m_generic_instantations.back().generic_types.contains(g.resolved_decl)) { break; }
+                if (!m_generic_instantations.back().template_types.contains(t.resolved_decl)) { break; }
 
-                *type = *m_generic_instantations.back().generic_types.at(g.resolved_decl);
+                *type = *m_generic_instantations.back().template_types.at(t.resolved_decl);
                 break;
             }
 
@@ -93,8 +93,8 @@ namespace ariac {
                     }
                 }
 
-                if (!gi.base->is_generic_decl()) {
-                    report_diag(gi.base->loc, "Non generic type cannot be used for generic instantiation");
+                if (!gi.base->is_template_decl()) {
+                    report_error(gi.base->loc, fmt::format("'{}' is not a template", gi.base->to_string()));
                     break;
                 }
 
@@ -103,17 +103,17 @@ namespace ariac {
                 }
 
                 Decl* g = gi.base->struct_.source_decl->struct_.parent;
-                ARIA_ASSERT(g->kind == DeclKind::Generic, "Invalid generic");
-                ARIA_ASSERT(g->generic.decl->kind == DeclKind::Struct, "Invalid generic");
+                ARIA_ASSERT(g->kind == DeclKind::Template, "Invalid template");
+                ARIA_ASSERT(g->template_.template_decl->kind == DeclKind::Struct, "Invalid template");
 
-                if (gi.arguments.size != g->generic.parameters.size) {
-                    report_diag(type->loc, fmt::format("Mismatched generic instantiation, generic expects {} arguments but got {}", g->generic.parameters.size, gi.arguments.size));
+                if (gi.arguments.size != g->template_.parameters.size) {
+                    report_diag(type->loc, fmt::format("Mismatched template instantiation, template expects {} arguments but got {}", g->template_.parameters.size, gi.arguments.size));
                     break;
                 }
 
                 Decl* specilization = nullptr;
-                for (Decl* i : g->generic.specilizations) {
-                    ARIA_ASSERT(i->kind == DeclKind::StructSpecilization, "Invalid generic specilization");
+                for (Decl* i : g->template_.specilizations) {
+                    ARIA_ASSERT(i->kind == DeclKind::StructSpecilization, "Invalid template specilization");
 
                     bool failed = false;
                     for (size_t idx = 0; idx < gi.arguments.size; idx++) {
@@ -124,42 +124,42 @@ namespace ariac {
                 }
 
                 if (!specilization) {
-                    GenericInstantationContext ctx;
-                    ctx.generic_decl = g;
+                    TemplateInstantationContext ctx;
+                    ctx.template_decl = g;
                     ctx.loc = type->loc;
 
                     for (size_t i = 0; i < gi.arguments.size; i++) {
-                        Decl* gen_param = g->generic.parameters.items[i];
+                        Decl* gen_param = g->template_.parameters.items[i];
                         TypeInfo* gen_arg = gi.arguments.items[i];
-                        ARIA_ASSERT(gen_param->kind == DeclKind::GenericParameter, "Invalid generic parameter");
-                        ctx.generic_types[gen_param] = gen_arg;
+                        ARIA_ASSERT(gen_param->kind == DeclKind::TemplateParam, "Invalid template parameter");
+                        ctx.template_types[gen_param] = gen_arg;
                     }
 
                     m_generic_instantations.push_back(ctx);
 
-                    if (g->generic.decl->struct_.body_resolve_status == ResolveStatus::NotStarted) {
-                        GenericContext ctx;
-                        for (Decl* p : g->generic.parameters) {
-                            ctx[p->generic_parameter.identifier] = p;
+                    if (g->template_.template_decl->struct_.body_resolve_status == ResolveStatus::NotStarted) {
+                        TemplateContext ctx;
+                        for (Decl* p : g->template_.parameters) {
+                            ctx[p->template_param.identifier] = p;
                         }
                         m_generics.push_back(ctx);
         
                         CompilationUnit* unit = context.active_comp_unit;
                         context.active_comp_unit = g->parent_unit;
-                        resolve_struct_body(g->generic.decl);
+                        resolve_struct_body(g->template_.template_decl);
                         context.active_comp_unit = unit;
         
                         m_generics.pop_back();
                     }
 
-                    Decl* struc = Decl::dup(g->generic.decl);
+                    Decl* struc = Decl::dup(g->template_.template_decl);
                     struc->parent_module = g->parent_module;
                     struc->parent_unit = g->parent_unit;
 
                     specilization = Decl::Create(g->loc, DeclKind::StructSpecilization, g->visibility, StructSpecilizationDecl(gi.arguments, struc, type->loc));
                     specilization->parent_module = g->parent_module;
                     specilization->parent_unit = g->parent_unit;
-                    g->generic.specilizations.append(specilization);
+                    g->template_.specilizations.append(specilization);
                     struc->struct_.parent = specilization;
 
                     resolve_struct_decl(struc);
@@ -185,7 +185,7 @@ namespace ariac {
         if (dst->is_typedef()) { dst = dst->typedef_.base; }
         if (src->is_typedef()) { src = src->typedef_.base; }
 
-        if (dst->get_bottom_type()->is_generic() || src->get_bottom_type()->is_generic()) {
+        if (dst->get_bottom_type()->is_template() || src->get_bottom_type()->is_template()) {
             cost.cast_needed = false;
             return cost;
         }
@@ -572,22 +572,22 @@ namespace ariac {
                 return TypeInfo::create_enum(decl);
             }
 
-            case DeclKind::Generic: {
+            case DeclKind::Template: {
                 if (decl->resolve_status == ResolveStatus::InProgress) {
                     report_diag(decl->loc, "Recursive definition of generic");
                     return TypeInfo::get_error();
                 } else {
                     CompilationUnit* old_unit = context.active_comp_unit;
                     context.active_comp_unit = decl->parent_unit;
-                    resolve_generic_decl(decl);
+                    resolve_template_decl(decl);
                     context.active_comp_unit = old_unit;
                 }
 
-                return TypeInfo::create_struct(decl->generic.decl);
+                return TypeInfo::create_struct(decl->template_.template_decl);
             }
 
-            case DeclKind::GenericParameter: {
-                return TypeInfo::create_generic(decl);
+            case DeclKind::TemplateParam: {
+                return TypeInfo::create_template(decl);
             }
 
             default: ARIA_UNREACHABLE("Invalid decl");
@@ -607,11 +607,11 @@ namespace ariac {
                     break;
                 }
 
-                case DeclKind::Generic: {
+                case DeclKind::Template: {
                     TinyVector<TypeInfo*> types;
-                    for (Decl* p : s.parent->generic.parameters) {
-                        ARIA_ASSERT(p->kind == DeclKind::GenericParameter, "Invalid generic parameter");
-                        types.append(TypeInfo::create_generic(p));
+                    for (Decl* p : s.parent->template_.parameters) {
+                        ARIA_ASSERT(p->kind == DeclKind::TemplateParam, "Invalid template parameter");
+                        types.append(TypeInfo::create_template(p));
                     }
                     base = TypeInfo::create_struct_instantation(TypeInfo::dup(base), types);
                     break;

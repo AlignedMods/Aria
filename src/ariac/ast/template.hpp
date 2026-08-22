@@ -1,6 +1,8 @@
 #pragma once
 
 #include "ariac/core.hpp"
+#include "ariac/core/vector.hpp"
+#include "ariac/core/source_location.hpp"
 
 namespace ariac {
 
@@ -13,11 +15,19 @@ namespace ariac {
         SourceLoc instantiation_loc;
     };
 
-    struct GenericRequirement {
-        GenericRequirement(TypeInfo* arg = nullptr)
-            : arg(arg) {}
+    struct TemplateArgument {
+        enum class Kind : u8 {
+            Type
+        };
 
-        TypeInfo* arg;
+        TemplateArgument(TypeInfo* type)
+            : kind(Kind::Type), type(type) {}
+
+        Kind kind;
+
+        union {
+            TypeInfo* type;
+        };
     };
 
 } // namespace ariac

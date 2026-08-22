@@ -83,7 +83,7 @@ namespace ariac {
         Decl* source_decl = nullptr;
     };
 
-    struct GenericType {
+    struct TemplateType {
         std::string_view identifier;
         Decl* resolved_decl = nullptr;
     };
@@ -94,11 +94,11 @@ namespace ariac {
 
         // Checks if this specilization actually needs to instantiate a type
         // There are certain cases where instantiation is not neccessary
-        // eg. Foo<T, int> -> Where 'T' is a generic parameter itself
+        // eg. Foo<T, int> -> Where 'T' is a template parameter itself
         bool needs_specilization();
 
         // Checks if this specilization is fully generic
-        // eg. Foo<T, T2> -> Where 'T' and 'T2' are generic parameters
+        // eg. Foo<T, T2> -> Where 'T' and 'T2' are template parameters
         bool is_generic();
 
         // Get the fields for this struct specilization
@@ -114,8 +114,8 @@ namespace ariac {
         Expr* ident = nullptr;
     };
 
-    struct DeducableGenericType {
-        Decl* generic = nullptr;
+    struct DeducableTemplateType {
+        Decl* template_ = nullptr;
         TinyVector<TypeInfo*> args;
     };
 
@@ -134,10 +134,10 @@ namespace ariac {
             StructType struct_;
             TypedefType typedef_;
             EnumType enum_;
-            GenericType generic;
+            TemplateType template_;
             StructSpecilizationType struct_specilization;
             UnresolvedType unresolved;
-            DeducableGenericType deducable_generic;
+            DeducableTemplateType deducable_template;
             TypeofType typeof;
 
             u64 _initializer = 0; // Hack so the compiler doesn't complain about 'no default constructor'
@@ -152,10 +152,10 @@ namespace ariac {
         static TypeInfo* create_struct(std::string_view name, Decl* d, SourceLoc loc = {});
         static TypeInfo* create_typedef(Decl* d, SourceLoc loc = {});
         static TypeInfo* create_enum(Decl* d, SourceLoc loc = {});
-        static TypeInfo* create_generic(Decl* d, SourceLoc loc = {});
+        static TypeInfo* create_template(Decl* d, SourceLoc loc = {});
         static TypeInfo* create_struct_instantation(TypeInfo* base, TinyVector<TypeInfo*> args, SourceLoc loc = {});
         static TypeInfo* create_unresolved(Expr* e, SourceLoc loc = {});
-        static TypeInfo* create_deducable_generic(Decl* generic, TinyVector<TypeInfo*> args, SourceLoc loc = {});
+        static TypeInfo* create_deducable_template(Decl* template_, TinyVector<TypeInfo*> args, SourceLoc loc = {});
 
         static TypeInfo* get_error();
         static TypeInfo* get_void();
@@ -249,11 +249,11 @@ namespace ariac {
             return kind == TypeKind::Enum;
         }
 
-        bool is_generic() const {
-            return kind == TypeKind::Generic;
+        bool is_template() const {
+            return kind == TypeKind::Template;
         }
 
-        bool is_generic_decl() const;
+        bool is_template_decl() const;
 
         bool is_struct_specilization() const {
             return kind == TypeKind::StructSpecilization;

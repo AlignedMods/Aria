@@ -414,21 +414,21 @@ namespace ariac {
                 dump_stmt(decl->destructor.body, indentation + 4);
                 return;
 
-            case DeclKind::Generic: m_output += fmt::format("GenericDecl {}\n", source_loc_to_string(decl->loc));
-                for (Decl* param : decl->generic.parameters) {
+            case DeclKind::Template: m_output += fmt::format("TemplateDecl {}\n", source_loc_to_string(decl->loc));
+                for (Decl* param : decl->template_.parameters) {
                     dump_decl(param, indentation + 4);
                 }
 
-                dump_decl(decl->generic.decl, indentation + 4);
+                dump_decl(decl->template_.template_decl, indentation + 4);
 
-                for (Decl* specilization : decl->generic.specilizations) {
+                for (Decl* specilization : decl->template_.specilizations) {
                     dump_decl(specilization, indentation + 4);
                 }
 
                 return;
 
-            case DeclKind::GenericParameter: m_output += fmt::format("GenericParameterDecl {} '{}'\n", 
-                source_loc_to_string(decl->loc), decl->generic_parameter.identifier);
+            case DeclKind::TemplateParam: m_output += fmt::format("GenericParamDecl {} '{}'\n", 
+                source_loc_to_string(decl->loc), decl->template_param.identifier);
                 return;
 
             default: ARIA_UNREACHABLE("Invalid decl kind");
@@ -649,8 +649,8 @@ namespace ariac {
             for (TypeInfo* t : type->struct_specilization.arguments) {
                 dump_type(t, indentation + 4);
             }
-        } else if (type->is_generic()) {
-            m_output += fmt::format("GenericType '{}'\n", type->generic.identifier);
+        } else if (type->is_template()) {
+            m_output += fmt::format("TemplateType '{}'\n", type->template_.identifier);
         } else {
             ARIA_UNREACHABLE("Invalid type kind");
         }

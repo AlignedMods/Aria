@@ -44,20 +44,20 @@ namespace ariac {
             std::vector<Scope> scopes;
         };
 
-        using GenericContext = std::unordered_map<std::string_view, Decl*>;
+        using TemplateContext = std::unordered_map<std::string_view, Decl*>;
 
-        struct GenericInstantationContext {
-            Decl* generic_decl = nullptr;
-            std::unordered_map<Decl*, TypeInfo*> generic_types;
+        struct TemplateInstantationContext {
+            Decl* template_decl = nullptr;
+            std::unordered_map<Decl*, TypeInfo*> template_types;
             SourceLoc loc;
         };
 
-        struct ResolvedGenericArg {
+        struct ResolvedTemplateArg {
             TypeInfo* type = nullptr;
             bool is_deduced = false;
             SourceLoc loc;
         };
-        using ResolvedGenericMap = std::unordered_map<Decl*, ResolvedGenericArg>;
+        using ResolvedTemplateMap = std::unordered_map<Decl*, ResolvedTemplateArg>;
 
         struct CaptureErrorContext {
             bool has_error = false;
@@ -98,7 +98,7 @@ namespace ariac {
         void resolve_dependent_member_expr(Expr* expr);
         void resolve_self_expr(Expr* expr);
         void resolve_call_expr(Expr* expr);
-        void resolve_generic_call_expr(Decl* generic, TinyVector<TypeInfo*> generic_args, SourceLoc loc, TinyVector<Expr*> args, Decl** callee, TypeInfo** callee_type);
+        void resolve_template_call_expr(Decl* template_, TinyVector<TypeInfo*> template_args, SourceLoc loc, TinyVector<Expr*> args, Decl** callee, TypeInfo** callee_type);
         bool resolve_call_arity(SourceLoc loc, FunctionType& fn_type, TinyVector<Expr*> args);
         void resolve_call_args(FunctionType& fn_type, TinyVector<Expr*>& args);
         void resolve_builtin_call_expr(Expr* expr);
@@ -127,14 +127,14 @@ namespace ariac {
         void resolve_struct_decl(Decl* decl);
         void resolve_typedef_decl(Decl* decl);
         void resolve_enum_decl(Decl* decl);
-        void resolve_generic_decl(Decl* decl);
+        void resolve_template_decl(Decl* decl);
 
         void resolve_function_body(Decl* decl);
         void resolve_struct_body(Decl* decl);
         void resolve_method_body(Decl* decl);
         void resolve_destructor_body(Decl* decl);
 
-        Decl* specialize_generic_func(SourceLoc loc, Decl* g, TinyVector<TypeInfo*> args);
+        Decl* specialize_template_func(SourceLoc loc, Decl* t, TinyVector<TypeInfo*> args);
 
         void resolve_decl_attributes(Decl* decl, TinyVector<DeclAttribute> attrs, bool* erase_decl);
 
@@ -197,7 +197,7 @@ namespace ariac {
         // eg. e = 5, function returns nullptr
         TypeInfo* get_typeinfo(Expr* e);
 
-        bool deduce_generic_type(SourceLoc loc, TypeInfo* param_type, TypeInfo* arg_type, ResolvedGenericMap& deduced_args);
+        bool deduce_template_type(SourceLoc loc, TypeInfo* param_type, TypeInfo* arg_type, ResolvedTemplateMap& deduced_args);
 
         void replace_expr(Expr* src, Expr* new_expr);
         void replace_decl(Decl* src, Decl* new_decl);
@@ -223,8 +223,8 @@ namespace ariac {
         } m_sema_context;
 
         std::vector<FunctionContext> m_functions;
-        std::vector<GenericContext> m_generics;
-        std::vector<GenericInstantationContext> m_generic_instantations;
+        std::vector<TemplateContext> m_generics;
+        std::vector<TemplateInstantationContext> m_generic_instantations;
         std::vector<CaptureErrorContext> m_error_captures;
 
         JumpTarget m_break_target;

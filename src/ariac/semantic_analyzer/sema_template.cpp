@@ -2,13 +2,13 @@
 
 namespace ariac {
 
-    bool SemanticAnalyzer::deduce_generic_type(SourceLoc loc, TypeInfo* param_type, TypeInfo* arg_type, ResolvedGenericMap& deduced_args) {
+    bool SemanticAnalyzer::deduce_template_type(SourceLoc loc, TypeInfo* param_type, TypeInfo* arg_type, ResolvedTemplateMap& deduced_args) {
         if (param_type->is_pointer() && arg_type->is_pointer()) {
-            return deduce_generic_type(loc, param_type->pointer.base, arg_type->pointer.base, deduced_args);
+            return deduce_template_type(loc, param_type->pointer.base, arg_type->pointer.base, deduced_args);
         }
 
         if (param_type->is_slice() && arg_type->is_slice()) {
-            return deduce_generic_type(loc, param_type->slice.base, arg_type->slice.base, deduced_args);
+            return deduce_template_type(loc, param_type->slice.base, arg_type->slice.base, deduced_args);
         }
 
         if (param_type->is_array() && arg_type->is_array()) {
@@ -16,7 +16,7 @@ namespace ariac {
                 return true;
             }
 
-            return deduce_generic_type(loc, param_type->array.base, arg_type->array.base, deduced_args);
+            return deduce_template_type(loc, param_type->array.base, arg_type->array.base, deduced_args);
         }
 
         if (param_type->is_struct_specilization() && arg_type->is_struct_specilization()) {
@@ -28,13 +28,13 @@ namespace ariac {
             // However it is not this functions job to handle those errors,
             // Therefore we can skip this check
             for (size_t i = 0; i < param_type->struct_specilization.arguments.size; i++) {
-                return deduce_generic_type(loc, param_type->struct_specilization.arguments[i], arg_type->struct_specilization.arguments[i], deduced_args);
+                return deduce_template_type(loc, param_type->struct_specilization.arguments[i], arg_type->struct_specilization.arguments[i], deduced_args);
             }
         }
 
-        if (param_type->is_generic()) {
-            if (deduced_args.contains(param_type->generic.resolved_decl)) {
-                ResolvedGenericArg& deduced_arg = deduced_args.at(param_type->generic.resolved_decl);
+        if (param_type->is_template()) {
+            if (deduced_args.contains(param_type->template_.resolved_decl)) {
+                ResolvedTemplateArg& deduced_arg = deduced_args.at(param_type->template_.resolved_decl);
 
                 if (deduced_arg.is_deduced) {
                     ConversionCost cost = get_conversion_cost(deduced_arg.type, arg_type);
@@ -47,7 +47,7 @@ namespace ariac {
                     }
                 }
             } else { // Deduce the type
-                deduced_args[param_type->generic.resolved_decl] = ResolvedGenericArg(arg_type, true, loc);
+                deduced_args[param_type->template_.resolved_decl] = ResolvedTemplateArg(arg_type, true, loc);
             }
 
             return true;

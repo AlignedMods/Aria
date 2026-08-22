@@ -120,8 +120,8 @@ namespace ariac {
                     return;
                 }
 
-                case DeclKind::Generic: {
-                    switch (sym->generic.decl->kind) {
+                case DeclKind::Template: {
+                    switch (sym->template_.template_decl->kind) {
                         case DeclKind::Function: {
                             check_visibility(sym, "generic function");
 
@@ -132,7 +132,7 @@ namespace ariac {
 
                             // We let the call analysis handle this
                             if (m_sema_context.call) {
-                                expr->type = TypeInfo::create_deducable_generic(sym, dr.generic_arguments);
+                                expr->type = TypeInfo::create_deducable_template(sym, dr.generic_arguments);
                                 return;
                             }
 
@@ -142,10 +142,10 @@ namespace ariac {
                                 return;
                             }
 
-                            if (dr.generic_arguments.size != sym->generic.parameters.size) {
+                            if (dr.generic_arguments.size != sym->template_.parameters.size) {
                                 report_error(expr->loc, fmt::format("Too {} generic argments provided, expected {} but got {}",
-                                    sym->generic.parameters.size < dr.generic_arguments.size ? "many" : "few",
-                                    sym->generic.parameters.size, dr.generic_arguments.size));
+                                    sym->template_.parameters.size < dr.generic_arguments.size ? "many" : "few",
+                                    sym->template_.parameters.size, dr.generic_arguments.size));
 
                                 replace_expr(expr, &error_expr);
                                 return;
@@ -156,18 +156,18 @@ namespace ariac {
                                 resolve_type(t);
 
                                 // If we have any non expanded generic parameters, don't create any instantiations
-                                if (t->is_generic()) {
+                                if (t->is_template()) {
                                     is_any_generic = true;
                                 }
                             }
 
                             if (is_any_generic) {
                                 dr.referenced_decl = sym;
-                                expr->type = sym->generic.decl->function.type;
+                                expr->type = sym->template_.template_decl->function.type;
                                 return;
                             }
 
-                            Decl* specilization = specialize_generic_func(expr->loc, sym, dr.generic_arguments);
+                            Decl* specilization = specialize_template_func(expr->loc, sym, dr.generic_arguments);
                             dr.referenced_decl = specilization;
                             expr->type = specilization->function.type;
                             return;
@@ -380,7 +380,7 @@ namespace ariac {
                 case TypeKind::Struct: {
                     StructType& sd = parent_type->struct_;
 
-                    StructDecl s = sd.source_decl->kind == DeclKind::Struct ? sd.source_decl->struct_ : sd.source_decl->generic.decl->struct_;
+                    StructDecl s = sd.source_decl->kind == DeclKind::Struct ? sd.source_decl->struct_ : sd.source_decl->template_.template_decl->struct_;
                     if (!s.field_lookup.contains(mem.member)) {
                         searching = false;
                         break;
@@ -419,8 +419,8 @@ namespace ariac {
                         break;
                     }
 
-                    if (gi.resolved_decl->kind == DeclKind::Generic) {
-                        StructDecl s = gi.resolved_decl->generic.decl->struct_;
+                    if (gi.resolved_decl->kind == DeclKind::Template) {
+                        StructDecl s = gi.resolved_decl->template_.template_decl->struct_;
                         if (!s.field_lookup.contains(mem.member)) {
                             searching = false;
                             break;
@@ -471,7 +471,7 @@ namespace ariac {
                     break;
                 }
 
-                case TypeKind::Generic: {
+                case TypeKind::Template: {
                     expr->kind = ExprKind::DependentMember;
                     member_type = TypeInfo::get_dependent();
                     searching = false;
@@ -617,7 +617,7 @@ namespace ariac {
         }
 
         switch (parent_type->kind) {
-            case TypeKind::Generic: return;
+            case TypeKind::Template: return;
 
             case TypeKind::StructSpecilization: {
                 if (!parent_type->struct_specilization.resolved_decl) { return; }
@@ -686,8 +686,8 @@ namespace ariac {
                 return resolve_method_call_expr(expr);
             }
 
-            case TypeKind::DeducableGeneric: {
-                resolve_generic_call_expr(searching_type->deducable_generic.generic, searching_type->deducable_generic.args, expr->loc, call.arguments, 
+            case TypeKind::DeducableTemplate: {
+                resolve_template_call_expr(searching_type->deducable_template.template_, searching_type->deducable_template.args, expr->loc, call.arguments, 
                     &call.callee->decl_ref.referenced_decl, &call.callee->type);
 
                 if (call.callee->type->is_error()) {
@@ -757,61 +757,61 @@ namespace ariac {
         expr->value_kind = ExprValueKind::RValue;
     }
 
-    void SemanticAnalyzer::resolve_generic_call_expr(Decl* generic, TinyVector<TypeInfo*> generic_args, SourceLoc loc, TinyVector<Expr*> args, Decl** callee, TypeInfo** callee_type) {
-        ARIA_ASSERT(generic->kind == DeclKind::Generic, "Invalid parameter");
-        ARIA_ASSERT(generic->generic.decl->kind == DeclKind::Function, "Invalid parameter");
+    void SemanticAnalyzer::resolve_template_call_expr(Decl* template_, TinyVector<TypeInfo*> template_args, SourceLoc loc, TinyVector<Expr*> args, Decl** callee, TypeInfo** callee_type) {
+        ARIA_ASSERT(template_->kind == DeclKind::Template, "Invalid parameter");
+        ARIA_ASSERT(template_->template_.template_decl->kind == DeclKind::Function, "Invalid parameter");
 
-        GenericDecl& g = generic->generic;
+        TemplateDecl& g = template_->template_;
 
         {
             bool is_any_generic = false;
-            for (TypeInfo* arg : generic_args) {
+            for (TypeInfo* arg : template_args) {
                 resolve_type(arg);
 
                 // If we have any non expanded generic parameters, don't create any instantiations
-                if (arg->is_generic()) {
+                if (arg->is_template()) {
                     is_any_generic = true;
                 }
             }
 
             if (is_any_generic) {
-                *callee = generic;
-                *callee_type = (*callee)->generic.decl->function.type;
+                *callee = template_;
+                *callee_type = (*callee)->template_.template_decl->function.type;
                 return;
             }
         }
         
-        if (g.parameters.size == generic_args.size) { // Exact amount of arguments, no need for deduction
-            *callee = specialize_generic_func(loc, generic, generic_args);
+        if (g.parameters.size == template_args.size) { // Exact amount of arguments, no need for deduction
+            *callee = specialize_template_func(loc, template_, template_args);
             *callee_type = (*callee)->function.type;
             return;
         }
 
-        if (g.parameters.size < generic_args.size) { // Too many arguments, report error
-            report_error(loc, fmt::format("Too many generic arguments provided, expected {}, got {}", g.parameters.size, generic_args.size));
+        if (g.parameters.size < template_args.size) { // Too many arguments, report error
+            report_error(loc, fmt::format("Too many generic arguments provided, expected {}, got {}", g.parameters.size, template_args.size));
             *callee = &error_decl;
             *callee_type = TypeInfo::get_error();
             return;
         }
 
         // First check arity, we cannot deduce anything with an incorrect argument count
-        if (!resolve_call_arity(loc, g.decl->function.type->function, args)) {
+        if (!resolve_call_arity(loc, g.template_decl->function.type->function, args)) {
             *callee = &error_decl;
             *callee_type = TypeInfo::get_error();
             return;
         }
 
-        ResolvedGenericMap deduced_args;
+        ResolvedTemplateMap deduced_args;
 
         // Add the provided explicit generic args
-        for (size_t i = 0; i < generic_args.size; i++) {
-            deduced_args[g.parameters[i]] = { generic_args[i], false };
+        for (size_t i = 0; i < template_args.size; i++) {
+            deduced_args[g.parameters[i]] = { template_args[i], false };
         }
 
-        for (size_t i = 0; i < g.decl->function.type->function.params.size; i++) {
+        for (size_t i = 0; i < g.template_decl->function.type->function.params.size; i++) {
             Expr* arg = args[i];
             resolve_expr(arg);
-            if (!deduce_generic_type(arg->loc, g.decl->function.type->function.params[i]->param.type, arg->type, deduced_args)) {
+            if (!deduce_template_type(arg->loc, g.template_decl->function.type->function.params[i]->param.type, arg->type, deduced_args)) {
                 arg->type = TypeInfo::get_error();
             }
         }
@@ -821,13 +821,13 @@ namespace ariac {
         bool is_any_generic = false;
         for (Decl* p : g.parameters) {
             if (!deduced_args.contains(p)) {
-                report_error(loc, fmt::format("Could not deduce generic argument '{}'", p->generic_parameter.identifier));
-                deduced_args[p] = ResolvedGenericArg(TypeInfo::get_error(), true, loc);
+                report_error(loc, fmt::format("Could not deduce generic argument '{}'", p->template_param.identifier));
+                deduced_args[p] = ResolvedTemplateArg(TypeInfo::get_error(), true, loc);
             }
 
             auto& deduced = deduced_args.at(p);
 
-            if (deduced.type->is_generic()) {
+            if (deduced.type->is_template()) {
                 is_any_generic = true;
             }
 
@@ -835,12 +835,12 @@ namespace ariac {
         }
 
         if (is_any_generic) {
-            *callee = generic;
-            *callee_type = (*callee)->generic.decl->function.type;
+            *callee = template_;
+            *callee_type = (*callee)->template_.template_decl->function.type;
             return;
         }
 
-        *callee = specialize_generic_func(loc, generic, final_args);
+        *callee = specialize_template_func(loc, template_, final_args);
         *callee_type = (*callee)->function.type;
         return;
     }
@@ -2150,7 +2150,7 @@ namespace ariac {
             return;
         }
 
-        if (lty->kind == TypeKind::Generic || rty->kind == TypeKind::Generic) {
+        if (lty->kind == TypeKind::Template || rty->kind == TypeKind::Template) {
             e->type = lhs->type;
             return;
         }

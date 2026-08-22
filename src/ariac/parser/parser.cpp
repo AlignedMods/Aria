@@ -1492,9 +1492,9 @@ namespace ariac {
         SourceLoc loc = peek()->loc;
         Token fn = consume(); // consume "fn"
 
-        TinyVector<Decl*> generic_params;
+        TinyVector<Decl*> template_params;
         if (match(TokenKind::Less)) {
-            generic_params = parse_generic_params();
+            template_params = parse_template_params();
         }
 
         TypeInfo* ret_type = TypeInfo::get_void();
@@ -1543,13 +1543,13 @@ namespace ariac {
         Decl* f = Decl::Create(loc + end_loc, DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, final_type, body, linkage));
         f->attributes = attrs;
 
-        if (generic_params.size == 0) {
+        if (template_params.size == 0) {
             context.active_comp_unit->funcs.push_back(f);
             return f;
         } else {
-            Decl* g = Decl::Create(f->loc, DeclKind::Generic, m_current_visibility, GenericDecl(generic_params, f));
-            context.active_comp_unit->funcs.push_back(g);
-            return g;
+            Decl* t = Decl::Create(f->loc, DeclKind::Template, m_current_visibility, TemplateDecl(template_params, f));
+            context.active_comp_unit->funcs.push_back(t);
+            return t;
         }
     }
 
@@ -1636,7 +1636,7 @@ namespace ariac {
         try_consume(TokenKind::RightParen, ")");
     }
 
-    TinyVector<Decl*> Parser::parse_generic_params() {
+    TinyVector<Decl*> Parser::parse_template_params() {
         TinyVector<Decl*> params;
 
         try_consume(TokenKind::Less, "<");
@@ -1658,13 +1658,13 @@ namespace ariac {
                 loc += t.loc;
             }
 
-            params.append(Decl::Create(ident->loc, DeclKind::GenericParameter, DeclVisibility::Public, GenericParameterDecl(ident->string, variadic)));
+            params.append(Decl::Create(ident->loc, DeclKind::TemplateParam, DeclVisibility::Public, TemplateParamDecl(ident->string, variadic)));
 
             if (match(TokenKind::Comma)) {
                 Token& c = consume();
 
                 if (variadic) {
-                    context.report_compiler_diagnostic(c.loc, "Cannot declare more generic parameters after a variadic parameter");
+                    context.report_compiler_diagnostic(c.loc, "Cannot declare more template parameters after a variadic parameter");
                 }
                 continue;
             }
@@ -1681,9 +1681,9 @@ namespace ariac {
     Decl* Parser::parse_struct_decl() {
         Token s = consume(); // consume "struct"
 
-        TinyVector<Decl*> generic_params;
+        TinyVector<Decl*> template_params;
         if (match(TokenKind::Less)) {
-            generic_params = parse_generic_params();
+            template_params = parse_template_params();
         }
 
         Token* ident = try_consume(TokenKind::Identifier, "identifier");
@@ -1775,11 +1775,11 @@ namespace ariac {
         }
         try_consume(TokenKind::RightCurly, "}");
         
-        if (generic_params.size == 0) {
+        if (template_params.size == 0) {
             context.active_comp_unit->structs.push_back(struc);
             return struc;
         } else {
-            Decl* g = Decl::Create(struc->loc, DeclKind::Generic, m_current_visibility, GenericDecl(generic_params, struc));
+            Decl* g = Decl::Create(struc->loc, DeclKind::Template, m_current_visibility, TemplateDecl(template_params, struc));
             context.active_comp_unit->structs.push_back(g);
             struc->struct_.parent = g;
             return g;

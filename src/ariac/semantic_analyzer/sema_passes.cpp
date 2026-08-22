@@ -167,10 +167,10 @@ namespace ariac {
                     break;
                 }
 
-                case DeclKind::Generic: {
-                    s = &struc->generic.decl->struct_;
-                    struc->generic.decl->parent_module = module;
-                    struc->generic.decl->parent_unit = unit;
+                case DeclKind::Template: {
+                    s = &struc->template_.template_decl->struct_;
+                    struc->template_.template_decl->parent_module = module;
+                    struc->template_.template_decl->parent_unit = unit;
                     break;
                 }
 
@@ -277,8 +277,8 @@ namespace ariac {
 
             switch (func->kind) {
                 case DeclKind::Function: break;
-                case DeclKind::Generic: {
-                    func = func->generic.decl;
+                case DeclKind::Template: {
+                    func = func->template_.template_decl;
                     func->parent_module = module;
                     func->parent_unit = unit;
                     generic = true;
@@ -291,9 +291,9 @@ namespace ariac {
             FunctionDecl& f = func->function;
 
             if (generic) {
-                GenericContext ctx;
-                for (Decl* p : unit->funcs[i]->generic.parameters) {
-                    ctx[p->generic_parameter.identifier] = p;
+                TemplateContext ctx;
+                for (Decl* p : unit->funcs[i]->template_.parameters) {
+                    ctx[p->template_param.identifier] = p;
                 }
                 m_generics.push_back(ctx);
                 resolve_type(f.type);
@@ -371,14 +371,14 @@ namespace ariac {
                     break;
                 }
 
-                case DeclKind::Generic: {
-                    if (struc->generic.decl->resolve_status == ResolveStatus::NotStarted) {
-                        GenericContext ctx;
-                        for (Decl* p : struc->generic.parameters) {
-                            ctx[p->generic_parameter.identifier] = p;
+                case DeclKind::Template: {
+                    if (struc->template_.template_decl->resolve_status == ResolveStatus::NotStarted) {
+                        TemplateContext ctx;
+                        for (Decl* p : struc->template_.parameters) {
+                            ctx[p->template_param.identifier] = p;
                         }
                         m_generics.push_back(ctx);
-                        resolve_struct_body(struc->generic.decl);
+                        resolve_struct_body(struc->template_.template_decl);
                         m_generics.pop_back();
                     }
                     break;
@@ -407,14 +407,14 @@ namespace ariac {
                     break;
                 }
 
-                case DeclKind::Generic: {
-                    if (func->generic.decl->resolve_status == ResolveStatus::NotStarted) {
-                        GenericContext ctx;
-                        for (Decl* p : func->generic.parameters) {
-                            ctx[p->generic_parameter.identifier] = p;
+                case DeclKind::Template: {
+                    if (func->template_.template_decl->resolve_status == ResolveStatus::NotStarted) {
+                        TemplateContext ctx;
+                        for (Decl* p : func->template_.parameters) {
+                            ctx[p->template_param.identifier] = p;
                         }
                         m_generics.push_back(ctx);
-                        resolve_function_body(func->generic.decl);
+                        resolve_function_body(func->template_.template_decl);
                         m_generics.pop_back();
                     }
                     break;

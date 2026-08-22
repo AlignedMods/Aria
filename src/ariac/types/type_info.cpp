@@ -89,9 +89,9 @@ namespace ariac {
         return t;
     }
 
-    TypeInfo* TypeInfo::create_generic(Decl* d, SourceLoc loc) {
-        TypeInfo* t = create_basic(TypeKind::Generic, loc);
-        t->generic = GenericType(d->generic_parameter.identifier, d);
+    TypeInfo* TypeInfo::create_template(Decl* d, SourceLoc loc) {
+        TypeInfo* t = create_basic(TypeKind::Template, loc);
+        t->template_ = TemplateType(d->template_param.identifier, d);
         return t;
     }
 
@@ -107,9 +107,9 @@ namespace ariac {
         return t;
     }
 
-    TypeInfo* TypeInfo::create_deducable_generic(Decl* generic, TinyVector<TypeInfo*> args, SourceLoc loc) {
-        TypeInfo* t = create_basic(TypeKind::DeducableGeneric, loc);
-        t->deducable_generic = DeducableGenericType(generic, args);
+    TypeInfo* TypeInfo::create_deducable_template(Decl* template_, TinyVector<TypeInfo*> args, SourceLoc loc) {
+        TypeInfo* t = create_basic(TypeKind::DeducableTemplate, loc);
+        t->deducable_template = DeducableTemplateType(template_, args);
         return t;
     }
 
@@ -188,9 +188,9 @@ namespace ariac {
                 break;
             }
 
-            case TypeKind::Generic: {
-                t->generic.identifier = type->generic.identifier;
-                t->generic.resolved_decl = type->generic.resolved_decl;
+            case TypeKind::Template: {
+                t->template_.identifier = type->template_.identifier;
+                t->template_.resolved_decl = type->template_.resolved_decl;
                 break;
             }
 
@@ -210,11 +210,11 @@ namespace ariac {
                 break;
             }
 
-            case TypeKind::DeducableGeneric: {
-                t->deducable_generic.generic = type->deducable_generic.generic;
+            case TypeKind::DeducableTemplate: {
+                t->deducable_template.template_ = type->deducable_template.template_;
                 
-                for (TypeInfo* a : type->deducable_generic.args) {
-                    t->deducable_generic.args.append(TypeInfo::dup(a));
+                for (TypeInfo* a : type->deducable_template.args) {
+                    t->deducable_template.args.append(TypeInfo::dup(a));
                 }
 
                 break;
@@ -347,10 +347,10 @@ namespace ariac {
             case TypeKind::Method:
             case TypeKind::Struct:
             case TypeKind::Enum:
-            case TypeKind::Generic:
+            case TypeKind::Template:
             case TypeKind::StructSpecilization:
             case TypeKind::Dependent:
-            case TypeKind::DeducableGeneric:
+            case TypeKind::DeducableTemplate:
                 return t;
 
             case TypeKind::Typedef: return t->typedef_.base;
@@ -359,9 +359,9 @@ namespace ariac {
         }
     }
 
-    bool TypeInfo::is_generic_decl() const {
+    bool TypeInfo::is_template_decl() const {
         if (kind != TypeKind::Struct) { return false; }
-        return struct_.source_decl->struct_.parent && struct_.source_decl->struct_.parent->kind == DeclKind::Generic;
+        return struct_.source_decl->struct_.parent && struct_.source_decl->struct_.parent->kind == DeclKind::Template;
     }
 
     u64 TypeInfo::get_size() const {
@@ -588,7 +588,7 @@ namespace ariac {
                 t->is_struct() || 
                 t->is_typedef() || 
                 t->is_enum() || 
-                t->is_generic() || 
+                t->is_template() || 
                 t->is_struct_specilization() || 
                 t->is_unresolved() || 
                 t->is_never()) { break; }
@@ -712,8 +712,8 @@ namespace ariac {
                 break;
             }
 
-            case TypeKind::Generic: {
-                str = type->generic.identifier;
+            case TypeKind::Template: {
+                str = type->template_.identifier;
                 break;
             }
 
@@ -731,7 +731,7 @@ namespace ariac {
 
             case TypeKind::Unresolved: str = "<unresolved_type>"; break;
             case TypeKind::Dependent: str = "<dependent_type>"; break;
-            case TypeKind::DeducableGeneric: str = "<deducable_generic_type>"; break;
+            case TypeKind::DeducableTemplate: str = "<deducable_template_type>"; break;
 
             case TypeKind::Never: {
                 str = "!";
@@ -754,7 +754,7 @@ namespace ariac {
 
     bool StructSpecilizationType::needs_specilization() {
         for (TypeInfo* arg : arguments) {
-            if (arg->get_bottom_type()->is_generic()) { return false; }
+            if (arg->get_bottom_type()->is_template()) { return false; }
         }
 
         return true;
@@ -762,7 +762,7 @@ namespace ariac {
 
     bool StructSpecilizationType::is_generic() {
         for (TypeInfo* arg : arguments) {
-            if (!arg->get_bottom_type()->is_generic()) { return false; }
+            if (!arg->get_bottom_type()->is_template()) { return false; }
         }
 
         return true;

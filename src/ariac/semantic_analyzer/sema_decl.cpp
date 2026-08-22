@@ -282,15 +282,15 @@ namespace ariac {
         decl->resolve_status = ResolveStatus::Done;
     }
 
-    void SemanticAnalyzer::resolve_generic_decl(Decl* decl) {
-        GenericDecl& gen = decl->generic;
+    void SemanticAnalyzer::resolve_template_decl(Decl* decl) {
+        TemplateDecl& t = decl->template_;
         
-        GenericContext ctx;
-        for (Decl* p : gen.parameters) {
-            ctx[p->generic_parameter.identifier] = p;
+        TemplateContext ctx;
+        for (Decl* p : t.parameters) {
+            ctx[p->template_param.identifier] = p;
         }
         m_generics.push_back(ctx);
-        resolve_decl(gen.decl);
+        resolve_decl(t.template_decl);
         m_generics.pop_back();
     }
 
@@ -425,10 +425,10 @@ namespace ariac {
         m_functions.pop_back();
     }
 
-    Decl* SemanticAnalyzer::specialize_generic_func(SourceLoc loc, Decl* g, TinyVector<TypeInfo*> args) {
+    Decl* SemanticAnalyzer::specialize_template_func(SourceLoc loc, Decl* t, TinyVector<TypeInfo*> args) {
         Decl* specilization = nullptr;
-        for (Decl* i : g->generic.specilizations) {
-            ARIA_ASSERT(i->kind == DeclKind::Function, "Invalid generic specilization");
+        for (Decl* i : t->template_.specilizations) {
+            ARIA_ASSERT(i->kind == DeclKind::Function, "Invalid template specilization");
             ARIA_ASSERT(i->function.is_specilization, "Function should be a specilization");
         
             bool failed = false;
@@ -442,38 +442,38 @@ namespace ariac {
         // Create specilization if needed
         if (!specilization) {
             // Resolve the body for the generic function if it isn't yet resolved
-            if (g->generic.decl->resolve_status == ResolveStatus::NotStarted) {
-                GenericContext ctx;
-                for (Decl* p : g->generic.parameters) {
-                    ctx[p->generic_parameter.identifier] = p;
+            if (t->template_.template_decl->resolve_status == ResolveStatus::NotStarted) {
+                TemplateContext ctx;
+                for (Decl* p : t->template_.parameters) {
+                    ctx[p->template_param.identifier] = p;
                 }
                 m_generics.push_back(ctx);
         
                 CompilationUnit* unit = context.active_comp_unit;
-                context.active_comp_unit = g->parent_unit;
-                resolve_function_body(g->generic.decl);
+                context.active_comp_unit = t->parent_unit;
+                resolve_function_body(t->template_.template_decl);
                 context.active_comp_unit = unit;
         
                 m_generics.pop_back();
             }
         
-            GenericInstantationContext ctx;
+            TemplateInstantationContext ctx;
             ctx.loc = loc;
         
             for (size_t i = 0; i < args.size; i++) {
-                Decl* gen_param = g->generic.parameters.items[i];
+                Decl* gen_param = t->template_.parameters.items[i];
                 TypeInfo* gen_arg = args.items[i];
-                ARIA_ASSERT(gen_param->kind == DeclKind::GenericParameter, "Invalid generic parameter");
-                ctx.generic_types[gen_param] = gen_arg;
+                ARIA_ASSERT(gen_param->kind == DeclKind::TemplateParam, "Invalid template parameter");
+                ctx.template_types[gen_param] = gen_arg;
             }
         
             m_generic_instantations.push_back(ctx);
         
-            TypeInfo* new_type = TypeInfo::dup(g->generic.decl->function.type);
+            TypeInfo* new_type = TypeInfo::dup(t->template_.template_decl->function.type);
             resolve_type(new_type);
-            specilization = Decl::dup(g->generic.decl);
-            specilization->parent_module = g->parent_module;
-            specilization->parent_unit = g->parent_unit;
+            specilization = Decl::dup(t->template_.template_decl);
+            specilization->parent_module = t->parent_module;
+            specilization->parent_unit = t->parent_unit;
             specilization->function.type = new_type;
             specilization->function.is_specilization = true;
             specilization->function.specilization_info.types = args;
@@ -484,7 +484,7 @@ namespace ariac {
             resolve_function_body(specilization);
             context.active_comp_unit = unit;
         
-            g->generic.specilizations.append(specilization);
+            t->template_.specilizations.append(specilization);
             m_generic_instantations.pop_back();
         }
 
@@ -602,7 +602,7 @@ namespace ariac {
             case DeclKind::Struct: return resolve_struct_decl(decl);
             case DeclKind::Typedef: return resolve_typedef_decl(decl);
             case DeclKind::Enum: return resolve_enum_decl(decl);
-            case DeclKind::Generic: return resolve_generic_decl(decl);
+            case DeclKind::Template: return resolve_template_decl(decl);
 
             default: ARIA_UNREACHABLE("Invalid decl kind");
         }

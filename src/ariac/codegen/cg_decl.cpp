@@ -47,8 +47,8 @@ namespace ariac {
         switch (decl->kind) {
             case DeclKind::Function: fn = &decl->function; break;
 
-            case DeclKind::Generic: {
-                for (Decl* gs : decl->generic.specilizations) {
+            case DeclKind::Template: {
+                for (Decl* gs : decl->template_.specilizations) {
                     gen_function_decl(gs);
                 }
 
@@ -164,54 +164,6 @@ namespace ariac {
         }
     }
 
-    void Codegen::gen_function_prototype(Decl* decl) {
-        std::string_view sig;
-        llvm::Function* function = nullptr;
-
-        ARIA_ASSERT(decl->kind == DeclKind::Function, "Invalid function prototype");
-
-        FunctionDecl& fn = decl->function;
-        if (fn.linkage_kind == LinkageKind::Extern) {
-            sig = fn.identifier;
-        } else {
-            MangleContext ctx(decl);
-            sig = ctx.mangle();
-        }
-
-        llvm::Type* fn_ty = type_info_to_llvm_type(fn.type);
-        function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), linkage_kind_to_llvm(fn.linkage_kind), 0, sig, m_active_module_context.module);
-
-        m_active_module_context.functions[decl] = function;
-
-        for (auto& attr : decl->attributes) {
-            if (attr.kind == DeclAttributeKind::Init) {
-                llvm::appendToGlobalCtors(*m_active_module_context.module, function, 65535);
-            }
-        }
-    }
-
-    void Codegen::gen_method_prototype(Decl* decl) {
-        MethodDecl& m = decl->method;
-
-        MangleContext ctx(decl);
-        std::string_view sig = ctx.mangle();
-
-        llvm::Type* fn_ty = type_info_to_llvm_type(m.type);
-        llvm::Function* function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
-        m_active_module_context.functions[decl] = function;
-    }
-
-    void Codegen::gen_destructor_prototype(Decl* decl) {
-        DestructorDecl& d = decl->destructor;
-
-        MangleContext ctx(decl);
-        std::string_view sig = ctx.mangle();
-
-        llvm::FunctionType* fn_ty = llvm::FunctionType::get(llvm::Type::getVoidTy(*m_active_module_context.context), llvm::PointerType::get(*m_active_module_context.context, 0), false);
-        llvm::Function* function = llvm::Function::Create(fn_ty, llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
-        m_active_module_context.functions[decl] = function;
-    }
-
     void Codegen::gen_struct_decl(Decl* decl) {
         StructDecl* struc = nullptr;
 
@@ -219,8 +171,8 @@ namespace ariac {
             case DeclKind::Struct: struc = &decl->struct_; break;
             case DeclKind::StructSpecilization: struc = &decl->struct_specilization.source->struct_; break;
 
-            case DeclKind::Generic: {
-                for (Decl* ss : decl->generic.specilizations) {
+            case DeclKind::Template: {
+                for (Decl* ss : decl->template_.specilizations) {
                     gen_struct_decl(ss);
                 }
 
@@ -406,6 +358,54 @@ namespace ariac {
         if (llvm::verifyFunction(*function, &llvm::errs())) { throw std::exception(); }
         
         m_active_module_context.functions[decl];
+    }
+
+    void Codegen::gen_function_prototype(Decl* decl) {
+        std::string_view sig;
+        llvm::Function* function = nullptr;
+
+        ARIA_ASSERT(decl->kind == DeclKind::Function, "Invalid function prototype");
+
+        FunctionDecl& fn = decl->function;
+        if (fn.linkage_kind == LinkageKind::Extern) {
+            sig = fn.identifier;
+        } else {
+            MangleContext ctx(decl);
+            sig = ctx.mangle();
+        }
+
+        llvm::Type* fn_ty = type_info_to_llvm_type(fn.type);
+        function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), linkage_kind_to_llvm(fn.linkage_kind), 0, sig, m_active_module_context.module);
+
+        m_active_module_context.functions[decl] = function;
+
+        for (auto& attr : decl->attributes) {
+            if (attr.kind == DeclAttributeKind::Init) {
+                llvm::appendToGlobalCtors(*m_active_module_context.module, function, 65535);
+            }
+        }
+    }
+
+    void Codegen::gen_method_prototype(Decl* decl) {
+        MethodDecl& m = decl->method;
+
+        MangleContext ctx(decl);
+        std::string_view sig = ctx.mangle();
+
+        llvm::Type* fn_ty = type_info_to_llvm_type(m.type);
+        llvm::Function* function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
+        m_active_module_context.functions[decl] = function;
+    }
+
+    void Codegen::gen_destructor_prototype(Decl* decl) {
+        DestructorDecl& d = decl->destructor;
+
+        MangleContext ctx(decl);
+        std::string_view sig = ctx.mangle();
+
+        llvm::FunctionType* fn_ty = llvm::FunctionType::get(llvm::Type::getVoidTy(*m_active_module_context.context), llvm::PointerType::get(*m_active_module_context.context, 0), false);
+        llvm::Function* function = llvm::Function::Create(fn_ty, llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
+        m_active_module_context.functions[decl] = function;
     }
 
     void Codegen::gen_global_init_func(SourceLoc loc, llvm::GlobalVariable* var, Expr* initializer, Decl* dtor) {

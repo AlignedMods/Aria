@@ -3,7 +3,7 @@
 #include "ariac/core/htable.hpp"
 #include "ariac/core/vector.hpp"
 #include "ariac/compilation_context.hpp"
-#include "ariac/ast/generic.hpp"
+#include "ariac/ast/template.hpp"
 #include "ariac/enums.hpp"
 
 #include <string_view>
@@ -33,28 +33,6 @@ namespace ariac {
             std::string_view string;
         };
     };
-
-    enum class ResolveStatus {
-        NotStarted,
-        InProgress,
-        Done
-    };
-
-    enum class LinkageKind {
-        None,
-        Extern,
-        Static
-    };
-
-    inline const char* linkage_kind_to_string(LinkageKind kind) {
-        switch (kind) {
-            case LinkageKind::None: return "default";
-            case LinkageKind::Extern: return "extern";
-            case LinkageKind::Static: return "static";
-
-            default: ARIA_UNREACHABLE("Invalid linkage kind");
-        }
-    }
 
     struct Expr;
     struct Decl;
@@ -126,7 +104,7 @@ namespace ariac {
         std::string_view identifier;
         TinyVector<Decl*> fields;
         HTable<Decl*> field_lookup;
-        Decl* parent = nullptr; // Could be null, a GenericDecl or a StructSpecilizationDecl
+        Decl* parent = nullptr; // Could be null, a TemplateDecl or a StructSpecilizationDecl
         ResolveStatus body_resolve_status = ResolveStatus::NotStarted;
     };
 
@@ -199,17 +177,17 @@ namespace ariac {
         Stmt* body = nullptr;
     };
 
-    struct GenericDecl {
-        GenericDecl(TinyVector<Decl*> params, Decl* decl)
-            : parameters(params), decl(decl) {}
+    struct TemplateDecl {
+        TemplateDecl(TinyVector<Decl*> params, Decl* template_decl)
+            : parameters(params), template_decl(template_decl) {}
 
         TinyVector<Decl*> parameters;
-        Decl* decl = nullptr;
+        Decl* template_decl = nullptr;
         TinyVector<Decl*> specilizations;
     };
 
-    struct GenericParameterDecl {
-        GenericParameterDecl(std::string_view ident, bool variadic)
+    struct TemplateParamDecl {
+        TemplateParamDecl(std::string_view ident, bool variadic)
             : identifier(ident), variadic(variadic) {}
 
         std::string_view identifier;
@@ -252,8 +230,8 @@ namespace ariac {
             FieldDecl field;
             MethodDecl method;
             DestructorDecl destructor;
-            GenericDecl generic;
-            GenericParameterDecl generic_parameter;
+            TemplateDecl template_;
+            TemplateParamDecl template_param;
         };
 
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, ErrorDecl error)
@@ -298,11 +276,11 @@ namespace ariac {
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, DestructorDecl dtor)
             : loc(loc), kind(kind), visibility(visibility), destructor(dtor) {}
 
-        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, GenericDecl generic)
-            : loc(loc), kind(kind), visibility(visibility), generic(generic) {}
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, TemplateDecl t)
+            : loc(loc), kind(kind), visibility(visibility), template_(t) {}
 
-        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, GenericParameterDecl generic_p)
-            : loc(loc), kind(kind), visibility(visibility), generic_parameter(generic_p) {}
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, TemplateParamDecl p)
+            : loc(loc), kind(kind), visibility(visibility), template_param(p) {}
     };
 
     inline Decl error_decl = Decl(SourceLoc(), DeclKind::Error, DeclVisibility::Public, ErrorDecl());
