@@ -69,7 +69,7 @@ namespace ariac {
             function->setDSOLocal(true);
 
             llvm::DISubprogram* sp = m_active_debug_context.builder->createFunction(m_active_debug_context.unit->getFile(),
-                function->getName(), {}, m_active_debug_context.unit->getFile(),(unsigned) decl->loc.line,
+                fmt::format("{}::{}", full_module_name(decl->parent_module), fn->identifier), function->getName(), m_active_debug_context.unit->getFile(), (unsigned)decl->loc.line,
                 m_active_debug_context.builder->createSubroutineType({}), (unsigned)decl->loc.line, llvm::DINode::FlagPrototyped, llvm::DISubprogram::SPFlagDefinition);
 
             function->setSubprogram(sp);
@@ -203,10 +203,9 @@ namespace ariac {
 
     void Codegen::gen_destructor_prototype(Decl* decl) {
         DestructorDecl& d = decl->destructor;
-        ARIA_ASSERT(d.parent->kind == DeclKind::Struct, "Invalid method parent");
-        std::string_view parent_name = d.parent->struct_.identifier;
 
-        std::string sig = fmt::format(".{}.{}.dtor", valid_module_name(d.parent->parent_module), parent_name);
+        MangleContext ctx(decl);
+        std::string_view sig = ctx.mangle();
 
         llvm::FunctionType* fn_ty = llvm::FunctionType::get(llvm::Type::getVoidTy(*m_active_module_context.context), llvm::PointerType::get(*m_active_module_context.context, 0), false);
         llvm::Function* function = llvm::Function::Create(fn_ty, llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
@@ -263,7 +262,7 @@ namespace ariac {
         m_active_module_context.function = function;
         
         llvm::DISubprogram* sp = m_active_debug_context.builder->createFunction(m_active_debug_context.unit->getFile(),
-            function->getName(), {}, m_active_debug_context.unit->getFile(), (unsigned)decl->loc.line,
+            fmt::format("{}::{}::{}", full_module_name(m.parent->parent_module), m.parent->struct_.identifier, m.identifier), function->getName(), m_active_debug_context.unit->getFile(), (unsigned)decl->loc.line,
             m_active_debug_context.builder->createSubroutineType({}), (unsigned)decl->loc.line, llvm::DINode::FlagPrototyped, llvm::DISubprogram::SPFlagDefinition);
         
         function->setSubprogram(sp);
@@ -375,7 +374,7 @@ namespace ariac {
         m_active_module_context.function = function;
         
         llvm::DISubprogram* sp = m_active_debug_context.builder->createFunction(m_active_debug_context.unit->getFile(),
-            function->getName(), {}, m_active_debug_context.unit->getFile(), (unsigned)decl->loc.line,
+            fmt::format("{}::{}::~", full_module_name(d.parent->parent_module), d.parent->struct_.identifier), function->getName(), m_active_debug_context.unit->getFile(), (unsigned)decl->loc.line,
             m_active_debug_context.builder->createSubroutineType({}), (unsigned)decl->loc.line, llvm::DINode::FlagPrototyped, llvm::DISubprogram::SPFlagDefinition);
         
         function->setSubprogram(sp);

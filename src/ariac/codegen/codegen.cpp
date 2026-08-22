@@ -750,6 +750,17 @@ namespace ariac {
         }
     }
 
+    std::string Codegen::full_module_name(Module* mod) {
+        std::string result;
+
+        if (mod->parent) {
+            result += fmt::format("{}::", valid_module_name(mod->parent));
+        }
+
+        result += mod->name;
+        return result;
+    }
+
     std::string Codegen::valid_module_name(Module* mod) {
         std::string result;
 

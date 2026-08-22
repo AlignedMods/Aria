@@ -188,6 +188,7 @@ namespace ariac {
         llvm::DIType* type_info_to_debug_type(TypeInfo* t);
         llvm::GlobalValue::LinkageTypes linkage_kind_to_llvm(LinkageKind kind);
 
+        std::string full_module_name(Module* mod);
         std::string valid_module_name(Module* mod);
 
         llvm::AllocaInst* alloca_at_entry(llvm::Function* f, llvm::StringRef name, TypeInfo* type);

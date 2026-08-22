@@ -75,6 +75,15 @@ namespace ariac {
                 break;
             }
 
+            case DeclKind::Destructor: {
+                DestructorDecl& d = decl->destructor;
+
+                scratch_buffer_append("_A");
+                mangle_decl(d.parent);
+                scratch_buffer_append("D");
+                break;
+            }
+
             default: ARIA_UNREACHABLE("Invalid decl kind");
         }
     }
