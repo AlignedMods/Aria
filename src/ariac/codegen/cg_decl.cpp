@@ -1,4 +1,5 @@
 #include "ariac/codegen/codegen.hpp"
+#include "ariac/mangle/mangle.hpp"
 
 namespace ariac {
 
@@ -11,7 +12,7 @@ namespace ariac {
 
         llvm::Value* a = nullptr;
         if (var.global_var) {
-            std::string ident = fmt::format("{}.{}", valid_module_name(decl->parent_module->name), var.identifier);
+            std::string ident = fmt::format("{}.{}", valid_module_name(decl->parent_module), var.identifier);
             llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, type, false, linkage_kind_to_llvm(var.linkage_kind), llvm::Constant::getNullValue(type), ident);
             llvm::Value* initializer = nullptr;
             a = global;
@@ -164,7 +165,7 @@ namespace ariac {
     }
 
     void Codegen::gen_function_prototype(Decl* decl) {
-        std::string sig;
+        std::string_view sig;
         llvm::Function* function = nullptr;
 
         ARIA_ASSERT(decl->kind == DeclKind::Function, "Invalid function prototype");
@@ -173,14 +174,8 @@ namespace ariac {
         if (fn.linkage_kind == LinkageKind::Extern) {
             sig = fn.identifier;
         } else {
-            sig = fmt::format("_A{}{}{}", mangle_module(decl->parent_module), fn.identifier.length(), fn.identifier);
-
-            if (fn.is_specilization) {
-                sig += "G";
-                for (TypeInfo* t : fn.specilization_info.types) {
-                    sig += mangle_type(t);
-                }
-            }
+            MangleContext ctx(decl);
+            sig = ctx.mangle();
         }
 
         llvm::Type* fn_ty = type_info_to_llvm_type(fn.type);
@@ -197,9 +192,9 @@ namespace ariac {
 
     void Codegen::gen_method_prototype(Decl* decl) {
         MethodDecl& m = decl->method;
-        ARIA_ASSERT(m.parent->kind == DeclKind::Struct, "Invalid method parent");
-        std::string_view parent_name = m.parent->struct_.identifier;
-        std::string sig = fmt::format("{}.{}.{}", valid_module_name(m.parent->parent_module->name), parent_name, m.identifier);
+
+        MangleContext ctx(decl);
+        std::string_view sig = ctx.mangle();
 
         llvm::Type* fn_ty = type_info_to_llvm_type(m.type);
         llvm::Function* function = llvm::Function::Create(dyn_cast<llvm::FunctionType>(fn_ty), llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
@@ -211,7 +206,7 @@ namespace ariac {
         ARIA_ASSERT(d.parent->kind == DeclKind::Struct, "Invalid method parent");
         std::string_view parent_name = d.parent->struct_.identifier;
 
-        std::string sig = fmt::format(".{}.{}.dtor", valid_module_name(d.parent->parent_module->name), parent_name);
+        std::string sig = fmt::format(".{}.{}.dtor", valid_module_name(d.parent->parent_module), parent_name);
 
         llvm::FunctionType* fn_ty = llvm::FunctionType::get(llvm::Type::getVoidTy(*m_active_module_context.context), llvm::PointerType::get(*m_active_module_context.context, 0), false);
         llvm::Function* function = llvm::Function::Create(fn_ty, llvm::GlobalValue::LinkageTypes::ExternalLinkage, sig, m_active_module_context.module);
@@ -238,7 +233,7 @@ namespace ariac {
 
         std::vector<llvm::Type*> fields;
         fields.reserve(struc->fields.size);
-        std::string name = fmt::format("{}.{}", valid_module_name(decl->parent_module->name), struc->identifier);
+        std::string name = fmt::format("{}.{}", valid_module_name(decl->parent_module), struc->identifier);
 
         for (Decl* field : struc->fields) {
             if (field->kind != DeclKind::Field) { continue; }

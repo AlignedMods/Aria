@@ -1,4 +1,5 @@
 #include "ariac/codegen/codegen.hpp"
+#include "ariac/mangle/mangle.hpp"
 
 #include <filesystem>
 
@@ -120,7 +121,7 @@ namespace ariac {
 
         if (!m_active_module_context.global_initializers.empty()) {
             llvm::Function* f = llvm::Function::Create(llvm::FunctionType::get(llvm::Type::getVoidTy(*m_active_module_context.context), false),
-                llvm::GlobalValue::LinkageTypes::InternalLinkage, fmt::format(".__aria_init_global_vars.{}", valid_module_name(mod->name)),
+                llvm::GlobalValue::LinkageTypes::InternalLinkage, fmt::format(".__aria_init_global_vars.{}", valid_module_name(mod)),
                 m_active_module_context.module);
 
             llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", f);
@@ -303,7 +304,7 @@ namespace ariac {
     }
 
     bool Codegen::gen_mod_to_obj(Module* mod) {
-        std::string output = fmt::format(".build\\{}.o", valid_module_name(mod->name));
+        std::string output = fmt::format(".build\\{}.o", valid_module_name(mod));
         std::error_code ec;
         llvm::raw_fd_ostream stream(output, ec, llvm::sys::fs::OF_None);
         
@@ -329,7 +330,7 @@ namespace ariac {
     }
 
     bool Codegen::gen_mod_ir_dump(Module* mod) {
-        std::string output = fmt::format(".build\\{}.ll", valid_module_name(mod->name));
+        std::string output = fmt::format(".build\\{}.ll", valid_module_name(mod));
         std::error_code ec;
         llvm::raw_fd_ostream stream(output, ec, llvm::sys::fs::OF_None);
         
@@ -520,7 +521,7 @@ namespace ariac {
 
             return llvm::FunctionType::get(ret_type, params, t->function.variadic == VariadicKind::Unnamed);
         } else if (t->kind == TypeKind::Struct) {
-            std::string name = fmt::format("{}.{}", valid_module_name(t->struct_.source_decl->parent_module->name), t->struct_.identifier);
+            std::string name = fmt::format("{}.{}", valid_module_name(t->struct_.source_decl->parent_module), t->struct_.identifier);
             llvm::Type* s = llvm::StructType::getTypeByName(*m_active_module_context.context, name);
 
             if (!s) {
@@ -540,7 +541,7 @@ namespace ariac {
             return type_info_to_llvm_type(t->enum_.source_decl->enum_.backing_type);
         } else if (t->kind == TypeKind::StructSpecilization) {
             Decl* struc = t->struct_specilization.resolved_decl->struct_specilization.source;
-            std::string name = fmt::format("{}.{}<", valid_module_name(struc->parent_module->name), struc->struct_.identifier);
+            std::string name = fmt::format("{}.{}<", valid_module_name(struc->parent_module), struc->struct_.identifier);
 
             for (size_t i = 0; i < t->struct_specilization.arguments.size; i++) {
                 if (i > 0) {
@@ -739,47 +740,6 @@ namespace ariac {
         return dit;
     }
 
-    std::string Codegen::mangle_type(TypeInfo* t) {
-        switch (t->kind) {
-            case TypeKind::Void: return "4void";
-            case TypeKind::Bool: return "4bool";
-            case TypeKind::Char: return "4char";
-            case TypeKind::IChar: return "5ichar";
-            case TypeKind::Short: return "5short";
-            case TypeKind::UShort: return "6ushort";
-            case TypeKind::Int: return "3int";
-            case TypeKind::UInt: return "4uint";
-            case TypeKind::Long: return "4long";
-            case TypeKind::ULong: return "5ulong";
-
-            case TypeKind::Sz: return "2sz";
-            case TypeKind::Isz: return "3isz";
-
-            case TypeKind::Float: return "5float";
-            case TypeKind::Double: return "6double";
-
-            case TypeKind::String: return "6string";
-
-            case TypeKind::Typeid: return "6typeid";
-            case TypeKind::Any: return "3any";
-
-            case TypeKind::Pointer: return fmt::format("P{}", mangle_type(t->pointer.base));
-            case TypeKind::Array: return fmt::format("A{}.{}", t->array.size, mangle_type(t->array.base));
-            case TypeKind::Slice: return fmt::format("S{}", mangle_type(t->slice.base));
-
-            case TypeKind::Struct: return fmt::format("{}.{}", valid_module_name(t->struct_.source_decl->parent_module->name), t->struct_.identifier);
-            case TypeKind::Typedef: return fmt::format("{}.{}", valid_module_name(t->typedef_.source_decl->parent_module->name), t->typedef_.identifier);
-            case TypeKind::Enum: return fmt::format("{}.{}", valid_module_name(t->enum_.source_decl->parent_module->name), t->enum_.identifier);
-
-            default: ARIA_UNREACHABLE("Invalid type kind");
-        }
-    }
-
-    std::string Codegen::mangle_module(Module* mod) {
-        std::string valid_name = valid_module_name(mod->name);
-        return fmt::format("{}{}", valid_name.length(), valid_name);
-    }
-
     llvm::GlobalValue::LinkageTypes Codegen::linkage_kind_to_llvm(LinkageKind kind) {
         switch (kind) {
             case LinkageKind::None: return llvm::GlobalValue::LinkageTypes::ExternalLinkage;
@@ -790,19 +750,14 @@ namespace ariac {
         }
     }
 
-    std::string Codegen::valid_module_name(std::string_view name) {
+    std::string Codegen::valid_module_name(Module* mod) {
         std::string result;
 
-        for (size_t i = 0; i < name.length(); i++) {
-            if (name[i] == ':') {
-                result += ".";
-                i++;
-                continue;
-            }
-
-            result += name[i];
+        if (mod->parent) {
+            result += fmt::format("{}.", valid_module_name(mod->parent));
         }
 
+        result += mod->name;
         return result;
     }
 
@@ -916,7 +871,8 @@ namespace ariac {
 
         llvm::Constant* initializer = llvm::ConstantStruct::get(typeid_type, args);
 
-        std::string ti_name = fmt::format("$typeid.{}", mangle_type(t));
+        MangleContext ctx(t);
+        std::string ti_name = fmt::format("$typeid.{}", ctx.mangle());
         llvm::GlobalVariable* ti = new llvm::GlobalVariable(*m_active_module_context.module, typeid_type, true, llvm::GlobalValue::LinkageTypes::LinkOnceAnyLinkage, initializer, ti_name);
         m_active_module_context.typeinfos[name] = ti;
 

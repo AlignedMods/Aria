@@ -19,10 +19,27 @@ namespace ariac {
         buffer[size++] = c;
     }
 
+    void scratch_buffer_append(u64 u) {
+        char buf[128]{};
+        ptrdiff_t i = 0;
+
+        do {
+            buf[i++] = '0' + (u % 10u);
+            u /= 10u;
+        } while (u > 0);
+
+        return scratch_buffer_append_reverse(buf);
+    }
+
     void scratch_buffer_append(std::string_view str) {
         ARIA_ASSERT(size + str.length() < SCRATCH_BUF_SIZE, "Scratch buffer max size exceeded");
         memcpy(buffer + size, str.data(), str.length());
         size += str.length();
+    }
+
+    void scratch_buffer_append_reverse(std::string_view str) {
+        size_t len = str.length();
+        while (len > 0) { scratch_buffer_append(str[--len]); }
     }
 
     bool scratch_buffer_cmp(std::string_view str) {

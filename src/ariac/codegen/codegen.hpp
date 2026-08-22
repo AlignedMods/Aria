@@ -186,11 +186,9 @@ namespace ariac {
 
         llvm::Type* type_info_to_llvm_type(TypeInfo* t);
         llvm::DIType* type_info_to_debug_type(TypeInfo* t);
-        std::string mangle_type(TypeInfo* t);
-        std::string mangle_module(Module* mod);
         llvm::GlobalValue::LinkageTypes linkage_kind_to_llvm(LinkageKind kind);
 
-        std::string valid_module_name(std::string_view name);
+        std::string valid_module_name(Module* mod);
 
         llvm::AllocaInst* alloca_at_entry(llvm::Function* f, llvm::StringRef name, TypeInfo* type);
         llvm::AllocaInst* alloca_at_entry(llvm::Function* f, llvm::StringRef name, llvm::Type* type);
