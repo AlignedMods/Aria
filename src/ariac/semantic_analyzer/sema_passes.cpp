@@ -330,9 +330,23 @@ namespace ariac {
                     report_error(func->loc, fmt::format("'{}' is not a template", f.identifier));
                     continue;
                 }
+
+                if (t->template_.parameters.size != f.specilization_info.types.size) {
+                    report_error(func->loc, fmt::format("Too {} template arguments provided for specilization, expected {} but got {}",
+                        (t->template_.parameters.size < f.specilization_info.types.size) ? "many" : "few",
+                        t->template_.parameters.size, f.specilization_info.types.size));
+                    continue;
+                }
             
                 if (t->template_.template_decl->kind != DeclKind::Function) {
                     report_error(func->loc, fmt::format("'{}' is not a function template", f.identifier));
+                    continue;
+                }
+
+                if (t->template_.template_decl->function.type->function.params.size != f.type->function.params.size) {
+                    report_error(func->loc, fmt::format("Too {} parameters provided for specilization, expected {} but got {}",
+                        (t->template_.template_decl->function.type->function.params.size < f.type->function.params.size) ? "many" : "few",
+                        t->template_.template_decl->function.type->function.params.size, f.type->function.params.size));
                     continue;
                 }
             
