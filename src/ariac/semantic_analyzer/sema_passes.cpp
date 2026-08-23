@@ -343,13 +343,20 @@ namespace ariac {
                     continue;
                 }
 
-                if (t->template_.template_decl->function.type->function.params.size != f.type->function.params.size) {
-                    report_error(func->loc, fmt::format("Too {} parameters provided for specilization, expected {} but got {}",
-                        (t->template_.template_decl->function.type->function.params.size < f.type->function.params.size) ? "many" : "few",
-                        t->template_.template_decl->function.type->function.params.size, f.type->function.params.size));
+                if (t->template_.template_decl->function.type->function.variadic != f.type->function.variadic) {
+                    report_error(func->loc, fmt::format("No such template '{}' to create a specilization for", f.identifier));
+                    report_note(func->loc, fmt::format("The specilization has type '{}'", f.type->to_string()));
+                    report_note(t->loc, fmt::format("While the template has type '{}'", t->template_.template_decl->function.type->to_string()));
                     continue;
                 }
-            
+
+                if (t->template_.template_decl->function.type->function.params.size != f.type->function.params.size) {
+                    report_error(func->loc, fmt::format("No such template '{}' to create a specilization for", f.identifier));
+                    report_note(func->loc, fmt::format("The specilization has type '{}'", f.type->to_string()));
+                    report_note(t->loc, fmt::format("While the template has type '{}'", t->template_.template_decl->function.type->to_string()));
+                    continue;
+                }
+
                 t->template_.specilizations.append(func);
                 continue;
             }
