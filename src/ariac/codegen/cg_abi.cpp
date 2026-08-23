@@ -5,7 +5,7 @@ namespace ariac {
     Codegen::ABIParamTypeInfo Codegen::get_param_abi_type_info(TypeInfo* t) {
         ABIParamTypeInfo info;
         info.type = t;
-        
+
         switch (context.opts->triple.getOS()) {
             case llvm::Triple::OSType::Win32: {
                 switch (context.opts->triple.getArch()) {

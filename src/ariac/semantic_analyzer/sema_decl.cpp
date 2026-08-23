@@ -138,7 +138,7 @@ namespace ariac {
             report_diag(decl->loc, "C style variadic functions must be marked 'extern'");
         }
 
-        if (!fn.body && fn.linkage_kind != LinkageKind::Extern) {
+        if (!fn.body && !fn.is_deleted && fn.linkage_kind != LinkageKind::Extern) {
             report_diag_with_notes(decl->loc, "Body for this function must be specified",
                 { "If this function is defined elsewhere, use 'extern'"} );
         }

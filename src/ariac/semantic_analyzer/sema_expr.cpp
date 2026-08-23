@@ -104,6 +104,10 @@ namespace ariac {
                             { fmt::format("Did you mean to write '&{}'", pretty_ident) });
                     }
 
+                    if (!m_sema_context.call && sym->function.is_deleted) {
+                        report_error(expr->loc, "Use of deleted function");
+                    }
+
                     check_visibility(sym, "function");
 
                     resolve_function_decl(sym);
@@ -738,6 +742,13 @@ namespace ariac {
 
         if (fn_type->return_type->is_never()) {
             m_functions.back().scopes.back().reaches_end = false;
+        }
+
+        if (call.callee->kind == ExprKind::DeclRef && call.callee->decl_ref.referenced_decl->kind == DeclKind::Function) {
+            if (call.callee->decl_ref.referenced_decl->function.is_deleted) {
+                report_error(call.callee->loc, "Call to deleted function");
+                report_note(call.callee->decl_ref.referenced_decl->loc, "Defined here");
+            }
         }
 
         if (!resolve_call_arity(expr->loc, *fn_type, call.arguments)) {

@@ -1510,6 +1510,7 @@ namespace ariac {
             return &error_decl;
         }
 
+        bool is_deleted = false;
         FunctionSpecilizationInfo specilization_info{};
 
         if (match(TokenKind::Less)) {
@@ -1541,6 +1542,14 @@ namespace ariac {
 
         if (match(TokenKind::LeftCurly)) {
             body = parse_block();
+        } else if (match(TokenKind::Eq)) {
+            consume();
+
+            if (try_consume(TokenKind::Null, "null")) {
+                is_deleted = true;
+            }
+
+            try_consume(TokenKind::Semi, ";");
         } else {
             try_consume(TokenKind::Semi, ";");
         }
@@ -1549,6 +1558,7 @@ namespace ariac {
 
         Decl* f = Decl::Create(loc + end_loc, DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, final_type, body, linkage));
         f->attributes = attrs;
+        f->function.is_deleted = is_deleted;
 
         if (specilization_info.is_explicit) {
             f->function.is_specilization = true;

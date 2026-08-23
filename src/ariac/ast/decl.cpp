@@ -39,6 +39,18 @@ namespace ariac {
                 copy->function.type = TypeInfo::dup(f.type);
                 if (f.body) { copy->function.body = Stmt::dup(f.body); }
                 copy->function.linkage_kind = f.linkage_kind;
+                copy->function.is_deleted = f.is_deleted;
+                copy->function.is_specilization = f.is_specilization;
+
+                if (f.is_specilization) {
+                    copy->function.specilization_info.is_explicit = f.specilization_info.is_explicit;
+                    copy->function.specilization_info.instantiation_loc = f.specilization_info.instantiation_loc;
+
+                    for (TypeInfo* t : f.specilization_info.types) {
+                        copy->function.specilization_info.types.append(TypeInfo::dup(t));
+                    }
+                }
+
                 break;
             }
 
