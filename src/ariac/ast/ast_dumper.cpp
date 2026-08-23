@@ -329,10 +329,19 @@ namespace ariac {
                 }
                 return;
 
-            case DeclKind::Function: m_output += fmt::format("FunctionDecl {} '{}' {} '{}' linkage={}{}\n",
+            case DeclKind::Function: m_output += fmt::format("FunctionDecl {} '{}' {} '{}' linkage={}",
                 source_loc_to_string(decl->loc), decl->function.identifier, decl_visibility_to_string(decl->visibility), 
-                type_info_to_string(decl->function.type, false), linkage_kind_to_string(decl->function.linkage_kind),
-                decl->function.is_specilization ? fmt::format(" instantiated at {}", source_loc_to_string(decl->function.specilization_info.instantiation_loc)) : "");
+                type_info_to_string(decl->function.type, false), linkage_kind_to_string(decl->function.linkage_kind));
+
+                if (decl->function.is_specilization) {
+                    m_output += decl->function.specilization_info.is_explicit ? " explicit_instantiation" : " implicit_instantiation";
+
+                    if (!decl->function.specilization_info.is_explicit) {
+                        m_output += fmt::format(" instantiated at {}", source_loc_to_string(decl->function.specilization_info.instantiation_loc));
+                    }
+                }
+
+                m_output += '\n';
 
                 if (decl->function.is_specilization) {
                     for (TypeInfo* t : decl->function.specilization_info.types) {
@@ -422,12 +431,17 @@ namespace ariac {
                 dump_decl(decl->template_.template_decl, indentation + 4);
 
                 for (Decl* specilization : decl->template_.specilizations) {
+                    // Skip explicit specilizations
+                    if (specilization->kind == DeclKind::Function && specilization->function.specilization_info.is_explicit) {
+                        continue;
+                    }
+
                     dump_decl(specilization, indentation + 4);
                 }
 
                 return;
 
-            case DeclKind::TemplateParam: m_output += fmt::format("GenericParamDecl {} '{}'\n", 
+            case DeclKind::TemplateParam: m_output += fmt::format("TemplateParamDecl {} '{}'\n", 
                 source_loc_to_string(decl->loc), decl->template_param.identifier);
                 return;
 

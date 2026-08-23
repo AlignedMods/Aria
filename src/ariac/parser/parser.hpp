@@ -83,6 +83,7 @@ namespace ariac {
         Decl* parse_function_decl(LinkageKind linkage);
         void parse_function_params(TinyVector<Decl*>* params, size_t* required_arg_count, VariadicKind* variadic);
         TinyVector<Decl*> parse_template_params();
+        TinyVector<TypeInfo*> parse_template_args();
         Decl* parse_struct_decl();
         Decl* parse_extern_decl();
         Decl* parse_static_decl();

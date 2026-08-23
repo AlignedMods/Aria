@@ -175,6 +175,7 @@ namespace ariac {
             case TokenKind::LessEq: return "<=";
             case TokenKind::Greater: return ">";
             case TokenKind::GreaterEq: return ">=";
+            case TokenKind::Question: return "?";
             // ^^^ Operators ^^^ //
 
             // VVV Literals and constants VVV //
@@ -201,6 +202,7 @@ namespace ariac {
             case TokenKind::Do: return "do";
             case TokenKind::For: return "for";
             case TokenKind::Switch: return "switch";
+            case TokenKind::Case: return "case";
             case TokenKind::Break: return "break";
             case TokenKind::Continue: return "continue";
             case TokenKind::Nextcase: return "nextcase";

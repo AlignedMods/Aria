@@ -70,12 +70,9 @@ namespace ariac {
         void sema_impl();
 
         // Passes
-        void pass_module_heirarchy();
         void pass_imports();
         void pass_decls();
         void pass_code();
-
-        void resolve_module_heirarchy(Module* module);
 
         void add_unit_to_module(Module* module, CompilationUnit* unit);
         void resolve_unit_imports(Module* module, CompilationUnit* unit);

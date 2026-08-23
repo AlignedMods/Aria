@@ -11,6 +11,7 @@ namespace ariac {
     // Info for a FunctionDecl which serves as a function specilization
     // The fields of this struct should only be used if 'is_specilization' is true
     struct FunctionSpecilizationInfo {
+        bool is_explicit;
         TinyVector<TypeInfo*> types;
         SourceLoc instantiation_loc;
     };

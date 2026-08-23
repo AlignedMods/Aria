@@ -2,12 +2,6 @@
 
 namespace ariac {
 
-    void SemanticAnalyzer::pass_module_heirarchy() {
-        for (Module* mod : context.modules) {
-            resolve_module_heirarchy(mod);
-        }
-    }
-
     void SemanticAnalyzer::pass_imports() {
         for (CompilationUnit* unit : context.compilation_units) {
             if (!unit->parent) { continue; }
@@ -60,47 +54,6 @@ namespace ariac {
                 resolve_unit_code(mod, unit);
             }
         }
-    }
-
-    void SemanticAnalyzer::resolve_module_heirarchy(Module* module) {
-
-
-        // std::string_view parent = get_parent_path(module->name);
-        // 
-        // // No parent
-        // if (parent.length() == 0) { module->top_module = module; return; }
-        // 
-        // for (Module* mod : context.modules) {
-        //     if (mod->name == parent) {
-        //         // We have found the parent
-        //         module->parent = mod;
-        //         mod->children.push_back(module);
-        //         mod->child_lookup[get_bottom_path(module->name)] = module;
-        // 
-        //         // Set top module
-        //         Module* top = mod;
-        //         while (top->parent) {
-        //             top = top->parent;
-        //         }
-        //         module->top_module = top;
-        //         return;
-        //     }
-        // }
-        // 
-        // // No parent module exists so we create one
-        // Module* mod = context.find_or_create_module(parent);
-        // module->parent = mod;
-        // mod->children.push_back(module);
-        // mod->child_lookup[get_bottom_path(module->name)] = module;
-        // 
-        // // Set top module
-        // Module* top = mod;
-        // while (top->parent) {
-        //     top = top->parent;
-        // }
-        // module->top_module = top;
-        // 
-        // resolve_module_heirarchy(mod);
     }
 
     void SemanticAnalyzer::add_unit_to_module(Module* module, CompilationUnit* unit) {
@@ -297,9 +250,24 @@ namespace ariac {
                 }
                 m_generics.push_back(ctx);
                 resolve_type(f.type);
+
+                if (f.is_specilization) {
+                    report_error(func->loc, "Functions do not support partiatial specilization");
+
+                    for (TypeInfo* t : f.specilization_info.types) {
+                        resolve_type(t);
+                    }
+                }
+
                 m_generics.pop_back();
             } else {
                 resolve_type(f.type);
+
+                if (f.is_specilization) {
+                    for (TypeInfo* t : f.specilization_info.types) {
+                        resolve_type(t);
+                    }
+                }
             }
 
             bool erase = false;
@@ -344,6 +312,31 @@ namespace ariac {
 
                 module->symbols[f.identifier] = func;
                 context.main_func = func;
+                continue;
+            }
+
+            // Check for explicit specilizations
+            if (f.is_specilization) {
+                ARIA_ASSERT(f.specilization_info.is_explicit, "Invalid specilization");
+            
+                if (!module->symbols.contains(f.identifier)) {
+                    report_error(func->loc, fmt::format("No such function '{}' to specialize", f.identifier));
+                    continue;
+                }
+            
+                Decl* t = module->symbols.at(f.identifier);
+            
+                if (t->kind != DeclKind::Template) {
+                    report_error(func->loc, fmt::format("'{}' is not a template", f.identifier));
+                    continue;
+                }
+            
+                if (t->template_.template_decl->kind != DeclKind::Function) {
+                    report_error(func->loc, fmt::format("'{}' is not a function template", f.identifier));
+                    continue;
+                }
+            
+                t->template_.specilizations.append(func);
                 continue;
             }
 

@@ -1510,6 +1510,13 @@ namespace ariac {
             return &error_decl;
         }
 
+        FunctionSpecilizationInfo specilization_info{};
+
+        if (match(TokenKind::Less)) {
+            specilization_info.is_explicit = true;
+            specilization_info.types = parse_template_args();
+        }
+
         TinyVector<Decl*> params;
         size_t required_arg_count = 0;
         VariadicKind variadic = VariadicKind::None;
@@ -1542,6 +1549,11 @@ namespace ariac {
 
         Decl* f = Decl::Create(loc + end_loc, DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, final_type, body, linkage));
         f->attributes = attrs;
+
+        if (specilization_info.is_explicit) {
+            f->function.is_specilization = true;
+            f->function.specilization_info = specilization_info;
+        }
 
         if (template_params.size == 0) {
             context.active_comp_unit->funcs.push_back(f);
@@ -1642,7 +1654,7 @@ namespace ariac {
         try_consume(TokenKind::Less, "<");
         if (match(TokenKind::Greater)) {
             Token& g = consume();
-            context.report_compiler_diagnostic(g.loc, "Empty generic parameter list is not allowed");
+            context.report_compiler_diagnostic(g.loc, "Empty template parameter list is not allowed");
             return params;
         }
 
@@ -1676,6 +1688,36 @@ namespace ariac {
 
         try_consume(TokenKind::Greater, ">");
         return params;
+    }
+
+    TinyVector<TypeInfo*> Parser::parse_template_args() {
+        TinyVector<TypeInfo*> args;
+
+        try_consume(TokenKind::Less, "<");
+        if (match(TokenKind::Greater)) {
+            Token& g = consume();
+            context.report_compiler_diagnostic(g.loc, "Empty template argument list is not allowed");
+            return args;
+        }
+
+        bool variadic = false;
+        while (peek() && !match(TokenKind::Greater)) {
+            TypeInfo* type = parse_type();
+            args.append(type);
+
+            if (match(TokenKind::Comma)) {
+                consume();
+                continue;
+            }
+
+            if (match(TokenKind::Greater)) { break; }
+
+            context.report_compiler_diagnostic(peek()->loc, "Expected either ',' or '>'");
+            sync_params();
+        }
+
+        try_consume(TokenKind::Greater, ">");
+        return args;
     }
 
     Decl* Parser::parse_struct_decl() {

@@ -23,6 +23,7 @@ struct Formatter {
     out_fn: FormatOutFn;
     flags: FormatFlags;
 
+
     fn vappendf(fmt: string, args: []any) -> sz {
         if out_fn == null {
             out_fn = &out_null;

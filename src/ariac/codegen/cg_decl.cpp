@@ -49,6 +49,7 @@ namespace ariac {
 
             case DeclKind::Template: {
                 for (Decl* gs : decl->template_.specilizations) {
+                    if (gs->function.specilization_info.is_explicit) { continue; }
                     gen_function_decl(gs);
                 }
 

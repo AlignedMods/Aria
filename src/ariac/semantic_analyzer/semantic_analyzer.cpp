@@ -9,7 +9,6 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::sema_impl() {
-        pass_module_heirarchy();
         pass_imports();
         pass_decls();
         pass_code();
