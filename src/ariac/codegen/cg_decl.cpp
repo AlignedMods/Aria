@@ -21,7 +21,7 @@ namespace ariac {
                 gen_global_init_func(decl->loc, global, var.initializer, var.dtor);
             }
         } else {
-            a = alloca_at_entry(m_active_module_context.function, var.identifier, var.type);
+            a = alloca_at_entry(m_active_module_context.function, var.identifier, type);
 
             llvm::DILocalVariable* dil = m_active_debug_context.builder->createAutoVariable(m_active_debug_context.scope, var.identifier, m_active_debug_context.scope->getFile(), 
                 (unsigned)decl->loc.line, type_info_to_debug_type(var.type));
@@ -33,7 +33,11 @@ namespace ariac {
             if (var.initializer) {
                 gen_init_expr(var.initializer, a);
             } else {
-                m_active_module_context.builder->CreateStore(llvm::Constant::getNullValue(type), a);
+                if (var.type->is_primitive() || var.type->is_pointer()) {
+                    m_active_module_context.builder->CreateStore(llvm::Constant::getNullValue(type), a);
+                } else {
+                    m_active_module_context.builder->CreateMemSet(a, get_int(0, TypeInfo::get_basic(TypeKind::Char)), get_i64(var.type->get_size()), llvm::MaybeAlign());
+                }
             }
         }
 

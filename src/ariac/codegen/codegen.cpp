@@ -436,7 +436,7 @@ namespace ariac {
         } else if (t->kind == TypeKind::Any) {
             return llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_any");
         } else if (t->kind == TypeKind::Array) {
-            return llvm::ArrayType::get(t->array.base->is_boolean() ? llvm::Type::getInt1Ty(*m_active_module_context.context) : type_info_to_llvm_type(t->array.base), static_cast<size_t>(t->array.size));
+            return llvm::ArrayType::get(t->array.base->is_boolean() ? llvm::Type::getInt8Ty(*m_active_module_context.context) : type_info_to_llvm_type(t->array.base), t->array.size);
         } else if (t->kind == TypeKind::Slice) {
             return llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice");
         } else if (t->kind == TypeKind::Pointer) {
@@ -787,6 +787,10 @@ namespace ariac {
 
     llvm::Constant* Codegen::get_sz(u64 i) {
         return m_active_module_context.builder->getInt(llvm::APInt((unsigned)TypeInfo::get_basic(TypeKind::Sz)->get_bit_size(), i));
+    }
+
+    llvm::Constant* Codegen::get_i8(u8 i) {
+        return m_active_module_context.builder->getInt8(i);
     }
 
     llvm::Constant* Codegen::get_i64(u64 i) {

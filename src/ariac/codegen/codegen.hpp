@@ -151,6 +151,7 @@ namespace ariac {
         llvm::Value* gen_expr(Expr* expr);
         llvm::Value* gen_init_expr(Expr* expr, llvm::Value* dst);
         llvm::Value* gen_cond(Expr* expr);
+        llvm::Value* gen_construct_raw(Expr* expr, llvm::Value* dst, bool require_rvalue);
 
         void gen_var_decl(Decl* decl);
         void gen_function_decl(Decl* decl);
@@ -197,6 +198,7 @@ namespace ariac {
         llvm::AllocaInst* alloca_at_entry(llvm::Function* f, llvm::StringRef name, llvm::Type* type);
 
         llvm::Constant* get_sz(u64 i);
+        llvm::Constant* get_i8(u8 i);
         llvm::Constant* get_i64(u64 i);
         llvm::Constant* get_int(u64 i, TypeInfo* t);
         llvm::Constant* get_null();

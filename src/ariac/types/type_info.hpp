@@ -188,11 +188,7 @@ namespace ariac {
         }
 
         bool is_integral() const {
-            return kind == TypeKind::Char  || kind == TypeKind::IChar  ||
-                   kind == TypeKind::Short || kind == TypeKind::UShort ||
-                   kind == TypeKind::Int   || kind == TypeKind::UInt   ||
-                   kind == TypeKind::Long  || kind == TypeKind::ULong  ||
-                   kind == TypeKind::Sz    || kind == TypeKind::Isz;
+            return kind >= TypeKind::Char && kind <= TypeKind::Isz;
         }
 
         bool is_floating_point() const {
