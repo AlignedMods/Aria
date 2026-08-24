@@ -987,44 +987,6 @@ namespace ariac {
                 break;
             }
 
-            case BuiltinCallKind::Memcpy: {
-                expr->type = TypeInfo::get_void();
-
-                if (b.arguments.size != 4) {
-                    report_diag(expr->loc, "Call to builtin function '@memcpy' must have 4 arguments");
-                    break;
-                }
-
-                for (Expr* arg : b.arguments) {
-                    resolve_expr(arg);
-                }
-
-                try_insert_implicit_cast(TypeInfo::get_void_ptr(), b.arguments.items[0]); require_rvalue(b.arguments.items[0]);
-                try_insert_implicit_cast(TypeInfo::get_void_ptr(), b.arguments.items[1]); require_rvalue(b.arguments.items[1]);
-                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Sz), b.arguments.items[2]); require_rvalue(b.arguments.items[2]);
-                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Bool), b.arguments.items[3]); require_rvalue(b.arguments.items[3]);
-                break;
-            }
-
-            case BuiltinCallKind::Memset: {
-                expr->type = TypeInfo::get_void();
-
-                if (b.arguments.size != 4) {
-                    report_diag(expr->loc, "Call to builtin function '@memset' must have 4 arguments");
-                    break;
-                }
-
-                for (Expr* arg : b.arguments) {
-                    resolve_expr(arg);
-                }
-
-                try_insert_implicit_cast(TypeInfo::get_void_ptr(), b.arguments.items[0]); require_rvalue(b.arguments.items[0]);
-                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Char), b.arguments.items[1]); require_rvalue(b.arguments.items[1]);
-                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Sz), b.arguments.items[2]); require_rvalue(b.arguments.items[2]);
-                try_insert_implicit_cast(TypeInfo::get_basic(TypeKind::Bool), b.arguments.items[3]); require_rvalue(b.arguments.items[3]);
-                break;
-            }
-
             case BuiltinCallKind::Defined: {
                 expr->type = TypeInfo::get_basic(TypeKind::Bool);
                 expr->value_kind = ExprValueKind::RValue;

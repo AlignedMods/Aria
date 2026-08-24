@@ -1,4 +1,5 @@
 #include "ariac/ast/expr.hpp"
+#include "ariac/ast/decl.hpp"
 
 namespace ariac {
 
@@ -272,6 +273,14 @@ namespace ariac {
         }
 
         return copy;
+    }
+
+    Decl* CallExpr::get_callee_decl() {
+        if (callee->kind == ExprKind::DeclRef && callee->decl_ref.referenced_decl->kind == DeclKind::Function) {
+            return callee->decl_ref.referenced_decl;
+        }
+
+        return nullptr;
     }
 
 } // namespace ariac

@@ -275,12 +275,33 @@ namespace ariac {
             gen_call_variadic(&args, vals, types);
         }
 
+        if (Decl* func = call.get_callee_decl()) {
+            ARIA_ASSERT(func->kind == DeclKind::Function, "Invalid callee decl");
+
+            switch (func->function.builtin_func) {
+                case BuiltinFuncKind::None: {
+                    llvm::Value* callee = gen_expr(call.callee);
+                    return gen_call_raw(&args, callee, func->function.type);
+                }
+
+                case BuiltinFuncKind::Memcpy: {
+                    return m_active_module_context.builder->CreateMemCpy(args[0], llvm::MaybeAlign(), args[1], llvm::MaybeAlign(), args[2]);
+                }
+
+                case BuiltinFuncKind::Memset: {
+                    return m_active_module_context.builder->CreateMemSet(args[0], args[1], args[2], llvm::MaybeAlign());
+                }
+
+                default: ARIA_UNREACHABLE("Invalid builtin func");
+            }
+        }
+
+        // Indirect call via function pointer
         llvm::Value* callee = gen_expr(call.callee);
         ARIA_ASSERT(callee, "Invalid function callee");
 
         TypeInfo* callee_type = TypeInfo::get_flattened(call.callee->type);
-        llvm::Value* c = gen_call_raw(&args, callee, callee_type->is_pointer() ? callee_type->pointer.base : callee_type);
-        return c;
+        return gen_call_raw(&args, callee, callee_type->pointer.base);
     }
 
     llvm::Value* Codegen::gen_builtin_call_expr(Expr* expr) {
@@ -290,22 +311,6 @@ namespace ariac {
         switch (b.kind) {
             case BuiltinCallKind::Sizeof: {
                 return m_active_module_context.builder->getInt(llvm::APInt((unsigned)expr->type->get_bit_size(), b.arguments.items[0]->type->get_size()));
-            }
-
-            case BuiltinCallKind::Memcpy: {
-                llvm::Value* dst = gen_expr(b.arguments.items[0]);
-                llvm::Value* src = gen_expr(b.arguments.items[1]);
-                llvm::Value* len = gen_expr(b.arguments.items[2]);
-                
-                return m_active_module_context.builder->CreateMemCpy(dst, llvm::MaybeAlign(), src, llvm::MaybeAlign(), len);
-            }
-
-            case BuiltinCallKind::Memset: {
-                llvm::Value* ptr = gen_expr(b.arguments.items[0]);
-                llvm::Value* val = gen_expr(b.arguments.items[1]);
-                llvm::Value* len = gen_expr(b.arguments.items[2]);
-                
-                return m_active_module_context.builder->CreateMemSet(ptr, val, len, llvm::MaybeAlign());
             }
 
             default: ARIA_UNREACHABLE("Invalid builtin call kind");

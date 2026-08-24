@@ -50,16 +50,12 @@ namespace ariac {
 
     enum class BuiltinCallKind {
         Sizeof,
-        Memcpy,
-        Memset,
         Defined
     };
 
     inline const char* builtin_call_kind_to_string(BuiltinCallKind kind) {
         switch (kind) {
             case BuiltinCallKind::Sizeof: return "sizeof";
-            case BuiltinCallKind::Memcpy: return "memcpy";
-            case BuiltinCallKind::Memset: return "memset";
             case BuiltinCallKind::Defined: return "defined";
 
             default: ARIA_UNREACHABLE("Invalid built in call");
@@ -335,6 +331,12 @@ namespace ariac {
             default: ARIA_UNREACHABLE("Invalid linkage kind");
         }
     }
+
+    enum class BuiltinFuncKind {
+        None = 0,
+        Memcpy,
+        Memset
+    };
 
     enum class StmtKind {
         Invalid = 0,

@@ -91,8 +91,6 @@ namespace ariac {
         AtInit, // @init
         AtSizeof, // @sizeof
         AtTypeof, // @typeof
-        AtMemcpy, // @memcpy
-        AtMemset, // @memset
         AtDefined, // @defined
         DollarIf, // $if
         // ^^^ Keywords ^^^ //
@@ -223,8 +221,6 @@ namespace ariac {
             case TokenKind::AtInit: return "@init";
             case TokenKind::AtSizeof: return "@sizeof";
             case TokenKind::AtTypeof: return "@typeof";
-            case TokenKind::AtMemcpy: return "@memcpy";
-            case TokenKind::AtMemset: return "@memset";
             case TokenKind::AtDefined: return "@defined";
             // ^^^ Keywords ^^^ //
             

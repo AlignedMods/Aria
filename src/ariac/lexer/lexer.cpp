@@ -444,8 +444,6 @@ namespace ariac {
             { "@init", TokenKind::AtInit },
             { "@sizeof", TokenKind::AtSizeof },
             { "@typeof", TokenKind::AtTypeof },
-            { "@memcpy", TokenKind::AtMemcpy },
-            { "@memset", TokenKind::AtMemset },
             { "@defined", TokenKind::AtDefined }
         };
 
@@ -582,12 +580,59 @@ namespace ariac {
         }
     }
 
+    void Lexer::parse_multi_line_comment() {
+        consume(2); // consume '/*' 
+
+        int nesting = 1;
+        while (true) {
+            switch (peek()) {
+                case '*': {
+                    if (peek(1) == '/') {
+                        consume(2);
+                        nesting--;
+                        if (nesting == 0) { return; }
+                        continue;
+                    }
+
+                    break;
+                }
+
+                case '/': {
+                    if (peek(1) == '*') {
+                        consume(2);
+                        nesting++;
+                        continue;
+                    }
+
+                    break;
+                }
+
+                case '\n': {
+                    m_current_line++;
+                    m_current_line_start = m_index;
+                    break;
+                }
+
+                case '\0': {
+                    return;
+                }
+
+                default: break;
+            }
+
+            consume();
+        }
+    }
+
     void Lexer::skip_whitespace() {
         while (true) {
             switch (peek()) {
                 case '/': { // Potentially a comment
                     if (peek(1) == '/') {
                         parse_single_line_comment();
+                        break;
+                    } else if (peek(1) == '*') {
+                        parse_multi_line_comment();
                         break;
                     }
 

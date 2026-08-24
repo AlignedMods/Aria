@@ -29,6 +29,7 @@ namespace ariac {
         void parse_identifier();
 
         void parse_single_line_comment();
+        void parse_multi_line_comment();
 
         void skip_whitespace();
 

@@ -53,8 +53,6 @@ namespace ariac {
         m_expr_rules[TokenKind::Self] =              { BIND_PARSE_RULE(parse_primary),       nullptr, PREC_PRIMARY };
         m_expr_rules[TokenKind::Env] =               { BIND_PARSE_RULE(parse_env),           nullptr, PREC_PRIMARY };
         m_expr_rules[TokenKind::AtSizeof] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_PRIMARY };
-        m_expr_rules[TokenKind::AtMemcpy] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_PRIMARY };
-        m_expr_rules[TokenKind::AtMemset] =          { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_PRIMARY };
         m_expr_rules[TokenKind::AtDefined] =         { BIND_PARSE_RULE(parse_builtin_call),  nullptr, PREC_PRIMARY };
         m_expr_rules[TokenKind::Void] =              { BIND_PARSE_RULE(parse_type_expr),     nullptr, PREC_PRIMARY };
         m_expr_rules[TokenKind::Bool] =              { BIND_PARSE_RULE(parse_type_expr),     nullptr, PREC_PRIMARY };
@@ -247,8 +245,6 @@ namespace ariac {
     BuiltinCallKind Parser::get_builtin_call_from_token(Token* token) {
         switch (token->kind) {
             case TokenKind::AtSizeof: return BuiltinCallKind::Sizeof;
-            case TokenKind::AtMemcpy: return BuiltinCallKind::Memcpy;
-            case TokenKind::AtMemset: return BuiltinCallKind::Memset;
             case TokenKind::AtDefined: return BuiltinCallKind::Defined;
 
             default: ARIA_UNREACHABLE("Invalid builtin call kind");
@@ -1215,8 +1211,6 @@ namespace ariac {
             case TokenKind::Typeid:
             case TokenKind::Any:
             case TokenKind::AtSizeof:
-            case TokenKind::AtMemcpy:
-            case TokenKind::AtMemset:
                 return parse_expression_statement();
 
             case TokenKind::LeftCurly:

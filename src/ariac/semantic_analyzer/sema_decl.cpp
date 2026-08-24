@@ -560,6 +560,48 @@ namespace ariac {
                         }
 
                         context.typekind_type = decl;
+                    } else if (attr.string == "memcpy") {
+                        if (decl->kind != DeclKind::Function) {
+                            report_diag(decl->loc, "Builtin for 'memcpy' must be a function");
+                            break;
+                        }
+
+                        FunctionDecl& fn = decl->function;
+
+                        TinyVector<Decl*> params;
+                        params.append(Decl::Create({}, DeclKind::Param, DeclVisibility::Public, ParamDecl("dst", TypeInfo::get_void_ptr(), nullptr, false)));
+                        params.append(Decl::Create({}, DeclKind::Param, DeclVisibility::Public, ParamDecl("src", TypeInfo::get_void_ptr(), nullptr, false)));
+                        params.append(Decl::Create({}, DeclKind::Param, DeclVisibility::Public, ParamDecl("len", TypeInfo::get_sz(), nullptr, false)));
+
+                        TypeInfo* fn_ty = TypeInfo::create_function(TypeKind::Function, TypeInfo::get_basic(TypeKind::Void), params, params.size, VariadicKind::None);
+
+                        if (!type_is_equal(fn_ty, fn.type)) {
+                            report_diag(decl->loc, fmt::format("Builtin for 'memcpy' must have signature '{}'", type_info_to_string(fn_ty)));
+                            break;
+                        }
+
+                        fn.builtin_func = BuiltinFuncKind::Memcpy;
+                    } else if (attr.string == "memset") {
+                        if (decl->kind != DeclKind::Function) {
+                            report_diag(decl->loc, "Builtin for 'memset' must be a function");
+                            break;
+                        }
+
+                        FunctionDecl& fn = decl->function;
+
+                        TinyVector<Decl*> params;
+                        params.append(Decl::Create({}, DeclKind::Param, DeclVisibility::Public, ParamDecl("ptr", TypeInfo::get_void_ptr(), nullptr, false)));
+                        params.append(Decl::Create({}, DeclKind::Param, DeclVisibility::Public, ParamDecl("val", TypeInfo::get_basic(TypeKind::Char), nullptr, false)));
+                        params.append(Decl::Create({}, DeclKind::Param, DeclVisibility::Public, ParamDecl("len", TypeInfo::get_sz(), nullptr, false)));
+
+                        TypeInfo* fn_ty = TypeInfo::create_function(TypeKind::Function, TypeInfo::get_basic(TypeKind::Void), params, params.size, VariadicKind::None);
+
+                        if (!type_is_equal(fn_ty, fn.type)) {
+                            report_diag(decl->loc, fmt::format("Builtin for 'memset' must have signature '{}'", type_info_to_string(fn_ty)));
+                            break;
+                        }
+
+                        fn.builtin_func = BuiltinFuncKind::Memset;
                     } else {
                         report_diag(decl->loc, fmt::format("Unknown builtin '{}'", attr.string));
                     }

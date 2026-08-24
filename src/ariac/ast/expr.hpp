@@ -108,6 +108,8 @@ namespace ariac {
         CallExpr(Expr* callee, TinyVector<Expr*> args)
             : callee(callee), arguments(args) {}
 
+        Decl* get_callee_decl();
+
         Expr* callee;
         TinyVector<Expr*> arguments;
     };

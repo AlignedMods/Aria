@@ -93,6 +93,7 @@ namespace ariac {
         TypeInfo* type = nullptr;
         Stmt* body = nullptr;
         LinkageKind linkage_kind = LinkageKind::None;
+        BuiltinFuncKind builtin_func = BuiltinFuncKind::None;
         bool is_deleted = false;
         bool is_specilization = false;
         FunctionSpecilizationInfo specilization_info;
