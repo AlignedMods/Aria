@@ -31,7 +31,7 @@ namespace ariac {
                 llvm::DILocation::get(*m_active_module_context.context, (unsigned)decl->loc.line, (unsigned)decl->loc.col, m_active_debug_context.scope), m_active_module_context.builder->GetInsertBlock());
 
             if (var.initializer) {
-                gen_init_expr(var.initializer, a);
+                gen_assign_expr(var.initializer, a);
             } else {
                 if (var.type->is_primitive() || var.type->is_pointer()) {
                     m_active_module_context.builder->CreateStore(llvm::Constant::getNullValue(type), a);

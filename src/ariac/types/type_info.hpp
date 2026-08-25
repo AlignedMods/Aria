@@ -277,6 +277,10 @@ namespace ariac {
             return kind == TypeKind::Char || kind == TypeKind::UShort || kind == TypeKind::UInt || kind == TypeKind::ULong;
         }
 
+        bool is_runtime_aggregate() const {
+            return is_any() || is_array() || is_struct() || is_struct_specilization();
+        }
+
         u64 get_size() const;
         u64 get_bit_size() const;
         u64 get_alignment() const;

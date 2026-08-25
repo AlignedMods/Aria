@@ -967,9 +967,7 @@ namespace ariac {
 
             case BinaryOperatorKind::Eq: {
                 llvm::Value* lhs = gen_expr(bin.lhs);
-                llvm::Value* rhs = gen_expr(bin.rhs);
-
-                return m_active_module_context.builder->CreateStore(rhs, lhs);
+                return gen_assign_expr(bin.rhs, lhs);
             }
 
             case BinaryOperatorKind::IsEq: {
@@ -1171,11 +1169,11 @@ namespace ariac {
         }
     }
 
-    llvm::Value* Codegen::gen_init_expr(Expr* expr, llvm::Value* dst) {
+    llvm::Value* Codegen::gen_assign_expr(Expr* expr, llvm::Value* dst) {
         if (expr->kind == ExprKind::Construct) {
             llvm::Value* val = gen_construct_raw(expr, dst, false);
 
-            if (expr->type->is_array()) {
+            if (expr->type->is_runtime_aggregate()) {
                 return val;
             }
         }
@@ -1249,7 +1247,7 @@ namespace ariac {
                     }
                     
                     llvm::Constant* init = llvm::ConstantArray::get(llvm::cast<llvm::ArrayType>(type), fields);
-                    llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, type, true, llvm::GlobalValue::InternalLinkage, init, ".__.const_arr");
+                    llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, type, true, llvm::GlobalValue::InternalLinkage, init, "__.const_arr");
 
                     if (dst) {
                         return m_active_module_context.builder->CreateMemCpy(dst, llvm::MaybeAlign(), global, llvm::MaybeAlign(), get_i64(expr->type->get_size()));
@@ -1286,20 +1284,40 @@ namespace ariac {
                     for (Expr* arg : ct.arguments) {
                         fields.push_back(llvm::dyn_cast<llvm::Constant>(gen_expr(arg)));
                     }
-                    return llvm::ConstantStruct::get(llvm::dyn_cast<llvm::StructType>(type), fields);
+
+                    // Fill the rest with zeroes
+                    for (size_t i = ct.arguments.size; i < type->getStructNumElements(); i++) {
+                        fields.push_back(llvm::Constant::getNullValue(type->getStructElementType(i)));
+                    }
+                    
+                    llvm::Constant* init = llvm::ConstantStruct::get(llvm::cast<llvm::StructType>(type), fields);
+                    llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, type, true, llvm::GlobalValue::PrivateLinkage, init, "__.const_struct");
+
+                    if (dst) {
+                        return m_active_module_context.builder->CreateMemCpy(dst, llvm::MaybeAlign(), global, llvm::MaybeAlign(), get_i64(expr->type->get_size()));
+                    }
+
+                    if (require_rvalue) {
+                        return m_active_module_context.builder->CreateLoad(type, global);
+                    }
+
+                    return global;
                 } else {
-                    llvm::Value* temp = alloca_at_entry(m_active_module_context.function, "construct", type);
-                    llvm::Value* zero = llvm::Constant::getNullValue(type);
-                    m_active_module_context.builder->CreateStore(zero, temp);
+                    if (!dst) { dst = alloca_at_entry(m_active_module_context.function, "construct", type); }
+                    m_active_module_context.builder->CreateMemSet(dst, get_i8(0), get_i64(expr->type->get_size()), llvm::MaybeAlign());
 
                     for (size_t i = 0; i < ct.arguments.size; i++) {
                         llvm::Value* arg = gen_expr(ct.arguments.items[i]);
-                        llvm::Value* field = m_active_module_context.builder->CreateStructGEP(type, temp, static_cast<unsigned>(i), "ptradd");
+                        llvm::Value* field = m_active_module_context.builder->CreateStructGEP(type, dst, static_cast<unsigned>(i), "ptradd");
 
                         m_active_module_context.builder->CreateStore(arg, field);
                     }
 
-                    return m_active_module_context.builder->CreateLoad(type, temp);
+                    if (require_rvalue) {
+                        return m_active_module_context.builder->CreateLoad(type, dst);
+                    }
+
+                    return dst;
                 }
             }
 
