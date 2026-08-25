@@ -670,7 +670,9 @@ namespace ariac {
         } else if (t->is_pointer()) {
             dit = m_active_debug_context.builder->createPointerType(type_info_to_debug_type(t->pointer.base), t->get_bit_size());
         } else if (t->is_array()) {
-            dit = m_active_debug_context.builder->createArrayType(t->array.size, (unsigned)t->array.base->get_alignment() * 8, type_info_to_debug_type(t->array.base), {});
+            dit = type_info_to_debug_type(t->array.base);
+            // dit = m_active_debug_context.builder->createArrayType((unsigned)t->get_bit_size(), (unsigned)t->array.base->get_alignment() * 8,
+            //     type_info_to_debug_type(t->array.base), {});
         } else if (t->is_slice()) {
             std::array<llvm::Metadata*, 2> elems{};
 
@@ -686,7 +688,7 @@ namespace ariac {
                 type_info_to_debug_type(TypeInfo::get_basic(TypeKind::Sz)));
 
             dit = m_active_debug_context.builder->createStructType(m_active_debug_context.scope,
-                str_type, m_active_debug_context.scope->getFile(), 0, (unsigned)t->get_size() * 8, (unsigned)t->get_alignment() * 8,
+                str_type, m_active_debug_context.scope->getFile(), 0, (unsigned)t->get_bit_size(), (unsigned)t->get_alignment() * 8,
                 llvm::DINode::DIFlags::FlagExplicit, nullptr, m_active_debug_context.builder->getOrCreateArray(elems));
         } else if (t->is_function()) {
             return type_info_to_debug_type(TypeInfo::get_void());
@@ -706,7 +708,7 @@ namespace ariac {
             }
 
             dit = m_active_debug_context.builder->createStructType(m_active_debug_context.scope,
-                str_type, m_active_debug_context.scope->getFile(), (unsigned)t->struct_.source_decl->loc.line, (unsigned)t->get_size() * 8, (unsigned)t->get_alignment() * 8,
+                str_type, m_active_debug_context.scope->getFile(), (unsigned)t->struct_.source_decl->loc.line, (unsigned)t->get_bit_size(), (unsigned)t->get_alignment() * 8,
                 llvm::DINode::DIFlags::FlagExplicit, nullptr, m_active_debug_context.builder->getOrCreateArray(elems));
         } else if (t->is_typedef()) {
             dit = m_active_debug_context.builder->createTypedef(type_info_to_debug_type(t->typedef_.base), t->typedef_.identifier, 

@@ -42,8 +42,6 @@ fn out_putchar_buffer(data: *void, c: char) {
 }
 
 fn internal_vprintf(file: *FILE, fmt: string, args: []any, add_newline: bool) {
-    libc::printf(fmt.mem);
-
     let buf: PutcharBuffer;
     buf.file = file;
     let f = core::Formatter(&buf, &out_putchar_buffer);

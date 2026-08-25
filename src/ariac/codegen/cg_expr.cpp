@@ -1248,6 +1248,7 @@ namespace ariac {
                     
                     llvm::Constant* init = llvm::ConstantArray::get(llvm::cast<llvm::ArrayType>(type), fields);
                     llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, type, true, llvm::GlobalValue::InternalLinkage, init, "__.const_arr");
+                    global->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
 
                     if (dst) {
                         return m_active_module_context.builder->CreateMemCpy(dst, llvm::MaybeAlign(), global, llvm::MaybeAlign(), get_i64(expr->type->get_size()));
@@ -1292,6 +1293,7 @@ namespace ariac {
                     
                     llvm::Constant* init = llvm::ConstantStruct::get(llvm::cast<llvm::StructType>(type), fields);
                     llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, type, true, llvm::GlobalValue::PrivateLinkage, init, "__.const_struct");
+                    global->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
 
                     if (dst) {
                         return m_active_module_context.builder->CreateMemCpy(dst, llvm::MaybeAlign(), global, llvm::MaybeAlign(), get_i64(expr->type->get_size()));

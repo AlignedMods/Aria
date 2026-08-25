@@ -134,9 +134,11 @@ namespace ariac {
     static BuildOptions handle_args(int argc, const char** argv) {
         BuildOptions opts;
         opts.triple = llvm::Triple(llvm::sys::getDefaultTargetTriple());
-        // if (opts.triple.isWindowsMSVCEnvironment()) {
-        //     opts.triple.setEnvironment(llvm::Triple::GNU);
-        // }
+
+        // TODO: This is a workaround to not deal with proper linking
+        // Remove this in the future and handle linking properly
+        // Note: c3c (https://github.com/c3lang/c3c) can be used a reference
+        if (opts.triple.isWindowsMSVCEnvironment()) { opts.triple.setEnvironment(llvm::Triple::GNU); }
 
         opts.output_path = std::filesystem::path(".build") / "main.exe";
         opts.stdlib_path = "stdlib";
