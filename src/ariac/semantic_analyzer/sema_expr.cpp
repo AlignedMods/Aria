@@ -718,6 +718,15 @@ namespace ariac {
             case TypeKind::OverloadedFunction: {
                 ARIA_ASSERT(call.callee->kind == ExprKind::DeclRef, "Invalid callee");
 
+                resolve_overloaded_function_call_expr(call.callee->decl_ref.referenced_decl, expr->loc, call.arguments,
+                    &call.callee->decl_ref.referenced_decl, &call.callee->type);
+
+                if (call.callee->type->is_error()) {
+                    expr->type = call.callee->type;
+                    return;
+                }
+
+                fn_type = &call.callee->type->function;
                 break;
             }
 
@@ -875,18 +884,80 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_overloaded_function_call_expr(Decl* func, SourceLoc loc, TinyVector<Expr*> args, Decl** callee, TypeInfo** callee_type) {
+        ARIA_ASSERT(func->kind == DeclKind::FunctionOverloadSet, "Invalid func");
+
+        FunctionOverloadSetDecl& set = func->function_overload_set;
+        TinyVector<Decl*> candidates;
+
+        // Pick out generic candidates
+        for (Decl* f : set.funcs) {
+            ARIA_ASSERT(f->kind == DeclKind::Function, "Invalid function");
+
+            if (resolve_call_arity(loc, f->function.type->function, args, false)) {
+                candidates.append(f);
+            }
+        }
+
+        if (candidates.size == 0) {
+            report_error(loc, fmt::format("Cannot deduce call to function overload set '{}'", set.identifier));
+            *callee = &error_decl;
+            *callee_type = TypeInfo::get_error();
+            return;
+        }
+
+        Decl* best_choice = nullptr;
+        size_t lowest_cost = 0;
+
+        for (Decl* candidate : candidates) {
+            FunctionDecl& fn = candidate->function;
+
+            bool cast_needed = false;
+            for (size_t i = 0; i < args.size; i++) {
+                resolve_expr(args[i]);
+                ConversionCost cost = get_conversion_cost(fn.type->function.params[i]->param.type, args[i]->type);
+
+                if (cost.cast_needed) {
+                    cast_needed = true;
+                }
+            }
+
+            if (!cast_needed) {
+                if (best_choice) {
+                    report_error(loc, fmt::format("Cannot deduce call to function overload set '{}'", set.identifier));
+                    *callee = &error_decl;
+                    *callee_type = TypeInfo::get_error();
+                    return;
+                }
+
+                best_choice = candidate;
+            }
+        }
+
+        if (!best_choice) {
+            report_error(loc, fmt::format("Cannot deduce call to function overload set '{}'", set.identifier));
+            *callee = &error_decl;
+            *callee_type = TypeInfo::get_error();
+            return;
+        }
+
+        *callee = best_choice;
+        *callee_type = best_choice->function.type;
     }
 
-    bool SemanticAnalyzer::resolve_call_arity(SourceLoc loc, FunctionType& fn_type, TinyVector<Expr*> args) {
+    bool SemanticAnalyzer::resolve_call_arity(SourceLoc loc, FunctionType& fn_type, TinyVector<Expr*> args, bool report_errors) {
         switch (fn_type.variadic) {
             case VariadicKind::None: {
                 if (args.size < fn_type.required_arg_count) {
-                    report_error(loc, fmt::format("Too few arguments provided, expected {} but got {}", fn_type.required_arg_count, args.size));
+                    if (report_errors) {
+                        report_error(loc, fmt::format("Too few arguments provided, expected {} but got {}", fn_type.required_arg_count, args.size));
+                    }
                     return false;
                 }
 
                 if (args.size > fn_type.params.size) {
-                    report_error(loc, fmt::format("Too many arguments provided, expected {} but got {}", fn_type.required_arg_count, args.size));
+                    if (report_errors) {
+                        report_error(loc, fmt::format("Too many arguments provided, expected {} but got {}", fn_type.required_arg_count, args.size));
+                    }
                     return false;
                 }
 
@@ -895,7 +966,9 @@ namespace ariac {
 
             case VariadicKind::Unnamed: {
                 if (args.size < fn_type.required_arg_count) {
-                    report_error(loc, fmt::format("Too few arguments provided, expected at least {} but got {}", fn_type.required_arg_count, args.size));
+                    if (report_errors) {
+                        report_error(loc, fmt::format("Too few arguments provided, expected at least {} but got {}", fn_type.required_arg_count, args.size));
+                    }
                     return false;
                 }
 
@@ -904,7 +977,9 @@ namespace ariac {
 
             case VariadicKind::Named: {
                 if (args.size < fn_type.required_arg_count) {
-                    report_error(loc, fmt::format("Too few arguments provided, expected at least {} but got {}", fn_type.required_arg_count, args.size));
+                    if (report_errors) {
+                        report_error(loc, fmt::format("Too few arguments provided, expected at least {} but got {}", fn_type.required_arg_count, args.size));
+                    }
                     return false;
                 }
 
