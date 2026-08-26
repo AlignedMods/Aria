@@ -255,6 +255,7 @@ namespace ariac {
         Var,
         Param,
         Function,
+        FunctionOverloadSet,
         Struct,
         StructSpecilization,
         Typedef,
@@ -274,6 +275,7 @@ namespace ariac {
             case DeclKind::Var: return "Var";
             case DeclKind::Param: return "Param";
             case DeclKind::Function: return "Function";
+            case DeclKind::FunctionOverloadSet: return "FunctionOverloadSet";
             case DeclKind::Struct: return "Struct";
             case DeclKind::StructSpecilization: return "StructSpecilization";
             case DeclKind::Typedef: return "Typedef";
@@ -414,6 +416,7 @@ namespace ariac {
         Unresolved,
         Dependent,
         DeducableTemplate,
+        OverloadedFunction,
         Typeof,
 
         // Never is a special type which is only available for function return types

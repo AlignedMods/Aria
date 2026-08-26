@@ -50,6 +50,7 @@ namespace ariac {
 
         switch (decl->kind) {
             case DeclKind::Function: fn = &decl->function; break;
+            case DeclKind::FunctionOverloadSet: return;
 
             case DeclKind::Template: {
                 for (Decl* gs : decl->template_.specilizations) {
@@ -59,6 +60,7 @@ namespace ariac {
 
                 return;
             }
+
             default: ARIA_UNREACHABLE("Invalid function decl");
         }
 

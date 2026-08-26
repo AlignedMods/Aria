@@ -114,11 +114,6 @@ namespace ariac {
         Expr* ident = nullptr;
     };
 
-    struct DeducableTemplateType {
-        Decl* template_ = nullptr;
-        TinyVector<TypeInfo*> args;
-    };
-
     struct TypeofType {
         Expr* expr = nullptr;
     };
@@ -137,7 +132,6 @@ namespace ariac {
             TemplateType template_;
             StructSpecilizationType struct_specilization;
             UnresolvedType unresolved;
-            DeducableTemplateType deducable_template;
             TypeofType typeof;
 
             u64 _initializer = 0; // Hack so the compiler doesn't complain about 'no default constructor'
@@ -155,7 +149,6 @@ namespace ariac {
         static TypeInfo* create_template(Decl* d, SourceLoc loc = {});
         static TypeInfo* create_struct_instantation(TypeInfo* base, TinyVector<TypeInfo*> args, SourceLoc loc = {});
         static TypeInfo* create_unresolved(Expr* e, SourceLoc loc = {});
-        static TypeInfo* create_deducable_template(Decl* template_, TinyVector<TypeInfo*> args, SourceLoc loc = {});
 
         static TypeInfo* get_error();
         static TypeInfo* get_void();
@@ -169,6 +162,8 @@ namespace ariac {
         static TypeInfo* get_char_ptr();
         static TypeInfo* get_char_slice();
         static TypeInfo* get_void_method(); // Returns a 'fn (self) -> void'
+        static TypeInfo* get_deducable_template();
+        static TypeInfo* get_overloaded_function();
         static TypeInfo* get_flattened(TypeInfo* t);
 
         static TypeInfo* dup(TypeInfo* type);

@@ -79,6 +79,7 @@ namespace ariac {
 
         void resolve_unit_type_decls(Module* module, CompilationUnit* unit);
         void resolve_unit_decls(Module* module, CompilationUnit* unit);
+        void resolve_unit_func_overload_sets(Module* module, CompilationUnit* unit);
         void resolve_unit_code(Module* module, CompilationUnit* unit);
 
         void resolve_boolean_literal_expr(Expr* expr);
@@ -96,6 +97,7 @@ namespace ariac {
         void resolve_self_expr(Expr* expr);
         void resolve_call_expr(Expr* expr);
         void resolve_template_call_expr(Decl* template_, TinyVector<TypeInfo*> template_args, SourceLoc loc, TinyVector<Expr*> args, Decl** callee, TypeInfo** callee_type);
+        void resolve_overloaded_function_call_expr(Decl* func, SourceLoc loc, TinyVector<Expr*> args, Decl** callee, TypeInfo** callee_type);
         bool resolve_call_arity(SourceLoc loc, FunctionType& fn_type, TinyVector<Expr*> args);
         void resolve_call_args(FunctionType& fn_type, TinyVector<Expr*>& args);
         void resolve_builtin_call_expr(Expr* expr);

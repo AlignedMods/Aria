@@ -43,6 +43,13 @@ namespace ariac {
             }
         }
 
+        // We need all functions to already be resolved before we handle overload sets
+        for (Module* mod : context.modules) {
+            for (CompilationUnit* unit : mod->units) {
+                resolve_unit_func_overload_sets(mod, unit);
+            }
+        }
+
         if (!context.main_func) {
             fmt::println(stderr, "No main function was found for this executable, please add it.\n");
         }
@@ -219,7 +226,7 @@ namespace ariac {
                 continue;
             }
 
-            module->symbols[var.identifier] = global;    
+            module->symbols[var.identifier] = global;
         }
 
         for (size_t i = 0; i < unit->funcs.size(); i++) {
@@ -236,6 +243,19 @@ namespace ariac {
                     func->parent_unit = unit;
                     generic = true;
                     break;
+                }
+
+                case DeclKind::FunctionOverloadSet: {
+                    if (module->symbols.contains(func->function_overload_set.identifier)) {
+                        Decl* d = module->symbols.at(func->function_overload_set.identifier);
+                        report_diag(func->loc, fmt::format("Redefining symbol '{}'", func->function_overload_set.identifier));
+                        report_diag(d->loc, "Previous declaration here", CompilerDiagKind::Note);
+                        func->kind = DeclKind::Error;
+                        continue;
+                    }
+
+                    module->symbols[func->function_overload_set.identifier] = func;    
+                    continue; // The rest is handled later
                 }
 
                 default: ARIA_UNREACHABLE("Invalid func in funcs");
@@ -373,6 +393,39 @@ namespace ariac {
         }
     }
 
+    void SemanticAnalyzer::resolve_unit_func_overload_sets(Module* module, CompilationUnit* unit) {
+        for (size_t i = 0; i < unit->funcs.size(); i++) {
+            Decl* func = unit->funcs[i];
+
+            if (func->kind != DeclKind::FunctionOverloadSet) { continue; }
+
+            FunctionOverloadSetDecl& set = func->function_overload_set;
+            TinyVector<Decl*> funcs;
+
+            for (Expr* arg : set.args) {
+                // TODO: This is a cheap hack to allow usage of functions as values
+                m_sema_context.call = true;
+                resolve_expr(arg);
+                m_sema_context.call = false;
+
+                // Error expression?
+                if (arg->kind == ExprKind::Error) { continue; }
+                ARIA_ASSERT(arg->kind == ExprKind::DeclRef, "Invalid arg");
+
+                if (arg->decl_ref.referenced_decl->kind == DeclKind::Error) { continue; }
+
+                if (arg->decl_ref.referenced_decl->kind != DeclKind::Function) {
+                    report_error(arg->loc, fmt::format("{} is not a function", arg->decl_ref.identifier));
+                    continue;
+                }
+
+                funcs.append(arg->decl_ref.referenced_decl);
+            }
+
+            set.funcs = funcs;
+        }
+    }
+
     void SemanticAnalyzer::resolve_unit_code(Module* module, CompilationUnit* unit) {
         context.active_comp_unit = unit;
 
@@ -414,7 +467,8 @@ namespace ariac {
 
         for (Decl* func : unit->funcs) {
             switch (func->kind) {
-                case DeclKind::Error: break;
+                case DeclKind::Error:
+                case DeclKind::FunctionOverloadSet: break;
 
                 case DeclKind::Function: {
                     resolve_function_body(func);

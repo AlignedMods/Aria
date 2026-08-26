@@ -30,6 +30,8 @@ namespace ariac {
     static TypeInfo* char_ptr_type;
     static TypeInfo* char_slice_type;
     static TypeInfo* void_method;
+    static TypeInfo* deducable_template;
+    static TypeInfo* overloaded_function;
 
     TypeInfo* TypeInfo::create_basic(TypeKind kind, SourceLoc loc) {
         TypeInfo* t = context.allocate<TypeInfo>();
@@ -104,12 +106,6 @@ namespace ariac {
     TypeInfo* TypeInfo::create_unresolved(Expr* e, SourceLoc loc) {
         TypeInfo* t = create_basic(TypeKind::Unresolved, loc);
         t->unresolved = UnresolvedType(e);
-        return t;
-    }
-
-    TypeInfo* TypeInfo::create_deducable_template(Decl* template_, TinyVector<TypeInfo*> args, SourceLoc loc) {
-        TypeInfo* t = create_basic(TypeKind::DeducableTemplate, loc);
-        t->deducable_template = DeducableTemplateType(template_, args);
         return t;
     }
 
@@ -207,16 +203,6 @@ namespace ariac {
 
             case TypeKind::Unresolved: {
                 t->unresolved.ident = type->unresolved.ident;
-                break;
-            }
-
-            case TypeKind::DeducableTemplate: {
-                t->deducable_template.template_ = type->deducable_template.template_;
-                
-                for (TypeInfo* a : type->deducable_template.args) {
-                    t->deducable_template.args.append(TypeInfo::dup(a));
-                }
-
                 break;
             }
 
@@ -320,6 +306,18 @@ namespace ariac {
         return void_method;
     }
 
+    TypeInfo* TypeInfo::get_deducable_template() {
+        if (deducable_template) { return deducable_template; }
+        deducable_template = create_basic(TypeKind::DeducableTemplate);
+        return deducable_template;
+    }
+
+    TypeInfo* TypeInfo::get_overloaded_function() {
+        if (overloaded_function) { return overloaded_function; }
+        overloaded_function = create_basic(TypeKind::OverloadedFunction);
+        return overloaded_function;
+    }
+
     TypeInfo* TypeInfo::get_flattened(TypeInfo* t) {
         switch (t->kind) {
             case TypeKind::Error:
@@ -351,6 +349,7 @@ namespace ariac {
             case TypeKind::StructSpecilization:
             case TypeKind::Dependent:
             case TypeKind::DeducableTemplate:
+            case TypeKind::OverloadedFunction:
                 return t;
 
             case TypeKind::Typedef: return t->typedef_.base;
@@ -732,6 +731,7 @@ namespace ariac {
             case TypeKind::Unresolved: str = "<unresolved_type>"; break;
             case TypeKind::Dependent: str = "<dependent_type>"; break;
             case TypeKind::DeducableTemplate: str = "<deducable_template_type>"; break;
+            case TypeKind::OverloadedFunction: str = "<overloaded_function_type>"; break;
 
             case TypeKind::Never: {
                 str = "!";

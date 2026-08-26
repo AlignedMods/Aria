@@ -1504,6 +1504,36 @@ namespace ariac {
             return &error_decl;
         }
 
+        if (match(TokenKind::LeftCurly)) { // Overloaded function set
+            Token& lc = consume();
+            TinyVector<Expr*> funcs;
+
+            if (template_params.size > 0) {
+                context.report_compiler_diagnostic(lc.loc, "Function overload set may not be generic");
+            }
+
+            while (!match(TokenKind::RightCurly)) {
+                Token* i = try_consume(TokenKind::Identifier, "identifier");
+                if (!i) { continue; }
+
+                Expr* func = parse_identifier(*i);
+                if (expr_ok(func)) {
+                    funcs.append(func);
+                }
+
+                if (match(TokenKind::Comma)) { consume(); continue; }
+                if (match(TokenKind::RightCurly)) { consume(); break; }
+
+                context.report_compiler_diagnostic(peek()->loc, "Expected either ',' or '}'");
+            }
+
+            try_consume(TokenKind::Semi, ";");
+
+            Decl* f = Decl::Create(loc + peek(-1)->loc, DeclKind::FunctionOverloadSet, m_current_visibility, FunctionOverloadSetDecl(ident->string, funcs));
+            context.active_comp_unit->funcs.push_back(f);
+            return f;
+        }
+
         bool is_deleted = false;
         FunctionSpecilizationInfo specilization_info{};
 

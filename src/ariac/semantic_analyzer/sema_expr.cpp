@@ -115,6 +115,16 @@ namespace ariac {
                     return;
                 }
 
+                case DeclKind::FunctionOverloadSet: {
+                    if (!m_sema_context.call) {
+                        report_error(expr->loc, fmt::format("Reference to function overload set '{}' may only be used to call it", pretty_ident));
+                    }
+
+                    check_visibility(sym, "function overload set");
+                    expr->type = TypeInfo::get_overloaded_function();
+                    return;
+                }
+
                 case DeclKind::Struct:
                 case DeclKind::Typedef:
                 case DeclKind::Enum: {
@@ -136,7 +146,7 @@ namespace ariac {
 
                             // We let the call analysis handle this
                             if (m_sema_context.call) {
-                                expr->type = TypeInfo::create_deducable_template(sym, dr.generic_arguments);
+                                expr->type = TypeInfo::get_deducable_template();
                                 return;
                             }
 
@@ -691,7 +701,9 @@ namespace ariac {
             }
 
             case TypeKind::DeducableTemplate: {
-                resolve_template_call_expr(searching_type->deducable_template.template_, searching_type->deducable_template.args, expr->loc, call.arguments, 
+                ARIA_ASSERT(call.callee->kind == ExprKind::DeclRef, "Invalid callee");
+
+                resolve_template_call_expr(call.callee->decl_ref.referenced_decl, call.callee->decl_ref.generic_arguments, expr->loc, call.arguments, 
                     &call.callee->decl_ref.referenced_decl, &call.callee->type);
 
                 if (call.callee->type->is_error()) {
@@ -700,6 +712,12 @@ namespace ariac {
                 }
 
                 fn_type = &call.callee->type->function;
+                break;
+            }
+
+            case TypeKind::OverloadedFunction: {
+                ARIA_ASSERT(call.callee->kind == ExprKind::DeclRef, "Invalid callee");
+
                 break;
             }
 
@@ -799,7 +817,7 @@ namespace ariac {
         }
 
         if (g.parameters.size < template_args.size) { // Too many arguments, report error
-            report_error(loc, fmt::format("Too many generic arguments provided, expected {}, got {}", g.parameters.size, template_args.size));
+            report_error(loc, fmt::format("Too many template arguments provided, expected {}, got {}", g.parameters.size, template_args.size));
             *callee = &error_decl;
             *callee_type = TypeInfo::get_error();
             return;
@@ -832,7 +850,7 @@ namespace ariac {
         bool is_any_generic = false;
         for (Decl* p : g.parameters) {
             if (!deduced_args.contains(p)) {
-                report_error(loc, fmt::format("Could not deduce generic argument '{}'", p->template_param.identifier));
+                report_error(loc, fmt::format("Could not deduce template argument '{}'", p->template_param.identifier));
                 deduced_args[p] = ResolvedTemplateArg(TypeInfo::get_error(), true, loc);
             }
 
@@ -854,6 +872,9 @@ namespace ariac {
         *callee = specialize_template_func(loc, template_, final_args);
         *callee_type = (*callee)->function.type;
         return;
+    }
+
+    void SemanticAnalyzer::resolve_overloaded_function_call_expr(Decl* func, SourceLoc loc, TinyVector<Expr*> args, Decl** callee, TypeInfo** callee_type) {
     }
 
     bool SemanticAnalyzer::resolve_call_arity(SourceLoc loc, FunctionType& fn_type, TinyVector<Expr*> args) {

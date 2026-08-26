@@ -99,6 +99,18 @@ namespace ariac {
         FunctionSpecilizationInfo specilization_info;
     };
 
+    struct FunctionOverloadSetDecl {
+        FunctionOverloadSetDecl(std::string_view identifier, TinyVector<Expr*> args)
+            : identifier(identifier), args(args) {}
+
+        std::string_view identifier;
+
+        union {
+            TinyVector<Expr*> args; // Raw args from the parser
+            TinyVector<Decl*> funcs; // Resolved declarations
+        };
+    };
+
     struct StructDecl {
         StructDecl(std::string_view identifier, TinyVector<Decl*> fields)
             : identifier(identifier), fields(fields) {}
@@ -224,6 +236,7 @@ namespace ariac {
             VarDecl var;
             ParamDecl param;
             FunctionDecl function;
+            FunctionOverloadSetDecl function_overload_set;
             StructDecl struct_;
             StructSpecilizationDecl struct_specilization;
             TypedefDecl typedef_;
@@ -253,6 +266,9 @@ namespace ariac {
 
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, FunctionDecl function)
             : loc(loc), kind(kind), visibility(visibility), function(function) {}
+
+        Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, FunctionOverloadSetDecl function)
+            : loc(loc), kind(kind), visibility(visibility), function_overload_set(function) {}
 
         Decl(SourceLoc loc, DeclKind kind, DeclVisibility visibility, StructDecl struc)
             : loc(loc), kind(kind), visibility(visibility), struct_(struc) {}

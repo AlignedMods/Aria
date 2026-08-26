@@ -361,6 +361,16 @@ namespace ariac {
                 }
                 return;
 
+            case DeclKind::FunctionOverloadSet: m_output += fmt::format("FunctionOverloadSetDecl {} '{}'\n",
+                source_loc_to_string(decl->loc), decl->function_overload_set.identifier);
+
+                ident += "    ";
+                for (Decl* f : decl->function_overload_set.funcs) {
+                    m_output += fmt::format("{}{}: {}\n", ident, decl_kind_to_string(f->kind), reinterpret_cast<void*>(f));
+                }
+
+                return;
+
             case DeclKind::Struct: m_output += fmt::format("StructDecl {} '{}'{}\n",
                 source_loc_to_string(decl->loc), decl->struct_.identifier,
                 decl->struct_.parent ? fmt::format(" parent {} {}", decl_kind_to_string(decl->struct_.parent->kind), 
