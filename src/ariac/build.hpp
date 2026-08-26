@@ -22,7 +22,7 @@ namespace ariac {
         bool run_after_compile = false;
         bool no_codegen = false;
         bool no_stdlib = false;
-        bool emit_ast = false;
+        bool dump_ast = false;
         bool emit_llvm = false;
     };
 

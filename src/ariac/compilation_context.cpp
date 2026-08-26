@@ -77,7 +77,7 @@ namespace ariac {
     void CompilationContext::finish_compilation() {
         analyze();
 
-        if (opts->emit_ast) {
+        if (opts->dump_ast) {
             for (Module* mod : modules) {
                 ASTDumper d(mod);
                 std::string& output = d.get_output();

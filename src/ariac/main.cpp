@@ -32,7 +32,7 @@ namespace ariac {
         fmt::println("    --no-codegen             Do not run any codegen");
         fmt::println("    --no-stdlib              Does not compile the standard library");
         fmt::println("    --stdlib-path <path>     Tells the compiler where the standard library is located");
-        fmt::println("    --emit-ast               Prints the human readable AST of all the input files");
+        fmt::println("    --dump-ast               Prints the human readable AST of all the input files");
         fmt::println("    --emit-llvm              Prints the human readable LLVM IR output of all the input files");
         fmt::println("    -l <lib>                 Adds <lib> to the list of libraries to link with");
         fmt::println("    -L <path>                Adds <path> to the list of paths where to search for libraries");
@@ -92,8 +92,8 @@ namespace ariac {
             return;
         }
 
-        if (match_arg("--emit-ast")) {
-            opts->emit_ast = true;
+        if (match_arg("--dump-ast")) {
+            opts->dump_ast = true;
             return;
         }
 
