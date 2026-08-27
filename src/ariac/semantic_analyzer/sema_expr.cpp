@@ -1,6 +1,8 @@
 #include "ariac/semantic_analyzer/semantic_analyzer.hpp"
 #include "ariac/core/scratch_buffer.hpp"
 
+#include <map>
+
 namespace ariac {
 
     void SemanticAnalyzer::resolve_boolean_literal_expr(Expr* expr) {
@@ -905,43 +907,65 @@ namespace ariac {
             return;
         }
 
-        Decl* best_choice = nullptr;
-        size_t lowest_cost = 0;
+        // We need this to be ordered
+        std::map<int, TinyVector<Decl*>> choices;
 
         for (Decl* candidate : candidates) {
             FunctionDecl& fn = candidate->function;
 
-            bool cast_needed = false;
+            int total_cost = 0;
+            // Flag to check if we need to go to the next candidate
+            // Because the current one cannot be used
+            bool next_candidate = false;
+
             for (size_t i = 0; i < args.size; i++) {
                 resolve_expr(args[i]);
+
+                // The rest of the code only applies to normal args
+                if (i >= fn.type->function.get_last_non_variadic_arg()) {
+                    continue;
+                }
+
                 ConversionCost cost = get_conversion_cost(fn.type->function.params[i]->param.type, args[i]->type);
 
                 if (cost.cast_needed) {
-                    cast_needed = true;
+                    if (!cost.implicit_cast_possible) {
+                        next_candidate = true;
+                        break;
+                    }
+
+                    total_cost += 1;
                 }
             }
 
-            if (!cast_needed) {
-                if (best_choice) {
-                    report_error(loc, fmt::format("Cannot deduce call to function overload set '{}'", set.identifier));
-                    *callee = &error_decl;
-                    *callee_type = TypeInfo::get_error();
-                    return;
-                }
-
-                best_choice = candidate;
+            if (next_candidate) {
+                continue;
             }
+
+            // FIXME: This is kind of ugly
+            if (fn.type->function.is_variadic()) { total_cost += 1; }
+
+            choices[total_cost].append(candidate);
         }
 
-        if (!best_choice) {
+        if (choices.empty()) {
             report_error(loc, fmt::format("Cannot deduce call to function overload set '{}'", set.identifier));
             *callee = &error_decl;
             *callee_type = TypeInfo::get_error();
             return;
         }
 
-        *callee = best_choice;
-        *callee_type = best_choice->function.type;
+        auto& best_choices = choices.begin()->second;
+
+        if (best_choices.size != 1) {
+            report_error(loc, fmt::format("Cannot deduce call to function overload set '{}'", set.identifier));
+            *callee = &error_decl;
+            *callee_type = TypeInfo::get_error();
+            return;
+        }
+
+        *callee = best_choices[0];
+        *callee_type = best_choices[0]->function.type;
     }
 
     bool SemanticAnalyzer::resolve_call_arity(SourceLoc loc, FunctionType& fn_type, TinyVector<Expr*> args, bool report_errors) {

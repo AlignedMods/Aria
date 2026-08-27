@@ -46,7 +46,17 @@ namespace ariac {
         FunctionType(TypeInfo* ret, TinyVector<Decl*> params, size_t required_arg_count, VariadicKind var)
             : return_type(ret), params(params), required_arg_count(required_arg_count), variadic(var) {}
 
-        bool is_variadic() const { return variadic == VariadicKind::Unnamed || variadic == VariadicKind::Named; }
+        inline bool is_variadic() const { return variadic == VariadicKind::Unnamed || variadic == VariadicKind::Named; }
+
+        inline size_t get_last_non_variadic_arg() const {
+            switch (variadic) {
+                case VariadicKind::None: return params.size;
+                case VariadicKind::Unnamed: return params.size;
+                case VariadicKind::Named: return params.size - 1;
+
+                default: ARIA_UNREACHABLE("Invalid variadic");
+            }
+        }
 
         TypeInfo* return_type;
         TinyVector<Decl*> params;
