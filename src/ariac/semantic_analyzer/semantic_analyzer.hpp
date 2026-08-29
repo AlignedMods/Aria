@@ -97,7 +97,7 @@ namespace ariac {
         void resolve_self_expr(Expr* expr);
         void resolve_call_expr(Expr* expr);
         void resolve_template_call_expr(Decl* template_, TinyVector<TypeInfo*> template_args, SourceLoc loc, TinyVector<Expr*> args, Decl** callee, TypeInfo** callee_type);
-        void resolve_overloaded_function_call_expr(Decl* func, SourceLoc loc, TinyVector<Expr*> args, Decl** callee, TypeInfo** callee_type);
+        void resolve_overloaded_function_call_expr(Decl* func, SourceLoc loc, TinyVector<Expr*> args, TinyVector<TypeInfo*> template_args, Decl** callee, TypeInfo** callee_type);
         bool resolve_call_arity(SourceLoc loc, FunctionType& fn_type, TinyVector<Expr*> args, bool report_errors = true);
         void resolve_call_args(FunctionType& fn_type, TinyVector<Expr*>& args);
         void resolve_builtin_call_expr(Expr* expr);

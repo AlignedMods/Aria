@@ -17,7 +17,7 @@ namespace ariac {
         size_t capacity = 0;
         size_t size = 0;
     
-        inline void append(T t) {
+        inline void append(const T& t) {
             if (capacity == 0) {
                 items = reinterpret_cast<T*>(alloc_arena(sizeof(T) * 32));
                 capacity = 32;

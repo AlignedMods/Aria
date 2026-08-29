@@ -720,7 +720,7 @@ namespace ariac {
             case TypeKind::OverloadedFunction: {
                 ARIA_ASSERT(call.callee->kind == ExprKind::DeclRef, "Invalid callee");
 
-                resolve_overloaded_function_call_expr(call.callee->decl_ref.referenced_decl, expr->loc, call.arguments,
+                resolve_overloaded_function_call_expr(call.callee->decl_ref.referenced_decl, expr->loc, call.arguments, call.callee->decl_ref.generic_arguments,
                     &call.callee->decl_ref.referenced_decl, &call.callee->type);
 
                 if (call.callee->type->is_error()) {
@@ -885,22 +885,42 @@ namespace ariac {
         return;
     }
 
-    void SemanticAnalyzer::resolve_overloaded_function_call_expr(Decl* func, SourceLoc loc, TinyVector<Expr*> args, Decl** callee, TypeInfo** callee_type) {
+    void SemanticAnalyzer::resolve_overloaded_function_call_expr(Decl* func, SourceLoc loc, TinyVector<Expr*> args, TinyVector<TypeInfo*> template_args, Decl** callee, TypeInfo** callee_type) {
         ARIA_ASSERT(func->kind == DeclKind::FunctionOverloadSet, "Invalid func");
 
+        struct OverloadChoice {
+            Decl* decl = nullptr;
+            ResolvedTemplateMap template_map;
+        };
+
         FunctionOverloadSetDecl& set = func->function_overload_set;
-        TinyVector<Decl*> candidates;
+        std::vector<Decl*> candidates;
 
-        // Pick out generic candidates
+        // Pick out candidates
         for (Decl* f : set.funcs) {
-            ARIA_ASSERT(f->kind == DeclKind::Function, "Invalid function");
+            if (f->kind == DeclKind::Template) {
+                if (f->template_.parameters.size < template_args.size) {
+                    continue;
+                }
 
+                if (resolve_call_arity(loc, f->template_.template_decl->function.type->function, args, false)) {
+                    candidates.push_back(f);
+                }
+                continue;
+            }
+
+            // Skip normal functions if we have template arguments
+            if (template_args.size > 0) {
+                continue;
+            }
+
+            ARIA_ASSERT(f->kind == DeclKind::Function, "Invalid function");
             if (resolve_call_arity(loc, f->function.type->function, args, false)) {
-                candidates.append(f);
+                candidates.push_back(f);
             }
         }
 
-        if (candidates.size == 0) {
+        if (candidates.size() == 0) {
             report_error(loc, fmt::format("Cannot deduce call to function overload set '{}'", set.identifier));
             *callee = &error_decl;
             *callee_type = TypeInfo::get_error();
@@ -908,15 +928,22 @@ namespace ariac {
         }
 
         // We need this to be ordered
-        std::map<int, TinyVector<Decl*>> choices;
+        std::map<int, std::vector<OverloadChoice>> choices;
 
         for (Decl* candidate : candidates) {
-            FunctionDecl& fn = candidate->function;
+            FunctionDecl& fn = candidate->kind == DeclKind::Template ? candidate->template_.template_decl->function : candidate->function;
 
             int total_cost = 0;
             // Flag to check if we need to go to the next candidate
             // Because the current one cannot be used
             bool next_candidate = false;
+
+            ResolvedTemplateMap template_map;
+
+            for (size_t i = 0; i < template_args.size; i++) {
+                ARIA_ASSERT(candidate->kind == DeclKind::Template, "Invalid candidate");
+                template_map[candidate->template_.parameters[i]] = { template_args[i], false }; 
+            }
 
             for (size_t i = 0; i < args.size; i++) {
                 resolve_expr(args[i]);
@@ -945,7 +972,7 @@ namespace ariac {
             // FIXME: This is kind of ugly
             if (fn.type->function.is_variadic()) { total_cost += 1; }
 
-            choices[total_cost].append(candidate);
+            choices[total_cost].push_back({candidate, std::move(template_map)});
         }
 
         if (choices.empty()) {
@@ -957,15 +984,50 @@ namespace ariac {
 
         auto& best_choices = choices.begin()->second;
 
-        if (best_choices.size != 1) {
+        if (best_choices.size() != 1) {
             report_error(loc, fmt::format("Cannot deduce call to function overload set '{}'", set.identifier));
             *callee = &error_decl;
             *callee_type = TypeInfo::get_error();
             return;
         }
 
-        *callee = best_choices[0];
-        *callee_type = best_choices[0]->function.type;
+        auto& best_choice = best_choices[0];
+
+        if (!best_choice.template_map.empty()) {
+            // Create the instantiation
+            TinyVector<TypeInfo*> final_args;
+            bool is_any_generic = false;
+
+            for (Decl* p : best_choice.decl->template_.parameters) {
+                if (!best_choice.template_map.contains(p)) {
+                    report_error(loc, fmt::format("Cannot deduce call to function overload set '{}'", set.identifier));
+                    *callee = &error_decl;
+                    *callee_type = TypeInfo::get_error();
+                    return;
+                }
+
+                auto& deduced = best_choice.template_map.at(p);
+
+                if (deduced.type->is_template()) {
+                    is_any_generic = true;
+                }
+
+                final_args.append(best_choice.template_map.at(p).type);
+            }
+
+            if (is_any_generic) {
+                *callee = best_choice.decl;
+                *callee_type = (*callee)->template_.template_decl->function.type;
+                return;
+            }
+
+            *callee = specialize_template_func(loc, best_choice.decl, final_args);
+            *callee_type = (*callee)->function.type;
+            return;
+        }
+
+        *callee = best_choice.decl;
+        *callee_type = best_choice.decl->function.type;
     }
 
     bool SemanticAnalyzer::resolve_call_arity(SourceLoc loc, FunctionType& fn_type, TinyVector<Expr*> args, bool report_errors) {

@@ -414,7 +414,8 @@ namespace ariac {
 
                 if (arg->decl_ref.referenced_decl->kind == DeclKind::Error) { continue; }
 
-                if (arg->decl_ref.referenced_decl->kind != DeclKind::Function) {
+                if (arg->decl_ref.referenced_decl->kind != DeclKind::Function &&
+                    (arg->decl_ref.referenced_decl->kind != DeclKind::Template && arg->decl_ref.referenced_decl->template_.template_decl->kind != DeclKind::Function)) {
                     report_error(arg->loc, fmt::format("{} is not a function", arg->decl_ref.identifier));
                     continue;
                 }
