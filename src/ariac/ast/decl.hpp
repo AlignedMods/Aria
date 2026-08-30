@@ -100,15 +100,11 @@ namespace ariac {
     };
 
     struct FunctionOverloadSetDecl {
-        FunctionOverloadSetDecl(std::string_view identifier, TinyVector<Expr*> args)
-            : identifier(identifier), args(args) {}
+        FunctionOverloadSetDecl(std::string_view identifier)
+            : identifier(identifier) {}
 
         std::string_view identifier;
-
-        union {
-            TinyVector<Expr*> args; // Raw args from the parser
-            TinyVector<Decl*> funcs; // Resolved declarations
-        };
+        TinyVector<Decl*> funcs; // Resolved declarations
     };
 
     struct StructDecl {

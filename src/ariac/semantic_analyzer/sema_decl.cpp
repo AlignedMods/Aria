@@ -626,6 +626,29 @@ namespace ariac {
                     break;
                 }
 
+                case DeclAttributeKind::Set: {
+                    if (decl->kind != DeclKind::Function) {
+                        report_diag(decl->loc, "Only functions may have '@set'");
+                        break;
+                    }
+
+                    bool call = m_sema_context.call;
+                    m_sema_context.call = true;
+                    resolve_expr(attr.expr);
+                    m_sema_context.call = call;
+
+                    if (attr.expr->kind == ExprKind::Error) { break; }
+                    ARIA_ASSERT(attr.expr->kind == ExprKind::DeclRef, "Invalid expr");
+
+                    if (attr.expr->decl_ref.referenced_decl->kind != DeclKind::FunctionOverloadSet) {
+                        report_error(decl->loc, "'@set' must reference a function overload set");
+                        break;
+                    }
+                    
+                    attr.expr->decl_ref.referenced_decl->function_overload_set.funcs.append(decl);
+                    break;
+                }
+
                 default: ARIA_UNREACHABLE("Invalid decl attribute");
             }
         }

@@ -78,8 +78,8 @@ namespace ariac {
         void resolve_unit_imports(Module* module, CompilationUnit* unit);
 
         void resolve_unit_type_decls(Module* module, CompilationUnit* unit);
-        void resolve_unit_decls(Module* module, CompilationUnit* unit);
         void resolve_unit_func_overload_sets(Module* module, CompilationUnit* unit);
+        void resolve_unit_decls(Module* module, CompilationUnit* unit);
         void resolve_unit_code(Module* module, CompilationUnit* unit);
 
         void resolve_boolean_literal_expr(Expr* expr);

@@ -1486,6 +1486,23 @@ namespace ariac {
         SourceLoc loc = peek()->loc;
         Token fn = consume(); // consume "fn"
 
+        if (match(TokenKind::LeftParen)) { // Function overload set
+            consume();
+
+            Token* ident = try_consume(TokenKind::Identifier, "identifier");
+            if (!ident) {
+                sync_global();
+                return &error_decl;
+            }
+
+            try_consume(TokenKind::RightParen, ")");
+            try_consume(TokenKind::Semi, ";");
+
+            Decl* f = Decl::Create(loc + peek(-1)->loc, DeclKind::FunctionOverloadSet, m_current_visibility, FunctionOverloadSetDecl(ident->string));
+            context.active_comp_unit->funcs.push_back(f);
+            return f;
+        }
+
         TinyVector<Decl*> template_params;
         if (match(TokenKind::Less)) {
             template_params = parse_template_params();
@@ -1502,36 +1519,6 @@ namespace ariac {
         if (!ident) {
             sync_local();
             return &error_decl;
-        }
-
-        if (match(TokenKind::LeftCurly)) { // Overloaded function set
-            Token& lc = consume();
-            TinyVector<Expr*> funcs;
-
-            if (template_params.size > 0) {
-                context.report_compiler_diagnostic(lc.loc, "Function overload set may not be generic");
-            }
-
-            while (!match(TokenKind::RightCurly)) {
-                Token* i = try_consume(TokenKind::Identifier, "identifier");
-                if (!i) { continue; }
-
-                Expr* func = parse_identifier(*i);
-                if (expr_ok(func)) {
-                    funcs.append(func);
-                }
-
-                if (match(TokenKind::Comma)) { consume(); continue; }
-                if (match(TokenKind::RightCurly)) { consume(); break; }
-
-                context.report_compiler_diagnostic(peek()->loc, "Expected either ',' or '}'");
-            }
-
-            try_consume(TokenKind::Semi, ";");
-
-            Decl* f = Decl::Create(loc + peek(-1)->loc, DeclKind::FunctionOverloadSet, m_current_visibility, FunctionOverloadSetDecl(ident->string, funcs));
-            context.active_comp_unit->funcs.push_back(f);
-            return f;
         }
 
         bool is_deleted = false;
@@ -1997,6 +1984,21 @@ namespace ariac {
                 case TokenKind::AtInit: {
                     consume();
                     attrs.append(DeclAttribute(DeclAttributeKind::Init));
+                    break;
+                }
+
+                case TokenKind::AtSet: {
+                    consume();
+                    try_consume(TokenKind::LeftParen, "(");
+
+                    Expr* arg = &error_expr;
+
+                    Token* ident = try_consume(TokenKind::Identifier, "identifier");
+                    if (ident) { arg = parse_identifier(*ident); }
+
+                    try_consume(TokenKind::RightParen, ")");
+
+                    attrs.append(DeclAttribute(DeclAttributeKind::Set, arg));
                     break;
                 }
 

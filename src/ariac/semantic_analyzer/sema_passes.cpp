@@ -39,14 +39,13 @@ namespace ariac {
 
         for (Module* mod : context.modules) {
             for (CompilationUnit* unit : mod->units) {
-                resolve_unit_decls(mod, unit);
+                resolve_unit_func_overload_sets(mod, unit);
             }
         }
 
-        // We need all functions to already be resolved before we handle overload sets
         for (Module* mod : context.modules) {
             for (CompilationUnit* unit : mod->units) {
-                resolve_unit_func_overload_sets(mod, unit);
+                resolve_unit_decls(mod, unit);
             }
         }
 
@@ -207,6 +206,26 @@ namespace ariac {
         }
     }
 
+    void SemanticAnalyzer::resolve_unit_func_overload_sets(Module* module, CompilationUnit* unit) {
+        for (size_t i = 0; i < unit->funcs.size(); i++) {
+            Decl* func = unit->funcs[i];
+
+            if (func->kind != DeclKind::FunctionOverloadSet) { continue; }
+
+            FunctionOverloadSetDecl& set = func->function_overload_set;
+            
+            if (module->symbols.contains(set.identifier)) {
+                Decl* d = module->symbols.at(set.identifier);
+                report_diag(func->loc, fmt::format("Redefining symbol '{}'", set.identifier));
+                report_diag(d->loc, "Previous declaration here", CompilerDiagKind::Note);
+                func->kind = DeclKind::Error;
+                continue;
+            }
+
+            module->symbols[set.identifier] = func;
+        }
+    }
+
     void SemanticAnalyzer::resolve_unit_decls(Module* module, CompilationUnit* unit) {
         context.active_comp_unit = unit;
 
@@ -245,18 +264,7 @@ namespace ariac {
                     break;
                 }
 
-                case DeclKind::FunctionOverloadSet: {
-                    if (module->symbols.contains(func->function_overload_set.identifier)) {
-                        Decl* d = module->symbols.at(func->function_overload_set.identifier);
-                        report_diag(func->loc, fmt::format("Redefining symbol '{}'", func->function_overload_set.identifier));
-                        report_diag(d->loc, "Previous declaration here", CompilerDiagKind::Note);
-                        func->kind = DeclKind::Error;
-                        continue;
-                    }
-
-                    module->symbols[func->function_overload_set.identifier] = func;    
-                    continue; // The rest is handled later
-                }
+                case DeclKind::FunctionOverloadSet: continue;
 
                 default: ARIA_UNREACHABLE("Invalid func in funcs");
             }
@@ -390,40 +398,6 @@ namespace ariac {
             }
 
             module->symbols[f.identifier] = unit->funcs[i];
-        }
-    }
-
-    void SemanticAnalyzer::resolve_unit_func_overload_sets(Module* module, CompilationUnit* unit) {
-        for (size_t i = 0; i < unit->funcs.size(); i++) {
-            Decl* func = unit->funcs[i];
-
-            if (func->kind != DeclKind::FunctionOverloadSet) { continue; }
-
-            FunctionOverloadSetDecl& set = func->function_overload_set;
-            TinyVector<Decl*> funcs;
-
-            for (Expr* arg : set.args) {
-                // TODO: This is a cheap hack to allow usage of functions as values
-                m_sema_context.call = true;
-                resolve_expr(arg);
-                m_sema_context.call = false;
-
-                // Error expression?
-                if (arg->kind == ExprKind::Error) { continue; }
-                ARIA_ASSERT(arg->kind == ExprKind::DeclRef, "Invalid arg");
-
-                if (arg->decl_ref.referenced_decl->kind == DeclKind::Error) { continue; }
-
-                if (arg->decl_ref.referenced_decl->kind != DeclKind::Function &&
-                    (arg->decl_ref.referenced_decl->kind != DeclKind::Template && arg->decl_ref.referenced_decl->template_.template_decl->kind != DeclKind::Function)) {
-                    report_error(arg->loc, fmt::format("{} is not a function", arg->decl_ref.identifier));
-                    continue;
-                }
-
-                funcs.append(arg->decl_ref.referenced_decl);
-            }
-
-            set.funcs = funcs;
         }
     }
 

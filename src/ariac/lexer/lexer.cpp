@@ -442,6 +442,7 @@ namespace ariac {
             { "@if", TokenKind::AtIf },
             { "@builtin", TokenKind::AtBuiltin },
             { "@init", TokenKind::AtInit },
+            { "@set", TokenKind::AtSet },
             { "@sizeof", TokenKind::AtSizeof },
             { "@typeof", TokenKind::AtTypeof },
             { "@defined", TokenKind::AtDefined }

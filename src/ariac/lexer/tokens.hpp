@@ -89,6 +89,7 @@ namespace ariac {
         AtIf, // @if
         AtBuiltin, // @builtin
         AtInit, // @init
+        AtSet, // @set
         AtSizeof, // @sizeof
         AtTypeof, // @typeof
         AtDefined, // @defined
@@ -219,6 +220,7 @@ namespace ariac {
             case TokenKind::AtIf: return "@if";
             case TokenKind::AtBuiltin: return "@builtin";
             case TokenKind::AtInit: return "@init";
+            case TokenKind::AtSet: return "@set";
             case TokenKind::AtSizeof: return "@sizeof";
             case TokenKind::AtTypeof: return "@typeof";
             case TokenKind::AtDefined: return "@defined";

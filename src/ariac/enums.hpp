@@ -309,7 +309,8 @@ namespace ariac {
         None,
         If,
         Builtin,
-        Init
+        Init,
+        Set
     };
 
     enum class ResolveStatus {

@@ -626,6 +626,11 @@ namespace ariac {
                 return;
             }
 
+            case DeclAttributeKind::Set: {
+                m_output += fmt::format("SetAttribute {}\n", (attr.expr->kind == ExprKind::DeclRef) ? reinterpret_cast<void*>(attr.expr->decl_ref.referenced_decl) : nullptr);
+                return;
+            }
+
             default: ARIA_UNREACHABLE("Invalid attribute kind");
         }
     }
