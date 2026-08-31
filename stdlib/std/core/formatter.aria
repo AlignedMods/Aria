@@ -86,6 +86,8 @@ struct Formatter {
                 append_uint(any_to_int::<ulong>(&arg), base);
                 continue;
             }
+
+            unreachable("Argument %s has type '%s' but format specifier '%s' requires an integer", i, arg.type.name, c);
         }
 
         return total_len;
@@ -184,6 +186,10 @@ struct Formatter {
             }
 
             case TypeKind.UNSIGNED_INT: {
+                if a.type == char {
+                    return append_char(any_cast::<char>(&a));
+                }
+
                 return append_uint(any_to_int::<ulong>(&a), 10);
             }
 
