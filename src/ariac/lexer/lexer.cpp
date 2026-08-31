@@ -532,6 +532,7 @@ namespace ariac {
             { "const", TokenKind::Const },
             { "self", TokenKind::Self },
             { "assert", TokenKind::Assert },
+            { "unreachable", TokenKind::Unreachable },
             { "public", TokenKind::Public },
             { "private", TokenKind::Private },
 

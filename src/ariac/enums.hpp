@@ -360,6 +360,7 @@ namespace ariac {
         Defer,
         CompileIf,
         Assert,
+        Unreachable,
         Expr,
         Decl
     };

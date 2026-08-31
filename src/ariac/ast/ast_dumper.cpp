@@ -557,6 +557,12 @@ namespace ariac {
                 }
                 return;
 
+            case StmtKind::Unreachable: m_output += fmt::format("UnreachableStmt {}\n", source_loc_to_string(stmt->loc));
+                for (Expr* arg : stmt->unreachable.arguments) {
+                    dump_expr(arg, indentation + 4);
+                }
+                return;
+
             default: ARIA_UNREACHABLE("Invalid stmt kind");
         }
     }

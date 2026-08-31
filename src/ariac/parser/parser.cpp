@@ -1146,6 +1146,28 @@ namespace ariac {
         return Stmt::Create(a.loc + peek(-1)->loc, StmtKind::Assert, AssertStmt(cond, args));
     }
 
+    Stmt* Parser::parse_unreachable() {
+        Token& u = consume(); // consume "unreachable"
+        try_consume(TokenKind::LeftParen, "(");
+
+        TinyVector<Expr*> args;
+
+        while (!match(TokenKind::RightParen)) {
+            Expr* arg = parse_expression();
+            args.append(arg);
+
+            if (match(TokenKind::Comma)) { consume(); continue; }
+            if (match(TokenKind::RightParen)) { break; }
+
+            context.report_compiler_diagnostic(peek()->loc, "Expected either ',' or ')'");
+        }
+
+        try_consume(TokenKind::RightParen, ")");
+        try_consume(TokenKind::Semi, ";");
+
+        return Stmt::Create(u.loc + peek(-1)->loc, StmtKind::Unreachable, UnreachableStmt(args));
+    }
+
     Stmt* Parser::parse_break() {
         Token& b = consume(); // consume "break"
         try_consume(TokenKind::Semi, ";");
@@ -1291,6 +1313,9 @@ namespace ariac {
 
             case TokenKind::Assert:
                 return parse_assert();
+
+            case TokenKind::Unreachable:
+                return parse_unreachable();
 
             case TokenKind::Else: {
                 Token& tok = consume();

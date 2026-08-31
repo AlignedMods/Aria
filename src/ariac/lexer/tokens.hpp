@@ -85,6 +85,7 @@ namespace ariac {
         Const,
         Self,
         Assert,
+        Unreachable,
         Public,
         Private,
         AtIf, // @if
@@ -217,6 +218,7 @@ namespace ariac {
             case TokenKind::Const: return "const";
             case TokenKind::Self: return "self";
             case TokenKind::Assert: return "assert";
+            case TokenKind::Unreachable: return "unreachable";
             case TokenKind::Public: return "public";
             case TokenKind::Private: return "private";
             case TokenKind::AtIf: return "@if";

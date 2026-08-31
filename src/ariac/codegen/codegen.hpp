@@ -179,6 +179,7 @@ namespace ariac {
         void gen_return_stmt(Stmt* stmt);
         void gen_defer_stmt(Stmt* stmt);
         void gen_assert_stmt(Stmt* stmt);
+        void gen_unreachable_stmt(Stmt* stmt);
         void gen_expr_stmt(Stmt* stmt);
         void gen_decl_stmt(Stmt* stmt);
 

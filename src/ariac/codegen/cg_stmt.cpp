@@ -388,7 +388,9 @@ namespace ariac {
             llvm::SmallVector<llvm::Value*> variadic_args;
             llvm::SmallVector<TypeInfo*> variadic_types;
 
-            for (Expr* arg : a.arguments) {
+            // NOTE: We start at index 1 to ignore the format string 
+            for (size_t i = 1; i < a.arguments.size; i++) {
+                Expr* arg = a.arguments[i];
                 llvm::Value* val = gen_expr(arg);
                 variadic_args.push_back(val);
                 variadic_types.push_back(arg->type);
@@ -401,6 +403,42 @@ namespace ariac {
         m_active_module_context.builder->CreateUnreachable();
 
         m_active_module_context.builder->SetInsertPoint(assert_end);
+    }
+
+    void Codegen::gen_unreachable_stmt(Stmt* stmt) {
+        UnreachableStmt& u = stmt->unreachable;
+
+        llvm::Function* panic = get_panic_func();
+        if (!panic) {
+            m_active_module_context.builder->CreateUnreachable();
+            return;
+        }
+
+        llvm::Value* panic_msg = (u.arguments.size > 0) ? gen_expr(u.arguments[0]) :
+            get_string("Unreachable statement reached");
+
+        llvm::SmallVector<llvm::Value*, 4> args;
+        gen_call_param(&args, get_string(context.active_comp_unit->filename, ".file"), TypeInfo::get_string());
+        gen_call_param(&args, get_i64(stmt->loc.line), TypeInfo::get_basic(TypeKind::ULong));
+        gen_call_param(&args, panic_msg, TypeInfo::get_string());
+
+        {
+            llvm::SmallVector<llvm::Value*> variadic_args;
+            llvm::SmallVector<TypeInfo*> variadic_types;
+
+            // NOTE: We start at index 1 to ignore the format string
+            for (size_t i = 1; i < u.arguments.size; i++) {
+                Expr* arg = u.arguments[i];
+                llvm::Value* val = gen_expr(arg);
+                variadic_args.push_back(val);
+                variadic_types.push_back(arg->type);
+            }
+
+            gen_call_variadic(&args, variadic_args, variadic_types);
+        }
+
+        m_active_module_context.builder->CreateCall(panic, args);
+        m_active_module_context.builder->CreateUnreachable();
     }
 
     void Codegen::gen_expr_stmt(Stmt* stmt) {
@@ -430,6 +468,7 @@ namespace ariac {
             case StmtKind::Return: return gen_return_stmt(stmt);
             case StmtKind::Defer: return gen_defer_stmt(stmt);
             case StmtKind::Assert: return gen_assert_stmt(stmt);
+            case StmtKind::Unreachable: return gen_unreachable_stmt(stmt);
             case StmtKind::Expr: return gen_expr_stmt(stmt);
             case StmtKind::Decl: return gen_decl_stmt(stmt);
 

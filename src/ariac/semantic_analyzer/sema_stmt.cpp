@@ -350,10 +350,31 @@ namespace ariac {
 
         if (a.arguments.size > 0) {
             if (a.arguments[0]->kind != ExprKind::StringLiteral) {
-                report_error(a.condition->loc, "Expression must be a string literal");
+                report_error(a.arguments[0]->loc, "Expression must be a string literal");
                 return;
             }
         }
+    }
+
+    void SemanticAnalyzer::resolve_unreachable_stmt(Stmt* stmt) {
+        UnreachableStmt& u = stmt->unreachable;
+
+        for (Expr* arg : u.arguments) {
+            bool temp = m_sema_context.temporary;
+            m_sema_context.temporary = true;
+            resolve_expr(arg);
+            require_rvalue(arg);
+            m_sema_context.temporary = temp;
+        }
+
+        if (u.arguments.size > 0) {
+            if (u.arguments[0]->kind != ExprKind::StringLiteral) {
+                report_error(u.arguments[0]->loc, "Expression must be a string literal");
+                return;
+            }
+        }
+
+        m_functions.back().scopes.back().reaches_end = false;
     }
 
     void SemanticAnalyzer::resolve_expr_stmt(Stmt* stmt) {
@@ -400,6 +421,7 @@ namespace ariac {
             case StmtKind::Defer: return resolve_defer_stmt(stmt);
             case StmtKind::CompileIf: return resolve_compile_if_stmt(stmt);
             case StmtKind::Assert: return resolve_assert_stmt(stmt);
+            case StmtKind::Unreachable: return resolve_unreachable_stmt(stmt);
             case StmtKind::Expr: return resolve_expr_stmt(stmt);
             case StmtKind::Decl: return resolve_decl_stmt(stmt);
 

@@ -146,6 +146,13 @@ namespace ariac {
         TinyVector<Expr*> arguments;
     };
 
+    struct UnreachableStmt {
+        UnreachableStmt(TinyVector<Expr*> args)
+            : arguments(args) {}
+
+        TinyVector<Expr*> arguments;
+    };
+
     struct Stmt {
         template <typename T>
         static inline Stmt* Create(SourceLoc loc, StmtKind kind, T t) { return context.allocate<Stmt>(kind, loc, t); }
@@ -173,6 +180,7 @@ namespace ariac {
             ReturnStmt return_;
             DeferStmt defer;
             AssertStmt assert_;
+            UnreachableStmt unreachable;
             Expr* expr;
             Decl* decl;
         };
@@ -218,6 +226,9 @@ namespace ariac {
 
         Stmt(StmtKind kind, SourceLoc loc, AssertStmt a)
             : kind(kind), loc(loc), assert_(a) {}
+
+        Stmt(StmtKind kind, SourceLoc loc, UnreachableStmt u)
+            : kind(kind), loc(loc), unreachable(u) {}
 
         Stmt(StmtKind kind, SourceLoc loc, Expr* expr)
             : kind(kind), loc(loc), expr(expr) {}
