@@ -23,7 +23,6 @@ struct Formatter {
     out_fn: FormatOutFn;
     flags: FormatFlags;
 
-
     fn vappendf(fmt: string, args: []any) -> sz {
         if out_fn == null {
             out_fn = &out_null;
@@ -41,7 +40,7 @@ struct Formatter {
             }
 
             i++;
-            assert_raw(i < fmt.len, __FILE__, __LINE__, "Invalid format");
+            assert(i < fmt.len, "Invalid format");
 
             c = fmt[i];
             if c == '%' {
@@ -49,7 +48,7 @@ struct Formatter {
                 continue;
             }
 
-            assert_raw(var_idx < args.len, __FILE__, __LINE__, "Missing argument");
+            assert(var_idx < args.len, "Missing argument");
             let arg = args[var_idx++];
 
             flags = FormatFlags();

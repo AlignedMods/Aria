@@ -63,6 +63,7 @@ namespace ariac {
         Stmt* parse_if();
         Stmt* parse_switch();
         Stmt* parse_compile_if();
+        Stmt* parse_assert();
 
         Stmt* parse_break();
         Stmt* parse_continue();

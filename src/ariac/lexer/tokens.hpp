@@ -84,6 +84,7 @@ namespace ariac {
         Enum,
         Const,
         Self,
+        Assert,
         Public,
         Private,
         AtIf, // @if
@@ -215,6 +216,7 @@ namespace ariac {
             case TokenKind::Enum: return "enum";
             case TokenKind::Const: return "const";
             case TokenKind::Self: return "self";
+            case TokenKind::Assert: return "assert";
             case TokenKind::Public: return "public";
             case TokenKind::Private: return "private";
             case TokenKind::AtIf: return "@if";

@@ -315,6 +315,47 @@ namespace ariac {
         }
     }
 
+    void SemanticAnalyzer::resolve_assert_stmt(Stmt* stmt) {
+        AssertStmt& a = stmt->assert_;
+
+        bool temp = m_sema_context.temporary;
+        m_sema_context.temporary = true;
+        resolve_expr(a.condition);
+        require_rvalue(a.condition);
+        m_sema_context.temporary = temp;
+
+        for (Expr* arg : a.arguments) {
+            bool temp = m_sema_context.temporary;
+            m_sema_context.temporary = true;
+            resolve_expr(arg);
+            require_rvalue(arg);
+            m_sema_context.temporary = temp;
+        }
+
+        if (a.condition->type->is_error()) { return; }
+
+        if (!a.condition->type->is_boolean()) {
+            report_error(a.condition->loc, fmt::format("Expression must be of type 'bool' but is '{}'", a.condition->type->to_string()));
+            return;
+        }
+
+        if (is_const_expr(a.condition)) {
+            a.condition = eval_const_expr(a.condition);
+
+            if (!a.condition->const_.boolean) {
+                report_error(stmt->loc, "This assertion will always fail");
+                return;
+            }
+        }
+
+        if (a.arguments.size > 0) {
+            if (a.arguments[0]->kind != ExprKind::StringLiteral) {
+                report_error(a.condition->loc, "Expression must be a string literal");
+                return;
+            }
+        }
+    }
+
     void SemanticAnalyzer::resolve_expr_stmt(Stmt* stmt) {
         m_sema_context.temporary = true;
         resolve_expr(stmt->expr);
@@ -358,6 +399,7 @@ namespace ariac {
             case StmtKind::Return: return resolve_return_stmt(stmt);
             case StmtKind::Defer: return resolve_defer_stmt(stmt);
             case StmtKind::CompileIf: return resolve_compile_if_stmt(stmt);
+            case StmtKind::Assert: return resolve_assert_stmt(stmt);
             case StmtKind::Expr: return resolve_expr_stmt(stmt);
             case StmtKind::Decl: return resolve_decl_stmt(stmt);
 

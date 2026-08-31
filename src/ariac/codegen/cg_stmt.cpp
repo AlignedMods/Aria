@@ -357,6 +357,52 @@ namespace ariac {
         DeferStmt& defer = stmt->defer;
     }
 
+    void Codegen::gen_assert_stmt(Stmt* stmt) {
+        AssertStmt& a = stmt->assert_;
+
+        if (a.condition->kind == ExprKind::Const) {
+            // The condition is true, nothing to do
+            if (a.condition->const_.boolean) { return; }
+        }
+
+        llvm::Function* panic = get_panic_func();
+        if (!panic) { return; }
+
+        llvm::BasicBlock* assert_fail = create_block("assert.fail");
+        llvm::BasicBlock* assert_end = create_block("assert.end");
+
+        llvm::Value* cond = gen_cond(a.condition);
+        m_active_module_context.builder->CreateCondBr(cond, assert_end, assert_fail);
+
+        m_active_module_context.builder->SetInsertPoint(assert_fail);
+        
+        llvm::Value* assert_msg = (a.arguments.size > 0) ? gen_expr(a.arguments[0]) :
+            get_string(fmt::format("Assert '{}' failed", std::string_view(context.active_comp_unit->source.c_str() + a.condition->loc.offset, a.condition->loc.len)));
+
+        llvm::SmallVector<llvm::Value*, 4> args;
+        gen_call_param(&args, get_string(context.active_comp_unit->filename, ".file"), TypeInfo::get_string());
+        gen_call_param(&args, get_i64(stmt->loc.line), TypeInfo::get_basic(TypeKind::ULong));
+        gen_call_param(&args, assert_msg, TypeInfo::get_string());
+
+        {
+            llvm::SmallVector<llvm::Value*> variadic_args;
+            llvm::SmallVector<TypeInfo*> variadic_types;
+
+            for (Expr* arg : a.arguments) {
+                llvm::Value* val = gen_expr(arg);
+                variadic_args.push_back(val);
+                variadic_types.push_back(arg->type);
+            }
+
+            gen_call_variadic(&args, variadic_args, variadic_types);
+        }
+
+        m_active_module_context.builder->CreateCall(panic, args);
+        m_active_module_context.builder->CreateUnreachable();
+
+        m_active_module_context.builder->SetInsertPoint(assert_end);
+    }
+
     void Codegen::gen_expr_stmt(Stmt* stmt) {
         Expr* expr = stmt->expr;
         gen_expr(expr);
@@ -383,6 +429,7 @@ namespace ariac {
             case StmtKind::Nextcase: return gen_nextcase_stmt(stmt);
             case StmtKind::Return: return gen_return_stmt(stmt);
             case StmtKind::Defer: return gen_defer_stmt(stmt);
+            case StmtKind::Assert: return gen_assert_stmt(stmt);
             case StmtKind::Expr: return gen_expr_stmt(stmt);
             case StmtKind::Decl: return gen_decl_stmt(stmt);
 

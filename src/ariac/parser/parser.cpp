@@ -1118,6 +1118,34 @@ namespace ariac {
         return Stmt::Create(i.loc + condition->loc, StmtKind::CompileIf, IfStmt(condition, body, else_body));
     }
 
+    Stmt* Parser::parse_assert() {
+        Token& a = consume(); // consume "assert"
+
+        try_consume(TokenKind::LeftParen, "(");
+
+        Expr* cond = parse_expression();
+        TinyVector<Expr*> args;
+
+        if (match(TokenKind::Comma)) {
+            consume();
+
+            while (!match(TokenKind::RightParen)) {
+                Expr* arg = parse_expression();
+                args.append(arg);
+
+                if (match(TokenKind::Comma)) { consume(); continue; }
+                if (match(TokenKind::RightParen)) { break; }
+
+                context.report_compiler_diagnostic(peek()->loc, "Expected either ',' or ')'");
+            }
+        }
+
+        try_consume(TokenKind::RightParen, ")");
+        try_consume(TokenKind::Semi, ";");
+
+        return Stmt::Create(a.loc + peek(-1)->loc, StmtKind::Assert, AssertStmt(cond, args));
+    }
+
     Stmt* Parser::parse_break() {
         Token& b = consume(); // consume "break"
         try_consume(TokenKind::Semi, ";");
@@ -1260,6 +1288,9 @@ namespace ariac {
 
             case TokenKind::DollarIf:
                 return parse_compile_if();
+
+            case TokenKind::Assert:
+                return parse_assert();
 
             case TokenKind::Else: {
                 Token& tok = consume();

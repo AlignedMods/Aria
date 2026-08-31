@@ -359,6 +359,7 @@ namespace ariac {
         Return,
         Defer,
         CompileIf,
+        Assert,
         Expr,
         Decl
     };

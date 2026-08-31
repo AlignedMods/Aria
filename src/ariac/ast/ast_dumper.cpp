@@ -550,6 +550,13 @@ namespace ariac {
                 dump_expr(stmt->if_.condition, indentation + 4);
                 return;
 
+            case StmtKind::Assert: m_output += fmt::format("AssertStmt {}\n", source_loc_to_string(stmt->loc));
+                dump_expr(stmt->assert_.condition, indentation + 4);
+                for (Expr* arg : stmt->assert_.arguments) {
+                    dump_expr(arg, indentation + 4);
+                }
+                return;
+
             default: ARIA_UNREACHABLE("Invalid stmt kind");
         }
     }

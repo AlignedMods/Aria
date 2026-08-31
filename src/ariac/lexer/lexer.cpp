@@ -531,6 +531,7 @@ namespace ariac {
             { "enum", TokenKind::Enum },
             { "const", TokenKind::Const },
             { "self", TokenKind::Self },
+            { "assert", TokenKind::Assert },
             { "public", TokenKind::Public },
             { "private", TokenKind::Private },
 

@@ -138,6 +138,14 @@ namespace ariac {
         Stmt* statement = nullptr;
     };
 
+    struct AssertStmt {
+        AssertStmt(Expr* cond, TinyVector<Expr*> args)
+            : condition(cond), arguments(args) {}
+
+        Expr* condition;
+        TinyVector<Expr*> arguments;
+    };
+
     struct Stmt {
         template <typename T>
         static inline Stmt* Create(SourceLoc loc, StmtKind kind, T t) { return context.allocate<Stmt>(kind, loc, t); }
@@ -164,6 +172,7 @@ namespace ariac {
             NextcaseStmt nextcase;
             ReturnStmt return_;
             DeferStmt defer;
+            AssertStmt assert_;
             Expr* expr;
             Decl* decl;
         };
@@ -206,6 +215,9 @@ namespace ariac {
 
         Stmt(StmtKind kind, SourceLoc loc, DeferStmt d)
             : kind(kind), loc(loc), defer(d) {}
+
+        Stmt(StmtKind kind, SourceLoc loc, AssertStmt a)
+            : kind(kind), loc(loc), assert_(a) {}
 
         Stmt(StmtKind kind, SourceLoc loc, Expr* expr)
             : kind(kind), loc(loc), expr(expr) {}
