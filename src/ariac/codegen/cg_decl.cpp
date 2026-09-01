@@ -8,7 +8,7 @@ namespace ariac {
         set_debug_loc(decl->loc);
         if (var.const_var) { return;}
 
-        llvm::Type* type = type_info_to_llvm_type(var.type);
+        llvm::Type* type = var.ref_var ? llvm::PointerType::get(*m_active_module_context.context, 0) : type_info_to_llvm_type(var.type);
 
         llvm::Value* a = nullptr;
         if (var.global_var) {

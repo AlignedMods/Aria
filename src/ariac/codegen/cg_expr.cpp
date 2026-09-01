@@ -72,6 +72,10 @@ namespace ariac {
         llvm::Value* val = m_active_module_context.named_values.at(dr.referenced_decl);
         ARIA_ASSERT(val, "Invalid DeclRef expression");
 
+        if (dr.referenced_decl->kind == DeclKind::Var && dr.referenced_decl->var.ref_var) {
+            return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr()), val);
+        }
+
         if (dr.referenced_decl->kind == DeclKind::Param && get_param_abi_type_info(expr->type).kind == ABIParamKind::Pointer) {
             return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr()), val);
         }

@@ -79,7 +79,7 @@ namespace ariac {
         // Declarations
         Decl* parse_module_decl();
         Decl* parse_import_decl();
-        Decl* parse_let_decl();
+        Decl* parse_let_decl(bool global);
         Decl* parse_const_decl(bool global);
         Decl* parse_variable_decl(bool global, bool const_, LinkageKind linkage = LinkageKind::None);
         Decl* parse_function_decl(LinkageKind linkage);

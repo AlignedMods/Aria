@@ -35,7 +35,7 @@ fn exception_filter(exception_info: *ExceptionPointers) -> int {
     return 1;
 }
 
-prev_filter: UnhandledExceptionFilter;
+let prev_filter: UnhandledExceptionFilter;
 
 fn set_exception_filter() @init {
     prev_filter = SetUnhandledExceptionFilter(&exception_filter);

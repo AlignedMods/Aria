@@ -59,16 +59,20 @@ namespace ariac {
     };
 
     struct VarDecl {
-        VarDecl(std::string_view identifier, TypeInfo* type, Expr* initializer, bool global, bool const_, LinkageKind lk)
-            : identifier(identifier), type(type), initializer(initializer), global_var(global), const_var(const_), linkage_kind(lk) {}
+        VarDecl(std::string_view identifier, TypeInfo* type, Expr* initializer, bool global, bool const_, bool ref, LinkageKind lk)
+            : identifier(identifier), type(type), initializer(initializer), dtor(nullptr), global_var(global), const_var(const_), ref_var(ref), linkage_kind(lk) {}
 
         std::string_view identifier;
-        TypeInfo* type = nullptr;
-        Expr* initializer = nullptr;
-        bool global_var = false;
-        bool const_var = false;
-        Decl* dtor = nullptr;
-        LinkageKind linkage_kind = LinkageKind::None;
+        TypeInfo* type;
+        Expr* initializer;
+        Decl* dtor;
+        LinkageKind linkage_kind;
+
+        struct {
+            bool global_var : 1;
+            bool const_var : 1;
+            bool ref_var : 1;
+        };
     };
 
     struct ParamDecl {

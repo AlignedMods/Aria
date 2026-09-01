@@ -15,7 +15,14 @@ namespace ariac {
             if (var.initializer->type->is_error() || var.type->is_error()) { return; }
 
             try_insert_implicit_cast(var.type, var.initializer);
-            require_rvalue(var.initializer);
+
+            if (var.ref_var) {
+                if (!var.initializer->is_lvalue()) {
+                    report_error(var.initializer->loc, "Initializer for reference variable must be an lvalue");
+                }
+            } else {
+                require_rvalue(var.initializer);
+            }
 
             if (var.const_var) {
                 if (!is_const_expr(var.initializer)) {

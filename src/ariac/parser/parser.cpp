@@ -1303,7 +1303,7 @@ namespace ariac {
             }
 
             case TokenKind::Let: {
-                Decl* d = parse_let_decl();
+                Decl* d = parse_let_decl(false);
                 if (!decl_ok(d)) { return &error_stmt; }
                 return Stmt::Create(d->loc, StmtKind::Decl, d);
             }
@@ -1484,9 +1484,9 @@ namespace ariac {
         return i;
     }
 
-    Decl* Parser::parse_let_decl() {
+    Decl* Parser::parse_let_decl(bool global) {
         Token& l = consume(); // consume "let"
-        return parse_variable_decl(false, false);
+        return parse_variable_decl(global, false);
     }
 
     Decl* Parser::parse_const_decl(bool global) {
@@ -1496,6 +1496,12 @@ namespace ariac {
 
     Decl* Parser::parse_variable_decl(bool global, bool const_, LinkageKind linkage) {
         SourceLoc loc = peek()->loc;
+
+        bool is_ref = false;
+        if (match(TokenKind::Ampersand)) {
+            consume();
+            is_ref = true;
+        }
 
         Token* ident = try_consume(TokenKind::Identifier, "identifier");
         if (!ident) { return &error_decl; }
@@ -1516,20 +1522,20 @@ namespace ariac {
         if (match(TokenKind::Eq)) {
             consume();
             initializer = parse_expression();
+        } else if (is_ref) {
+            context.report_compiler_diagnostic(ident->loc, "No initializer provided for reference variable declaration");
+            return &error_decl;
         } else if (const_) {
             context.report_compiler_diagnostic(ident->loc, "No initializer provided for const variable declaration");
-            type = TypeInfo::get_error();
             return &error_decl;
         } else if (!type) {
-            context.report_compiler_diagnostic(ident->loc, "No initializer provided for type-inffered variable declaration");
-            type = TypeInfo::get_error();
-
+            context.report_compiler_diagnostic(ident->loc, "No initializer provided for type inffered variable declaration");
             return &error_decl;
         }
 
         try_consume(TokenKind::Semi, ";");
 
-        Decl* decl = Decl::Create(ident->loc + peek(-1)->loc, DeclKind::Var, global ? m_current_visibility : DeclVisibility::Public, VarDecl(ident->string, type, initializer, global, const_, linkage));
+        Decl* decl = Decl::Create(ident->loc + peek(-1)->loc, DeclKind::Var, global ? m_current_visibility : DeclVisibility::Public, VarDecl(ident->string, type, initializer, global, const_, is_ref, linkage));
 
         if (global) {
             context.active_comp_unit->globals.push_back(decl);
@@ -2097,9 +2103,7 @@ namespace ariac {
                 return parse_const_decl(true);
 
             case TokenKind::Let: {
-                context.report_compiler_diagnostic(peek()->loc, "'let' cannot be used for global variables, try using 'const' instead"); 
-                consume(); 
-                return &error_decl;
+                return parse_let_decl(true);
             }
 
             case TokenKind::Fn:
@@ -2140,9 +2144,6 @@ namespace ariac {
                 return &error_decl;
             }
 
-            case TokenKind::Identifier:
-                return parse_variable_decl(true, false);
-
             case TokenKind::Void:
             case TokenKind::Bool:
             case TokenKind::Char:
@@ -2156,7 +2157,7 @@ namespace ariac {
             case TokenKind::Float:
             case TokenKind::Double: {
                 Token& t = consume();
-                context.report_compiler_diagnostic(t.loc, fmt::format("Unexpected type '{}', did you mean to declare a global variable? (name: type)", token_kind_to_string(t.kind)));
+                context.report_compiler_diagnostic(t.loc, fmt::format("Unexpected type '{}', did you mean to declare a global variable? (let name: type)", token_kind_to_string(t.kind)));
                 return &error_decl;
             }
 

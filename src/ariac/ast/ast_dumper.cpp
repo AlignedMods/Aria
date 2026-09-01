@@ -314,8 +314,8 @@ namespace ariac {
                 }
                 return;
 
-            case DeclKind::Var: m_output += fmt::format("VarDecl {} {}{}'{}' '{}'\n",
-                source_loc_to_string(decl->loc), decl->var.global_var ? "global " : "", decl->var.const_var ? "const " : "", decl->var.identifier, type_info_to_string(decl->var.type, false));
+            case DeclKind::Var: m_output += fmt::format("VarDecl {} {}{}{}'{}' '{}'\n",
+                source_loc_to_string(decl->loc), decl->var.global_var ? "global " : "", decl->var.const_var ? "const " : "", decl->var.ref_var ? "reference " : "", decl->var.identifier, type_info_to_string(decl->var.type, false));
                 if (decl->var.initializer) {
                     dump_expr(decl->var.initializer, indentation + 4);
                 }
