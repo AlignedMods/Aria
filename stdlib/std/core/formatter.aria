@@ -1,7 +1,5 @@
 module std::core;
 
-extern fn printf(fmt: *const char, ...) -> int;
-
 typedef FormatOutFn = *fn(buf: *void, c: char);
 
 // Function which does nothing on character append
@@ -24,6 +22,10 @@ struct Formatter {
     flags: FormatFlags;
 
     fn vappendf(fmt: string, args: []any) -> sz {
+        // IMPLEMENTATION DETAILS:
+        // Please do not use 'assert' or 'unreachable' statements
+        // Instead report errors through the output
+
         if out_fn == null {
             out_fn = &out_null;
         }
@@ -40,7 +42,10 @@ struct Formatter {
             }
 
             i++;
-            assert(i < fmt.len, "Invalid format");
+            if i >= fmt.len {
+                total_len += append_string("<INVALID FORMAT>");
+                continue;
+            }
 
             c = fmt[i];
             if c == '%' {
@@ -48,7 +53,11 @@ struct Formatter {
                 continue;
             }
 
-            assert(var_idx < args.len, "Missing argument");
+            if var_idx >= args.len {
+                total_len += append_string("<MISSING ARGUMENT>");
+                continue;
+            }
+
             let arg = args[var_idx++];
 
             flags = FormatFlags();
@@ -87,7 +96,14 @@ struct Formatter {
                 continue;
             }
 
-            unreachable("Argument %s has type '%s' but format specifier '%s' requires an integer", i, arg.type.name, c);
+            total_len += append_string("<INVALID FORMAT> (%'");
+            total_len += append_char(c);
+            total_len += append_string("' ");
+            total_len += append_char('(');
+            total_len += append_string(arg.type.name);
+            total_len += append_char('=');
+            total_len += append_any(arg);
+            total_len += append_string("))");
         }
 
         return total_len;
