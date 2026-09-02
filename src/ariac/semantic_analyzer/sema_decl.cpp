@@ -60,7 +60,8 @@ namespace ariac {
         decl->resolve_status = ResolveStatus::InProgress;
 
         VarDecl& var = decl->var;
-        std::string_view ident = var.identifier;
+        decl->parent_module = context.active_comp_unit->parent;
+        decl->parent_unit = context.active_comp_unit;
 
         resolve_var_initializer(decl);
 
@@ -89,11 +90,11 @@ namespace ariac {
         }
 
         if (m_functions.size() > 0) {
-            if (m_functions.back().scopes.back().declarations.contains(ident)) {
-                report_diag(decl->loc, fmt::format("Redeclaring symbol '{}'", ident));
+            if (m_functions.back().scopes.back().declarations.contains(var.identifier)) {
+                report_diag(decl->loc, fmt::format("Redeclaring symbol '{}'", var.identifier));
             }
 
-            m_functions.back().scopes.back().declarations[ident] = { var.type, decl, DeclKind::Var };
+            m_functions.back().scopes.back().declarations[var.identifier] = { var.type, decl, DeclKind::Var };
         }
 
         decl->resolve_status = ResolveStatus::Done;

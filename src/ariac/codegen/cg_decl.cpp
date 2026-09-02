@@ -6,15 +6,31 @@ namespace ariac {
     void Codegen::gen_var_decl(Decl* decl) {
         VarDecl& var = decl->var;
         set_debug_loc(decl->loc);
-        if (var.const_var) { return;}
 
         llvm::Type* type = var.ref_var ? llvm::PointerType::get(*m_active_module_context.context, 0) : type_info_to_llvm_type(var.type);
-
         llvm::Value* a = nullptr;
-        if (var.global_var) {
+
+        if (var.const_var) {
             std::string ident = fmt::format("{}.{}", valid_module_name(decl->parent_module), var.identifier);
-            llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, type, false, linkage_kind_to_llvm(var.linkage_kind), llvm::Constant::getNullValue(type), ident);
-            llvm::Value* initializer = nullptr;
+            llvm::Constant* init = llvm::cast<llvm::Constant>(gen_expr(var.initializer));
+
+            llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, type, true, llvm::GlobalValue::InternalLinkage, init, ident);
+            global->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+            a = global;
+
+            llvm::DIGlobalVariableExpression* dig = m_active_debug_context.builder->createGlobalVariableExpression(m_active_debug_context.unit->getFile(), var.identifier,
+                ident, m_active_debug_context.unit->getFile(), (unsigned)decl->loc.line, type_info_to_debug_type(var.type), true);
+
+            global->addDebugInfo(dig);
+
+            if (var.dtor) {
+                gen_global_init_func(decl->loc, global, nullptr, var.dtor);
+            }
+        } else if (var.global_var || var.const_var) {
+            std::string ident = fmt::format("{}.{}", valid_module_name(decl->parent_module), var.identifier);
+            llvm::Constant* init = llvm::Constant::getNullValue(type);
+
+            llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, type, var.const_var, linkage_kind_to_llvm(var.linkage_kind), init, ident);
             a = global;
 
             if (var.dtor || var.initializer) {
@@ -167,7 +183,10 @@ namespace ariac {
 
             m_active_module_context.alloca_marker->eraseFromParent();
             m_active_module_context.alloca_marker = nullptr;
-            if (llvm::verifyFunction(*function, &llvm::errs())) { throw std::exception(); }
+
+            #ifndef NO_LLVM_VERIFICATIONS
+                if (llvm::verifyFunction(*function, &llvm::errs())) { throw std::exception(); }
+            #endif // !NO_LLVM_VERIFICATIONS
         }
     }
 

@@ -1759,11 +1759,6 @@ namespace ariac {
                     return;
                 }
 
-                if (is_const_expr(LHS)) {
-                    report_diag(LHS->loc, "Cannot assign to constant expression");
-                    return;
-                }
-
                 if (!is_assignable_expr(LHS)) {
                     report_diag(LHS->loc, "Must be an assignable expression");
                     return;
@@ -2186,9 +2181,20 @@ namespace ariac {
 
     bool SemanticAnalyzer::is_assignable_expr(Expr* expr) {
         switch (expr->kind) {
-            case ExprKind::DeclRef: return true;
-            case ExprKind::Member: return true;
-            case ExprKind::DependentMember: return true;
+            case ExprKind::DeclRef: {
+                switch (expr->decl_ref.referenced_decl->kind) {
+                    case DeclKind::Var: return !expr->decl_ref.referenced_decl->var.const_var;
+                    case DeclKind::Param: return true;
+
+                    default: return false;
+                }
+            }
+
+            case ExprKind::Member:
+            case ExprKind::DependentMember: {
+                return expr->member.parent->kind == ExprKind::Self || is_assignable_expr(expr->member.parent);
+            }
+
             case ExprKind::ArraySubscript: return is_assignable_expr(expr->array_subscript.array);
 
             case ExprKind::Paren: return is_assignable_expr(expr->paren.expression);

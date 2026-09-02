@@ -281,16 +281,21 @@ namespace ariac {
 
             m_active_module_context.alloca_marker->eraseFromParent();
             m_active_module_context.alloca_marker = nullptr;
-            if (llvm::verifyFunction(*main, &llvm::errs())) {
-                m_error = fmt::format("Main function failed verification", mod->name);
-                return false;
-            }
+
+            #ifndef NO_LLVM_VERIFICATIONS
+                if (llvm::verifyFunction(*main, &llvm::errs())) {
+                    m_error = fmt::format("Main function failed verification", mod->name);
+                    return false;
+                }
+            #endif // !NO_LLVM_VERIFICATIONS
         }
 
-        if (llvm::verifyModule(*m_active_module_context.module, &llvm::errs())) {
-            m_error = fmt::format("Module '{}' failed verification", mod->name);
-            return false;
-        }
+        #ifndef NO_LLVM_VERIFICATIONS
+            if (llvm::verifyModule(*m_active_module_context.module, &llvm::errs())) {
+                m_error = fmt::format("Module '{}' failed verification", mod->name);
+                return false;
+            }
+        #endif // !NO_LLVM_VERIFICATIONS
 
         m_active_module_context.module->setDataLayout(m_machine->createDataLayout());
         m_active_module_context.module->setTargetTriple(context.opts->triple.str());

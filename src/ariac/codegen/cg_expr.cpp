@@ -64,10 +64,6 @@ namespace ariac {
             return m_active_module_context.functions.at(dr.referenced_decl);
         }
 
-        if (dr.referenced_decl->kind == DeclKind::Var && dr.referenced_decl->var.const_var) {
-            return gen_expr(dr.referenced_decl->var.initializer);
-        }
-
         ARIA_ASSERT(m_active_module_context.named_values.contains(dr.referenced_decl), "Invalid DeclRef expression");
         llvm::Value* val = m_active_module_context.named_values.at(dr.referenced_decl);
         ARIA_ASSERT(val, "Invalid DeclRef expression");
@@ -673,6 +669,7 @@ namespace ariac {
             }
 
             case CastKind::LValueToRValue: {
+                // Optimize some constant cases
                 if (ic.expression->kind == ExprKind::DeclRef) {
                     if (ic.expression->decl_ref.referenced_decl->kind == DeclKind::Var && ic.expression->decl_ref.referenced_decl->var.const_var) {
                         return gen_expr(ic.expression);
