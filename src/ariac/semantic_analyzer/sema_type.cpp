@@ -459,7 +459,9 @@ namespace ariac {
         if (lhs->is_typedef()) { lhs = lhs->typedef_.base; }
         if (rhs->is_typedef()) { rhs = rhs->typedef_.base; }
 
-        if (lhs->is_enum() && rhs->is_enum()) { return true; }
+        if (lhs->is_enum() && rhs->is_enum()) {
+            return lhs->enum_.source_decl == rhs->enum_.source_decl;
+        }
 
         if (lhs->is_array() && rhs->is_array()) {
             return type_is_equal(lhs->array.base, rhs->array.base) && lhs->array.size == rhs->array.size;
@@ -492,10 +494,7 @@ namespace ariac {
         }
 
         if (lhs->is_struct() && rhs->is_struct()) {
-            StructType& sLhs = lhs->struct_;
-            StructType& sRhs = rhs->struct_;
-
-            return sLhs.identifier == sRhs.identifier;
+            return lhs->struct_.source_decl == rhs->struct_.source_decl;
         }
 
         return false;
