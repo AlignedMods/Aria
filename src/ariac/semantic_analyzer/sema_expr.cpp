@@ -2272,12 +2272,12 @@ namespace ariac {
 
     void SemanticAnalyzer::require_rvalue(Expr* expr) {
         if (expr->is_lxvalue()) {
-            if (expr->type->is_struct()) {
-                Expr* m = Expr::Create(expr->loc, ExprKind::Move, ExprValueKind::RValue, expr->type, MoveExpr(Expr::dup(expr)));
+            if (expr->type->is_struct() || expr->type->is_array()) {
+                Expr* m = Expr::Create(expr->loc, ExprKind::Copy, ExprValueKind::RValue, expr->type, MoveExpr(Expr::dup(expr)));
                 if (Decl* dtor = type_get_destructor(expr->type)) {
                     insert_temporary_expr(m, dtor);
                 }
-
+            
                 replace_expr(expr, m);
                 return;
             }

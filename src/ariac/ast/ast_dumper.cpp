@@ -200,6 +200,12 @@ namespace ariac {
                 dump_expr(expr->to_slice.source, indentation + 4);
                 return;
 
+            case ExprKind::Copy: m_output += fmt::format("CopyExpr {} '{}' {}\n",
+                source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
+
+                dump_expr(expr->copy.expression, indentation + 4);
+                return;
+
             case ExprKind::Move: m_output += fmt::format("MoveExpr {} '{}' {}\n",
                 source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 

@@ -479,6 +479,16 @@ namespace ariac {
         return m_active_module_context.builder->CreateLoad(type, slice);
     }
 
+    llvm::Value* Codegen::gen_copy_expr(Expr* expr) {
+        CopyExpr& m = expr->copy;
+
+        llvm::Value* temp = alloca_at_entry(m_active_module_context.function, "copy", expr->type);
+        llvm::Value* val = gen_expr(m.expression);
+        m_active_module_context.builder->CreateMemCpy(temp, llvm::MaybeAlign(), val, llvm::MaybeAlign(), get_sz(expr->type->get_size()));
+
+        return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(expr->type), temp);
+    }
+
     llvm::Value* Codegen::gen_move_expr(Expr* expr) {
         MoveExpr& m = expr->move;
 
@@ -669,13 +679,6 @@ namespace ariac {
             }
 
             case CastKind::LValueToRValue: {
-                // Optimize some constant cases
-                if (ic.expression->kind == ExprKind::DeclRef) {
-                    if (ic.expression->decl_ref.referenced_decl->kind == DeclKind::Var && ic.expression->decl_ref.referenced_decl->var.const_var) {
-                        return gen_expr(ic.expression);
-                    }
-                }
-                
                 llvm::Value* val = gen_expr(ic.expression);
                 val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(expr->type), val);
                 return val;
@@ -1152,6 +1155,7 @@ namespace ariac {
             case ExprKind::MethodCall: return gen_method_call_expr(expr);
             case ExprKind::ArraySubscript: return gen_array_subscript_expr(expr);
             case ExprKind::ToSlice: return gen_to_slice_expr(expr);
+            case ExprKind::Copy: return gen_copy_expr(expr);
             case ExprKind::Move: return gen_move_expr(expr);
             case ExprKind::Temporary: return gen_temporary_expr(expr);
             case ExprKind::MaterializeTemporary: return gen_materialize_temporary_expr(expr);
@@ -1177,18 +1181,16 @@ namespace ariac {
             if (expr->type->is_runtime_aggregate()) {
                 return val;
             }
+        } else if (expr->kind == ExprKind::Copy) {
+            llvm::Value* val = gen_expr(expr->copy.expression);
+
+            llvm::Value* size = m_active_module_context.builder->getInt64(expr->type->get_size());
+            return m_active_module_context.builder->CreateMemCpy(dst, llvm::MaybeAlign::MaybeAlign(), val, llvm::MaybeAlign::MaybeAlign(), size);
         }
 
         llvm::Value* val = gen_expr(expr);
         set_debug_loc(expr->loc);
-
-        if (expr->type->is_array() && expr->value_kind == ExprValueKind::LValue) {
-            // Call memcpy since we copy arrays
-            llvm::Value* size = m_active_module_context.builder->getInt64(expr->type->array.size);
-            return m_active_module_context.builder->CreateMemCpy(dst, llvm::MaybeAlign::MaybeAlign(), val, llvm::MaybeAlign::MaybeAlign(), size);
-        } else {
-            return m_active_module_context.builder->CreateStore(val, dst);
-        }
+        return m_active_module_context.builder->CreateStore(val, dst);
     }
 
     llvm::Value* Codegen::gen_cond(Expr* expr) {

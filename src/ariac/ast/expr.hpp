@@ -154,6 +154,19 @@ namespace ariac {
         Expr* len = nullptr;
     };
 
+    // CopyExpr
+    // Represents a copy of a struc
+    // NOTE: The subexpression must be an lvalue
+    // eg.
+    // let s: SomeStruct;
+    // foo(s); -> 's' becomes a CopyExpr
+    struct CopyExpr {
+        CopyExpr(Expr* expr)
+            : expression(expr) {}
+
+        Expr* expression = nullptr;
+    };
+
     // MoveExpr
     // Represents a 'moved' struct
     // A move means that the old struct is invalidated (zero initialized) and the new one is the same as the old one
@@ -366,6 +379,7 @@ namespace ariac {
             ArrayLiteralExpr array_literal;
             ArraySubscriptExpr array_subscript;
             ToSliceExpr to_slice;
+            CopyExpr copy;
             MoveExpr move;
             MaterializeTemporaryExpr materialize_temporary;
             TemporaryExpr temporary;
@@ -434,6 +448,9 @@ namespace ariac {
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, ToSliceExpr to_slice)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), to_slice(to_slice) {}
+
+        Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, CopyExpr copy)
+            : loc(loc), kind(kind), value_kind(value_kind), type(type), copy(copy) {}
 
         Expr(SourceLoc loc, ExprKind kind, ExprValueKind value_kind, TypeInfo* type, MoveExpr move)
             : loc(loc), kind(kind), value_kind(value_kind), type(type), move(move) {}

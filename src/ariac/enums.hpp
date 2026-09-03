@@ -33,6 +33,7 @@ namespace ariac {
         MethodCall,
         ArraySubscript,
         ToSlice,
+        Copy,
         Move,
         MaterializeTemporary,
         Temporary,
