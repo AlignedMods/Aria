@@ -5,7 +5,7 @@ namespace ariac {
     llvm::Value* Codegen::gen_boolean_literal_expr(Expr* expr) {
         BooleanLiteralExpr& bl = expr->boolean_literal;
         set_debug_loc(expr->loc);
-        return llvm::ConstantInt::get(*m_active_module_context.context, llvm::APInt(8, static_cast<u64>(bl.value), false));
+        return llvm::ConstantInt::get(*m_active_module_context.context, llvm::APInt(1, static_cast<u64>(bl.value), false));
     }
 
     llvm::Value* Codegen::gen_character_literal_expr(Expr* expr) {
@@ -559,7 +559,7 @@ namespace ariac {
         llvm::BasicBlock* false_block = create_block("ternary.false");
         llvm::BasicBlock* end_block = create_block("ternary.end");
 
-        llvm::Value* cond = gen_cond(t.condition);
+        llvm::Value* cond = gen_expr(t.condition);
         m_active_module_context.builder->CreateCondBr(cond, true_block, false_block);
 
         m_active_module_context.builder->SetInsertPoint(true_block);
@@ -602,7 +602,7 @@ namespace ariac {
 
             case CastKind::IntegralToBoolean: {
                 llvm::Value* val = gen_expr(ic.expression);
-                return val;
+                return m_active_module_context.builder->CreateICmpNE(val, get_int(0, ic.expression->type), "tobool");
             }
 
             case CastKind::IntegralToFloating: {
@@ -686,6 +686,11 @@ namespace ariac {
             case CastKind::LValueToRValue: {
                 llvm::Value* val = gen_expr(ic.expression);
                 val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(expr->type), val);
+
+                if (ic.expression->type->is_boolean() && val->getType()->isIntegerTy(8)) {
+                    val = m_active_module_context.builder->CreateTrunc(val, m_active_module_context.builder->getInt1Ty(), "trunc");
+                }
+
                 return val;
             }
 
@@ -1097,8 +1102,7 @@ namespace ariac {
 
         switch (c.kind) {
             case ConstExprKind::Bool: {
-                if (c.boolean) { return llvm::ConstantInt::getTrue(llvm::Type::getInt8Ty(*m_active_module_context.context)); }
-                else { return llvm::ConstantInt::getFalse(llvm::Type::getInt8Ty(*m_active_module_context.context)); }
+                return llvm::ConstantInt::get(*m_active_module_context.context, llvm::APInt(1, static_cast<u64>(c.boolean), false));
             }
 
             case ConstExprKind::Int: { return llvm::ConstantInt::getIntegerValue(
@@ -1183,7 +1187,7 @@ namespace ariac {
         if (expr->kind == ExprKind::Construct) {
             llvm::Value* val = gen_construct_raw(expr, dst, false);
 
-            if (expr->type->is_runtime_aggregate()) {
+            if (expr->type->is_runtime_aggregate()) { // gen_construct_raw() already handles the store
                 return val;
             }
         } else if (expr->kind == ExprKind::Copy) {
@@ -1195,16 +1199,12 @@ namespace ariac {
 
         llvm::Value* val = gen_expr(expr);
         set_debug_loc(expr->loc);
-        return m_active_module_context.builder->CreateStore(val, dst);
-    }
 
-    llvm::Value* Codegen::gen_cond(Expr* expr) {
-        llvm::Value* val = gen_expr(expr);
-        if (val->getType()->isIntegerTy(8)) {
-            val = m_active_module_context.builder->CreateTrunc(val, m_active_module_context.builder->getInt1Ty(), "trunc");
+        if (val->getType()->isIntegerTy(1)) {
+            val = m_active_module_context.builder->CreateZExt(val, m_active_module_context.builder->getInt8Ty(), "zext");
         }
 
-        return val;
+        return m_active_module_context.builder->CreateStore(val, dst);
     }
 
     llvm::Value* Codegen::gen_construct_raw(Expr* expr, llvm::Value* dst, bool require_rvalue) {

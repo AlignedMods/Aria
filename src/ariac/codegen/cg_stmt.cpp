@@ -61,7 +61,7 @@ namespace ariac {
 
                 m_active_module_context.builder->CreateBr(while_cond);
                 m_active_module_context.builder->SetInsertPoint(while_cond);
-                llvm::Value* cond = gen_cond(wh.condition);
+                llvm::Value* cond = gen_expr(wh.condition);
                 m_active_module_context.builder->CreateCondBr(cond, while_body ? while_body : while_cond, while_end);
 
                 if (while_body) {
@@ -92,7 +92,7 @@ namespace ariac {
         m_active_module_context.builder->SetInsertPoint(do_body);
         gen_compound_stmt(d.body);
 
-        llvm::Value* cond = gen_cond(d.condition);
+        llvm::Value* cond = gen_expr(d.condition);
         m_active_module_context.builder->CreateCondBr(cond, do_body, do_end);
 
         m_active_module_context.builder->SetInsertPoint(do_end);
@@ -156,7 +156,7 @@ namespace ariac {
                 m_active_module_context.builder->CreateBr(for_cond);
 
                 m_active_module_context.builder->SetInsertPoint(for_cond);
-                llvm::Value* cond = gen_cond(f.condition);
+                llvm::Value* cond = gen_expr(f.condition);
                 m_active_module_context.builder->CreateCondBr(cond, for_body, for_end);
 
                 if (for_body) {
@@ -189,7 +189,7 @@ namespace ariac {
         llvm::BasicBlock* else_body = (i.else_body) ? llvm::BasicBlock::Create(*m_active_module_context.context, "if.else", m_active_module_context.function) : nullptr;
         llvm::BasicBlock* if_end = llvm::BasicBlock::Create(*m_active_module_context.context, "if.end", m_active_module_context.function);
 
-        llvm::Value* cond = gen_cond(i.condition);
+        llvm::Value* cond = gen_expr(i.condition);
         if (else_body) {
             m_active_module_context.builder->CreateCondBr(cond, if_body, else_body);
         } else {
@@ -371,7 +371,7 @@ namespace ariac {
         llvm::BasicBlock* assert_fail = create_block("assert.fail");
         llvm::BasicBlock* assert_end = create_block("assert.end");
 
-        llvm::Value* cond = gen_cond(a.condition);
+        llvm::Value* cond = gen_expr(a.condition);
         m_active_module_context.builder->CreateCondBr(cond, assert_end, assert_fail);
 
         m_active_module_context.builder->SetInsertPoint(assert_fail);

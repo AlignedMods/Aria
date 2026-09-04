@@ -151,7 +151,6 @@ namespace ariac {
 
         llvm::Value* gen_expr(Expr* expr);
         llvm::Value* gen_assign_expr(Expr* expr, llvm::Value* dst);
-        llvm::Value* gen_cond(Expr* expr);
         llvm::Value* gen_construct_raw(Expr* expr, llvm::Value* dst, bool require_rvalue);
 
         void gen_var_decl(Decl* decl);
