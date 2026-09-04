@@ -1111,13 +1111,13 @@ namespace ariac {
                         require_rvalue(arg);
 
                         if (arg->type->get_bit_size() < 32) { // Promote to int
-                            insert_implicit_cast(TypeInfo::get_basic(TypeKind::Int), arg->type, arg, CastKind::Integral);
+                            insert_implicit_cast(TypeInfo::get_basic(TypeKind::Int), arg->type, arg, CastKind::IntegralCast);
                         }
                     } else if (arg->type->is_floating_point()) {
                         require_rvalue(arg);
 
                         if (arg->type->kind == TypeKind::Float) { // Promote to double
-                            insert_implicit_cast(TypeInfo::get_basic(TypeKind::Double), arg->type, arg, CastKind::Floating);
+                            insert_implicit_cast(TypeInfo::get_basic(TypeKind::Double), arg->type, arg, CastKind::FloatingCast);
                         }
                     } else if (arg->type->is_pointer()) {
                         require_rvalue(arg);
@@ -1184,7 +1184,7 @@ namespace ariac {
 
                 if (!is_any_dependent) {
                     expr->kind = ExprKind::Const;
-                    expr->const_.kind = ConstExprKind::Boolean;
+                    expr->const_.kind = ConstExprKind::Bool;
                     expr->const_.boolean = !c.has_error;
                 } else {
                     expr->type = TypeInfo::get_dependent();
@@ -1945,16 +1945,16 @@ namespace ariac {
                 return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Error));
 
             case ExprKind::BooleanLiteral: 
-                return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Boolean, expr->boolean_literal.value));
+                return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Bool, expr->boolean_literal.value));
 
             case ExprKind::CharacterLiteral: 
-                return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Integer, static_cast<u64>(expr->character_literal.value)));
+                return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Int, static_cast<u64>(expr->character_literal.value)));
 
             case ExprKind::IntegerLiteral: 
-                return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Integer, expr->integer_literal.value));
+                return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Int, expr->integer_literal.value));
 
             case ExprKind::FloatingLiteral: 
-                return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Floating, expr->floating_literal.value));
+                return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Float, expr->floating_literal.value));
 
             case ExprKind::StringLiteral: 
                 return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::String, expr->string_literal.value));
@@ -1972,7 +1972,7 @@ namespace ariac {
             case ExprKind::TypeMember: {
                 ARIA_ASSERT(expr->type_member.referenced_member, "Invalid type member expression");
                 ARIA_ASSERT(expr->type_member.referenced_member->kind == DeclKind::EnumConstant, "Invalid type member expression");
-                return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Integer, expr->type_member.referenced_member->enum_constant.resolved_value));
+                return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Int, expr->type_member.referenced_member->enum_constant.resolved_value));
             }
 
             case ExprKind::Construct:
@@ -1991,12 +1991,12 @@ namespace ariac {
                 switch (expr->unary_operator.op) {
                     case UnaryOperatorKind::Negate: {
                         switch (val->const_.kind) {
-                            case ConstExprKind::Integer: {
+                            case ConstExprKind::Int: {
                                 val->const_.integer = static_cast<u64>(-static_cast<i64>(val->const_.integer));
                                 return val;
                             }
 
-                            case ConstExprKind::Floating: {
+                            case ConstExprKind::Float: {
                                 val->const_.number = -val->const_.number;
                                 return val;
                             }
@@ -2015,11 +2015,11 @@ namespace ariac {
 
             case ExprKind::ImplicitCast: {
                 #define CAST(t, e) static_cast<t>(e)
-                #define INT(x) Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Integer, x))
-                #define FLOAT(x) Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Floating, x))
+                #define INT(x) Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Int, x))
+                #define FLOAT(x) Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Float, x))
 
                 switch (expr->implicit_cast.kind) {
-                    case CastKind::Integral: {
+                    case CastKind::IntegralCast: {
                         if (expr->implicit_cast.expression->type->is_signed()) {
                             i64 val = eval_const_expr(expr->implicit_cast.expression)->const_.integer;
 
@@ -2101,16 +2101,16 @@ namespace ariac {
                 switch (expr->binary_operator.op) {
                     case BinaryOperatorKind::Add: {
                         switch (lhs->const_.kind) {
-                            case ConstExprKind::Integer: {
+                            case ConstExprKind::Int: {
                                 return Expr::Create(expr->loc, ExprKind::Const, 
                                     ExprValueKind::RValue, lhs->type, 
-                                    ConstExpr(ConstExprKind::Integer, lhs->const_.integer + rhs->const_.integer));
+                                    ConstExpr(ConstExprKind::Int, lhs->const_.integer + rhs->const_.integer));
                             }
 
-                            case ConstExprKind::Floating: {
+                            case ConstExprKind::Float: {
                                 return Expr::Create(expr->loc, ExprKind::Const, 
                                     ExprValueKind::RValue, lhs->type, 
-                                    ConstExpr(ConstExprKind::Floating, lhs->const_.number + rhs->const_.number));
+                                    ConstExpr(ConstExprKind::Float, lhs->const_.number + rhs->const_.number));
                             }
 
                             default: ARIA_UNREACHABLE("Invalid const expr kind");
@@ -2121,16 +2121,16 @@ namespace ariac {
 
                     case BinaryOperatorKind::Mul: {
                         switch (lhs->const_.kind) {
-                            case ConstExprKind::Integer: {
+                            case ConstExprKind::Int: {
                                 return Expr::Create(expr->loc, ExprKind::Const, 
                                     ExprValueKind::RValue, lhs->type, 
-                                    ConstExpr(ConstExprKind::Integer, lhs->const_.integer * rhs->const_.integer));
+                                    ConstExpr(ConstExprKind::Int, lhs->const_.integer * rhs->const_.integer));
                             }
 
-                            case ConstExprKind::Floating: {
+                            case ConstExprKind::Float: {
                                 return Expr::Create(expr->loc, ExprKind::Const, 
                                     ExprValueKind::RValue, lhs->type, 
-                                    ConstExpr(ConstExprKind::Floating, lhs->const_.number * rhs->const_.number));
+                                    ConstExpr(ConstExprKind::Float, lhs->const_.number * rhs->const_.number));
                             }
 
                             default: ARIA_UNREACHABLE("Invalid const expr kind");
@@ -2141,15 +2141,15 @@ namespace ariac {
 
                     case BinaryOperatorKind::Div: {
                         switch (lhs->const_.kind) {
-                            case ConstExprKind::Integer: {
+                            case ConstExprKind::Int: {
                                 if (lhs->type->is_signed() && rhs->type->is_signed()) {
                                     return Expr::Create(expr->loc, ExprKind::Const, 
                                         ExprValueKind::RValue, lhs->type, 
-                                        ConstExpr(ConstExprKind::Integer, static_cast<i64>(lhs->const_.integer) / static_cast<i64>(rhs->const_.integer)));
+                                        ConstExpr(ConstExprKind::Int, static_cast<i64>(lhs->const_.integer) / static_cast<i64>(rhs->const_.integer)));
                                 } else if (lhs->type->is_unsigned() && rhs->type->is_unsigned()) {
                                     return Expr::Create(expr->loc, ExprKind::Const, 
                                         ExprValueKind::RValue, lhs->type, 
-                                        ConstExpr(ConstExprKind::Integer, lhs->const_.integer / rhs->const_.integer));
+                                        ConstExpr(ConstExprKind::Int, lhs->const_.integer / rhs->const_.integer));
                                 } else {
                                     ARIA_UNREACHABLE("Invalid type");
                                 }
@@ -2157,10 +2157,10 @@ namespace ariac {
                                 return nullptr;
                             }
 
-                            case ConstExprKind::Floating: {
+                            case ConstExprKind::Float: {
                                 return Expr::Create(expr->loc, ExprKind::Const, 
                                     ExprValueKind::RValue, lhs->type, 
-                                    ConstExpr(ConstExprKind::Floating, lhs->const_.number / rhs->const_.number));
+                                    ConstExpr(ConstExprKind::Float, lhs->const_.number / rhs->const_.number));
                             }
 
                             default: ARIA_UNREACHABLE("Invalid const expr kind");
@@ -2286,22 +2286,6 @@ namespace ariac {
         }
     }
 
-    void SemanticAnalyzer::maybe_promote_to_int(Expr* expr) {
-        switch (expr->type->kind) {
-            case TypeKind::IChar:
-            case TypeKind::Short:
-                insert_implicit_cast(TypeInfo::get_basic(TypeKind::Int), expr->type, expr, CastKind::Integral);
-                break;
-
-            case TypeKind::Char:
-            case TypeKind::UShort:
-                insert_implicit_cast(TypeInfo::get_basic(TypeKind::UInt), expr->type, expr, CastKind::Integral);
-                break;
-
-            default: break;
-        }
-    }
-
     void SemanticAnalyzer::insert_arithmetic_promotion(Expr* lhs, Expr* rhs, BinaryOperatorKind op, Expr* e) {
         TypeInfo* lty = lhs->type;
         TypeInfo* rty = rhs->type;
@@ -2332,9 +2316,9 @@ namespace ariac {
                 size_t r_size = rty->get_bit_size();
 
                 if (l_size > r_size) {
-                    insert_implicit_cast(lty, rty, rhs, CastKind::Integral);
+                    insert_implicit_cast(lty, rty, rhs, CastKind::IntegralCast);
                 } else if (r_size > l_size) {
-                    insert_implicit_cast(rty, lty, lhs, CastKind::Integral);
+                    insert_implicit_cast(rty, lty, lhs, CastKind::IntegralCast);
                 } else if (l_size == r_size) {
                     if (lty->is_signed() != rty->is_signed()) {
                         report_diag_with_notes(lhs->loc, 
@@ -2360,9 +2344,9 @@ namespace ariac {
                 size_t rSize = rty->get_bit_size();
 
                 if (lSize > rSize) {
-                    insert_implicit_cast(lty, rty, rhs, CastKind::Floating);
+                    insert_implicit_cast(lty, rty, rhs, CastKind::FloatingCast);
                 } else if (rSize > lSize) {
-                    insert_implicit_cast(rty, lty, lhs, CastKind::Floating);
+                    insert_implicit_cast(rty, lty, lhs, CastKind::FloatingCast);
                 }
 
                 e->type = lty;

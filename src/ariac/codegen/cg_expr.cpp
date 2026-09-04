@@ -583,7 +583,7 @@ namespace ariac {
         set_debug_loc(expr->loc);
 
         switch (ic.kind) {
-            case CastKind::Integral: {
+            case CastKind::IntegralCast: {
                 llvm::Value* val = gen_expr(ic.expression);
 
                 if (ic.expression->type->get_bit_size() > expr->type->get_bit_size()) {
@@ -600,17 +600,9 @@ namespace ariac {
                 break;
             }
 
-            case CastKind::Floating: {
+            case CastKind::IntegralToBoolean: {
                 llvm::Value* val = gen_expr(ic.expression);
-
-                if (ic.expression->type->get_bit_size() > expr->type->get_bit_size()) {
-                    return m_active_module_context.builder->CreateFPTrunc(val, type_info_to_llvm_type(expr->type), "fptrunc");
-                } else {
-                    return m_active_module_context.builder->CreateFPExt(val, type_info_to_llvm_type(expr->type), "fpext");
-                }
-
-                ARIA_UNREACHABLE("Should never be reached");
-                break;
+                return val;
             }
 
             case CastKind::IntegralToFloating: {
@@ -620,6 +612,24 @@ namespace ariac {
                     return m_active_module_context.builder->CreateSIToFP(val, type_info_to_llvm_type(expr->type), "sifp");
                 } else {
                     return m_active_module_context.builder->CreateUIToFP(val, type_info_to_llvm_type(expr->type), "uifp");
+                }
+
+                ARIA_UNREACHABLE("Should never be reached");
+                break;
+            }
+
+            case CastKind::IntegralToPointer: {
+                llvm::Value* val = gen_expr(ic.expression);
+                return m_active_module_context.builder->CreateIntToPtr(val, llvm::PointerType::get(*m_active_module_context.context, 0), "inttoptr");
+            }
+
+            case CastKind::FloatingCast: {
+                llvm::Value* val = gen_expr(ic.expression);
+
+                if (ic.expression->type->get_bit_size() > expr->type->get_bit_size()) {
+                    return m_active_module_context.builder->CreateFPTrunc(val, type_info_to_llvm_type(expr->type), "fptrunc");
+                } else {
+                    return m_active_module_context.builder->CreateFPExt(val, type_info_to_llvm_type(expr->type), "fpext");
                 }
 
                 ARIA_UNREACHABLE("Should never be reached");
@@ -637,11 +647,6 @@ namespace ariac {
 
                 ARIA_UNREACHABLE("Should never be reached");
                 break;
-            }
-
-            case CastKind::IntegerToPointer: {
-                llvm::Value* val = gen_expr(ic.expression);
-                return m_active_module_context.builder->CreateIntToPtr(val, llvm::PointerType::get(*m_active_module_context.context, 0), "inttoptr");
             }
 
             case CastKind::BitCast: {
@@ -1091,17 +1096,17 @@ namespace ariac {
         set_debug_loc(expr->loc);
 
         switch (c.kind) {
-            case ConstExprKind::Boolean: {
-                if (c.boolean) { return llvm::ConstantInt::getTrue(llvm::Type::getInt1Ty(*m_active_module_context.context)); }
-                else { return llvm::ConstantInt::getFalse(llvm::Type::getInt1Ty(*m_active_module_context.context)); }
+            case ConstExprKind::Bool: {
+                if (c.boolean) { return llvm::ConstantInt::getTrue(llvm::Type::getInt8Ty(*m_active_module_context.context)); }
+                else { return llvm::ConstantInt::getFalse(llvm::Type::getInt8Ty(*m_active_module_context.context)); }
             }
 
-            case ConstExprKind::Integer: { return llvm::ConstantInt::getIntegerValue(
+            case ConstExprKind::Int: { return llvm::ConstantInt::getIntegerValue(
                 llvm::Type::getIntNTy(*m_active_module_context.context, static_cast<unsigned>(expr->type->get_bit_size())),
                 llvm::APInt((unsigned)expr->type->get_bit_size(), c.integer));
             }
 
-            case ConstExprKind::Floating: {
+            case ConstExprKind::Float: {
                 if (expr->type->kind == TypeKind::Float) {
                     return llvm::ConstantFP::get(*m_active_module_context.context, llvm::APFloat(static_cast<float>(c.number)));
                 } else {

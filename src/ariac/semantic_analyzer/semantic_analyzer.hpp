@@ -183,7 +183,6 @@ namespace ariac {
         void try_insert_implicit_cast(TypeInfo* dst_type, Expr* src_expr, std::string_view kind = "");
         void try_insert_explicit_cast(TypeInfo* dst_type, Expr* src_expr);
         void require_rvalue(Expr* expr);
-        void maybe_promote_to_int(Expr* expr);
         void insert_arithmetic_promotion(Expr* lhs, Expr* rhs, BinaryOperatorKind op, Expr* e);
         void insert_materialize_temporary_expr(Expr* expr);
         void insert_temporary_expr(Expr* expr, Decl* dtor);

@@ -231,17 +231,17 @@ namespace ariac {
                 switch (c.kind) {
                     case ConstExprKind::Error: break;
 
-                    case ConstExprKind::Boolean: {
+                    case ConstExprKind::Bool: {
                         copy->const_.boolean = c.boolean;
                         break;
                     }
 
-                    case ConstExprKind::Integer: {
+                    case ConstExprKind::Int: {
                         copy->const_.integer = c.integer;
                         break;
                     }
 
-                    case ConstExprKind::Floating: {
+                    case ConstExprKind::Float: {
                         copy->const_.number = c.number;
                         break;
                     }

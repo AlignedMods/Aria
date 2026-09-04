@@ -213,15 +213,18 @@ namespace ariac {
         if (src->is_integral()) {
             if (dst->is_integral()) { // Int to int
                 if (src->get_bit_size() != dst->get_bit_size()) {
-                    cost.kind = CastKind::Integral;
+                    cost.kind = CastKind::IntegralCast;
                 } else {
                     if (src->is_signed() == dst->is_signed()) {
                         cost.cast_needed = false;
                     } else {
-                        cost.kind = CastKind::Integral;
+                        cost.kind = CastKind::IntegralCast;
                         cost.cast_needed = true;
                     }
                 }
+            } else if (dst->is_boolean()) { // Int to bool
+                cost.kind = CastKind::IntegralToBoolean;
+                cost.implicit_cast_possible = false;
             } else if (dst->is_floating_point()) { // Int to float
                 cost.kind = CastKind::IntegralToFloating;
             } else {
@@ -235,13 +238,16 @@ namespace ariac {
         if (src->is_floating_point()) {
             if (dst->is_floating_point()) { // Float to float
                 if (src->get_bit_size() != dst->get_bit_size()) {
-                    cost.kind = CastKind::Floating;
+                    cost.kind = CastKind::FloatingCast;
                 } else {
                     cost.cast_needed = false;
                 }
             } else if (dst->is_integral()) { // Float to int
-                cost.implicit_cast_possible = false;
                 cost.kind = CastKind::FloatingToIntegral;
+                cost.implicit_cast_possible = false;
+            } else if (dst->is_boolean()) { // Float to bool
+                cost.kind = CastKind::FloatingToBoolean;
+                cost.implicit_cast_possible = false;
             } else {
                 cost.explicit_cast_possible = false;
             }

@@ -596,9 +596,9 @@ namespace ariac {
 
         switch (val->kind) {
             case ConstExprKind::Error: m_output += "value: Error error\n"; break;
-            case ConstExprKind::Boolean: m_output += fmt::format("value: Boolean {}\n", val->boolean); break;
-            case ConstExprKind::Integer: m_output += fmt::format("value: Integer {}\n",val->integer); break;
-            case ConstExprKind::Floating: m_output += fmt::format("value: Floating {}\n", val->number); break;
+            case ConstExprKind::Bool: m_output += fmt::format("value: Bool {}\n", val->boolean); break;
+            case ConstExprKind::Int: m_output += fmt::format("value: Int {}\n",val->integer); break;
+            case ConstExprKind::Float: m_output += fmt::format("value: Float {}\n", val->number); break;
             case ConstExprKind::String: m_output += fmt::format("value: String {:?}\n", val->string); break;
             case ConstExprKind::Struct: {
                 m_output += "value: Struct\n";

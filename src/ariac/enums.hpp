@@ -65,11 +65,16 @@ namespace ariac {
 
     enum class CastKind {
         Invalid,
-        Integral,
-        Floating,
+
+        IntegralCast,
+        IntegralToBoolean,
         IntegralToFloating,
+        IntegralToPointer,
+
+        FloatingCast,
         FloatingToIntegral,
-        IntegerToPointer,
+        FloatingToBoolean,
+
         BitCast,
         SliceToPointer,
         PointerToAny,
@@ -80,14 +85,20 @@ namespace ariac {
     inline const char* cast_kind_to_string(CastKind kind) {
         switch (kind) {
             case CastKind::Invalid: return "Invalid";
-            case CastKind::Integral: return "Integral";
-            case CastKind::Floating: return "Floating";
+
+            case CastKind::IntegralCast: return "IntegralCast";
+            case CastKind::IntegralToBoolean: return "IntegralToBoolean";
             case CastKind::IntegralToFloating: return "IntegralToFloating";
+            case CastKind::IntegralToPointer: return "IntegralToPointer";
+
+            case CastKind::FloatingCast: return "FloatingCast";
             case CastKind::FloatingToIntegral: return "FloatingToIntegral";
-            case CastKind::IntegerToPointer: return "IntegerToPointer";
+            case CastKind::FloatingToBoolean: return "FloatingToBoolean";
+
             case CastKind::BitCast: return "BitCast";
             case CastKind::SliceToPointer: return "SliceToPointer";
             case CastKind::PointerToAny: return "PointerToAny";
+
             case CastKind::LValueToRValue: return "LValueToRValue";
 
             default: ARIA_UNREACHABLE("Invalid cast kind");
@@ -209,9 +220,9 @@ namespace ariac {
 
     enum class ConstExprKind {
         Error = 0,
-        Boolean,
-        Integer,
-        Floating,
+        Bool,
+        Int,
+        Float,
         String,
         Struct,
         Typeid
@@ -220,9 +231,9 @@ namespace ariac {
     inline const char* const_expr_kind_to_string(ConstExprKind kind) {
         switch (kind) {
             case ConstExprKind::Error: return "Error";
-            case ConstExprKind::Boolean: return "Boolean";
-            case ConstExprKind::Integer: return "Integer";
-            case ConstExprKind::Floating: return "Floating";
+            case ConstExprKind::Bool: return "Bool";
+            case ConstExprKind::Int: return "Int";
+            case ConstExprKind::Float: return "Float";
             case ConstExprKind::String: return "String";
             case ConstExprKind::Struct: return "Struct";
             case ConstExprKind::Typeid: return "Typeid";

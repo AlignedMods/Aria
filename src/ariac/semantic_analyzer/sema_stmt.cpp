@@ -288,7 +288,7 @@ namespace ariac {
         }
 
         i.condition = eval_const_expr(i.condition);
-        ARIA_ASSERT(i.condition->const_.kind == ConstExprKind::Boolean, "Invalid const expr");
+        ARIA_ASSERT(i.condition->const_.kind == ConstExprKind::Bool, "Invalid const expr");
         
         if (i.condition->const_.boolean) {
             push_scope();
