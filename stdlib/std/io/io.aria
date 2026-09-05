@@ -5,17 +5,17 @@ import libc;
 fn print(str: string) { libc::printf("%.*s", str.len, str.mem); }
 fn println(str: string) { libc::printf("%.*s\n", str.len, str.mem); }
 
-fn printf(fmt: string, args...) { internal_vprintf(libc::stdout(), fmt, args, false); }
-fn printfn(fmt: string, args...) { internal_vprintf(libc::stdout(), fmt, args, true); }
+fn printf(fmt: string, ...args) { internal_vprintf(libc::stdout(), fmt, args, false); }
+fn printfn(fmt: string, ...args) { internal_vprintf(libc::stdout(), fmt, args, true); }
 
-fn eprintf(fmt: string, args...) { internal_vprintf(libc::stderr(), fmt, args, false); }
-fn eprintfn(fmt: string, args...) { internal_vprintf(libc::stderr(), fmt, args, true); }
+fn eprintf(fmt: string, ...args) { internal_vprintf(libc::stderr(), fmt, args, false); }
+fn eprintfn(fmt: string, ...args) { internal_vprintf(libc::stderr(), fmt, args, true); }
 
 fn veprintf(fmt: string, args: []any) { internal_vprintf(libc::stderr(), fmt, args, false); }
 fn veprintfn(fmt: string, args: []any) { internal_vprintf(libc::stderr(), fmt, args, true); }
 
-fn fprintf(file: File, fmt: string, args...) { internal_vprintf(file.handle, fmt, args, false); }
-fn fprintfn(file: File, fmt: string, args...) { internal_vprintf(file.handle, fmt, args, true); }
+fn fprintf(file: File, fmt: string, ...args) { internal_vprintf(file.handle, fmt, args, false); }
+fn fprintfn(file: File, fmt: string, ...args) { internal_vprintf(file.handle, fmt, args, true); }
 
 private:
 

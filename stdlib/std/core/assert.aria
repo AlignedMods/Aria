@@ -1,10 +1,10 @@
 module std::core;
 
-fn assert_raw(cond: bool, file: string, line: ulong, fmt: string, args...) {
+fn assert_raw(cond: bool, file: string, line: ulong, fmt: string, ...args) {
     if !cond { vpanicf(file, line, fmt, args); }
 }
 
-fn panicf(file: string, line: ulong, fmt: string, args...) -> ! @builtin("panic") {
+fn panicf(file: string, line: ulong, fmt: string, ...args) -> ! @builtin("panic") {
     vpanicf(file, line, fmt, args);
 }
 

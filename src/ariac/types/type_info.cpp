@@ -663,7 +663,7 @@ namespace ariac {
                     Decl* p = ty.params[i];
                     ARIA_ASSERT(p->kind == DeclKind::Param, "Invalid parameter");
 
-                    str += fmt::format("{}{}: {}", p->param.identifier, p->param.variadic ? "..." : "", type_info_to_string(p->param.type, pretty));
+                    str += fmt::format("{}{}: {}", p->param.variadic ? "..." : "", p->param.identifier, type_info_to_string(p->param.type, pretty));
 
                     if (i != ty.params.size - 1) {
                         str += ", ";

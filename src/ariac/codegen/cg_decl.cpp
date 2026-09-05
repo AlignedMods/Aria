@@ -80,7 +80,7 @@ namespace ariac {
             default: ARIA_UNREACHABLE("Invalid function decl");
         }
 
-        if (fn->linkage_kind == LinkageKind::Extern) { return; }
+        if (fn->linkage_kind == LinkageKind::Extern || fn->is_const) { return; }
 
         if (!m_active_module_context.functions.contains(decl)) {
             gen_function_prototype(decl);

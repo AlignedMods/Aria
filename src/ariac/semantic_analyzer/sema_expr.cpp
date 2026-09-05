@@ -1214,6 +1214,11 @@ namespace ariac {
                 for (size_t i = fn_type.params.size - 1; i < args.size; i++) {
                     Expr* arg = args[i];
                     resolve_expr(arg);
+
+                    if (!fn_type.params.back()->param.type->is_any()) {
+                        try_insert_implicit_cast(fn_type.params.back()->param.type, arg);
+                    }
+
                     require_rvalue(arg);
                 }
 

@@ -1673,13 +1673,42 @@ namespace ariac {
 
             if (match(TokenKind::TripleDot)) {
                 Token& triple = consume();
+
+                if (match(TokenKind::Identifier)) {
+                    Token& ident = consume();
+
+                    *variadic = VariadicKind::Named;
+                    has_variadic = true;
+
+                    TypeInfo* t = TypeInfo::get_basic(TypeKind::Any);
+
+                    if (match(TokenKind::Colon)) {
+                        consume();
+
+                        if (!is_type()) {
+                            context.report_compiler_diagnostic(peek()->loc, "Expected a type");
+                        } else {
+                            t = parse_type();
+                        }
+                    }
+
+                    params->append(Decl::Create(ident.loc, DeclKind::Param, DeclVisibility::Public, ParamDecl(ident.string, t, nullptr, true)));
+
+                    if (match(TokenKind::Comma)) { consume(); continue; }
+                    if (match(TokenKind::RightParen)) { break; }
+
+                    context.report_compiler_diagnostic(peek()->loc, "Expected ')'");
+                    sync_params();
+                    continue;
+                }
+
                 *variadic = VariadicKind::Unnamed;
                 has_variadic = true;
 
                 if (match(TokenKind::Comma)) { consume(); continue; }
                 if (match(TokenKind::RightParen)) { break; }
 
-                context.report_compiler_diagnostic(peek()->loc, "Expected either ')'");
+                context.report_compiler_diagnostic(peek()->loc, "Expected ')'");
                 sync_params();
                 continue;
             } else {
@@ -1690,24 +1719,15 @@ namespace ariac {
                     continue;
                 }
 
-                if (match(TokenKind::TripleDot)) {
-                    Token& triple = consume();
-                    *variadic = VariadicKind::Named;
-                    has_variadic = true;
+                try_consume(TokenKind::Colon, ":");
 
-                    TypeInfo* t = TypeInfo::get_basic(TypeKind::Any);
-                    params->append(Decl::Create(param_ident->loc, DeclKind::Param, DeclVisibility::Public, ParamDecl(param_ident->string, t, nullptr, true)));
-
-                    if (match(TokenKind::Comma)) { consume(); continue; }
-                    if (match(TokenKind::RightParen)) { break; }
-
-                    context.report_compiler_diagnostic(peek()->loc, "Expected either ')'");
-                    sync_params();
-                    continue;
+                TypeInfo* param_type = TypeInfo::get_error();
+                if (!is_type()) {
+                    context.report_compiler_diagnostic(peek()->loc, "Expected a type");
+                } else {
+                    param_type = parse_type();
                 }
 
-                try_consume(TokenKind::Colon, ":");
-                TypeInfo* param_type = parse_type();
                 Expr* default_arg = nullptr;
 
                 if (match(TokenKind::Eq)) {

@@ -109,7 +109,7 @@ struct Formatter {
         return total_len;
     }
 
-    fn appendf(fmt: string, args...) -> sz {
+    fn appendf(fmt: string, ...args) -> sz {
         return vappendf(fmt, args);
     }
 

@@ -141,6 +141,10 @@ namespace ariac {
                 Expr* arr = eval_const_expr(expr->array_subscript.array);
                 Expr* idx = eval_const_expr(expr->array_subscript.index);
 
+                if (arr->const_.kind == ConstExprKind::Error) {
+                    return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, TypeInfo::get_error(), ConstExpr(ConstExprKind::Error));
+                }
+
                 if (idx->const_.integer >= arr->const_.values.size) {
                     report_error(expr->loc, "Array subscript out of range");
                     report_note(arr->loc, fmt::format("The length of the array is {} but the index is {}", arr->const_.values.size, idx->const_.integer));
