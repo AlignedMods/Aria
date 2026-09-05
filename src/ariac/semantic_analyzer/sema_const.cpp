@@ -141,7 +141,7 @@ namespace ariac {
                 Expr* arr = eval_const_expr(expr->array_subscript.array);
                 Expr* idx = eval_const_expr(expr->array_subscript.index);
 
-                if (arr->const_.values.size >= idx->const_.integer) {
+                if (idx->const_.integer >= arr->const_.values.size) {
                     report_error(expr->loc, "Array subscript out of range");
                     report_note(arr->loc, fmt::format("The length of the array is {} but the index is {}", arr->const_.values.size, idx->const_.integer));
 
@@ -260,7 +260,7 @@ namespace ariac {
 
                         if (!type_is_equal(any->const_.value->type, expr->type)) {
                             report_error(expr->loc, "Invalid any cast");
-                            report_note(any->loc, fmt::format("The inner expression has type '{}'", any->const_.value->type->to_string()));
+                            report_note(any->loc, fmt::format("This expression has type '{}'", any->const_.value->type->to_string()));
 
                             return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, TypeInfo::get_error(), ConstExpr(ConstExprKind::Error));
                         }
