@@ -248,7 +248,13 @@ namespace ariac {
 
         if (ret.value) {
             resolve_expr(ret.value);
-            try_insert_implicit_cast(m_functions.back().return_type, ret.value, "return type");
+
+            if (!try_insert_implicit_cast(m_functions.back().return_type, ret.value, "return type")) {
+                ret.value->type = TypeInfo::get_error();
+                ret.value->kind = ExprKind::Error;
+                return;
+            }
+
             require_rvalue(ret.value);
             insert_expr_with_cleanups(ret.value);
         } else {

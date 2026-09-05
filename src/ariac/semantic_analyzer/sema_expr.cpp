@@ -1046,9 +1046,12 @@ namespace ariac {
         ConstantEvaluationContext ctx;
         ctx.loc = expr->loc;
 
-        for (size_t i = 0; i < call.arguments.size; i++) {
+        Decl* func = call.get_callee_decl();
+        size_t normal_args_count = std::min(func->function.type->function.get_last_non_variadic_arg(), call.arguments.size);
+
+        for (size_t i = 0; i < normal_args_count; i++) {
             Expr* arg = call.arguments[i];
-            Decl* param = call.get_callee_decl()->function.type->function.params[i];
+            Decl* param = func->function.type->function.params[i];
 
             if (!is_const_expr(arg)) {
                 report_error(arg->loc, "Expression must be a compile time constant");
@@ -1059,7 +1062,30 @@ namespace ariac {
             ctx.parameters[param] = eval_const_expr(arg);
         }
 
-        Decl* func = call.get_callee_decl();
+        if (func->function.type->function.variadic == VariadicKind::Named) {
+            Decl* param = func->function.type->function.params.back();
+            TinyVector<Expr*> const_args;
+
+            for (size_t i = normal_args_count; i < call.arguments.size; i++) {
+                Expr* arg = call.arguments[i];
+
+                if (!is_const_expr(arg)) {
+                    report_error(arg->loc, "Expression must be a compile time constant");
+                    report_note(call.callee->loc, "Because this function is marked 'const'");
+                    continue;
+                }
+
+                arg = eval_const_expr(arg);
+                if (param->param.type->is_any()) { // Create an any out of this expression
+                    arg = Expr::Create(arg->loc, ExprKind::Const, ExprValueKind::RValue, param->param.type, ConstExpr(ConstExprKind::Any, arg));
+                }
+
+                const_args.append(arg);
+            }
+
+            ctx.parameters[param] = Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, param->param.type, ConstExpr(ConstExprKind::Array, const_args));
+        }
+
         if (func->resolve_status == ResolveStatus::NotStarted) {
             resolve_function_body(func);
         }
@@ -1072,7 +1098,7 @@ namespace ariac {
         m_inlines.pop();
 
         return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue,
-            func->function.type->function.return_type, ret ? ConstExpr(ret->const_) : ConstExpr(ConstExprKind::Error));
+            ret ? ret->type : TypeInfo::get_void(), ret ? ConstExpr(ret->const_) : ConstExpr(ConstExprKind::Error));
     }
 
     bool SemanticAnalyzer::resolve_call_arity(SourceLoc loc, FunctionType& fn_type, TinyVector<Expr*> args, bool report_errors) {
@@ -1979,6 +2005,10 @@ namespace ariac {
     void SemanticAnalyzer::insert_implicit_cast(TypeInfo* dstType, TypeInfo* srcType, Expr* srcExpr, CastKind castKind) {
         if (cast_needs_rvalue(castKind)) {
             require_rvalue(srcExpr);
+        } else {
+            if (!srcExpr->is_lxvalue()) {
+                insert_materialize_temporary_expr(srcExpr);
+            }
         }
 
         Expr* src = Expr::dup(srcExpr); // We must copy the original expression to avoid overwriting the same memory
@@ -1987,32 +2017,39 @@ namespace ariac {
         replace_expr(srcExpr, implicitCast);
     }
 
-    void SemanticAnalyzer::try_insert_implicit_cast(TypeInfo* dst_type, Expr* src_expr, std::string_view kind) {
+    bool SemanticAnalyzer::try_insert_implicit_cast(TypeInfo* dst_type, Expr* src_expr, std::string_view kind) {
         ConversionCost cost = get_conversion_cost(dst_type, src_expr->type);
 
         if (cost.cast_needed) {
             if (cost.implicit_cast_possible) {
                 insert_implicit_cast(dst_type, src_expr->type, src_expr, cost.kind);
+                return true;
             } else if (cost.explicit_cast_possible) {
                 if (!kind.empty()) {
                     report_diag_with_notes(src_expr->loc,
                         fmt::format("Cannot implicitly convert from '{}' to {} '{}'", type_info_to_string(src_expr->type), kind, type_info_to_string(dst_type)),
-                        { "You can however insert an explicit cast in the code" }); 
+                        { "You can however insert an explicit cast in the code" });
+                    return false;
                 } else {
                     report_diag_with_notes(src_expr->loc,
                         fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(src_expr->type), type_info_to_string(dst_type)),
-                        { "You can however insert an explicit cast in the code" }); 
+                        { "You can however insert an explicit cast in the code" });
+                    return false;
                 }
             } else {
                 if (!kind.empty()) {
                     report_diag(src_expr->loc,
-                        fmt::format("Cannot implicitly convert from '{}' to {} '{}'", type_info_to_string(src_expr->type), kind, type_info_to_string(dst_type))); 
+                        fmt::format("Cannot implicitly convert from '{}' to {} '{}'", type_info_to_string(src_expr->type), kind, type_info_to_string(dst_type)));
+                    return false;
                 } else {
                     report_diag(src_expr->loc,
-                        fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(src_expr->type), type_info_to_string(dst_type))); 
+                        fmt::format("Cannot implicitly convert from '{}' to '{}'", type_info_to_string(src_expr->type), type_info_to_string(dst_type)));
+                    return false;
                 }
             }
         }
+
+        return true;
     }
 
     void SemanticAnalyzer::try_insert_explicit_cast(TypeInfo* dst_type, Expr* src_expr) {

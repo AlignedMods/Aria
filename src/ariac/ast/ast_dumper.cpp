@@ -601,6 +601,13 @@ namespace ariac {
             case ConstExprKind::Int: m_output += fmt::format("value: Int {}\n",val->integer); break;
             case ConstExprKind::Float: m_output += fmt::format("value: Float {}\n", val->number); break;
             case ConstExprKind::String: m_output += fmt::format("value: String {:?}\n", val->string); break;
+
+            case ConstExprKind::Any: {
+                m_output += fmt::format("value: Any '{}'\n", val->value->type->to_string());
+                dump_const_expr_val(&val->value->const_, indentation + 4);
+                break;
+            }
+
             case ConstExprKind::Struct: {
                 m_output += "value: Struct\n";
 

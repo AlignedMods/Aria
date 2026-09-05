@@ -683,6 +683,13 @@ namespace ariac {
                 return m_active_module_context.builder->CreateLoad(any_type, any_temp);
             }
 
+            case CastKind::AnyCast: {
+                llvm::Value* any = gen_expr(ic.expression);
+                llvm::Value* val = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(TypeInfo::get_basic(TypeKind::Any)), any, 1, "ptradd");
+
+                return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(expr->type), val);
+            }
+
             case CastKind::LValueToRValue: {
                 llvm::Value* val = gen_expr(ic.expression);
                 val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(expr->type), val);

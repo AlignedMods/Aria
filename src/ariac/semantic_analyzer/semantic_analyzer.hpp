@@ -237,7 +237,7 @@ namespace ariac {
 
         ConversionCost get_conversion_cost(TypeInfo* dst, TypeInfo* src);
         void insert_implicit_cast(TypeInfo* dst_type, TypeInfo* src_type, Expr* src_expr, CastKind cast_kind);
-        void try_insert_implicit_cast(TypeInfo* dst_type, Expr* src_expr, std::string_view kind = "");
+        bool try_insert_implicit_cast(TypeInfo* dst_type, Expr* src_expr, std::string_view kind = "");
         void try_insert_explicit_cast(TypeInfo* dst_type, Expr* src_expr);
         void require_rvalue(Expr* expr);
         void insert_arithmetic_promotion(Expr* lhs, Expr* rhs, BinaryOperatorKind op, Expr* e);

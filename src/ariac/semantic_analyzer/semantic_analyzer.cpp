@@ -101,9 +101,9 @@ namespace ariac {
             auto& i = *it;
             
             if (auto ti = i.get<TemplateInstantationContext>()) {
-                context.report_compiler_diagnostic(ti->loc, "In this template instantion", CompilerDiagKind::Note);
+                context.report_compiler_diagnostic(ti->loc, "During this template instantion", CompilerDiagKind::Note);
             } else if (auto ce = i.get<ConstantEvaluationContext>()) {
-                context.report_compiler_diagnostic(ce->loc, "In this constant evaluation", CompilerDiagKind::Note);
+                context.report_compiler_diagnostic(ce->loc, "During this constant evaluation", CompilerDiagKind::Note);
             }
         }
     }

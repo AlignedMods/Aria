@@ -40,6 +40,16 @@ namespace ariac {
             return items[idx];
         }
 
+        inline T& front() {
+            ARIA_ASSERT(size > 0, "front() called on an empty TinyVector");
+            return items[0];
+        }
+
+        inline T& back() {
+            ARIA_ASSERT(size > 0, "back() called on an empty TinyVector");
+            return items[size - 1];
+        }
+
         inline iterator begin() { return items; }
         inline const_iterator begin() const { return items; }
 

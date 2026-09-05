@@ -40,8 +40,18 @@ namespace ariac {
             case ExprKind::BuiltinCall:
                 return expr->builtin_call.kind == BuiltinCallKind::Defined;
     
-            case ExprKind::Construct:
-                return expr->construct.is_const;
+            case ExprKind::Construct:{
+                for (Expr* arg : expr->construct.arguments) {
+                    if (!is_const_expr(arg)) { return false; }
+                }
+
+                return true;
+            }
+
+            case ExprKind::ArraySubscript: {
+                if (!is_const_expr(expr->array_subscript.array)) { return false; }
+                return is_const_expr(expr->array_subscript.index);
+            }
     
             case ExprKind::Paren:
                 return is_const_expr(expr->paren.expression);
@@ -115,12 +125,31 @@ namespace ariac {
                 return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Int, expr->type_member.referenced_member->enum_constant.resolved_value));
             }
     
-            case ExprKind::Construct:
-                for (Expr*& arg : expr->construct.arguments) {
-                    arg = eval_const_expr(arg);
-                }
+            case ExprKind::Construct: {
+                if (expr->type->is_struct()) {
+                    for (Expr*& arg : expr->construct.arguments) {
+                        arg = eval_const_expr(arg);
+                    }
     
-                return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Struct, expr->construct.arguments));
+                    return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Struct, expr->construct.arguments));
+                }
+
+                return eval_const_expr(expr->construct.arguments[0]);
+            } 
+
+            case ExprKind::ArraySubscript: {
+                Expr* arr = eval_const_expr(expr->array_subscript.array);
+                Expr* idx = eval_const_expr(expr->array_subscript.index);
+
+                if (arr->const_.values.size >= idx->const_.integer) {
+                    report_error(expr->loc, "Array subscript out of range");
+                    report_note(arr->loc, fmt::format("The length of the array is {} but the index is {}", arr->const_.values.size, idx->const_.integer));
+
+                    return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, TypeInfo::get_error(), ConstExpr(ConstExprKind::Error));
+                }
+
+                return arr->const_.values[idx->const_.integer];
+            }
     
             case ExprKind::Paren:
                 return eval_const_expr(expr->paren.expression);
@@ -172,6 +201,7 @@ namespace ariac {
                                 case TypeKind::UInt: return INT(CAST(u64, CAST(u32, val)));
                                 case TypeKind::Long: return INT(CAST(i64, val));
                                 case TypeKind::ULong: return INT(CAST(u64, val));
+                                case TypeKind::Sz: return INT(CAST(size_t, val));
     
                                 default: ARIA_UNREACHABLE("Invalid type kind");
                             }
@@ -219,6 +249,23 @@ namespace ariac {
     
                         ARIA_UNREACHABLE("Should never be reached");
                         return nullptr;
+                    }
+
+                    case CastKind::AnyCast: {
+                        Expr* any = eval_const_expr(expr->implicit_cast.expression);
+
+                        if (any->const_.kind == ConstExprKind::Error) {
+                            return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, TypeInfo::get_error(), ConstExpr(ConstExprKind::Error));
+                        }
+
+                        if (!type_is_equal(any->const_.value->type, expr->type)) {
+                            report_error(expr->loc, "Invalid any cast");
+                            report_note(any->loc, fmt::format("The inner expression has type '{}'", any->const_.value->type->to_string()));
+
+                            return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, TypeInfo::get_error(), ConstExpr(ConstExprKind::Error));
+                        }
+
+                        return any->const_.value;
                     }
     
                     case CastKind::LValueToRValue: {
@@ -341,7 +388,7 @@ namespace ariac {
             return;
         }
     
-        ctx->return_val = eval_const_expr(r.value);
+        ctx->return_val = eval_const_expr(Expr::dup(r.value));
     }
     
     void SemanticAnalyzer::eval_const_stmt(Stmt* stmt) {

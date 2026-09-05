@@ -277,8 +277,14 @@ namespace ariac {
             return cost;
         }
 
-        if (dst->is_any() && src->is_any()) {
-            cost.cast_needed = false;
+        if (src->is_any()) {
+            if (dst->is_any()) {
+                cost.cast_needed = false;
+                return cost;
+            }
+
+            cost.kind = CastKind::AnyCast;
+            cost.implicit_cast_possible = false;
             return cost;
         }
 
@@ -528,6 +534,7 @@ namespace ariac {
     bool SemanticAnalyzer::cast_needs_rvalue(CastKind kind) {
         switch (kind) {
             case CastKind::SliceToPointer:
+            case CastKind::AnyCast:
             case CastKind::LValueToRValue: return false;
 
             default: return true;

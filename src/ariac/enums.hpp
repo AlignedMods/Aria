@@ -77,7 +77,9 @@ namespace ariac {
 
         BitCast,
         SliceToPointer,
+
         PointerToAny,
+        AnyCast,
 
         LValueToRValue
     };
@@ -97,7 +99,9 @@ namespace ariac {
 
             case CastKind::BitCast: return "BitCast";
             case CastKind::SliceToPointer: return "SliceToPointer";
+
             case CastKind::PointerToAny: return "PointerToAny";
+            case CastKind::AnyCast: return "AnyCast";
 
             case CastKind::LValueToRValue: return "LValueToRValue";
 
@@ -224,7 +228,9 @@ namespace ariac {
         Int,
         Float,
         String,
+        Any,
         Struct,
+        Array,
         Typeid
     };
 
@@ -235,7 +241,9 @@ namespace ariac {
             case ConstExprKind::Int: return "Int";
             case ConstExprKind::Float: return "Float";
             case ConstExprKind::String: return "String";
+            case ConstExprKind::Any: return "Any";
             case ConstExprKind::Struct: return "Struct";
+            case ConstExprKind::Array: return "Array";
             case ConstExprKind::Typeid: return "Typeid";
 
             default: ARIA_UNREACHABLE("Invalid const expr kind");
