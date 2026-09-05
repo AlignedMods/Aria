@@ -60,7 +60,7 @@ namespace ariac {
 
     struct VarDecl {
         VarDecl(std::string_view identifier, TypeInfo* type, Expr* initializer, bool global, bool const_, bool ref, LinkageKind lk)
-            : identifier(identifier), type(type), initializer(initializer), dtor(nullptr), global_var(global), const_var(const_), ref_var(ref), linkage_kind(lk) {}
+            : identifier(identifier), type(type), initializer(initializer), dtor(nullptr), in_initializer(false), global_var(global), const_var(const_), ref_var(ref), linkage_kind(lk) {}
 
         std::string_view identifier;
         TypeInfo* type;
@@ -69,6 +69,7 @@ namespace ariac {
         LinkageKind linkage_kind;
 
         struct {
+            bool in_initializer : 1;
             bool global_var : 1;
             bool const_var : 1;
             bool ref_var : 1;
@@ -90,17 +91,21 @@ namespace ariac {
     // Used to represent function declarations and generic function specilizations
     // The parameters are stored in the type
     struct FunctionDecl {
-        FunctionDecl(std::string_view identifier, TypeInfo* type, Stmt* body, LinkageKind linkage)
-            : identifier(identifier), type(type), body(body), linkage_kind(linkage) {}
+        FunctionDecl(std::string_view identifier, TypeInfo* type, Stmt* body, bool const_, LinkageKind linkage)
+            : identifier(identifier), type(type), body(body), is_const(const_), linkage_kind(linkage) {}
 
         std::string_view identifier;
         TypeInfo* type = nullptr;
         Stmt* body = nullptr;
         LinkageKind linkage_kind = LinkageKind::None;
         BuiltinFuncKind builtin_func = BuiltinFuncKind::None;
-        bool is_deleted = false;
-        bool is_specilization = false;
         FunctionSpecilizationInfo specilization_info;
+
+        struct {
+            bool is_const : 1;
+            bool is_deleted : 1 = false;
+            bool is_specilization : 1 = false;
+        };
     };
 
     struct FunctionOverloadSetDecl {

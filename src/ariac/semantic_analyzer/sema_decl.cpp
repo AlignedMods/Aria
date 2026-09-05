@@ -468,7 +468,7 @@ namespace ariac {
                 ctx.template_types[gen_param] = gen_arg;
             }
         
-            m_generic_instantations.push_back(ctx);
+            m_inlines.push(ctx);
         
             TypeInfo* new_type = TypeInfo::dup(t->template_.template_decl->function.type);
             resolve_type(new_type);
@@ -486,7 +486,7 @@ namespace ariac {
             context.active_comp_unit = unit;
         
             t->template_.specilizations.append(specilization);
-            m_generic_instantations.pop_back();
+            m_inlines.pop();
         }
 
         return specilization;

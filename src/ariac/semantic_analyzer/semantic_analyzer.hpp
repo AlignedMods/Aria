@@ -52,6 +52,65 @@ namespace ariac {
             SourceLoc loc;
         };
 
+        struct ConstantEvaluationContext {
+            std::unordered_map<Decl*, Expr*> parameters;
+            Expr* return_val = nullptr;
+            SourceLoc loc;
+        };
+
+        struct InliningContext {
+        private:
+            using DataType = std::variant<TemplateInstantationContext, ConstantEvaluationContext>;
+
+        public:
+            InliningContext(const DataType& data)
+                : data(data) {}
+
+            template <typename T>
+            T* get() {
+                return std::get_if<T>(&data);
+            }
+
+        private:
+            DataType data;
+        };
+
+        struct InliningContextList {
+            // Iterates the list of all inlining context's in reverse and picks the first one that matches the template argument
+            // If one is found, it is returned
+            // If none are found, nullptr is returned
+            template <typename T>
+            T* get() {
+                for (auto it = vec.rbegin(); it != vec.rend(); it++) {
+                    if (T* ptr = it->get<T>()) {
+                        return ptr;
+                    }
+                }
+
+                return nullptr;
+            }
+
+            template<typename T>
+            void push(const T& t) {
+                vec.emplace_back(t);
+            }
+
+            void pop() { vec.pop_back(); }
+
+            auto begin() { return vec.begin(); }
+            auto begin() const { return vec.begin(); }
+            auto end() { return vec.end(); }
+            auto end() const { return vec.end(); }
+
+            auto rbegin() { return vec.rbegin(); }
+            auto rbegin() const { return vec.rbegin(); }
+            auto rend() { return vec.rend(); }
+            auto rend() const { return vec.rend(); }
+
+        private:
+            std::vector<InliningContext> vec;
+        };
+
         struct ResolvedTemplateArg {
             TypeInfo* type = nullptr;
             bool is_deduced = false;
@@ -98,6 +157,7 @@ namespace ariac {
         void resolve_call_expr(Expr* expr);
         void resolve_template_call_expr(Decl* template_, TinyVector<TypeInfo*> template_args, SourceLoc loc, TinyVector<Expr*> args, Decl** callee, TypeInfo** callee_type);
         void resolve_overloaded_function_call_expr(Decl* func, SourceLoc loc, TinyVector<Expr*> args, TinyVector<TypeInfo*> template_args, Decl** callee, TypeInfo** callee_type);
+        Expr* resolve_const_function_call_expr(Expr* expr);
         bool resolve_call_arity(SourceLoc loc, FunctionType& fn_type, TinyVector<Expr*> args, bool report_errors = true);
         void resolve_call_args(FunctionType& fn_type, TinyVector<Expr*>& args);
         void resolve_builtin_call_expr(Expr* expr);
@@ -164,9 +224,6 @@ namespace ariac {
         void resolve_param_initializer(Decl* decl, Expr* arg);
         void resolve_param_default_arg(Decl* decl);
 
-        bool is_const_expr(Expr* expr);
-        Expr* eval_const_expr(Expr* expr);
-
         bool is_assignable_expr(Expr* expr);
 
         void push_scope();
@@ -191,6 +248,16 @@ namespace ariac {
         TypeInfo* type_from_decl(Decl* decl);
         TypeInfo* type_for_self(Decl* decl);
         Decl* type_get_destructor(TypeInfo* t);
+
+        // Function constant evaluation
+        void eval_const_func_decl(Decl* func);
+
+        bool is_const_expr(Expr* expr);
+        Expr* eval_const_expr(Expr* expr);
+
+        void eval_const_compound_stmt(Stmt* stmt);
+        void eval_const_return_stmt(Stmt* stmt);
+        void eval_const_stmt(Stmt* stmt);
 
         // Gets the compile time type from an expression
         // eg. e = int, this function would return 'int'
@@ -224,8 +291,8 @@ namespace ariac {
 
         std::vector<FunctionContext> m_functions;
         std::vector<TemplateContext> m_generics;
-        std::vector<TemplateInstantationContext> m_generic_instantations;
         std::vector<CaptureErrorContext> m_error_captures;
+        InliningContextList m_inlines;
 
         JumpTarget m_break_target;
         JumpTarget m_continue_target;

@@ -81,8 +81,8 @@ namespace ariac {
         Decl* parse_import_decl();
         Decl* parse_let_decl(bool global);
         Decl* parse_const_decl(bool global);
-        Decl* parse_variable_decl(bool global, bool const_, LinkageKind linkage = LinkageKind::None);
-        Decl* parse_function_decl(LinkageKind linkage);
+        Decl* parse_variable_decl(SourceLoc start_loc, bool global, bool const_, LinkageKind linkage = LinkageKind::None);
+        Decl* parse_function_decl(SourceLoc start_loc, bool const_, LinkageKind linkage);
         void parse_function_params(TinyVector<Decl*>* params, size_t* required_arg_count, VariadicKind* variadic);
         TinyVector<Decl*> parse_template_params();
         TinyVector<TypeInfo*> parse_template_args();

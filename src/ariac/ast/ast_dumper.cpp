@@ -335,10 +335,11 @@ namespace ariac {
                 }
                 return;
 
-            case DeclKind::Function: m_output += fmt::format("FunctionDecl {} '{}' {} '{}' linkage={}{}",
+            case DeclKind::Function: m_output += fmt::format("FunctionDecl {} '{}' {} '{}'{}{}{}",
                 source_loc_to_string(decl->loc), decl->function.identifier, decl_visibility_to_string(decl->visibility), 
-                type_info_to_string(decl->function.type, false), linkage_kind_to_string(decl->function.linkage_kind),
-                decl->function.is_deleted ? " deleted" : "");
+                type_info_to_string(decl->function.type, false),
+                (decl->function.linkage_kind != LinkageKind::None) ? fmt::format(" {}", linkage_kind_to_string(decl->function.linkage_kind)) : "",
+                decl->function.is_const ? " const" : "", decl->function.is_deleted ? " deleted" : "");
 
                 if (decl->function.is_specilization) {
                     m_output += decl->function.specilization_info.is_explicit ? " explicit_instantiation" : " implicit_instantiation";

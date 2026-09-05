@@ -7,7 +7,9 @@ namespace ariac {
         VarDecl& var = decl->var;
 
         if (var.initializer) {
+            var.in_initializer = true;
             resolve_expr(var.initializer);
+            var.in_initializer = false;
 
             // Handle type inferrence here
             if (!var.type) { var.type = var.initializer->type; }

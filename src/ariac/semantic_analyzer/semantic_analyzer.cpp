@@ -97,8 +97,14 @@ namespace ariac {
 
         context.report_compiler_diagnostic_with_notes(loc, error, notes, kind);
 
-        for (auto it = m_generic_instantations.rbegin(); it != m_generic_instantations.rend(); it++) {
-            context.report_compiler_diagnostic(it->loc, "Instantiated from here", CompilerDiagKind::Note);
+        for (auto it = m_inlines.rbegin(); it != m_inlines.rend(); it++) {
+            auto& i = *it;
+            
+            if (auto ti = i.get<TemplateInstantationContext>()) {
+                context.report_compiler_diagnostic(ti->loc, "In this template instantion", CompilerDiagKind::Note);
+            } else if (auto ce = i.get<ConstantEvaluationContext>()) {
+                context.report_compiler_diagnostic(ce->loc, "In this constant evaluation", CompilerDiagKind::Note);
+            }
         }
     }
 

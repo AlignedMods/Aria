@@ -332,6 +332,9 @@ namespace ariac {
         ConstExpr(ConstExprKind kind, TypeInfo* ty)
             : kind(kind), type(ty) {}
 
+        // We are not passing by reference since that would become a copy constructor
+        ConstExpr(ConstExpr* expr);
+
         ConstExprKind kind = ConstExprKind::Error;
         union {
             bool boolean;

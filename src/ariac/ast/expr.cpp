@@ -283,4 +283,14 @@ namespace ariac {
         return nullptr;
     }
 
+    ConstExpr::ConstExpr(ConstExpr* expr) : kind(expr->kind), boolean(false) {
+        switch (kind) {
+            case ConstExprKind::Error: break;
+            case ConstExprKind::Bool: boolean = expr->boolean; break;
+            case ConstExprKind::Int: integer = expr->integer; break;
+
+            default: ARIA_UNREACHABLE("Not supported");
+        }
+    }
+
 } // namespace ariac

@@ -1030,7 +1030,7 @@ namespace ariac {
         if (match(TokenKind::Semi)) {
             consume();
         } else {
-            prologue = parse_variable_decl(false, false);
+            prologue = parse_variable_decl(peek()->loc, false, false);
             if (!decl_ok(prologue)) {
                 sync_local();
 
@@ -1486,15 +1486,26 @@ namespace ariac {
 
     Decl* Parser::parse_let_decl(bool global) {
         Token& l = consume(); // consume "let"
-        return parse_variable_decl(global, false);
+        return parse_variable_decl(l.loc, global, false);
     }
 
     Decl* Parser::parse_const_decl(bool global) {
         Token& c = consume(); // consume "const"
-        return parse_variable_decl(global, true);
+
+        switch (peek()->kind) {
+            case TokenKind::Identifier: return parse_variable_decl(c.loc, global, true);
+            case TokenKind::Fn: return parse_function_decl(c.loc, true, LinkageKind::None);
+
+            default: {
+                Token& tok = consume();
+                context.report_compiler_diagnostic(tok.loc, "Expected 'identifier' or 'fn'");
+                sync_global();
+                return &error_decl;
+            }
+        }
     }
 
-    Decl* Parser::parse_variable_decl(bool global, bool const_, LinkageKind linkage) {
+    Decl* Parser::parse_variable_decl(SourceLoc start_loc, bool global, bool const_, LinkageKind linkage) {
         SourceLoc loc = peek()->loc;
 
         bool is_ref = false;
@@ -1535,7 +1546,7 @@ namespace ariac {
 
         try_consume(TokenKind::Semi, ";");
 
-        Decl* decl = Decl::Create(ident->loc + peek(-1)->loc, DeclKind::Var, global ? m_current_visibility : DeclVisibility::Public, VarDecl(ident->string, type, initializer, global, const_, is_ref, linkage));
+        Decl* decl = Decl::Create(start_loc + peek(-1)->loc, DeclKind::Var, global ? m_current_visibility : DeclVisibility::Public, VarDecl(ident->string, type, initializer, global, const_, is_ref, linkage));
 
         if (global) {
             context.active_comp_unit->globals.push_back(decl);
@@ -1544,8 +1555,7 @@ namespace ariac {
         return decl;
     }
 
-    Decl* Parser::parse_function_decl(LinkageKind linkage) {
-        SourceLoc loc = peek()->loc;
+    Decl* Parser::parse_function_decl(SourceLoc start_loc, bool const_, LinkageKind linkage) {
         Token fn = consume(); // consume "fn"
 
         if (match(TokenKind::LeftParen)) { // Function overload set
@@ -1560,7 +1570,7 @@ namespace ariac {
             try_consume(TokenKind::RightParen, ")");
             try_consume(TokenKind::Semi, ";");
 
-            Decl* f = Decl::Create(loc + peek(-1)->loc, DeclKind::FunctionOverloadSet, m_current_visibility, FunctionOverloadSetDecl(ident->string));
+            Decl* f = Decl::Create(start_loc + peek(-1)->loc, DeclKind::FunctionOverloadSet, m_current_visibility, FunctionOverloadSetDecl(ident->string));
             context.active_comp_unit->funcs.push_back(f);
             return f;
         }
@@ -1629,7 +1639,7 @@ namespace ariac {
 
         TypeInfo* final_type = TypeInfo::create_function(TypeKind::Function, ret_type, params, required_arg_count, variadic);
 
-        Decl* f = Decl::Create(loc + end_loc, DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, final_type, body, linkage));
+        Decl* f = Decl::Create(start_loc + end_loc, DeclKind::Function, m_current_visibility, FunctionDecl(ident->string, final_type, body, const_, linkage));
         f->attributes = attrs;
         f->function.is_deleted = is_deleted;
 
@@ -1915,7 +1925,7 @@ namespace ariac {
         Token& ext = consume(); // consume "extern"
 
         switch (peek()->kind) {
-            case TokenKind::Fn: return parse_function_decl(LinkageKind::Extern);
+            case TokenKind::Fn: return parse_function_decl(ext.loc, false, LinkageKind::Extern);
 
             default: {
                 Token& tok = consume();
@@ -1930,7 +1940,7 @@ namespace ariac {
         Token& sta = consume(); // consume "static"
 
         switch (peek()->kind) {
-            case TokenKind::Identifier: return parse_variable_decl(true, false, LinkageKind::Static);
+            case TokenKind::Identifier: return parse_variable_decl(sta.loc, true, false, LinkageKind::Static);
 
             default: {
                 Token& tok = consume();
@@ -2107,7 +2117,7 @@ namespace ariac {
             }
 
             case TokenKind::Fn:
-                return parse_function_decl(LinkageKind::None);
+                return parse_function_decl(peek()->loc, false, LinkageKind::None);
 
             case TokenKind::Struct:
                 return parse_struct_decl();

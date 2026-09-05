@@ -339,7 +339,7 @@ namespace ariac {
 
     inline const char* linkage_kind_to_string(LinkageKind kind) {
         switch (kind) {
-            case LinkageKind::None: return "default";
+            case LinkageKind::None: return "none";
             case LinkageKind::Extern: return "extern";
             case LinkageKind::Static: return "static";
 

@@ -68,10 +68,11 @@ namespace ariac {
             case TypeKind::Template: {
                 TemplateType& t = type->template_;
 
-                if (m_generic_instantations.empty()) { break; }
-                if (!m_generic_instantations.back().template_types.contains(t.resolved_decl)) { break; }
+                auto ctx = m_inlines.get<TemplateInstantationContext>();
+                if (!ctx) { break; }
+                if (!ctx->template_types.contains(t.resolved_decl)) { break; }
 
-                *type = *m_generic_instantations.back().template_types.at(t.resolved_decl);
+                *type = *ctx->template_types.at(t.resolved_decl);
                 break;
             }
 
@@ -135,7 +136,7 @@ namespace ariac {
                         ctx.template_types[gen_param] = gen_arg;
                     }
 
-                    m_generic_instantations.push_back(ctx);
+                    m_inlines.push(ctx);
 
                     if (g->template_.template_decl->struct_.body_resolve_status == ResolveStatus::NotStarted) {
                         TemplateContext ctx;
@@ -165,7 +166,7 @@ namespace ariac {
                     resolve_struct_decl(struc);
                     resolve_struct_body(struc);
 
-                    m_generic_instantations.pop_back();
+                    m_inlines.pop();
                 }
 
                 gi.resolved_decl = specilization;
