@@ -162,6 +162,7 @@ namespace ariac {
 
         static TypeInfo* get_error();
         static TypeInfo* get_void();
+        static TypeInfo* get_bool();
         static TypeInfo* get_sz();
         static TypeInfo* get_string();
         static TypeInfo* get_typeid();
@@ -273,13 +274,13 @@ namespace ariac {
         }
 
         bool is_signed() const {
-            return kind == TypeKind::IChar || kind == TypeKind::Short || kind == TypeKind::Int || kind == TypeKind::Long;
+            return kind == TypeKind::IChar || kind == TypeKind::Short || kind == TypeKind::Int || kind == TypeKind::Long || kind == TypeKind::Isz;
             ARIA_ASSERT(is_integral(), "is_signed() cannot operate on a non-integral type");
         }
 
         bool is_unsigned() const {
             ARIA_ASSERT(is_integral(), "is_unsigned() cannot operate on a non-integral type");
-            return kind == TypeKind::Char || kind == TypeKind::UShort || kind == TypeKind::UInt || kind == TypeKind::ULong;
+            return kind == TypeKind::Char || kind == TypeKind::UShort || kind == TypeKind::UInt || kind == TypeKind::ULong || kind == TypeKind::Sz;
         }
 
         bool is_runtime_aggregate() const {

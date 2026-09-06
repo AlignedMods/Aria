@@ -608,6 +608,17 @@ namespace ariac {
                 break;
             }
 
+            case ConstExprKind::Array: {
+                m_output += "value: Array\n";
+
+                for (size_t i = 0; i < val->values.size; i++) {
+                    ARIA_ASSERT(val->values.items[i]->kind == ExprKind::Const, "Not a constant expression");
+                    dump_const_expr_val(&val->values.items[i]->const_, indentation + 4);
+                }
+
+                break;
+            }
+
             case ConstExprKind::Struct: {
                 m_output += "value: Struct\n";
 

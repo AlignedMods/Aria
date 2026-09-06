@@ -177,7 +177,7 @@ struct Formatter {
         }
 
         // Handle zero padding
-        while i < flags.width {
+        while sz(i) < flags.width {
             buf[i++] = flags.pad_char;
         }
 

@@ -1129,6 +1129,16 @@ namespace ariac {
                 return get_string(c.string);
             }
 
+            case ConstExprKind::Array: {
+                llvm::SmallVector<llvm::Constant*, 8> vals;
+
+                for (Expr* val : c.values) {
+                    vals.push_back(llvm::dyn_cast<llvm::Constant>(gen_expr(val)));
+                }
+
+                return llvm::ConstantArray::get(llvm::dyn_cast<llvm::ArrayType>(type_info_to_llvm_type(expr->type)), vals);
+            }
+
             case ConstExprKind::Struct: {
                 llvm::SmallVector<llvm::Constant*, 8> vals;
 
@@ -1228,6 +1238,8 @@ namespace ariac {
             case TypeKind::UInt:
             case TypeKind::Long:
             case TypeKind::ULong:
+            case TypeKind::Sz:
+            case TypeKind::Isz:
             case TypeKind::Float:
             case TypeKind::Double:
             case TypeKind::Pointer: {

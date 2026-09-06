@@ -54,6 +54,7 @@ namespace ariac {
 
         struct ConstantEvaluationContext {
             std::unordered_map<Decl*, Expr*> parameters;
+            std::unordered_map<Decl*, Expr*> vars;
             Expr* return_val = nullptr;
             SourceLoc loc;
         };
@@ -253,11 +254,23 @@ namespace ariac {
         void eval_const_func_decl(Decl* func);
 
         bool is_const_expr(Expr* expr);
+        Expr* make_const_bool(SourceLoc loc, TypeInfo* type, bool val);
+        Expr* make_const_uint(SourceLoc loc, TypeInfo* type, u64 val);
+        Expr* make_const_int(SourceLoc loc, TypeInfo* type, i64 val);
+        Expr* make_const_float(SourceLoc loc, TypeInfo* type, double val);
+        Expr* eval_const_binary_operator(SourceLoc loc, Expr* lhs, Expr* rhs, BinaryOperatorKind op);
+        Expr* eval_const_binary_expr(Expr* expr);
+        Expr* eval_const_compound_assign_expr(Expr* expr);
         Expr* eval_const_expr(Expr* expr);
+        Expr* get_null_value(TypeInfo* type);
 
-        void eval_const_compound_stmt(Stmt* stmt);
-        void eval_const_return_stmt(Stmt* stmt);
-        void eval_const_stmt(Stmt* stmt);
+        void eval_const_var_decl(Decl* decl);
+        void eval_const_decl(Decl* decl);
+
+        bool eval_const_compound_stmt(Stmt* stmt);
+        bool eval_const_for_stmt(Stmt* stmt);
+        bool eval_const_return_stmt(Stmt* stmt);
+        bool eval_const_stmt(Stmt* stmt);
 
         // Gets the compile time type from an expression
         // eg. e = int, this function would return 'int'

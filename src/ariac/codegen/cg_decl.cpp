@@ -7,12 +7,17 @@ namespace ariac {
         VarDecl& var = decl->var;
         set_debug_loc(decl->loc);
 
-        llvm::Type* type = var.ref_var ? llvm::PointerType::get(*m_active_module_context.context, 0) : type_info_to_llvm_type(var.type);
+        llvm::Type* type = var.ref_var ? llvm::PointerType::get(*m_active_module_context.context, 0) :
+            var.type->is_boolean() ? llvm::IntegerType::get(*m_active_module_context.context, 8) : type_info_to_llvm_type(var.type);
         llvm::Value* a = nullptr;
 
         if (var.const_var) {
             std::string ident = fmt::format("{}.{}", valid_module_name(decl->parent_module), var.identifier);
             llvm::Constant* init = llvm::cast<llvm::Constant>(gen_expr(var.initializer));
+
+            if (init->getType()->isIntegerTy(1)) {
+                init = llvm::cast<llvm::Constant>(m_active_module_context.builder->CreateZExt(init, m_active_module_context.builder->getInt8Ty(), "zext"));
+            }
 
             llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, type, true, llvm::GlobalValue::InternalLinkage, init, ident);
             global->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);

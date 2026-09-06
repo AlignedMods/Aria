@@ -220,6 +220,10 @@ namespace ariac {
         return get_basic(TypeKind::Void);
     }
 
+    TypeInfo* TypeInfo::get_bool() {
+        return get_basic(TypeKind::Bool);
+    }
+
     TypeInfo* TypeInfo::get_sz() {
         return get_basic(TypeKind::Sz);
     }

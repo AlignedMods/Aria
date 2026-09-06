@@ -1308,6 +1308,8 @@ namespace ariac {
             case TypeKind::UInt:
             case TypeKind::Long:
             case TypeKind::ULong:
+            case TypeKind::Isz:
+            case TypeKind::Sz:
             case TypeKind::Float:
             case TypeKind::Double:
             case TypeKind::Pointer: {
