@@ -56,7 +56,6 @@ namespace ariac {
         TypeInfo* parse_type(bool allow_never = false);
 
         Stmt* parse_block();
-        Stmt* parse_block_inline();
         Stmt* parse_while();
         Stmt* parse_do_while();
         Stmt* parse_for();

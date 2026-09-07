@@ -980,25 +980,11 @@ namespace ariac {
         return Stmt::Create(l->loc, StmtKind::Compound, CompoundStmt(stmts));
     }
 
-    Stmt* Parser::parse_block_inline() {
-        if (match(TokenKind::LeftCurly)) {
-            return parse_block();
-        } else {
-            Stmt* stmt = parse_statement();
-            if (!stmt) { return &error_stmt; }
-
-            TinyVector<Stmt*> stmts;
-            stmts.append(stmt);
-
-            return Stmt::Create(stmt->loc, StmtKind::Compound, CompoundStmt(stmts));
-        }
-    }
-
     Stmt* Parser::parse_while() {
         Token w = consume(); // consume "while"
 
         Expr* condition = parse_expression();
-        Stmt* body = parse_block_inline();
+        Stmt* body = parse_block();
 
         return Stmt::Create(w.loc + condition->loc, StmtKind::While, WhileStmt(condition, body));
     }
@@ -1006,7 +992,7 @@ namespace ariac {
     Stmt* Parser::parse_do_while() {
         Token d = consume(); // consume "do"
 
-        Stmt* body = parse_block_inline();
+        Stmt* body = parse_block();
         try_consume(TokenKind::While, "while");
         Expr* condition = parse_expression();
         try_consume(TokenKind::Semi, ";");
@@ -1060,7 +1046,7 @@ namespace ariac {
             }
         }
         
-        body = parse_block_inline();
+        body = parse_block();
         
         return Stmt::Create(f.loc + end_loc, StmtKind::For, ForStmt(prologue, condition, step, body));
     }
@@ -1069,12 +1055,22 @@ namespace ariac {
         Token i = consume(); // consume "if"
 
         Expr* condition = parse_expression();
-        Stmt* body = parse_block_inline();
+        Stmt* body = parse_block();
         Stmt* else_body = nullptr;
 
         if (match(TokenKind::Else)) {
             consume();
-            else_body = parse_block_inline();
+
+            if (match(TokenKind::If)) {
+                else_body = parse_statement();
+                TinyVector<Stmt*> stmts;
+                stmts.append(body);
+                else_body = Stmt::Create(body->loc, StmtKind::Compound, CompoundStmt(stmts));
+            } else if (match(TokenKind::LeftCurly)) {
+                else_body = parse_block();
+            } else {
+                context.report_compiler_diagnostic(peek()->loc, "Expected either '{' or 'if'");
+            }
         }
         
         return Stmt::Create(i.loc + condition->loc, StmtKind::If, IfStmt(condition, body, else_body));
@@ -1094,7 +1090,17 @@ namespace ariac {
             Expr* cond = parse_expression();
             try_consume(TokenKind::Colon, ":");
 
-            Stmt* body = parse_block_inline();
+            Stmt* body = nullptr;
+
+            if (match(TokenKind::LeftCurly)) {
+                body = parse_block();
+            } else {
+                body = parse_statement();
+                TinyVector<Stmt*> stmts;
+                stmts.append(body);
+                body = Stmt::Create(body->loc, StmtKind::Compound, CompoundStmt(stmts));
+            }
+
             cases.append(Stmt::Create(c->loc + cond->loc, StmtKind::Case, CaseStmt(cond, body)));
         }
 
@@ -1107,12 +1113,12 @@ namespace ariac {
         Token i = consume(); // consume "$if"
 
         Expr* condition = parse_expression();
-        Stmt* body = parse_block_inline();
+        Stmt* body = parse_block();
         Stmt* else_body = nullptr;
 
         if (match(TokenKind::Else)) {
             consume();
-            else_body = parse_block_inline();
+            else_body = parse_block();
         }
         
         return Stmt::Create(i.loc + condition->loc, StmtKind::CompileIf, IfStmt(condition, body, else_body));
