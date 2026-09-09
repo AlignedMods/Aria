@@ -1064,7 +1064,7 @@ namespace ariac {
             if (match(TokenKind::If)) {
                 else_body = parse_statement();
                 TinyVector<Stmt*> stmts;
-                stmts.append(body);
+                stmts.append(else_body);
                 else_body = Stmt::Create(body->loc, StmtKind::Compound, CompoundStmt(stmts));
             } else if (match(TokenKind::LeftCurly)) {
                 else_body = parse_block();

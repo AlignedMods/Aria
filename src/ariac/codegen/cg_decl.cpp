@@ -183,7 +183,11 @@ namespace ariac {
             gen_compound_stmt(fn->body);
 
             if (!m_active_module_context.builder->GetInsertBlock()->getTerminator()) {
-                m_active_module_context.builder->CreateRetVoid();
+                if (fn->type->function.return_type->is_void()) {
+                    m_active_module_context.builder->CreateRetVoid();
+                } else {
+                    call_unreachable(decl->loc.line, "No return statement in function");
+                }
             }
 
             m_active_module_context.alloca_marker->eraseFromParent();

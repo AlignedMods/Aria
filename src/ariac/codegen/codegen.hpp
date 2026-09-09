@@ -209,7 +209,8 @@ namespace ariac {
 
         // Returns nullptr if there is no panic function
         llvm::Function* get_panic_func();
-        void call_assert(llvm::Value* cond, u64 line, const std::string& fmt, llvm::ArrayRef<llvm::Value*> args = {}, const std::vector<TypeInfo*>& types = {});
+        void call_assert(llvm::Value* cond, u64 line, std::string_view fmt, llvm::ArrayRef<llvm::Value*> args = {}, llvm::ArrayRef<TypeInfo*> types = {});
+        void call_unreachable(u64 line, std::string_view fmt, llvm::ArrayRef<llvm::Value*> args = {}, llvm::ArrayRef<TypeInfo*> types = {});
 
         llvm::BasicBlock* create_block(std::string_view name);
 

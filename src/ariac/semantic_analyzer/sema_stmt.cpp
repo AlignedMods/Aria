@@ -108,6 +108,10 @@ namespace ariac {
     void SemanticAnalyzer::resolve_if_stmt(Stmt* stmt) {
         IfStmt& ifs = stmt->if_;
 
+        if (stmt->loc.line == 91) {
+            // ARIA_DEBUGBREAK();
+        }
+
         resolve_expr(ifs.condition);
         require_rvalue(ifs.condition);
         insert_expr_with_cleanups(ifs.condition);
@@ -118,6 +122,7 @@ namespace ariac {
 
         bool main_reaches_end = true;
         bool else_reaches_end = true;
+
         push_scope();
         resolve_compound_stmt(ifs.body);
         main_reaches_end = m_functions.back().scopes.back().reaches_end;
@@ -133,6 +138,8 @@ namespace ariac {
         if (!main_reaches_end && !else_reaches_end) {
             m_functions.back().scopes.back().reaches_end = false;
         }
+
+        // m_functions.back().scopes.back().reaches_end = !((ifs.else_body) ? (!main_reaches_end && !else_reaches_end) : false);
     }
 
     void SemanticAnalyzer::resolve_switch_stmt(Stmt* stmt) {

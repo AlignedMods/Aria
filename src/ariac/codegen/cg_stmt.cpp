@@ -414,31 +414,19 @@ namespace ariac {
             return;
         }
 
-        llvm::Value* panic_msg = (u.arguments.size > 0) ? gen_expr(u.arguments[0]) :
-            get_string("Unreachable statement reached");
+        std::string_view fmt = (u.arguments.size > 0) ? u.arguments[0]->string_literal.value : "Unreachable statement reached";
+        llvm::SmallVector<llvm::Value*> variadic_args;
+        llvm::SmallVector<TypeInfo*> variadic_types;
 
-        llvm::SmallVector<llvm::Value*, 4> args;
-        gen_call_param(&args, get_string(context.active_comp_unit->filename, ".file"), TypeInfo::get_string());
-        gen_call_param(&args, get_i64(stmt->loc.line), TypeInfo::get_basic(TypeKind::ULong));
-        gen_call_param(&args, panic_msg, TypeInfo::get_string());
-
-        {
-            llvm::SmallVector<llvm::Value*> variadic_args;
-            llvm::SmallVector<TypeInfo*> variadic_types;
-
-            // NOTE: We start at index 1 to ignore the format string
-            for (size_t i = 1; i < u.arguments.size; i++) {
-                Expr* arg = u.arguments[i];
-                llvm::Value* val = gen_expr(arg);
-                variadic_args.push_back(val);
-                variadic_types.push_back(arg->type);
-            }
-
-            gen_call_variadic(&args, variadic_args, variadic_types);
+        // NOTE: We start at index 1 to ignore the format string
+        for (size_t i = 1; i < u.arguments.size; i++) {
+            Expr* arg = u.arguments[i];
+            llvm::Value* val = gen_expr(arg);
+            variadic_args.push_back(val);
+            variadic_types.push_back(arg->type);
         }
-
-        m_active_module_context.builder->CreateCall(panic, args);
-        m_active_module_context.builder->CreateUnreachable();
+        
+        call_unreachable(stmt->loc.line, fmt, variadic_args, variadic_types);
     }
 
     void Codegen::gen_expr_stmt(Stmt* stmt) {

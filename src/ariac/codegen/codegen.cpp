@@ -909,7 +909,7 @@ namespace ariac {
         return m_active_module_context.functions.at(context.panic_func);
     }
 
-    void Codegen::call_assert(llvm::Value* cond, u64 line, const std::string& fmt, llvm::ArrayRef<llvm::Value*> args, const std::vector<TypeInfo*>& types) {
+    void Codegen::call_assert(llvm::Value* cond, u64 line, std::string_view fmt, llvm::ArrayRef<llvm::Value*> args, llvm::ArrayRef<TypeInfo*> types) {
         llvm::Function* fn = get_panic_func();
         if (!fn) { return; }
 
@@ -928,6 +928,24 @@ namespace ariac {
         m_active_module_context.builder->CreateUnreachable();
 
         m_active_module_context.builder->SetInsertPoint(pass_block);
+    }
+
+    void Codegen::call_unreachable(u64 line, std::string_view fmt, llvm::ArrayRef<llvm::Value*> args, llvm::ArrayRef<TypeInfo*> types) {
+        llvm::Function* panic = get_panic_func();
+
+        if (!panic) {
+            m_active_module_context.builder->CreateUnreachable();
+            return;
+        }
+
+        llvm::SmallVector<llvm::Value*, 4> aargs;
+        gen_call_param(&aargs, get_string(context.active_comp_unit->filename, ".file"), TypeInfo::get_string());
+        gen_call_param(&aargs, get_i64(line), TypeInfo::get_basic(TypeKind::ULong));
+        gen_call_param(&aargs, get_string(fmt, ".panic_msg"), TypeInfo::get_string());
+        gen_call_variadic(&aargs, args, types);
+
+        m_active_module_context.builder->CreateCall(panic, aargs);
+        m_active_module_context.builder->CreateUnreachable();
     }
 
     llvm::BasicBlock* Codegen::create_block(std::string_view name) {
