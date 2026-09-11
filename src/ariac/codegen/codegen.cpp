@@ -896,6 +896,7 @@ namespace ariac {
         MangleContext ctx(t);
         std::string ti_name = fmt::format("$typeid.{}", ctx.mangle());
         llvm::GlobalVariable* ti = new llvm::GlobalVariable(*m_active_module_context.module, typeid_type, true, llvm::GlobalValue::LinkageTypes::LinkOnceAnyLinkage, initializer, ti_name);
+        ti->setComdat(m_active_module_context.module->getOrInsertComdat(ti_name));
         m_active_module_context.typeinfos[name] = ti;
 
         llvm::Value* inttoptr = m_active_module_context.builder->CreatePtrToInt(ti, type_info_to_llvm_type(TypeInfo::get_sz()), "ptrtoint");

@@ -1331,6 +1331,15 @@ namespace ariac {
             }
 
             case TypeKind::Any: {
+                if (construct.arguments.size == 0) { break; }
+
+                if (construct.arguments.size == 1) { // Check for explicit any casts
+                    if (construct.arguments[0]->type->is_pointer()) {
+                        insert_implicit_cast(TypeInfo::get_basic(TypeKind::Any), construct.arguments[0]->type, construct.arguments[0], CastKind::PointerToAny);
+                        break;
+                    }
+                }
+
                 if (construct.arguments.size > 2) {
                     report_diag(expr->loc, fmt::format("Too many initializers for '{}', expected 2 but got {}", type_info_to_string(expr->type), construct.arguments.size));
                     expr->type = TypeInfo::get_error();
