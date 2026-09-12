@@ -98,6 +98,11 @@ namespace ariac {
                     } else {
                         expr->type = sym->param.type;
                     }
+
+                    if (sym->param.identifier[0] == '_' && !sym->used) {
+                        report_error(sym->loc, "Parameters prefixed with '_' should not be used");
+                        report_note(expr->loc, "Referenced here");
+                    }
                 
                     sym->used = true;
                     return;
