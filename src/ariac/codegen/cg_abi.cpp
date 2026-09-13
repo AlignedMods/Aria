@@ -181,7 +181,13 @@ namespace ariac {
         ABIRetTypeInfo ret_info = get_ret_abi_type_info(ret_type);
         switch (ret_info.kind) {
             case ABIRetKind::Direct: {
-                return m_active_module_context.builder->CreateCall(llvm_ty, func, *args, ret_type->is_void() ? "" : "call");
+                llvm::Value* call = m_active_module_context.builder->CreateCall(llvm_ty, func, *args, ret_type->is_void() ? "" : "call");
+
+                if (ret_type->is_boolean()) {
+                    return m_active_module_context.builder->CreateTrunc(call, m_active_module_context.builder->getInt1Ty(), "trunc");
+                }
+
+                return call;
             }
 
             case ABIRetKind::Pointer: {

@@ -19,8 +19,13 @@ namespace ariac {
                 init = llvm::cast<llvm::Constant>(m_active_module_context.builder->CreateZExt(init, m_active_module_context.builder->getInt8Ty(), "zext"));
             }
 
-            llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, type, true, llvm::GlobalValue::InternalLinkage, init, ident);
-            global->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
+            // Use internal (static) linkage for local constants
+            // Since they can never be accessed from other modules
+            llvm::GlobalValue::LinkageTypes linkage = var.global_var ? linkage_kind_to_llvm(var.linkage_kind) : llvm::GlobalValue::InternalLinkage;
+            llvm::GlobalValue::UnnamedAddr unnamed_addr = var.global_var ? llvm::GlobalValue::UnnamedAddr::Local : llvm::GlobalValue::UnnamedAddr::Global;
+
+            llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, type, true, linkage, init, ident);
+            global->setUnnamedAddr(unnamed_addr);
             a = global;
 
             llvm::DIGlobalVariableExpression* dig = m_active_debug_context.builder->createGlobalVariableExpression(m_active_debug_context.unit->getFile(), var.identifier,
@@ -31,7 +36,7 @@ namespace ariac {
             if (var.dtor) {
                 gen_global_init_func(decl->loc, global, nullptr, var.dtor);
             }
-        } else if (var.global_var || var.const_var) {
+        } else if (var.global_var) {
             std::string ident = fmt::format("{}.{}", valid_module_name(decl->parent_module), var.identifier);
             llvm::Constant* init = llvm::Constant::getNullValue(type);
 

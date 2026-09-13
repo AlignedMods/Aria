@@ -64,9 +64,23 @@ namespace ariac {
             return m_active_module_context.functions.at(dr.referenced_decl);
         }
 
-        ARIA_ASSERT(m_active_module_context.named_values.contains(dr.referenced_decl), "Invalid DeclRef expression");
+        if (dr.referenced_decl->kind == DeclKind::Var) {
+            // Declare global variables if they don't exists
+            if (!m_active_module_context.named_values.contains(dr.referenced_decl)) {
+                ARIA_ASSERT(dr.referenced_decl->var.global_var, "The variable must be global");
+
+                llvm::Type* type = dr.referenced_decl->var.ref_var ? llvm::PointerType::get(*m_active_module_context.context, 0) :
+                    dr.referenced_decl->var.type->is_boolean() ? llvm::IntegerType::get(*m_active_module_context.context, 8) : type_info_to_llvm_type(dr.referenced_decl->var.type);
+                std::string ident = fmt::format("{}.{}", valid_module_name(dr.referenced_decl->parent_module), dr.referenced_decl->var.identifier);
+
+                llvm::GlobalVariable* val = new llvm::GlobalVariable(*m_active_module_context.module, type, dr.referenced_decl->var.const_var, llvm::GlobalValue::ExternalLinkage, nullptr, ident);
+                m_active_module_context.named_values[dr.referenced_decl] = val;
+            }
+        }
+
+        ARIA_ASSERT(m_active_module_context.named_values.contains(dr.referenced_decl), fmt::format("Invalid DeclRef expression at {}:{}", expr->loc.col, expr->loc.line));
         llvm::Value* val = m_active_module_context.named_values.at(dr.referenced_decl);
-        ARIA_ASSERT(val, "Invalid DeclRef expression");
+        ARIA_ASSERT(val, fmt::format("Invalid DeclRef expression at {}:{}", expr->loc.col, expr->loc.line));
 
         if (dr.referenced_decl->kind == DeclKind::Var && dr.referenced_decl->var.ref_var) {
             return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr()), val);

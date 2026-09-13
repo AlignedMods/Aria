@@ -68,7 +68,7 @@ namespace ariac {
         auto resolve_symbol = [&](Decl* sym) {
             switch (sym->kind) {
                 case DeclKind::Var: {
-                    if (sym->var.linkage_kind == LinkageKind::Static) {
+                    if (sym->var.linkage_kind == LinkageKind::Static && sym->parent_module != context.active_comp_unit->parent) {
                         report_diag(expr->loc, fmt::format("{} has static linkage and cannot be accessed", pretty_ident));
                         report_diag(sym->loc, "Defined here", CompilerDiagKind::Note);
                     }
@@ -1413,6 +1413,12 @@ namespace ariac {
             default: ARIA_UNREACHABLE("Invalid type kind");
         }
 
+        if (construct.is_const) {
+            for (Expr* arg : construct.arguments) {
+                replace_expr(arg, eval_const_expr(Expr::dup(arg)));
+            }
+        }
+
         if (expr->result_discarded) {
             report_diag(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
         }
@@ -2143,17 +2149,17 @@ namespace ariac {
                     }
                 }
 
-                e->type = lty;
+                e->type = lhs->type;
                 return;
             } else if (rty->is_floating_point()) {
                 insert_implicit_cast(rty, lty, lhs, CastKind::IntegralToFloating);
-                e->type = rty;
+                e->type = rhs->type;
                 return;
             }
         } else if (lty->is_floating_point() && !is_binary_operator_bit(op)) {
             if (rty->is_integral()) {
                 insert_implicit_cast(lty, rty, rhs, CastKind::IntegralToFloating);
-                e->type = lty;
+                e->type = lhs->type;
                 return;
             } else if (rty->is_floating_point()) {
                 size_t lSize = lty->get_bit_size();
@@ -2165,17 +2171,17 @@ namespace ariac {
                     insert_implicit_cast(rty, lty, lhs, CastKind::FloatingCast);
                 }
 
-                e->type = lty;
+                e->type = lhs->type;
                 return;
             }
         } else if (lty->is_pointer() && !is_binary_operator_bit(op)) {
             if (op == BinaryOperatorKind::Add) {
                 if (rty->is_integral()) {
-                    e->type = lty;
+                    e->type = lhs->type;
                     return;
                 } else {
                     report_diag(rhs->loc, fmt::format("Expected an integer here but got '{}'", type_info_to_string(rty)));
-                    e->type = lty;
+                    e->type = lhs->type;
                     return;
                 }
             }
@@ -2184,19 +2190,19 @@ namespace ariac {
                 if (op == BinaryOperatorKind::IsEq || op == BinaryOperatorKind::IsNotEq) {
                     insert_implicit_cast(TypeInfo::get_void_ptr(), lty, lhs, CastKind::BitCast);
                     insert_implicit_cast(TypeInfo::get_void_ptr(), rty, rhs, CastKind::BitCast);
-                    e->type = lty;
+                    e->type = lhs->type;
                     return;
                 }
             }
         } else if (lty->is_typeid() && rty->is_typeid()) {
             if (op == BinaryOperatorKind::IsEq || op == BinaryOperatorKind::IsNotEq) {
-               e->type = lty;
+               e->type = lhs->type;
                return;
             }
         } else if (lty->is_enum() && rty->is_enum()) {
             if (lty->enum_.source_decl == rty->enum_.source_decl) {
                 if (op == BinaryOperatorKind::IsEq || op == BinaryOperatorKind::IsNotEq) {
-                   e->type = lty;
+                   e->type = lhs->type;
                    return;
                 }
             }
