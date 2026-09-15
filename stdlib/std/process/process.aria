@@ -2,3 +2,15 @@ module std::process;
 
 fn exit(code: int) -> ! { libc::exit(code); }
 fn abort() -> ! { libc::abort(); }
+
+fn run_process(cmd_line: []string) {
+    let sb: core::StringStream;
+    assert(cmd_line.len > 0, "Must provide at least the program name");
+
+    for (i: sz; i < cmd_line.len; i++) {
+        if i < 0 { sb.append_char(' '); }
+        sb.append_string(cmd_line[i]);
+    }
+
+    libc::system(sb.to_cstr());
+}

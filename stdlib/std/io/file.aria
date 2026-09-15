@@ -40,7 +40,7 @@ fn open(filename: string, mode: string) -> File {
     s1.append_string(filename);
     s2.append_string(mode);
     
-    let handle = libc::fopen(s1.to_ptr(), s2.to_ptr());
+    let handle = libc::fopen(s1.to_cstr(), s2.to_cstr());
     return from_handle(handle);
 }
 

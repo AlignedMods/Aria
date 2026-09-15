@@ -20,6 +20,8 @@ extern fn malloc(size: sz) -> *void;
 extern fn realloc(ptr: *void, size: sz) -> *void;
 extern fn calloc(nmemb: sz, size: sz) -> *void;
 
+extern fn system(command: *const char) -> int;
+
 // stdio.h
 
 module libc @if(env::WIN32);

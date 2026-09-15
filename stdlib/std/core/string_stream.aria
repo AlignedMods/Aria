@@ -41,7 +41,7 @@ struct StringStream {
         return mem[:len];
     }
 
-    fn to_ptr() -> *char {
+    fn to_cstr() -> *char {
         append_char('\0');
         return mem;
     }
