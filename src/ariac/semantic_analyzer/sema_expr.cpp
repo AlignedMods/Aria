@@ -1435,6 +1435,11 @@ namespace ariac {
 
         TypeInfo* base_type = nullptr;
 
+        if (lit.arguments.size == 0) {
+            report_error(expr->loc, "Array literal is not allowed to be empty");
+            base_type = TypeInfo::get_basic(TypeKind::Char);
+        }
+
         for (Expr* arg : lit.arguments) {
             resolve_expr(arg);
 

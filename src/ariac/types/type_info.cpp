@@ -53,6 +53,13 @@ namespace ariac {
         return t;
     }
 
+    TypeInfo* TypeInfo::create_array(TypeInfo* base, Expr* size, SourceLoc loc) {
+        TypeInfo* t = create_basic(TypeKind::Array, loc);
+        t->array.base = base;
+        t->array.expression = size;
+        return t;
+    }
+
     TypeInfo* TypeInfo::create_slice(TypeInfo* base, SourceLoc loc) {
         TypeInfo* t = create_basic(TypeKind::Slice, loc);
         t->slice = SliceType(base);

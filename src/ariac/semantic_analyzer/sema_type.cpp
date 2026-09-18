@@ -35,21 +35,24 @@ namespace ariac {
             
             case TypeKind::Array: {
                 resolve_type(type->array.base);
-                resolve_expr(type->array.expression);
 
-                if (!is_const_expr(type->array.expression)) {
-                    report_diag(type->array.expression->loc, "Size of array must be a compile time constant");
-                    break;
+                if (type->array.expression) {
+                    resolve_expr(type->array.expression);
+
+                    if (!is_const_expr(type->array.expression)) {
+                        report_diag(type->array.expression->loc, "Size of array must be a compile time constant");
+                        break;
+                    }
+
+                    ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(TypeKind::ULong), type->array.expression->type);
+                    if (cost.cast_needed && !cost.implicit_cast_possible) {
+                        report_diag(type->array.expression->loc, "Size of array must be convertable to 'ulong'");
+                        break;
+                    }
+
+                    Expr* cexpr = eval_const_expr(type->array.expression);
+                    type->array.size = cexpr->const_.integer;
                 }
-
-                ConversionCost cost = get_conversion_cost(TypeInfo::get_basic(TypeKind::ULong), type->array.expression->type);
-                if (cost.cast_needed && !cost.implicit_cast_possible) {
-                    report_diag(type->array.expression->loc, "Size of array must be convertable to 'ulong'");
-                    break;
-                }
-
-                Expr* cexpr = eval_const_expr(type->array.expression);
-                type->array.size = cexpr->const_.integer;
                 break;
             }
 

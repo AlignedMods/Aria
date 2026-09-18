@@ -27,6 +27,7 @@ namespace ariac {
 
         // Expressions
         Expr* parse_grouping(Expr* left);
+        Expr* parse_array_literal(Expr* left);
         Expr* parse_call(Expr* left);
         Expr* parse_ternary(Expr* left);
         BuiltinCallKind get_builtin_call_from_token(Token* token);
@@ -41,7 +42,6 @@ namespace ariac {
         Expr* parse_primary(Expr* left);
         Expr* parse_type_expr(Expr* left);
         Expr* parse_identifier(Token t);
-        Expr* parse_array_literal(Expr* left);
         Expr* parse_env(Expr* left);
         Expr* parse_builtin_call(Expr* left);
 

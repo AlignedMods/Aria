@@ -41,6 +41,7 @@ fn open(filename: string, mode: string) -> File {
     s2.append_string(mode);
     
     let handle = libc::fopen(s1.to_cstr(), s2.to_cstr());
+
     return from_handle(handle);
 }
 

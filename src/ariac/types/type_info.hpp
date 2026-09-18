@@ -150,6 +150,7 @@ namespace ariac {
         static TypeInfo* create_basic(TypeKind kind, SourceLoc loc = {});
         static TypeInfo* create_pointer(TypeInfo* base, bool is_const, SourceLoc loc = {});
         static TypeInfo* create_array(TypeInfo* base, u64 size, SourceLoc loc = {});
+        static TypeInfo* create_array(TypeInfo* base, Expr* size, SourceLoc loc = {});
         static TypeInfo* create_slice(TypeInfo* base, SourceLoc loc = {});
         static TypeInfo* create_function(TypeKind kind, TypeInfo* ret, TinyVector<Decl*> params, size_t required_arg_count, VariadicKind variadic, SourceLoc loc = {});
         static TypeInfo* create_struct(Decl* d, SourceLoc loc = {});
