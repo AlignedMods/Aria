@@ -446,6 +446,14 @@ namespace ariac {
             return llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice");
         } else if (t->kind == TypeKind::Pointer) {
             return llvm::PointerType::get(*m_active_module_context.context, 0);
+        } else if (t->kind == TypeKind::Tuple) {
+            if (t->tuple.types.size == 0) {
+                return llvm::ArrayType::get(llvm::Type::getInt8Ty(*m_active_module_context.context), 0);
+            } else if (t->tuple.types.size == 1) {
+                return type_info_to_llvm_type(t->tuple.types[0]);
+            }
+
+            ARIA_TODO("Other tuple sizes");
         } else if (t->kind == TypeKind::Function || t->kind == TypeKind::Method) {
             std::vector<llvm::Type*> params;
 
@@ -695,6 +703,16 @@ namespace ariac {
             dit = m_active_debug_context.builder->createStructType(m_active_debug_context.scope,
                 str_type, m_active_debug_context.scope->getFile(), 0, (unsigned)t->get_bit_size(), (unsigned)t->get_alignment() * 8,
                 llvm::DINode::DIFlags::FlagExplicit, nullptr, m_active_debug_context.builder->getOrCreateArray(elems));
+        } else if (t->is_tuple()) {
+            if (t->tuple.types.size == 0) {
+                dit = m_active_debug_context.builder->createBasicType(str_type, 0, llvm::dwarf::DW_ATE_unsigned);
+            } else if (t->tuple.types.size == 1) {
+                dit = m_active_debug_context.builder->createStructType(m_active_debug_context.scope, str_type,
+                    m_active_debug_context.unit->getFile(), 0, (unsigned)t->get_bit_size(), (unsigned)t->get_alignment() * 8,
+                    llvm::DINode::FlagExplicit, nullptr, m_active_debug_context.builder->getOrCreateArray(type_info_to_debug_type(t->tuple.types[0])));
+            } else {
+                ARIA_TODO("other tuple sizes");
+            }
         } else if (t->is_function()) {
             return type_info_to_debug_type(TypeInfo::get_void());
         } else if (t->is_struct()) {

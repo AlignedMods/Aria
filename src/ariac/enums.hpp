@@ -426,6 +426,8 @@ namespace ariac {
         Array,
         Slice,
 
+        Tuple,
+
         Function,
         Method,
 
@@ -458,7 +460,7 @@ namespace ariac {
               // Supported on all functions
     };
 
-    // WARNING: This enum must match exactly with TypeKind
+    // WARNING: This enum must match exactly with std::core::TypeKind
     enum class RuntimeTypeKind : u8 {
         Void = 0,
         Bool,

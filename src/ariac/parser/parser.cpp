@@ -758,6 +758,7 @@ namespace ariac {
                 return false;
             }
 
+            case TokenKind::LeftParen:
             case TokenKind::Void:
             case TokenKind::Bool:
             case TokenKind::Char:
@@ -863,6 +864,31 @@ namespace ariac {
 
             case TokenKind::Typeid:     consume(); type->kind = TypeKind::Typeid; break;
             case TokenKind::Any:        consume(); type->kind = TypeKind::Any; break;
+
+            case TokenKind::LeftParen: {
+                consume();
+
+                TinyVector<TypeInfo*> types;
+
+                while (peek() && !match(TokenKind::RightParen)) {
+                    if (!is_type()) {
+                        context.report_compiler_diagnostic(peek()->loc, "Expected a type");
+                    } else {
+                        types.append(parse_type());
+                    }
+
+                    if (match(TokenKind::Comma)) { consume(); continue; }
+                    if (match(TokenKind::RightParen)) { break; }
+
+                    context.report_compiler_diagnostic(peek()->loc, "Expected ',' or ')'");
+                }
+
+                try_consume(TokenKind::RightParen, ")");
+
+                type->kind = TypeKind::Tuple;
+                type->tuple = TupleType(types);
+                break;
+            }
 
             case TokenKind::Fn: {
                 consume();

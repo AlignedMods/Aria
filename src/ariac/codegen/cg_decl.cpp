@@ -49,6 +49,10 @@ namespace ariac {
         } else {
             a = alloca_at_entry(m_active_module_context.function, var.identifier, type);
 
+            if (a->getName() == "tuple") {
+                // ARIA_DEBUGBREAK();
+            }
+
             llvm::DILocalVariable* dil = m_active_debug_context.builder->createAutoVariable(m_active_debug_context.scope, var.identifier, m_active_debug_context.scope->getFile(), 
                 (unsigned)decl->loc.line, type_info_to_debug_type(var.type));
 

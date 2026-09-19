@@ -218,45 +218,45 @@ namespace ariac {
             if (dst->is_integral()) { // Int to int
                 if (src->get_bit_size() != dst->get_bit_size()) {
                     cost.kind = CastKind::IntegralCast;
+                    return cost;
                 } else {
                     if (src->is_signed() == dst->is_signed()) {
                         cost.cast_needed = false;
+                        return cost;
                     } else {
                         cost.kind = CastKind::IntegralCast;
                         cost.cast_needed = true;
+                        return cost;
                     }
                 }
             } else if (dst->is_boolean()) { // Int to bool
                 cost.kind = CastKind::IntegralToBoolean;
                 cost.implicit_cast_possible = false;
+                return cost;
             } else if (dst->is_floating_point()) { // Int to float
                 cost.kind = CastKind::IntegralToFloating;
-            } else {
-                cost.implicit_cast_possible = false;
-                cost.explicit_cast_possible = false;
+                return cost;
             }
-
-            return cost;
         }
 
         if (src->is_floating_point()) {
             if (dst->is_floating_point()) { // Float to float
                 if (src->get_bit_size() != dst->get_bit_size()) {
                     cost.kind = CastKind::FloatingCast;
+                    return cost;
                 } else {
                     cost.cast_needed = false;
+                    return cost;
                 }
             } else if (dst->is_integral()) { // Float to int
                 cost.kind = CastKind::FloatingToIntegral;
                 cost.implicit_cast_possible = false;
+                return cost;
             } else if (dst->is_boolean()) { // Float to bool
                 cost.kind = CastKind::FloatingToBoolean;
                 cost.implicit_cast_possible = false;
-            } else {
-                cost.explicit_cast_possible = false;
+                return cost;
             }
-
-            return cost;
         }
 
         if (src->is_string()) {
@@ -394,6 +394,16 @@ namespace ariac {
                     cost.cast_needed = false;
                     return cost;
                 }
+            }
+        }
+
+        if (dst->is_tuple()) {
+            if (src->is_tuple()) {
+                ARIA_TODO("tuple to tuple");
+            }
+
+            if (dst->tuple.types.size == 1) {
+                return get_conversion_cost(dst->tuple.types[0], src);
             }
         }
 

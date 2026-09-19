@@ -42,6 +42,13 @@ namespace ariac {
         TypeInfo* base = nullptr;
     };
 
+    struct TupleType {
+        TupleType(TinyVector<TypeInfo*> tys)
+            : types(tys) {}
+
+        TinyVector<TypeInfo*> types;
+    };
+
     struct FunctionType {
         FunctionType(TypeInfo* ret, TinyVector<Decl*> params, size_t required_arg_count, VariadicKind var)
             : return_type(ret), params(params), required_arg_count(required_arg_count), variadic(var) {}
@@ -133,9 +140,10 @@ namespace ariac {
         SourceLoc loc;
         union {
             PointerType pointer;
-            FunctionType function;
             ArrayType array;
             SliceType slice;
+            TupleType tuple;
+            FunctionType function;
             StructType struct_;
             TypedefType typedef_;
             EnumType enum_;
@@ -152,6 +160,7 @@ namespace ariac {
         static TypeInfo* create_array(TypeInfo* base, u64 size, SourceLoc loc = {});
         static TypeInfo* create_array(TypeInfo* base, Expr* size, SourceLoc loc = {});
         static TypeInfo* create_slice(TypeInfo* base, SourceLoc loc = {});
+        static TypeInfo* create_tuple(TinyVector<TypeInfo*> types, SourceLoc loc = {});
         static TypeInfo* create_function(TypeKind kind, TypeInfo* ret, TinyVector<Decl*> params, size_t required_arg_count, VariadicKind variadic, SourceLoc loc = {});
         static TypeInfo* create_struct(Decl* d, SourceLoc loc = {});
         static TypeInfo* create_struct(std::string_view name, Decl* d, SourceLoc loc = {});
@@ -230,6 +239,10 @@ namespace ariac {
 
         bool is_slice() const {
             return kind == TypeKind::Slice;
+        }
+
+        bool is_tuple() const {
+            return kind == TypeKind::Tuple;
         }
 
         bool is_function() const {

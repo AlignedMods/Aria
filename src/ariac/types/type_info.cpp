@@ -66,6 +66,12 @@ namespace ariac {
         return t;
     }
 
+    TypeInfo* TypeInfo::create_tuple(TinyVector<TypeInfo*> types, SourceLoc loc) {
+        TypeInfo* t = create_basic(TypeKind::Tuple, loc);
+        t->tuple = TupleType(types);
+        return t;
+    }
+
     TypeInfo* TypeInfo::create_function(TypeKind kind, TypeInfo* ret, TinyVector<Decl*> params, size_t required_arg_count, VariadicKind variadic, SourceLoc loc) {
         TypeInfo* t = context.allocate<TypeInfo>();
         t->kind = kind;
@@ -352,6 +358,7 @@ namespace ariac {
             case TypeKind::Pointer:
             case TypeKind::Array:
             case TypeKind::Slice:
+            case TypeKind::Tuple:
             case TypeKind::Function:
             case TypeKind::Method:
             case TypeKind::Struct:
@@ -428,6 +435,13 @@ namespace ariac {
                 return get_void_ptr()->get_size() + get_basic(TypeKind::Sz)->get_size();
             }
 
+            case TypeKind::Tuple: {
+                if (tuple.types.size == 0) { return 0; }
+                if (tuple.types.size == 1) { return tuple.types.items[0]->get_size(); }
+
+                ARIA_TODO("size for tuples");
+            }
+
             case TypeKind::Struct: {
                 u64 size = 0;
                 u64 alignment = get_alignment();
@@ -502,6 +516,7 @@ namespace ariac {
 
             case TypeKind::Array: return get_size() * 8;
             case TypeKind::Slice: return get_size() * 8;
+            case TypeKind::Tuple: return get_size() * 8;
             case TypeKind::Struct: return get_size() * 8;
 
             case TypeKind::Typedef: return typedef_.base->get_bit_size();
@@ -558,6 +573,17 @@ namespace ariac {
                 return 0;
             }
 
+            case TypeKind::Tuple: {
+                u64 alignment = 0;
+
+                for (TypeInfo* type : tuple.types) {
+                    u64 new_alignment = type->get_alignment();
+                    alignment = (new_alignment > alignment) ? new_alignment : alignment;
+                }
+
+                return alignment;
+            }
+
             case TypeKind::Struct: {
                 u64 alignment = 0;
 
@@ -593,7 +619,8 @@ namespace ariac {
         TypeInfo* t = const_cast<TypeInfo*>(this);
 
         while (true) {
-            if (t->is_primitive() || 
+            if (t->is_primitive() ||
+                t->is_tuple() || 
                 t->is_function() || 
                 t->is_struct() || 
                 t->is_typedef() || 
@@ -657,6 +684,24 @@ namespace ariac {
             case TypeKind::Slice: {
                 TypeInfo* t = type->slice.base;
                 str = fmt::format("[]{}", type_info_to_string(t, pretty));
+                break;
+            }
+
+            case TypeKind::Tuple: {
+                TupleType& ty = type->tuple;
+
+                str = "(";
+
+                for (size_t i = 0; i < ty.types.size; i++) {
+                    if (i < 0) {
+                        str += ", ";
+                    }
+
+                    TypeInfo* t = ty.types[i];
+                    str += t->to_string(pretty);
+                }
+
+                str += ")";
                 break;
             }
 
