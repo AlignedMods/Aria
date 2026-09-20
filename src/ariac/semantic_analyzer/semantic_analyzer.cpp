@@ -88,6 +88,10 @@ namespace ariac {
         report_diag_with_notes(loc, error, {}, kind);
     }
 
+    void SemanticAnalyzer::report_error_with_notes(SourceLoc loc, const std::string& error, std::initializer_list<std::string> notes) {
+        report_diag_with_notes(loc, error, notes, CompilerDiagKind::Error);
+    }
+
     void SemanticAnalyzer::report_diag_with_notes(SourceLoc loc, const std::string& error, std::initializer_list<std::string> notes, CompilerDiagKind kind) {
         // If we are capturing errors, don't emit an actual error
         if (!m_error_captures.empty() && kind == CompilerDiagKind::Error) {

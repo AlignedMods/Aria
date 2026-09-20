@@ -408,8 +408,8 @@ namespace ariac {
         ArraySubscriptExpr& arr = expr->array_subscript;
         set_debug_loc(expr->loc);
 
-        llvm::Value* index = gen_expr(arr.index);
         llvm::Value* array = gen_expr(arr.array);
+        llvm::Value* index = gen_expr(arr.index);
 
         switch (arr.array->type->kind) {
             case TypeKind::Pointer:
@@ -461,6 +461,14 @@ namespace ariac {
                 llvm::Value* mem = m_active_module_context.builder->CreateStructGEP(slice_type, array, 0);
                 llvm::Value* loaded = m_active_module_context.builder->CreateLoad(llvm::PointerType::get(*m_active_module_context.context, 0), mem);
                 return m_active_module_context.builder->CreateGEP(type_info_to_llvm_type(arr.array->type->slice.base), loaded, index, "ptradd");
+            }
+
+            case TypeKind::Tuple: {
+                if (arr.array->type->tuple.types.size == 1) {
+                    return array;
+                }
+
+                return m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(arr.array->type), array, (unsigned)arr.index->const_.integer, "ptradd");
             }
 
             default: ARIA_UNREACHABLE("Invalid type kind");

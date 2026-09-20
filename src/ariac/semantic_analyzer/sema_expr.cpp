@@ -1555,6 +1555,27 @@ namespace ariac {
                 break;
             }
 
+            case TypeKind::Tuple: {
+                if (!is_const_expr(subs.index)) {
+                    report_error(subs.index->loc, "Expression must be constant");
+                    expr->type = TypeInfo::get_error();
+                    return;
+                }
+
+                replace_expr(subs.index, eval_const_expr(subs.index));
+                u64 idx = subs.index->const_.integer;
+
+                if (idx >= subs.array->type->tuple.types.size) {
+                    report_error_with_notes(subs.index->loc, "Index is out of bounds for tuple",
+                        { fmt::format("Tuple size is {}", subs.array->type->tuple.types.size) });
+                    expr->type = TypeInfo::get_error();
+                    return;
+                }
+
+                expr->type = subs.array->type->tuple.types[idx];
+                break;
+            }
+
             default: {
                 report_diag(subs.array->loc, fmt::format("Invalid type '{}' for array subscript", type_info_to_string(subs.array->type)));
                 expr->type = TypeInfo::get_error();

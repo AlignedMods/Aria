@@ -290,6 +290,7 @@ namespace ariac {
         void report_warning(SourceLoc loc, const std::string& error);
         void report_note(SourceLoc loc, const std::string& error);
         void report_diag(SourceLoc loc, const std::string& error, CompilerDiagKind kind = CompilerDiagKind::Error);
+        void report_error_with_notes(SourceLoc loc, const std::string& error, std::initializer_list<std::string> notes);
         void report_diag_with_notes(SourceLoc loc, const std::string& error, std::initializer_list<std::string> notes, CompilerDiagKind kind = CompilerDiagKind::Error);
 
     private:
