@@ -1616,10 +1616,37 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_paren_expr(Expr* expr) {
         ParenExpr& paren = expr->paren;
-        resolve_expr(paren.expression);
 
-        expr->type = paren.expression->type;
-        expr->value_kind = paren.expression->value_kind;
+        if (paren.expressions.size == 0) {
+            expr->type = TypeInfo::get_empty_tuple();
+            expr->value_kind = ExprValueKind::RValue;
+        } else if (paren.expressions.size == 1) {
+            resolve_expr(paren.expressions[0]);
+            expr->type = paren.expressions[0]->type;
+            expr->value_kind = paren.expressions[0]->value_kind;
+        } else {
+            TinyVector<TypeInfo*> types;
+            bool is_const = true;
+
+            for (Expr* e : paren.expressions) {
+                resolve_expr(e);
+                require_rvalue(e);
+
+                if (is_const_expr(e)) {
+                    eval_const_expr(e);
+                } else {
+                    is_const = false;
+                }
+
+                types.append(e->type);
+            }
+
+            expr->kind = ExprKind::Construct;
+            expr->type = TypeInfo::create_tuple(types);
+            expr->value_kind = ExprValueKind::RValue;
+            expr->construct.arguments = paren.expressions;
+            expr->construct.is_const = is_const;
+        }
 
         if (expr->result_discarded) {
             report_diag(expr->loc, "Discarding result of expression", CompilerDiagKind::Warning);
@@ -2013,7 +2040,16 @@ namespace ariac {
 
             case ExprKind::ArraySubscript: return is_assignable_expr(expr->array_subscript.array);
 
-            case ExprKind::Paren: return is_assignable_expr(expr->paren.expression);
+            case ExprKind::Paren: {
+                if (expr->paren.expressions.size == 0) { return false; }
+
+                for (Expr* e : expr->paren.expressions) {
+                    if (!is_assignable_expr(e)) { return false; }
+                }
+
+                return true;
+            }
+
             case ExprKind::Cast: return is_assignable_expr(expr->cast.expression);
             case ExprKind::ImplicitCast: return is_assignable_expr(expr->implicit_cast.expression);
 

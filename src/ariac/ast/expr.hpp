@@ -229,14 +229,15 @@ namespace ariac {
     };
 
     // ParenExpr
-    // At its core it just wraps an expression
-    // These kinds of expressions are usually from the actual source code
-    // eg. 1 + (2 - 3)
+    // Represent zero or one expression wrapped in '()'
+    // Note that multiple expressions inside of '()' will be resolved to a construct expr
+    // This is done during semantic analysis to simplify codegen
+    // eg. (), (2 - 3)
     struct ParenExpr {
-        ParenExpr(Expr* expr)
-            :  expression(expr) {}
+        ParenExpr(TinyVector<Expr*> exprs)
+            :  expressions(exprs) {}
 
-        Expr* expression = nullptr;
+        TinyVector<Expr*> expressions;
     };
 
     // TernaryExpr

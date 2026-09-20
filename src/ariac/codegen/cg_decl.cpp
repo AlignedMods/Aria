@@ -49,10 +49,6 @@ namespace ariac {
         } else {
             a = alloca_at_entry(m_active_module_context.function, var.identifier, type);
 
-            if (a->getName() == "tuple") {
-                // ARIA_DEBUGBREAK();
-            }
-
             llvm::DILocalVariable* dil = m_active_debug_context.builder->createAutoVariable(m_active_debug_context.scope, var.identifier, m_active_debug_context.scope->getFile(), 
                 (unsigned)decl->loc.line, type_info_to_debug_type(var.type));
 
@@ -65,6 +61,8 @@ namespace ariac {
             } else {
                 if (var.type->is_primitive() || var.type->is_pointer()) {
                     m_active_module_context.builder->CreateStore(llvm::Constant::getNullValue(type), a);
+                } else if (var.type->is_tuple() && var.type->tuple.types.size == 0) {
+                    // Nothing to do
                 } else {
                     m_active_module_context.builder->CreateMemSet(a, get_int(0, TypeInfo::get_basic(TypeKind::Char)), get_i64(var.type->get_size()), llvm::MaybeAlign());
                 }

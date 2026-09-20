@@ -175,7 +175,11 @@ namespace ariac {
 
             case ExprKind::Paren: {
                 ParenExpr& p = e->paren;
-                copy->paren.expression = Expr::dup(p.expression);
+
+                for (Expr* e : p.expressions) {
+                    copy->paren.expressions.append(Expr::dup(e));
+                }
+
                 break;
             }
 

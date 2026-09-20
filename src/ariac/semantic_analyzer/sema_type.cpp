@@ -399,7 +399,24 @@ namespace ariac {
 
         if (dst->is_tuple()) {
             if (src->is_tuple()) {
-                ARIA_TODO("tuple to tuple");
+                if (src->tuple.types.size != dst->tuple.types.size) {
+                    cost.implicit_cast_possible = false;
+                    cost.explicit_cast_possible = false;
+                    return cost;
+                }
+
+                for (size_t i = 0; i < src->tuple.types.size; i++) {
+                    ConversionCost tcost = get_conversion_cost(dst->tuple.types[i], src->tuple.types[i]);
+
+                    if (tcost.cast_needed) {
+                        cost.implicit_cast_possible = false;
+                        cost.explicit_cast_possible = false;
+                        return cost;
+                    }
+                }
+
+                cost.cast_needed = false;
+                return cost;
             }
 
             if (dst->tuple.types.size == 1) {

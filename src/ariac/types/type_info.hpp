@@ -182,6 +182,7 @@ namespace ariac {
         static TypeInfo* get_void_ptr();
         static TypeInfo* get_char_ptr();
         static TypeInfo* get_char_slice();
+        static TypeInfo* get_empty_tuple();
         static TypeInfo* get_void_method(); // Returns a 'fn (self) -> void'
         static TypeInfo* get_deducable_template();
         static TypeInfo* get_overloaded_function();
@@ -298,7 +299,7 @@ namespace ariac {
         }
 
         bool is_runtime_aggregate() const {
-            return is_any() || is_array() || is_struct() || is_struct_specilization();
+            return is_any() || is_array() || is_tuple() || is_struct() || is_struct_specilization();
         }
 
         u64 get_size() const;

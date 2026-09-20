@@ -29,6 +29,7 @@ namespace ariac {
     static TypeInfo* void_ptr_type;
     static TypeInfo* char_ptr_type;
     static TypeInfo* char_slice_type;
+    static TypeInfo* empty_tuple;
     static TypeInfo* void_method;
     static TypeInfo* deducable_template;
     static TypeInfo* overloaded_function;
@@ -317,6 +318,12 @@ namespace ariac {
         return char_slice_type;
     }
 
+    TypeInfo* TypeInfo::get_empty_tuple() {
+        if (empty_tuple) { return empty_tuple; }
+        empty_tuple = create_tuple({});
+        return empty_tuple;
+    }
+
     TypeInfo* TypeInfo::get_void_method() {
         if (void_method) { return void_method; }
         void_method = create_function(TypeKind::Method, get_void(), {}, 0, VariadicKind::None);
@@ -436,10 +443,14 @@ namespace ariac {
             }
 
             case TypeKind::Tuple: {
-                if (tuple.types.size == 0) { return 0; }
-                if (tuple.types.size == 1) { return tuple.types.items[0]->get_size(); }
+                u64 size = 0;
+                u64 alignment = get_alignment();
 
-                ARIA_TODO("size for tuples");
+                for (TypeInfo* type : tuple.types) {
+                    size += align_value(type->get_size(), alignment);
+                }
+
+                return size;
             }
 
             case TypeKind::Struct: {
@@ -693,7 +704,7 @@ namespace ariac {
                 str = "(";
 
                 for (size_t i = 0; i < ty.types.size; i++) {
-                    if (i < 0) {
+                    if (i > 0) {
                         str += ", ";
                     }
 

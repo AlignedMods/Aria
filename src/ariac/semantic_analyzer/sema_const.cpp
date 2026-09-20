@@ -62,8 +62,13 @@ namespace ariac {
                 return is_const_expr(expr->array_subscript.index);
             }
     
-            case ExprKind::Paren:
-                return is_const_expr(expr->paren.expression);
+            case ExprKind::Paren: {
+                for (Expr* e : expr->paren.expressions) {
+                    if (!is_const_expr(e)) { return false; }
+                }
+
+                return true;
+            }
     
             case ExprKind::ImplicitCast:
                 return is_const_expr(expr->implicit_cast.expression);
@@ -310,8 +315,11 @@ namespace ariac {
                 return arr->const_.values[idx->const_.integer];
             }
     
-            case ExprKind::Paren:
-                return eval_const_expr(expr->paren.expression);
+            case ExprKind::Paren: {
+                if (expr->paren.expressions.size == 1) { return eval_const_expr(expr->paren.expressions[0]); }
+
+                ARIA_TODO("other paren expression sizes");
+            }
     
             case ExprKind::UnaryOperator: {
                 Expr* val = eval_const_expr(expr->unary_operator.expression);

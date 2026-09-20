@@ -239,7 +239,9 @@ namespace ariac {
             case ExprKind::Paren: m_output += fmt::format("ParenExpr {} '{}' {}\n",
                 source_loc_to_string(expr->loc), type_info_to_string(expr->type, false), expr_value_kind_to_string(expr->value_kind));
 
-                dump_expr(expr->paren.expression, indentation + 4);
+                for (Expr* e : expr->paren.expressions) {
+                    dump_expr(e, indentation + 4);
+                }
                 return;
 
             case ExprKind::Ternary: m_output += fmt::format("TernaryExpr {} '{}' {}\n",

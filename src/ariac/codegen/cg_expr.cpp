@@ -559,7 +559,13 @@ namespace ariac {
     llvm::Value* Codegen::gen_paren_expr(Expr* expr) {
         ParenExpr& p = expr->paren;
         set_debug_loc(expr->loc);
-        return gen_expr(p.expression);
+
+        if (p.expressions.size == 0) { return get_i8(0); }
+        if (p.expressions.size == 1) {
+            return gen_expr(p.expressions[0]);
+        }
+
+        ARIA_TODO("other paren sizes");
     }
 
     // TODO: Optimize certain cases to a 'select' instruction
@@ -1215,6 +1221,10 @@ namespace ariac {
     }
 
     llvm::Value* Codegen::gen_assign_expr(Expr* expr, llvm::Value* dst) {
+        // Do not assign anything to empty tuples
+        // Since empty tuples can only ever have one value, this is completely useless
+        if (expr->type->is_tuple() && expr->type->tuple.types.size == 0) { return nullptr; }
+
         if (expr->kind == ExprKind::Construct) {
             llvm::Value* val = gen_construct_raw(expr, dst, false);
 
@@ -1288,7 +1298,7 @@ namespace ariac {
                     }
                     
                     llvm::Constant* init = llvm::ConstantArray::get(llvm::cast<llvm::ArrayType>(type), fields);
-                    llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, type, true, llvm::GlobalValue::InternalLinkage, init, "__.const_arr");
+                    llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, type, true, llvm::GlobalValue::InternalLinkage, init, ".__const.array");
                     global->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
 
                     if (dst) {
@@ -1319,6 +1329,7 @@ namespace ariac {
             }
 
             case TypeKind::Any:
+            case TypeKind::Tuple:
             case TypeKind::Struct:
             case TypeKind::StructSpecilization: {
                 if (ct.is_const) {
@@ -1332,8 +1343,19 @@ namespace ariac {
                         fields.push_back(llvm::Constant::getNullValue(type->getStructElementType(i)));
                     }
                     
+                    const char* name = nullptr;
+                    switch (expr->type->kind) {
+                        case TypeKind::Any: name = ".__const.any"; break;
+                        case TypeKind::Tuple: name = ".__const.tuple"; break;
+
+                        case TypeKind::Struct:
+                        case TypeKind::StructSpecilization: name = ".__const.struct"; break;
+
+                        default: ARIA_UNREACHABLE("Invalid type kind");
+                    }
+
                     llvm::Constant* init = llvm::ConstantStruct::get(llvm::cast<llvm::StructType>(type), fields);
-                    llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, type, true, llvm::GlobalValue::PrivateLinkage, init, "__.const_struct");
+                    llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, type, true, llvm::GlobalValue::PrivateLinkage, init, name);
                     global->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
 
                     if (dst) {

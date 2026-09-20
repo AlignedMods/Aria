@@ -451,9 +451,27 @@ namespace ariac {
                 return llvm::ArrayType::get(llvm::Type::getInt8Ty(*m_active_module_context.context), 0);
             } else if (t->tuple.types.size == 1) {
                 return type_info_to_llvm_type(t->tuple.types[0]);
-            }
+            } else {
+                std::string name = "tuple.";
 
-            ARIA_TODO("Other tuple sizes");
+                for (TypeInfo* t : t->tuple.types) {
+                    MangleContext ctx(t);
+                    name += ctx.mangle();
+                }
+
+                llvm::Type* s = llvm::StructType::getTypeByName(*m_active_module_context.context, name);
+
+                if (!s) {
+                    llvm::SmallVector<llvm::Type*, 4> types;
+                    types.reserve(t->tuple.types.size);
+                    for (TypeInfo* type : t->tuple.types) {
+                        types.push_back(type_info_to_llvm_type(type));
+                    }
+                    s = llvm::StructType::create(*m_active_module_context.context, types, name);
+                }
+
+                return s;
+            }
         } else if (t->kind == TypeKind::Function || t->kind == TypeKind::Method) {
             std::vector<llvm::Type*> params;
 
@@ -711,7 +729,7 @@ namespace ariac {
                     m_active_debug_context.unit->getFile(), 0, (unsigned)t->get_bit_size(), (unsigned)t->get_alignment() * 8,
                     llvm::DINode::FlagExplicit, nullptr, m_active_debug_context.builder->getOrCreateArray(type_info_to_debug_type(t->tuple.types[0])));
             } else {
-                ARIA_TODO("other tuple sizes");
+                dit = m_active_debug_context.builder->createBasicType(str_type, 0, llvm::dwarf::DW_ATE_unsigned);
             }
         } else if (t->is_function()) {
             return type_info_to_debug_type(TypeInfo::get_void());

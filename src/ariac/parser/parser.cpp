@@ -184,17 +184,22 @@ namespace ariac {
         ARIA_ASSERT(left == nullptr, "Parser::parse_grouping() should not have a left side");
 
         Token* lp = try_consume(TokenKind::LeftParen, "(");
-        Expr* child = parse_expression();
-        Token* rp = try_consume(TokenKind::RightParen, ")");
 
-        if (!rp) {
-            sync_local();
-            return &error_expr;
+        TinyVector<Expr*> exprs;
+        while (peek() && !match(TokenKind::RightParen)) {
+            Expr* val = parse_expression();
+            exprs.append(val);
+    
+            if (match(TokenKind::Comma)) { consume(); continue; }
+            if (match(TokenKind::RightParen)) { break; }
+
+            context.report_compiler_diagnostic(peek()->loc, "Expected either ',' or ')'");
         }
+        try_consume(TokenKind::RightParen, ")");
 
-        return Expr::Create(lp->loc + rp->loc, ExprKind::Paren, 
-            child->value_kind, child->type,
-            ParenExpr(child));
+        return Expr::Create(lp->loc + peek(-1)->loc, ExprKind::Paren, 
+            ExprValueKind::RValue, nullptr,
+            ParenExpr(exprs));
     }
 
     Expr* Parser::parse_array_literal(Expr* left) {
