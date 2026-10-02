@@ -151,7 +151,7 @@ namespace ariac {
 
         llvm::Value* gen_expr(Expr* expr);
         llvm::Value* gen_assign_expr(Expr* expr, llvm::Value* dst);
-        llvm::Value* gen_construct_raw(Expr* expr, llvm::Value* dst, bool require_rvalue);
+        llvm::Value* gen_construct_raw(TypeInfo* type, TinyVector<Expr*> args, bool is_const, llvm::Value* dst, bool require_rvalue);
 
         void gen_var_decl(Decl* decl);
         void gen_function_decl(Decl* decl);

@@ -24,6 +24,7 @@ namespace ariac {
         bool no_stdlib = false;
         bool dump_ast = false;
         bool emit_llvm = false;
+        bool silent = false;
     };
 
 }

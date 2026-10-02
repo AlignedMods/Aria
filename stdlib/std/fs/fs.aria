@@ -1,1 +1,10 @@
 module std::fs;
+
+enum FileType {
+    FILE,
+    DIRECTORY
+}
+
+struct DirectoryEntry {
+
+}

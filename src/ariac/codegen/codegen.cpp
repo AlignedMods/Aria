@@ -87,6 +87,7 @@ namespace ariac {
                 std::filesystem::path p = unit->filename;
                 ctx.unit = ctx.builder->createCompileUnit(llvm::dwarf::DW_LANG_C,
                     ctx.builder->createFile(p.filename().string(), p.parent_path().string()), "ariac", false, "", 0);
+                ctx.scope = ctx.unit;
 
                 m_active_module_context.debug_contexts[unit->filename] = ctx;
             }
@@ -329,7 +330,8 @@ namespace ariac {
         pass.run(*m_active_module_context.module);
         stream.flush();
 
-        fmt::println("Generated output file '{}'", output);
+        if (!context.opts->silent) { fmt::println("Generated output file '{}'", output); }
+
         m_object_files.push_back(output);
         return true;
     }
@@ -345,7 +347,7 @@ namespace ariac {
         }
 
         m_active_module_context.module->print(stream, nullptr);
-        fmt::println("Generated LLVM IR file '{}'", output);
+        if (!context.opts->silent) {  fmt::println("Generated LLVM IR file '{}'", output); }
         return true;
     }
 
@@ -418,7 +420,7 @@ namespace ariac {
             m_error = fmt::format("Linker failed with exit code {}", code);
             return false;
         } else {
-            fmt::println("Generated executable '{}'", ".build\\main.exe");
+            if (!context.opts->silent) { fmt::println("Generated executable '{}'", ".build\\main.exe"); }
             return true;
         }
     }
@@ -849,7 +851,7 @@ namespace ariac {
     }
 
     llvm::Constant* Codegen::get_string(std::string_view s, std::string_view name) {
-        llvm::GlobalVariable* str = m_active_module_context.builder->CreateGlobalString(s, name, 0, nullptr);
+        llvm::GlobalVariable* str = m_active_module_context.builder->CreateGlobalString(s, name, 0, m_active_module_context.module);
         llvm::Constant* vals[2] = { str, m_active_module_context.builder->getInt64(s.length()) };
         return llvm::ConstantStruct::get(llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice"), llvm::ArrayRef(vals));
     }

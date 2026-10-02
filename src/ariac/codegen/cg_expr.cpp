@@ -335,38 +335,14 @@ namespace ariac {
         ConstructExpr& ct = expr->construct;
         set_debug_loc(expr->loc);
 
-        return gen_construct_raw(expr, nullptr, true);
+        return gen_construct_raw(expr->type, ct.arguments, ct.is_const, nullptr, true);
     }
 
     llvm::Value* Codegen::gen_array_literal_expr(Expr* expr) {
         ArrayLiteralExpr& lit = expr->array_literal;
         set_debug_loc(expr->loc);
 
-        llvm::Type* type = type_info_to_llvm_type(expr->type);
-
-        if (lit.is_const) {
-            llvm::SmallVector<llvm::Constant*, 8> fields;
-            for (Expr* arg : lit.arguments) {
-                fields.push_back(llvm::dyn_cast<llvm::Constant>(gen_expr(arg)));
-            }
-            return llvm::ConstantArray::get(llvm::dyn_cast<llvm::ArrayType>(type), fields);
-        } else {
-            llvm::Value* temp = alloca_at_entry(m_active_module_context.function, "arrayliteral", expr->type);
-            llvm::Value* zero = llvm::Constant::getNullValue(type);
-            m_active_module_context.builder->CreateStore(zero, temp);
-
-            for (size_t i = 0; i < lit.arguments.size; i++) {
-                llvm::Value* arg = gen_expr(lit.arguments.items[i]);
-
-                llvm::Value* zero_val = m_active_module_context.builder->getInt64(0);
-                llvm::Value* i_val = m_active_module_context.builder->getInt64(i);
-
-                llvm::Value* field = m_active_module_context.builder->CreateGEP(type, temp, { zero_val, i_val }, "ptradd");
-                m_active_module_context.builder->CreateStore(arg, field);
-            }
-
-            return m_active_module_context.builder->CreateLoad(type, temp);
-        }
+        return gen_construct_raw(expr->type, lit.arguments, lit.is_const, nullptr, true);
     }
 
     llvm::Value* Codegen::gen_method_call_expr(Expr* expr) {
@@ -1234,8 +1210,12 @@ namespace ariac {
         if (expr->type->is_tuple() && expr->type->tuple.types.size == 0) { return nullptr; }
 
         if (expr->kind == ExprKind::Construct) {
-            llvm::Value* val = gen_construct_raw(expr, dst, false);
-
+            llvm::Value* val = gen_construct_raw(expr->type, expr->construct.arguments, expr->construct.is_const, dst, false);
+            if (expr->type->is_runtime_aggregate()) { // gen_construct_raw() already handles the store
+                return val;
+            }
+        } else if (expr->kind == ExprKind::ArrayLiteral) {
+            llvm::Value* val = gen_construct_raw(expr->type, expr->array_literal.arguments, expr->array_literal.is_const, dst, false);
             if (expr->type->is_runtime_aggregate()) { // gen_construct_raw() already handles the store
                 return val;
             }
@@ -1256,11 +1236,10 @@ namespace ariac {
         return m_active_module_context.builder->CreateStore(val, dst);
     }
 
-    llvm::Value* Codegen::gen_construct_raw(Expr* expr, llvm::Value* dst, bool require_rvalue) {
-        ConstructExpr& ct = expr->construct;
-        llvm::Type* type = type_info_to_llvm_type(expr->type);
+    llvm::Value* Codegen::gen_construct_raw(TypeInfo* type, TinyVector<Expr*> args, bool is_const, llvm::Value* dst, bool require_rvalue) {
+        llvm::Type* llvm_type = type_info_to_llvm_type(type);
 
-        switch (expr->type->kind) {
+        switch (type->kind) {
             case TypeKind::Bool:
             case TypeKind::Char:
             case TypeKind::IChar:
@@ -1275,61 +1254,73 @@ namespace ariac {
             case TypeKind::Float:
             case TypeKind::Double:
             case TypeKind::Pointer: {
-                if (ct.arguments.size == 0) {
-                    return llvm::Constant::getNullValue(type);
+                if (args.size == 0) {
+                    return llvm::Constant::getNullValue(llvm_type);
                 }
 
-                if (ct.arguments.size == 1) {
-                    return gen_expr(ct.arguments.items[0]);
+                if (args.size == 1) {
+                    return gen_expr(args.items[0]);
+                }
+
+                ARIA_UNREACHABLE("Invalid amount of args");
+            }
+
+            case TypeKind::String: {
+                if (args.size == 0) {
+                    return llvm::Constant::getNullValue(llvm_type);
+                }
+
+                if (args.size == 1) {
+                    return gen_expr(args.items[0]);
                 }
 
                 ARIA_UNREACHABLE("Invalid amount of args");
             }
 
             case TypeKind::Typeid: {
-                if (ct.arguments.size == 0) {
-                    return llvm::Constant::getNullValue(type);
+                if (args.size == 0) {
+                    return llvm::Constant::getNullValue(llvm_type);
                 }
 
-                if (ct.arguments.size == 1) {
-                    return gen_expr(ct.arguments.items[0]);
+                if (args.size == 1) {
+                    return gen_expr(args.items[0]);
                 }
 
                 ARIA_UNREACHABLE("Invalid amount of args");
             }
 
             case TypeKind::Array: {
-                if (ct.is_const && ct.arguments.size == expr->type->array.size) {
+                if (is_const && args.size == type->array.size) {
                     llvm::SmallVector<llvm::Constant*, 8> fields;
-                    for (Expr* arg : ct.arguments) {
+                    for (Expr* arg : args) {
                         fields.push_back(llvm::dyn_cast<llvm::Constant>(gen_expr(arg)));
                     }
                     
-                    llvm::Constant* init = llvm::ConstantArray::get(llvm::cast<llvm::ArrayType>(type), fields);
-                    llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, type, true, llvm::GlobalValue::InternalLinkage, init, ".__const.array");
+                    llvm::Constant* init = llvm::ConstantArray::get(llvm::cast<llvm::ArrayType>(llvm_type), fields);
+                    llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, llvm_type, true, llvm::GlobalValue::InternalLinkage, init, ".__const.array");
                     global->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
 
                     if (dst) {
-                        return m_active_module_context.builder->CreateMemCpy(dst, llvm::MaybeAlign(), global, llvm::MaybeAlign(), get_i64(expr->type->get_size()));
+                        return m_active_module_context.builder->CreateMemCpy(dst, llvm::MaybeAlign(), global, llvm::MaybeAlign(), get_i64(type->get_size()));
                     }
 
                     if (require_rvalue) {
-                        return m_active_module_context.builder->CreateLoad(type, global);
+                        return m_active_module_context.builder->CreateLoad(llvm_type, global);
                     }
 
                     return global;
                 } else {
                     if (!dst) { dst = alloca_at_entry(m_active_module_context.function, "construct", type); }
-                    m_active_module_context.builder->CreateMemSet(dst, get_i8(0), get_i64(expr->type->get_size()), llvm::MaybeAlign());
+                    m_active_module_context.builder->CreateMemSet(dst, get_i8(0), get_i64(type->get_size()), llvm::MaybeAlign());
 
-                    for (size_t i = 0; i < ct.arguments.size; i++) {
-                        llvm::Value* arg = gen_expr(ct.arguments.items[i]);
-                        llvm::Value* field = m_active_module_context.builder->CreateGEP(type, dst, { get_i64(0), get_i64(i) }, "ptradd");
+                    for (size_t i = 0; i < args.size; i++) {
+                        llvm::Value* arg = gen_expr(args.items[i]);
+                        llvm::Value* field = m_active_module_context.builder->CreateGEP(llvm_type, dst, { get_i64(0), get_i64(i) }, "ptradd");
                         m_active_module_context.builder->CreateStore(arg, field);
                     }
 
                     if (require_rvalue) {
-                        return m_active_module_context.builder->CreateLoad(type, dst);
+                        return m_active_module_context.builder->CreateLoad(llvm_type, dst);
                     }
 
                     return dst;
@@ -1340,19 +1331,19 @@ namespace ariac {
             case TypeKind::Tuple:
             case TypeKind::Struct:
             case TypeKind::StructSpecilization: {
-                if (ct.is_const) {
+                if (is_const) {
                     llvm::SmallVector<llvm::Constant*, 8> fields;
-                    for (Expr* arg : ct.arguments) {
+                    for (Expr* arg : args) {
                         fields.push_back(llvm::dyn_cast<llvm::Constant>(gen_expr(arg)));
                     }
 
                     // Fill the rest with zeroes
-                    for (size_t i = ct.arguments.size; i < type->getStructNumElements(); i++) {
-                        fields.push_back(llvm::Constant::getNullValue(type->getStructElementType(i)));
+                    for (size_t i = args.size; i < llvm_type->getStructNumElements(); i++) {
+                        fields.push_back(llvm::Constant::getNullValue(llvm_type->getStructElementType(i)));
                     }
                     
                     const char* name = nullptr;
-                    switch (expr->type->kind) {
+                    switch (type->kind) {
                         case TypeKind::Any: name = ".__const.any"; break;
                         case TypeKind::Tuple: name = ".__const.tuple"; break;
 
@@ -1362,32 +1353,32 @@ namespace ariac {
                         default: ARIA_UNREACHABLE("Invalid type kind");
                     }
 
-                    llvm::Constant* init = llvm::ConstantStruct::get(llvm::cast<llvm::StructType>(type), fields);
-                    llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, type, true, llvm::GlobalValue::PrivateLinkage, init, name);
+                    llvm::Constant* init = llvm::ConstantStruct::get(llvm::cast<llvm::StructType>(llvm_type), fields);
+                    llvm::GlobalVariable* global = new llvm::GlobalVariable(*m_active_module_context.module, llvm_type, true, llvm::GlobalValue::PrivateLinkage, init, name);
                     global->setUnnamedAddr(llvm::GlobalValue::UnnamedAddr::Global);
 
                     if (dst) {
-                        return m_active_module_context.builder->CreateMemCpy(dst, llvm::MaybeAlign(), global, llvm::MaybeAlign(), get_i64(expr->type->get_size()));
+                        return m_active_module_context.builder->CreateMemCpy(dst, llvm::MaybeAlign(), global, llvm::MaybeAlign(), get_i64(type->get_size()));
                     }
 
                     if (require_rvalue) {
-                        return m_active_module_context.builder->CreateLoad(type, global);
+                        return m_active_module_context.builder->CreateLoad(llvm_type, global);
                     }
 
                     return global;
                 } else {
                     if (!dst) { dst = alloca_at_entry(m_active_module_context.function, "construct", type); }
-                    m_active_module_context.builder->CreateMemSet(dst, get_i8(0), get_i64(expr->type->get_size()), llvm::MaybeAlign());
+                    m_active_module_context.builder->CreateMemSet(dst, get_i8(0), get_i64(type->get_size()), llvm::MaybeAlign());
 
-                    for (size_t i = 0; i < ct.arguments.size; i++) {
-                        llvm::Value* arg = gen_expr(ct.arguments.items[i]);
-                        llvm::Value* field = m_active_module_context.builder->CreateStructGEP(type, dst, static_cast<unsigned>(i), "ptradd");
+                    for (size_t i = 0; i < args.size; i++) {
+                        llvm::Value* arg = gen_expr(args.items[i]);
+                        llvm::Value* field = m_active_module_context.builder->CreateStructGEP(llvm_type, dst, static_cast<unsigned>(i), "ptradd");
 
                         m_active_module_context.builder->CreateStore(arg, field);
                     }
 
                     if (require_rvalue) {
-                        return m_active_module_context.builder->CreateLoad(type, dst);
+                        return m_active_module_context.builder->CreateLoad(llvm_type, dst);
                     }
 
                     return dst;

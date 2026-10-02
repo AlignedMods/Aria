@@ -1,19 +1,28 @@
 module test_runner;
 
-import std::io;
-import std::filesystem as std::fs;
+import std;
 
-fn usage() {
-    io::println("test_runner: usage:");
-    io::println("  test_runner <compiler_path> <test_suite_path>");
+fn usage() -> ! {
+    io::eprintln("test_runner: usage:");
+    io::eprintln("  test_runner <compiler_path>");
     process::exit(0);
 }
 
-fn main(args: []String) {
-    if args.len < 3 {
+// TODO: Use some kind of directory iterator for this in the future
+const TESTS = [ "./tests/test_suite/main_function/main_args_void_ret.aria",
+                "./tests/test_suite/main_function/main_args_int_ret.aria",
+                "./tests/test_suite/main_function/main_no_args_void_ret.aria",
+                "./tests/test_suite/main_function/main_no_args_int_ret.aria"
+];
+
+fn main(args: []string) {
+    if args.len < 2 {
         usage();
     }
 
     let compiler_path = args[1];
-    let test_suite_path = args[2];
+
+    for (i: sz; i < TESTS.len; i++) {
+        process::run_process(["ariac", "./tests/test_suite/main_function/main_args_void_ret.aria", "--silent", "-r"][..]);
+    }
 }

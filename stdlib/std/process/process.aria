@@ -8,9 +8,11 @@ fn run_process(cmd_line: []string) {
     assert(cmd_line.len > 0, "Must provide at least the program name");
 
     for (i: sz; i < cmd_line.len; i++) {
-        if i < 0 { sb.append_char(' '); }
+        if i > 0 { sb.append_char(' '); }
         sb.append_string(cmd_line[i]);
     }
+
+    io::printf("Running command line '%s'\n", sb.to_string());
 
     libc::system(sb.to_cstr());
 }

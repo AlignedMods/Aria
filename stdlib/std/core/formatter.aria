@@ -89,10 +89,10 @@ struct Formatter {
             }
 
             if arg.type.kind == TypeKind.SIGNED_INT {
-                append_int(any_to_int::<long>(&arg), base);
+                append_int(any_to_int::<long>(arg), base);
                 continue;
             } else if arg.type.kind == TypeKind.UNSIGNED_INT || arg.type.kind == TypeKind.POINTER {
-                append_uint(any_to_int::<ulong>(&arg), base);
+                append_uint(any_to_int::<ulong>(arg), base);
                 continue;
             }
 
@@ -194,27 +194,27 @@ struct Formatter {
     fn append_any(a: any) -> sz {
         switch a.type.kind {
             case TypeKind.BOOL: {
-                return append_bool(any_cast::<bool>(&a));
+                return append_bool(bool(a));
             }
 
             case TypeKind.SIGNED_INT: {
-                return append_int(any_to_int::<long>(&a), 10);
+                return append_int(any_to_int::<long>(a), 10);
             }
 
             case TypeKind.UNSIGNED_INT: {
                 if a.type == char {
-                    return append_char(any_cast::<char>(&a));
+                    return append_char(char(a));
                 }
 
-                return append_uint(any_to_int::<ulong>(&a), 10);
+                return append_uint(any_to_int::<ulong>(a), 10);
             }
 
             case TypeKind.STRING: {
-                return append_string(any_cast::<string>(&a));   
+                return append_string(string(a));   
             }
 
             case TypeKind.ANY: {
-                return append_any(any_cast::<any>(&a));
+                return append_any(any(a));
             }
 
             case TypeKind.POINTER: {

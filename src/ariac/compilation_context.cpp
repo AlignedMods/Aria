@@ -97,7 +97,9 @@ namespace ariac {
                 print_compilation_time();
 
                 if (opts->run_after_compile) {
-                    fmt::println("Running executable '{}'\n", opts->output_path.string());
+                    if (!opts->silent) {
+                        fmt::println("Running executable '{}'\n", opts->output_path.string());
+                    }
 
                     std::vector<llvm::StringRef> args;
                     std::string out = opts->output_path.string();
@@ -173,9 +175,11 @@ namespace ariac {
     void CompilationContext::codegen() { Codegen c; }
 
     void CompilationContext::print_compilation_time() {
-        auto end_time = std::chrono::high_resolution_clock::now();
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
-        fmt::println("Compilation finished in {}ms", duration);
+        if (!opts->silent) {
+            auto end_time = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+            fmt::println("Compilation finished in {}ms", duration);
+        }
     }
 
     Module* CompilationContext::find_or_create_module(Module* parent, std::string_view name) {

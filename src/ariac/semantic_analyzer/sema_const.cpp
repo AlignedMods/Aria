@@ -57,6 +57,14 @@ namespace ariac {
                 return true;
             }
 
+            case ExprKind::ArrayLiteral: {
+                for (Expr* arg : expr->array_literal.arguments) {
+                    if (!is_const_expr(arg)) { return false; }
+                }
+
+                return true;
+            }
+
             case ExprKind::ArraySubscript: {
                 if (!is_const_expr(expr->array_subscript.array)) { return false; }
                 return is_const_expr(expr->array_subscript.index);
@@ -295,7 +303,17 @@ namespace ariac {
                 }
 
                 return eval_const_expr(expr->construct.arguments[0]);
-            } 
+            }
+
+            case ExprKind::ArrayLiteral: {
+                TinyVector<Expr*> const_args;
+
+                for (Expr* arg : expr->array_literal.arguments) {
+                    const_args.append(eval_const_expr(arg));
+                }
+    
+                return Expr::Create(expr->loc, ExprKind::Const, ExprValueKind::RValue, expr->type, ConstExpr(ConstExprKind::Array, const_args));
+            }
 
             case ExprKind::ArraySubscript: {
                 Expr* arr = eval_const_expr(expr->array_subscript.array);

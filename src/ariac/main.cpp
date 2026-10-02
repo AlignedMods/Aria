@@ -36,6 +36,7 @@ namespace ariac {
         fmt::println("    --emit-llvm              Prints the human readable LLVM IR output of all the input files");
         fmt::println("    -l <lib>                 Adds <lib> to the list of libraries to link with");
         fmt::println("    -L <path>                Adds <path> to the list of paths where to search for libraries");
+        fmt::println("    --silent                 Disables all informative command line output (errors are still printed)");
 
         exit(0);
     }
@@ -117,6 +118,11 @@ namespace ariac {
             }
 
             opts->libdirs.push_back(next_arg());
+            return;
+        }
+
+        if (match_arg("--silent")) {
+            opts->silent = true;
             return;
         }
 

@@ -1335,12 +1335,28 @@ namespace ariac {
                 break;
             }
 
+            case TypeKind::String: {
+                if (construct.arguments.size == 0) { break; }
+
+                if (construct.arguments.size == 1) {
+                    try_insert_explicit_cast(expr->type, construct.arguments.items[0]);
+                    break;
+                }
+
+                report_diag(expr->loc, fmt::format("Too many initializers for 'string', expected 0 or 1 but got {}", construct.arguments.size));
+                expr->type = TypeInfo::get_error();
+                break;
+            }
+
             case TypeKind::Any: {
                 if (construct.arguments.size == 0) { break; }
 
                 if (construct.arguments.size == 1) { // Check for explicit any casts
                     if (construct.arguments[0]->type->is_pointer()) {
                         insert_implicit_cast(TypeInfo::get_basic(TypeKind::Any), construct.arguments[0]->type, construct.arguments[0], CastKind::PointerToAny);
+                        break;
+                    } else if (construct.arguments[0]->type->is_any()) { // 'any' to 'any' is considered an any cast
+                        insert_implicit_cast(expr->type, construct.arguments[0]->type, construct.arguments.items[0], CastKind::AnyCast);
                         break;
                     }
                 }
@@ -1442,6 +1458,10 @@ namespace ariac {
 
         for (Expr* arg : lit.arguments) {
             resolve_expr(arg);
+
+            if (lit.is_const && !is_const_expr(arg)) {
+                lit.is_const = false;
+            }
 
             if (!base_type) {
                 base_type = arg->type;
@@ -1616,8 +1636,8 @@ namespace ariac {
             }
 
             case TypeKind::Array: {
-                if (tos.source->value_kind != ExprValueKind::LValue) {
-                    report_diag(tos.source->loc, "Expression must be an lvalue");
+                if (tos.source->is_rvalue()) {
+                    insert_materialize_temporary_expr(tos.source);
                 }
 
                 expr->type = TypeInfo::create_slice(tos.source->type->array.base);

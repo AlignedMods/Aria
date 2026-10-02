@@ -228,10 +228,15 @@ namespace ariac {
         fields.reserve(struc->fields.size);
         std::string name = fmt::format("{}.{}", valid_module_name(decl->parent_module), struc->identifier);
 
-        for (Decl* field : struc->fields) {
-            if (field->kind != DeclKind::Field) { continue; }
-            fields.push_back(type_info_to_llvm_type(field->field.type));
+        if (struc->fields.size == 0) {
+            fields.push_back(llvm::Type::getInt8Ty(*m_active_module_context.context));
+        } else {
+            for (Decl* field : struc->fields) {
+                if (field->kind != DeclKind::Field) { continue; }
+                fields.push_back(type_info_to_llvm_type(field->field.type));
+            }
         }
+        
         llvm::StructType::create(fields, name);
 
         for (Decl* field : struc->fields) {

@@ -2,39 +2,37 @@ module std::core;
 
 import libc;
 
-fn<T> any_cast(a: *any) -> T {
-    return *(*T)(a.value);
-}
-
-fn<T> any_to_int(a: *any) -> T {
+fn<T> any_to_int(a: any) -> T {
     switch a.type.kind {
         case TypeKind.SIGNED_INT: {
             switch a.type {
-                case ichar: return any_cast::<ichar>(a);
-                case short: return any_cast::<short>(a);
-                case int: return any_cast::<int>(a);
-                case long: return any_cast::<long>(a);
+                case ichar: return ichar(a);
+                case short: return short(a);
+                case int: return int(a);
+                case long: return long(a);
+                case isz: return isz(a);
             }
         }
 
         case TypeKind.UNSIGNED_INT: {
             switch a.type {
-                case char: return any_cast::<char>(a);
-                case ushort: return any_cast::<ushort>(a);
-                case uint: return any_cast::<uint>(a);
-                case ulong: return any_cast::<ulong>(a);
+                case char: return char(a);
+                case ushort: return ushort(a);
+                case uint: return uint(a);
+                case ulong: return ulong(a);
+                case sz: return sz(a);
             }
         }
 
         case TypeKind.POINTER: {
-            return any_cast::<sz>(a);
+            return sz(a);
         }
     }
 
     return 0;
 }
 
-fn any_is_int(a: *any) -> bool {
+fn any_is_int(a: any) -> bool {
     switch a.type.kind {
         case TypeKind.SIGNED_INT: nextcase;
         case TypeKind.UNSIGNED_INT: nextcase;
@@ -45,7 +43,7 @@ fn any_is_int(a: *any) -> bool {
 }
 
 // Treats 'a' like an array and indexes into it
-fn any_index(a: *any, idx: sz) -> any {
+fn any_index(a: any, idx: sz) -> any {
     let ptr = a.value + (idx * a.type.inner.size);
     return any(a.type.inner, ptr);
 }
