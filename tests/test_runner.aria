@@ -9,11 +9,13 @@ fn usage() -> ! {
 }
 
 // TODO: Use some kind of directory iterator for this in the future
-const TESTS = [ "./tests/test_suite/main_function/main_args_void_ret.aria",
-                "./tests/test_suite/main_function/main_args_int_ret.aria",
-                "./tests/test_suite/main_function/main_no_args_void_ret.aria",
-                "./tests/test_suite/main_function/main_no_args_int_ret.aria"
+const TESTS = [ "main_function/main_args_void_ret",
+                "main_function/main_args_int_ret",
+                "main_function/main_no_args_void_ret",
+                "main_function/main_no_args_int_ret"
 ];
+
+const TEST_SUITE_PATH = "./tests/test_suite/";
 
 fn main(args: []string) {
     if args.len < 2 {
@@ -21,8 +23,22 @@ fn main(args: []string) {
     }
 
     let compiler_path = args[1];
-
     for (i: sz; i < TESTS.len; i++) {
-        process::run_process([compiler_path, TESTS[i], "--silent", "-r"][..]);
+        let test = TESTS[i];
+
+        let sb: core::StringStream;
+        sb.append_string(TEST_SUITE_PATH);
+        sb.append_string(test);
+        sb.append_string(".aria");
+
+        let ec = process::run_process([
+            compiler_path,
+            sb.to_string(),
+            "--silent",
+            "-o", ".build\\test",
+            "-r"][..]);
+
+        if ec == 0 { io::printfn("Test %s PASSED", test); }
+        else { io::printfn("Test %s FAILED", test); }
     }
 }

@@ -88,9 +88,6 @@ fn spawn_process(cmd_line: []string) -> Process {
         start_info.hStdOutput = win32::GetStdHandle(win32::STD_OUTPUT_HANDLE);
         start_info.hStdError = win32::GetStdHandle(win32::STD_ERROR_HANDLE);
 
-        // TODO: This is a workaround for the C equivalent of L"\0\0";
-        let used_env = [ ushort(0), ushort(0) ];
-
         let wsb: core::WStringStream;
         wsb.append_string(cmd_line[0]);
         wsb.append_char('\0');
@@ -107,7 +104,7 @@ fn spawn_process(cmd_line: []string) -> Process {
             null,
             1,
             flags,
-            &used_env,
+            null,
             null,
             &start_info,
             &process_info) == 0 {

@@ -375,6 +375,7 @@ namespace ariac {
 
         std::vector<std::string> libs;
         std::vector<std::string> libdirs;
+        std::string output_path = context.opts->output_path.string();
 
         for (auto& lib : context.opts->libs) {
             libs.push_back(fmt::format("-l{}", lib));
@@ -399,7 +400,7 @@ namespace ariac {
 
         args.push_back("-Wl,--subsystem,console");
         args.push_back("-o");
-        args.push_back(".build\\main.exe");
+        args.push_back(output_path);
 
         llvm::ErrorOr<std::string> clang_path = llvm::sys::findProgramByName("clang");
         if (std::error_code ec = clang_path.getError()) {
