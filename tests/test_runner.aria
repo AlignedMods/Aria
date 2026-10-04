@@ -23,6 +23,6 @@ fn main(args: []string) {
     let compiler_path = args[1];
 
     for (i: sz; i < TESTS.len; i++) {
-        process::run_process(["ariac", "./tests/test_suite/main_function/main_args_void_ret.aria", "--silent", "-r"][..]);
+        process::run_process([compiler_path, TESTS[i], "--silent", "-r"][..]);
     }
 }

@@ -123,6 +123,7 @@ namespace ariac {
             llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", function);
             m_active_module_context.builder->SetInsertPoint(bb);
 
+            m_active_module_context.panic_blocks.clear();
             m_active_module_context.alloca_marker = m_active_module_context.builder->CreateAlloca(m_active_module_context.builder->getInt8Ty());
 
             for (Decl* param : fn->type->function.params) {
@@ -195,6 +196,13 @@ namespace ariac {
                 } else {
                     call_unreachable(decl->loc.line, "No return statement in function");
                 }
+            }
+
+            llvm::BasicBlock* last_block = m_active_module_context.builder->GetInsertBlock();
+            for (llvm::BasicBlock* p : m_active_module_context.panic_blocks) {
+                if (p == last_block) { continue; }
+                p->moveAfter(last_block);
+                last_block = p;
             }
 
             m_active_module_context.alloca_marker->eraseFromParent();
@@ -277,6 +285,7 @@ namespace ariac {
             llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", function);
             m_active_module_context.builder->SetInsertPoint(bb);
         
+            m_active_module_context.panic_blocks.clear();
             m_active_module_context.alloca_marker = m_active_module_context.builder->CreateAlloca(m_active_module_context.builder->getInt8Ty());
         
             // self
@@ -353,6 +362,13 @@ namespace ariac {
                     m_active_module_context.builder->CreateUnreachable();
                 }
             }
+
+            llvm::BasicBlock* last_block = m_active_module_context.builder->GetInsertBlock();
+            for (llvm::BasicBlock* p : m_active_module_context.panic_blocks) {
+                if (p == last_block) { continue; }
+                p->moveAfter(last_block);
+                last_block = p;
+            }
         
             m_active_module_context.alloca_marker->eraseFromParent();
             m_active_module_context.alloca_marker = nullptr;
@@ -387,6 +403,7 @@ namespace ariac {
         llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", function);
         m_active_module_context.builder->SetInsertPoint(bb);
         
+        m_active_module_context.panic_blocks.clear();
         m_active_module_context.alloca_marker = m_active_module_context.builder->CreateUnreachable();
         
         // self
@@ -400,6 +417,13 @@ namespace ariac {
             m_active_module_context.builder->CreateRetVoid();
         }
         
+        llvm::BasicBlock* last_block = m_active_module_context.builder->GetInsertBlock();
+        for (llvm::BasicBlock* p : m_active_module_context.panic_blocks) {
+            if (p == last_block) { continue; }
+            p->moveAfter(last_block);
+            last_block = p;
+        }
+
         m_active_module_context.alloca_marker->eraseFromParent();
         m_active_module_context.alloca_marker = nullptr;
         if (llvm::verifyFunction(*function, &llvm::errs())) { throw std::exception(); }

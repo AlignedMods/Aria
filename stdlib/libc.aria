@@ -58,6 +58,7 @@ extern fn fscanf(stream: *FILE, format: *const char, ...) -> int;
 
 extern fn printf(format: *const char, ...) -> int;
 extern fn fprintf(stream: *FILE, format: *const char, ...) -> int;
+extern fn wprintf(format: *const std::core::WChar, ...) -> int;
 
 // string.h
 

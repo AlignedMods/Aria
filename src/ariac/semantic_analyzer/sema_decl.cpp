@@ -338,6 +338,7 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_struct_body(Decl* decl) {
         StructDecl& s = decl->struct_;
+        resolve_struct_decl(decl);
         s.body_resolve_status = ResolveStatus::InProgress;
 
         for (Decl* f : s.fields) {

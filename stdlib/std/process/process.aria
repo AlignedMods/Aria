@@ -1,18 +1,164 @@
 module std::process;
 
+import std::os;
+
+// This code is based on https://github.com/sheredom/subprocess.h and https://github.com/c3lang/c3c/blob/master/lib/std/os/process.c3
+
+struct Process {
+    stdin_file: *libc::FILE;
+    stdout_file: *libc::FILE;
+    stderr_file: *libc::FILE;
+
+    hProcess: win32::HANDLE @if(env::WIN32);
+    hStdInput: win32::HANDLE @if(env::WIN32);
+	hEventOutput: win32::HANDLE @if(env::WIN32);
+	hEventError: win32::HANDLE @if(env::WIN32);
+
+    is_alive: bool;
+
+    fn join() -> int @if(env::WIN32) {
+        if stdin_file != null {
+            libc::fclose(stdin_file);
+            stdin_file = null;
+        }
+
+        if hStdInput != null {
+            win32::CloseHandle(hStdInput);
+            hStdInput = null;
+        }
+        
+        win32::WaitForSingleObject(hProcess, win32::INFINITE);
+        let return_code: win32::DWORD;
+        if win32::GetExitCodeProcess(hProcess, &return_code) == 0 { return_code = 0; }
+        is_alive = false;
+
+        return return_code;
+    }
+
+    fn destroy() -> bool {
+        if stdin_file != null { libc::fclose(stdin_file); }
+        if stdout_file != null { libc::fclose(stdout_file); }
+        if stderr_file != null && stderr_file != stdout_file { libc::fclose(stderr_file); }
+        stdin_file = null;
+        stdout_file = null;
+        stderr_file = null;
+
+        $if env::WIN32 {
+            if hProcess != null { win32::CloseHandle(hProcess); }
+            if hStdInput != null { win32::CloseHandle(hStdInput); }
+            if hEventOutput != null { win32::CloseHandle(hEventOutput); }
+            if hEventError != null { win32::CloseHandle(hEventError); }
+        }
+
+        return true;
+    }
+}
+
 fn exit(code: int) -> ! { libc::exit(code); }
 fn abort() -> ! { libc::abort(); }
 
-fn run_process(cmd_line: []string) {
-    let sb: core::StringStream;
-    assert(cmd_line.len > 0, "Must provide at least the program name");
+fn run_process(cmd_line: []string) -> int {
+    let proc = spawn_process(cmd_line);
+    defer proc.destroy();
+    return proc.join();
+}
 
+// NOTE: Currently we force all io from the child process to be inherited
+// In the future we should allow customization of this
+fn spawn_process(cmd_line: []string) -> Process {
+    $if env::WIN32 {
+        let flags = win32::CREATE_UNICODE_ENVIRONMENT;
+        let process_info: win32::PROCESS_INFORMATION;
+        let sa_attr = win32::SECURITY_ATTRIBUTES(@sizeof(win32::SECURITY_ATTRIBUTES), null, 1);
+
+        let start_info: win32::STARTUPINFOW;
+        start_info.cb = @sizeof(start_info);
+        start_info.dwFlags = win32::STARTF_USESTDHANDLES;
+
+        let stdin: *libc::FILE;
+        let stdout: *libc::FILE;
+        let stderr: *libc::FILE;
+        let rd: *void;
+        let wr: *void;
+        let event_output: *void;
+        let event_error: *void;
+
+        // TODO: Allow customization of this
+        start_info.hStdInput = win32::GetStdHandle(win32::STD_INPUT_HANDLE);
+        start_info.hStdOutput = win32::GetStdHandle(win32::STD_OUTPUT_HANDLE);
+        start_info.hStdError = win32::GetStdHandle(win32::STD_ERROR_HANDLE);
+
+        // TODO: This is a workaround for the C equivalent of L"\0\0";
+        let used_env = [ ushort(0), ushort(0) ];
+
+        let wsb: core::WStringStream;
+        wsb.append_string(cmd_line[0]);
+        wsb.append_char('\0');
+
+        let cmd = convert_command_line_win32(cmd_line);
+        defer core::mem::free(cmd);
+
+        // TODO: We assume this function won't fail
+        // We will need some kind of error handling system here in the future
+        if win32::CreateProcessW(
+            wsb.to_cstr(),
+            cmd,
+            null,
+            null,
+            1,
+            flags,
+            &used_env,
+            null,
+            &start_info,
+            &process_info) == 0 {
+                io::eprintfn("Creating the process failed (%s)!", win32::GetLastError());
+        }
+
+        // We don't need the handle of the primary thread in the called process
+        win32::CloseHandle(process_info.hThread);
+
+        let p: Process;
+        p.stdin_file = stdin;
+        p.stdout_file = stdout;
+        p.stderr_file = stderr;
+        p.hProcess = process_info.hProcess;
+        p.hStdInput = null;
+        p.hEventOutput = event_output;
+        p.hEventError = event_error;
+        p.is_alive = true;
+
+        return p;
+    }
+}
+
+fn convert_command_line_win32(cmd_line: []string) -> core::WString {
+    let sb: core::StringStream;
+    
     for (i: sz; i < cmd_line.len; i++) {
-        if i > 0 { sb.append_char(' '); }
-        sb.append_string(cmd_line[i]);
+        if i != 0 { sb.append_char(' '); }
+        let s = cmd_line[i];
+
+        // NOTE: We always escape arguments
+        sb.append_char('"');
+        for (j: sz; j < s.len; j++) {
+            let c = s[j];
+            switch c {
+                case '\\': {
+                    if j != s.len - 1 && s[j + 1] == '"' { sb.append_char('\\'); }
+                }
+
+                case '"': {
+                    sb.append_char('\\');
+                }
+            }
+
+            sb.append_char(c);
+        }
+        sb.append_char('"');
     }
 
-    io::printf("Running command line '%s'\n", sb.to_string());
-
-    libc::system(sb.to_cstr());
+    let wsb: core::WStringStream;
+    wsb.append_string(sb.to_string());
+    wsb.append_char('\0');
+    return wsb.to_cstr_copy();
 }

@@ -1,5 +1,8 @@
 module std::core;
 
+typedef WChar = ushort;
+typedef WString = *WChar;
+
 enum TypeKind : char @builtin("TypeKind") {
     VOID = 0,
     BOOL,

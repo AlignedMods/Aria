@@ -460,6 +460,12 @@ namespace ariac {
 
         llvm::Value* mem = m_active_module_context.builder->CreateStructGEP(type, slice, 0, "ptradd");
         llvm::Value* mem_val = gen_expr(t.source);
+
+        if (t.source->type->is_slice()) {
+            mem_val = m_active_module_context.builder->CreateStructGEP(llvm::StructType::getTypeByName(*m_active_module_context.context, "$builtin_slice"), mem_val, 0, "ptradd");
+            mem_val = m_active_module_context.builder->CreateLoad(llvm::PointerType::get(*m_active_module_context.context, 0), mem_val);
+        }
+
         m_active_module_context.builder->CreateStore(mem_val, mem);
 
         llvm::Value* len = m_active_module_context.builder->CreateStructGEP(type, slice, 1, "ptradd");
@@ -690,6 +696,7 @@ namespace ariac {
             case CastKind::AnyCast: {
                 llvm::Value* any = gen_expr(ic.expression);
                 llvm::Value* val = m_active_module_context.builder->CreateStructGEP(type_info_to_llvm_type(TypeInfo::get_basic(TypeKind::Any)), any, 1, "ptradd");
+                val = m_active_module_context.builder->CreateLoad(val->getType(), val);
 
                 return m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(expr->type), val);
             }
@@ -966,6 +973,33 @@ namespace ariac {
                 return m_active_module_context.builder->CreateAnd(lhs, rhs, "and");
             }
 
+            case BinaryOperatorKind::LogAnd: {
+                llvm::Value* lhs = gen_expr(bin.lhs);
+
+                llvm::BasicBlock* prev_block = m_active_module_context.builder->GetInsertBlock();
+                llvm::BasicBlock* phi_block = llvm::BasicBlock::Create(*m_active_module_context.context, "logand.phi", m_active_module_context.function);
+                llvm::BasicBlock* rhs_block = llvm::BasicBlock::Create(*m_active_module_context.context, "logand.rhs", m_active_module_context.function);
+
+                ARIA_ASSERT(lhs->getType()->isIntegerTy(1), "Not a boolean type");
+                m_active_module_context.builder->CreateCondBr(lhs, rhs_block, phi_block);
+
+                m_active_module_context.builder->SetInsertPoint(rhs_block);
+                llvm::Value* rhs = gen_expr(bin.rhs);
+                ARIA_ASSERT(rhs->getType()->isIntegerTy(1), "Not a boolean type");
+
+                // More blocks may be created in the rhs_block
+                rhs_block = m_active_module_context.builder->GetInsertBlock();
+                m_active_module_context.builder->CreateBr(phi_block);
+
+                m_active_module_context.builder->SetInsertPoint(phi_block);
+                
+                llvm::PHINode* phi = m_active_module_context.builder->CreatePHI(llvm::Type::getInt1Ty(*m_active_module_context.context), 2);
+                phi->addIncoming(get_int(0, TypeInfo::get_bool()), prev_block);
+                phi->addIncoming(rhs, rhs_block);
+
+                return phi;
+            }
+
             case BinaryOperatorKind::LogOr: {
                 llvm::Value* lhs = gen_expr(bin.lhs);
 
@@ -1239,7 +1273,7 @@ namespace ariac {
     llvm::Value* Codegen::gen_construct_raw(TypeInfo* type, TinyVector<Expr*> args, bool is_const, llvm::Value* dst, bool require_rvalue) {
         llvm::Type* llvm_type = type_info_to_llvm_type(type);
 
-        switch (type->kind) {
+        switch (TypeInfo::get_flattened(type)->kind) {
             case TypeKind::Bool:
             case TypeKind::Char:
             case TypeKind::IChar:

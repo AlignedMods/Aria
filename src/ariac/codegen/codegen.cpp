@@ -958,6 +958,7 @@ namespace ariac {
         m_active_module_context.builder->CreateCondBr(cond, pass_block, fail_block);
 
         m_active_module_context.builder->SetInsertPoint(fail_block);
+        m_active_module_context.panic_blocks.push_back(fail_block);
         llvm::SmallVector<llvm::Value*, 4> aargs;
         gen_call_param(&aargs, get_string(context.active_comp_unit->filename, ".file"), TypeInfo::get_string());
         gen_call_param(&aargs, get_i64(line), TypeInfo::get_basic(TypeKind::ULong));

@@ -1,0 +1,3 @@
+module std::os::win32;
+
+extern fn GetLastError() -> DWORD;

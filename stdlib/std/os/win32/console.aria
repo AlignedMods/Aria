@@ -1,0 +1,7 @@
+module std::os::win32;
+
+const STD_INPUT_HANDLE = DWORD(0xFFFFFFF6);
+const STD_OUTPUT_HANDLE = DWORD(0xFFFFFFF5);
+const STD_ERROR_HANDLE = DWORD(0xFFFFFFF4);
+
+extern fn GetStdHandle(handle: DWORD) -> HANDLE;

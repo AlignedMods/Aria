@@ -61,6 +61,7 @@ namespace ariac {
             std::unordered_map<std::string, llvm::Constant*> typeinfos; // Runtime type information for types
             std::vector<llvm::Function*> global_initializers;
             std::vector<Temporary> temps; // Temporary expressions
+            std::vector<llvm::BasicBlock*> panic_blocks; // Panic blocks to be moved to the end
 
             // Debug info
             std::unordered_map<std::string, DebugContext> debug_contexts;

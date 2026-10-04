@@ -1,0 +1,10 @@
+module std::os::win32;
+
+const INFINITE = uint(-1);
+const CREATE_UNICODE_ENVIRONMENT = DWORD(1024);
+const STARTF_USESTDHANDLES = DWORD(256);
+
+extern fn CloseHandle(hObject: HANDLE) -> BOOL;
+extern fn WaitForSingleObject(hHandle: HANDLE, dwMilliseconds: DWORD) -> DWORD;
+extern fn GetExitCodeProcess(hProcess: HANDLE, lpExitCode: LPDWORD) -> BOOL;
+extern fn CreateProcessW(lpApplicationName: LPCWSTR, lpCommandLine: LPWSTR, lpProcessAttributes: LPSECURITY_ATTRIBUTES, lpThreadAttributes: LPSECURITY_ATTRIBUTES, bInheritHandles: BOOL, dwCreationFlags: DWORD, lpEnvironment: LPVOID, lpCurrentDirectory: LPCWSTR, lpStartupInfo: LPSTARTUPINFOW, lpProcessInformation: LPPROCESS_INFORMATION) -> BOOL;

@@ -1295,7 +1295,9 @@ namespace ariac {
             if (!is_const_expr(arg)) { construct.is_const = false; }
         }
 
-        switch (expr->type->kind) {
+        TypeInfo* type = TypeInfo::get_flattened(expr->type);
+
+        switch (type->kind) {
             case TypeKind::Error: expr->type = TypeInfo::get_error(); break;
 
             case TypeKind::Void: {
@@ -1458,6 +1460,7 @@ namespace ariac {
 
         for (Expr* arg : lit.arguments) {
             resolve_expr(arg);
+            require_rvalue(arg);
 
             if (lit.is_const && !is_const_expr(arg)) {
                 lit.is_const = false;
@@ -1629,10 +1632,11 @@ namespace ariac {
             }
 
             case TypeKind::Slice: {
-                ARIA_TODO("slice to slice");
-                // require_rvalue(subs.Array);
-                // expr->type = subs.Array->type->Base;
-                // break;
+                if (tos.source->is_rvalue()) {
+                    insert_materialize_temporary_expr(tos.source);
+                }
+                expr->type =tos.source->type;
+                break;
             }
 
             case TypeKind::Array: {

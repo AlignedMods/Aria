@@ -41,8 +41,8 @@ struct StringStream {
         return mem[:len];
     }
 
+    // WARNING: This function doesn't append a null terminator
     fn to_cstr() -> *char {
-        append_char('\0');
         return mem;
     }
 
@@ -68,4 +68,71 @@ struct StringStream {
 fn out_stringstream(data: *void, c: char) {
     let s: *StringStream = data;
     s.append_char(c);
+}
+
+struct WStringStream {
+    mem: *WChar;
+    len: sz;
+    capacity: sz;
+
+    ~() {
+        free();
+    }
+
+    fn append_string(s: string) -> void {
+        for (i: sz = 0; i < s.len; i++) {
+            append_char(s[i]);
+        }
+    }
+
+    fn append_char(c: char) -> void {
+        // TODO: This is not correct for numbers larger than 127!!
+        append_wchar(WChar(c));
+    }
+
+    fn append_wchar(c: WChar) -> void {
+        if capacity == 0 { increase_capacity(32); }
+
+        if len + 1 >= capacity {
+            increase_capacity(capacity * 2); 
+        }
+
+        mem[len] = c;
+        len += 1;
+    }
+
+    fn to_slice() -> []WChar {
+        return mem[:len];
+    }
+
+    // WARNING: This function doesn't append a null terminator
+    fn to_cstr() -> WString {
+        return mem;
+    }
+
+    // WARNING: This function doesn't append a null terminator
+    // NOTE: You must manually free the result of this function using mem::free
+    fn to_cstr_copy() -> WString {
+        let new_mem = mem::alloc_array::<WChar>(len);
+        mem::copy(new_mem, mem, len * @sizeof(WChar));
+        return new_mem;
+    }
+
+    fn free() -> void {
+        mem::free(mem);
+        len = 0;
+        capacity = 0;
+    }
+
+    fn increase_capacity(cap: ulong) -> void {
+        let new_data = mem::new_array::<ushort>(cap);
+        
+        if (mem != null) {
+            mem::copy(new_data, mem, len * @sizeof(WChar));
+            mem::free(mem);
+        }
+        
+        mem = new_data;
+        capacity = cap;
+    }
 }

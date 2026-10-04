@@ -397,7 +397,7 @@ namespace ariac {
                         if (expr->implicit_cast.expression->type->is_signed()) {
                             i64 val = eval_const_expr(expr->implicit_cast.expression)->const_.integer;
     
-                            switch (expr->type->kind) {
+                            switch (TypeInfo::get_flattened(expr->type)->kind) {
                                 case TypeKind::Char: return INT(CAST(u64, CAST(u8, val)));
                                 case TypeKind::IChar: return INT(CAST(i64, CAST(i8, val)));
                                 case TypeKind::Short: return INT(CAST(i64, CAST(i16, val)));

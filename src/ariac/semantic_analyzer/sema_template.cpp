@@ -3,6 +3,9 @@
 namespace ariac {
 
     bool SemanticAnalyzer::deduce_template_type(SourceLoc loc, TypeInfo* param_type, TypeInfo* arg_type, ResolvedTemplateMap& deduced_args) {
+        param_type = TypeInfo::get_flattened(param_type);
+        arg_type = TypeInfo::get_flattened(arg_type);
+
         if (param_type->is_pointer() && arg_type->is_pointer()) {
             return deduce_template_type(loc, param_type->pointer.base, arg_type->pointer.base, deduced_args);
         }

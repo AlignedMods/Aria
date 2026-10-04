@@ -1913,13 +1913,16 @@ namespace ariac {
                 }
 
                 TypeInfo* type = parse_type();
+                TinyVector<DeclAttribute> attrs = parse_decl_attributes(DeclKind::Field);
 
                 if (!try_consume(TokenKind::Semi, ";")) {
                     sync_local();
                     if (match(TokenKind::Semi)) { consume(); }
                 }
 
-                struc->struct_.fields.append(Decl::Create(fieldName->loc + peek(-1)->loc, DeclKind::Field, visibility, FieldDecl(fieldName->string, type)));
+                Decl* d = Decl::Create(fieldName->loc + peek(-1)->loc, DeclKind::Field, visibility, FieldDecl(fieldName->string, type));
+                d->attributes = attrs;
+                struc->struct_.fields.append(d);
             } else if (match(TokenKind::Fn)) {
                 consume();
                 SourceLoc end_loc;
@@ -1949,11 +1952,14 @@ namespace ariac {
                     }
                 }
 
+                TinyVector<DeclAttribute> attrs = parse_decl_attributes(DeclKind::Method);
+
                 Stmt* body = parse_block();
 
                 TypeInfo* final_type = TypeInfo::create_function(TypeKind::Method, ret_type, params, required_arg_count, variadic);
-                struc->struct_.fields.append(Decl::Create(loc + end_loc, DeclKind::Method,
-                    visibility, MethodDecl(struc, name->string, final_type, body)));
+                Decl* d = Decl::Create(loc + end_loc, DeclKind::Method, visibility, MethodDecl(struc, name->string, final_type, body));
+                d->attributes = attrs;
+                struc->struct_.fields.append(d);
             } else if (match(TokenKind::Squigly)) {
                 Token& s = consume();
                 try_consume(TokenKind::LeftParen, "(");
