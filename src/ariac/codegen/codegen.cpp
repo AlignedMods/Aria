@@ -78,24 +78,26 @@ namespace ariac {
 
         gen_builtin_types();
 
-        // Create debug contexts
-        for (CompilationUnit* unit : mod->units) {
-            if (!m_active_module_context.debug_contexts.contains(unit->filename)) {
-                DebugContext ctx;
-                ctx.builder = new llvm::DIBuilder(*m_active_module_context.module);
+        if (context.opts->debug_info) {
+            // Create debug contexts
+            for (CompilationUnit* unit : mod->units) {
+                if (!m_active_module_context.debug_contexts.contains(unit->filename)) {
+                    DebugContext ctx;
+                    ctx.builder = new llvm::DIBuilder(*m_active_module_context.module);
 
-                std::filesystem::path p = unit->filename;
-                ctx.unit = ctx.builder->createCompileUnit(llvm::dwarf::DW_LANG_C,
-                    ctx.builder->createFile(p.filename().string(), p.parent_path().string()), "ariac", false, "", 0);
-                ctx.scope = ctx.unit;
+                    std::filesystem::path p = unit->filename;
+                    ctx.unit = ctx.builder->createCompileUnit(llvm::dwarf::DW_LANG_C,
+                        ctx.builder->createFile(p.filename().string(), p.parent_path().string()), "ariac", false, "", 0);
+                    ctx.scope = ctx.unit;
 
-                m_active_module_context.debug_contexts[unit->filename] = ctx;
+                    m_active_module_context.debug_contexts[unit->filename] = ctx;
+                }
             }
         }
 
         for (CompilationUnit* unit : mod->units) {
             context.active_comp_unit = unit;
-            m_active_debug_context = m_active_module_context.debug_contexts.at(unit->filename);
+            if (context.opts->debug_info) { m_active_debug_context = m_active_module_context.debug_contexts.at(unit->filename); }
 
             for (Decl* struct_ : unit->structs) {
                 gen_struct_decl(struct_);
@@ -104,7 +106,7 @@ namespace ariac {
 
         for (CompilationUnit* unit : mod->units) {
             context.active_comp_unit = unit;
-            m_active_debug_context = m_active_module_context.debug_contexts.at(unit->filename);
+            if (context.opts->debug_info) {  m_active_debug_context = m_active_module_context.debug_contexts.at(unit->filename); }
 
             for (Decl* global : unit->globals) {
                 gen_var_decl(global);
@@ -113,7 +115,7 @@ namespace ariac {
 
         for (CompilationUnit* unit : mod->units) {
             context.active_comp_unit = unit;
-            m_active_debug_context = m_active_module_context.debug_contexts.at(unit->filename);
+            if (context.opts->debug_info) { m_active_debug_context = m_active_module_context.debug_contexts.at(unit->filename); }
 
             for (Decl* func : unit->funcs) {
                 gen_function_decl(func);
@@ -139,7 +141,6 @@ namespace ariac {
 
         if (context.main_func && context.main_func->parent_module == mod) {
             context.active_comp_unit = context.main_func->parent_unit;
-            m_active_debug_context = m_active_module_context.debug_contexts.at(context.main_func->parent_unit->filename);
 
             llvm::Type* void_type = llvm::Type::getVoidTy(*m_active_module_context.context);
             llvm::Type* int32_type = llvm::Type::getInt32Ty(*m_active_module_context.context);
@@ -164,14 +165,6 @@ namespace ariac {
             llvm::Function* main = llvm::Function::Create(llvm::FunctionType::get(int32_type, { int32_type, ptr_type}, false), llvm::GlobalValue::LinkageTypes::ExternalLinkage, "main", *m_active_module_context.module);
             m_active_module_context.function = main;
             main->setDSOLocal(true);
-
-            llvm::DISubprogram* sp = m_active_debug_context.builder->createFunction(m_active_debug_context.unit->getFile(),
-                "main", {}, m_active_debug_context.unit->getFile(), (unsigned)context.main_func->loc.line,
-                m_active_debug_context.builder->createSubroutineType({}), (unsigned)context.main_func->loc.line, llvm::DINode::FlagPrototyped, llvm::DISubprogram::SPFlagDefinition);
-
-            main->setSubprogram(sp);
-            m_active_debug_context.scope = sp;
-            set_debug_loc(context.main_func->loc);
 
             llvm::BasicBlock* bb = llvm::BasicBlock::Create(*m_active_module_context.context, "entry", main);
             m_active_module_context.builder->SetInsertPoint(bb);
@@ -301,11 +294,13 @@ namespace ariac {
         m_active_module_context.module->setDataLayout(m_machine->createDataLayout());
         m_active_module_context.module->setTargetTriple(context.opts->triple.str());
 
-        // Finalize all DIBuilders
-        for (auto& [_, b] : m_active_module_context.debug_contexts) {
-            b.builder->finalize();
+        if (context.opts->debug_info) {
+            // Finalize all DIBuilders
+            for (auto& [_, b] : m_active_module_context.debug_contexts) {
+                b.builder->finalize();
+            }
         }
-
+        
         return true;
     }
 
@@ -994,6 +989,8 @@ namespace ariac {
     }
 
     void Codegen::set_debug_loc(const SourceLoc& loc) {
+        if (!context.opts->debug_info) { return; }
+
         if (!loc.is_valid()) {
             m_active_module_context.builder->SetCurrentDebugLocation(llvm::DebugLoc());
             return;

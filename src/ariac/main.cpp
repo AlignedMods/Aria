@@ -34,6 +34,7 @@ namespace ariac {
         fmt::println("    --stdlib-path <path>     Tells the compiler where the standard library is located");
         fmt::println("    --dump-ast               Prints the human readable AST of all the input files");
         fmt::println("    --emit-llvm              Prints the human readable LLVM IR output of all the input files");
+        fmt::println("    --no-debug               Tells the compiler to not include any debug information");
         fmt::println("    -l <lib>                 Adds <lib> to the list of libraries to link with");
         fmt::println("    -L <path>                Adds <path> to the list of paths where to search for libraries");
         fmt::println("    -o <path>                Sets <path> to the output path where the final executable will be generated");
@@ -101,6 +102,11 @@ namespace ariac {
 
         if (match_arg("--emit-llvm")) {
             opts->emit_llvm = true;
+            return;
+        }
+
+        if (match_arg("--no-debug")) {
+            opts->debug_info = false;
             return;
         }
 

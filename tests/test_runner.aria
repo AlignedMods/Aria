@@ -35,10 +35,10 @@ fn main(args: []string) {
             compiler_path,
             sb.to_string(),
             "--silent",
-            "-o", ".build\\test",
-            "-r"][..]);
+            "--no-debug",
+            "--emit-llvm",
+            "-o", ".build\\test"][..]);
 
-        if ec == 0 { io::printfn("Test %s PASSED", test); }
-        else { io::printfn("Test %s FAILED", test); }
+        if ec != 0 { io::printfn("Compiler failed to run %s (%x)", ec, uint(ec)); }
     }
 }

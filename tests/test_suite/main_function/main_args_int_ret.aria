@@ -1,3 +1,7 @@
-module main;
+module test;
 
 fn main(_args: []string) -> int { return 0; }
+
+/* #expect
+
+

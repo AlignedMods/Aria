@@ -28,10 +28,12 @@ namespace ariac {
             global->setUnnamedAddr(unnamed_addr);
             a = global;
 
-            llvm::DIGlobalVariableExpression* dig = m_active_debug_context.builder->createGlobalVariableExpression(m_active_debug_context.unit->getFile(), var.identifier,
-                ident, m_active_debug_context.unit->getFile(), (unsigned)decl->loc.line, type_info_to_debug_type(var.type), true);
+            if (context.opts->debug_info) {
+                llvm::DIGlobalVariableExpression* dig = m_active_debug_context.builder->createGlobalVariableExpression(m_active_debug_context.unit->getFile(), var.identifier,
+                    ident, m_active_debug_context.unit->getFile(), (unsigned)decl->loc.line, type_info_to_debug_type(var.type), true);
 
-            global->addDebugInfo(dig);
+                global->addDebugInfo(dig);
+            }
 
             if (var.dtor) {
                 gen_global_init_func(decl->loc, global, nullptr, var.dtor);
@@ -49,12 +51,14 @@ namespace ariac {
         } else {
             a = alloca_at_entry(m_active_module_context.function, var.identifier, type);
 
-            llvm::DILocalVariable* dil = m_active_debug_context.builder->createAutoVariable(m_active_debug_context.scope, var.identifier, m_active_debug_context.scope->getFile(), 
-                (unsigned)decl->loc.line, type_info_to_debug_type(var.type));
+            if (context.opts->debug_info) {
+                llvm::DILocalVariable* dil = m_active_debug_context.builder->createAutoVariable(m_active_debug_context.scope, var.identifier, m_active_debug_context.scope->getFile(), 
+                    (unsigned)decl->loc.line, type_info_to_debug_type(var.type));
 
-            m_active_debug_context.builder->insertDeclare(a,
-                dil, m_active_debug_context.builder->createExpression(), 
-                llvm::DILocation::get(*m_active_module_context.context, (unsigned)decl->loc.line, (unsigned)decl->loc.col, m_active_debug_context.scope), m_active_module_context.builder->GetInsertBlock());
+                m_active_debug_context.builder->insertDeclare(a,
+                    dil, m_active_debug_context.builder->createExpression(), 
+                    llvm::DILocation::get(*m_active_module_context.context, (unsigned)decl->loc.line, (unsigned)decl->loc.col, m_active_debug_context.scope), m_active_module_context.builder->GetInsertBlock());
+            }
 
             if (var.initializer) {
                 gen_assign_expr(var.initializer, a);
@@ -103,15 +107,18 @@ namespace ariac {
             m_active_module_context.function = function;
             function->setDSOLocal(true);
 
-            llvm::DISubprogram* sp = m_active_debug_context.builder->createFunction(m_active_debug_context.unit->getFile(),
-                fmt::format("{}::{}", full_module_name(decl->parent_module), fn->identifier), function->getName(), m_active_debug_context.unit->getFile(), (unsigned)decl->loc.line,
-                m_active_debug_context.builder->createSubroutineType({}), (unsigned)decl->loc.line, llvm::DINode::FlagPrototyped, llvm::DISubprogram::SPFlagDefinition);
+            llvm::DISubprogram* sp = nullptr;
+            if (context.opts->debug_info) {
+                sp = m_active_debug_context.builder->createFunction(m_active_debug_context.unit->getFile(),
+                    fmt::format("{}::{}", full_module_name(decl->parent_module), fn->identifier), function->getName(), m_active_debug_context.unit->getFile(), (unsigned)decl->loc.line,
+                    m_active_debug_context.builder->createSubroutineType({}), (unsigned)decl->loc.line, llvm::DINode::FlagPrototyped, llvm::DISubprogram::SPFlagDefinition);
 
-            function->setSubprogram(sp);
-            m_active_debug_context.scope = sp;
+                function->setSubprogram(sp);
+                m_active_debug_context.scope = sp;
 
-            // Do not set any source locations for the function prologue
-            set_debug_loc({});
+                // Do not set any source locations for the function prologue
+                set_debug_loc({});
+            }
 
             m_ret_type_abi = get_ret_abi_type_info(fn->type->function.return_type);
             unsigned idx = m_ret_type_abi.kind == ABIRetKind::Pointer ? 1 : 0;
@@ -148,9 +155,11 @@ namespace ariac {
                             m_active_module_context.builder->CreateStore(function->getArg(ui), a);
                         }
 
-                        dil = m_active_debug_context.builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
-                            (unsigned)decl->loc.line, type_info_to_debug_type(param_type));
-                        di_expr = m_active_debug_context.builder->createExpression();
+                        if (context.opts->debug_info) {
+                            dil = m_active_debug_context.builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
+                                (unsigned)decl->loc.line, type_info_to_debug_type(param_type));
+                            di_expr = m_active_debug_context.builder->createExpression();
+                        }
                         break;
                     }
 
@@ -160,9 +169,11 @@ namespace ariac {
 
                         m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
 
-                        dil = m_active_debug_context.builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
-                            (unsigned)decl->loc.line, type_info_to_debug_type(param_type));
-                        di_expr = m_active_debug_context.builder->createExpression(llvm::dwarf::DW_OP_deref);
+                        if (context.opts->debug_info) {
+                            dil = m_active_debug_context.builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
+                                (unsigned)decl->loc.line, type_info_to_debug_type(param_type));
+                            di_expr = m_active_debug_context.builder->createExpression(llvm::dwarf::DW_OP_deref);
+                        }
                         break;
                     }
 
@@ -172,20 +183,24 @@ namespace ariac {
 
                         m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
 
-                        dil = m_active_debug_context.builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
-                            (unsigned)decl->loc.line, type_info_to_debug_type(param_type));
-                        di_expr = m_active_debug_context.builder->createExpression();
+                        if (context.opts->debug_info) {
+                            dil = m_active_debug_context.builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
+                                (unsigned)decl->loc.line, type_info_to_debug_type(param_type));
+                            di_expr = m_active_debug_context.builder->createExpression();
+                        }
                         break;
                     }
 
                     default: ARIA_UNREACHABLE("Invalid ABIParamTypeInfo");
                 }
 
-                ARIA_ASSERT(dil, "Must set the debug local variable");
-                ARIA_ASSERT(di_expr, "Must set the debug expression");
-                m_active_debug_context.builder->insertDeclare(m_active_module_context.named_values.at(param),
-                    dil, di_expr, 
-                    llvm::DILocation::get(*m_active_module_context.context, (unsigned)decl->loc.line, (unsigned)decl->loc.col, sp), m_active_module_context.builder->GetInsertBlock());
+                if (context.opts->debug_info) {
+                    ARIA_ASSERT(dil, "Must set the debug local variable");
+                    ARIA_ASSERT(di_expr, "Must set the debug expression");
+                    m_active_debug_context.builder->insertDeclare(m_active_module_context.named_values.at(param),
+                        dil, di_expr, 
+                        llvm::DILocation::get(*m_active_module_context.context, (unsigned)decl->loc.line, (unsigned)decl->loc.col, sp), m_active_module_context.builder->GetInsertBlock());
+                }
             }
 
             gen_compound_stmt(fn->body);
@@ -268,15 +283,18 @@ namespace ariac {
         llvm::Function* function = m_active_module_context.functions.at(decl);
         m_active_module_context.function = function;
         
-        llvm::DISubprogram* sp = m_active_debug_context.builder->createFunction(m_active_debug_context.unit->getFile(),
+        llvm::DISubprogram* sp = nullptr;
+        if (context.opts->debug_info) {
+            sp = m_active_debug_context.builder->createFunction(m_active_debug_context.unit->getFile(),
             fmt::format("{}::{}::{}", full_module_name(m.parent->parent_module), m.parent->struct_.identifier, m.identifier), function->getName(), m_active_debug_context.unit->getFile(), (unsigned)decl->loc.line,
             m_active_debug_context.builder->createSubroutineType({}), (unsigned)decl->loc.line, llvm::DINode::FlagPrototyped, llvm::DISubprogram::SPFlagDefinition);
         
-        function->setSubprogram(sp);
-        m_active_debug_context.scope = sp;
-        
-        // Don't set any source locations for the prologue
-        set_debug_loc({});
+            function->setSubprogram(sp);
+            m_active_debug_context.scope = sp;
+
+            // Don't set any source locations for the prologue
+            set_debug_loc({});
+        }
         
         if (m.body) {
             m_ret_type_abi = get_ret_abi_type_info(m.type->function.return_type);
@@ -313,9 +331,11 @@ namespace ariac {
         
                         m_active_module_context.builder->CreateStore(function->getArg(ui), a);
         
-                        dil = m_active_debug_context.builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
-                            (unsigned)decl->loc.line, type_info_to_debug_type(param_type));
-                        di_expr = m_active_debug_context.builder->createExpression();
+                        if (context.opts->debug_info) {
+                            dil = m_active_debug_context.builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
+                                (unsigned)decl->loc.line, type_info_to_debug_type(param_type));
+                            di_expr = m_active_debug_context.builder->createExpression();
+                        }
                         break;
                     }
         
@@ -325,9 +345,11 @@ namespace ariac {
         
                         m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
         
-                        dil = m_active_debug_context.builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
-                            (unsigned)decl->loc.line, type_info_to_debug_type(param_type));
-                        di_expr = m_active_debug_context.builder->createExpression(llvm::dwarf::DW_OP_deref);
+                        if (context.opts->debug_info) {
+                            dil = m_active_debug_context.builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
+                                (unsigned)decl->loc.line, type_info_to_debug_type(param_type));
+                            di_expr = m_active_debug_context.builder->createExpression(llvm::dwarf::DW_OP_deref);
+                        }
                         break;
                     }
         
@@ -337,20 +359,24 @@ namespace ariac {
         
                         m_active_module_context.builder->CreateStore(function->getArg(static_cast<unsigned>(idx++)), a);
         
-                        dil = m_active_debug_context.builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
-                            (unsigned)decl->loc.line, type_info_to_debug_type(param_type));
-                        di_expr = m_active_debug_context.builder->createExpression();
+                        if (context.opts->debug_info) {
+                            dil = m_active_debug_context.builder->createParameterVariable(sp, param->param.identifier, idx + 1, sp->getFile(), 
+                                (unsigned)decl->loc.line, type_info_to_debug_type(param_type));
+                            di_expr = m_active_debug_context.builder->createExpression();
+                        }
                         break;
                     }
         
                     default: ARIA_UNREACHABLE("Invalid ABIParamTypeInfo");
                 }
         
-                ARIA_ASSERT(dil, "Must set the debug local variable");
-                ARIA_ASSERT(di_expr, "Must set the debug expression");
-                m_active_debug_context.builder->insertDeclare(m_active_module_context.named_values.at(param),
-                    dil, di_expr, 
-                    llvm::DILocation::get(*m_active_module_context.context, (unsigned)decl->loc.line, (unsigned)decl->loc.col, sp), m_active_module_context.builder->GetInsertBlock());
+                if (context.opts->debug_info) {   
+                    ARIA_ASSERT(dil, "Must set the debug local variable");
+                    ARIA_ASSERT(di_expr, "Must set the debug expression");
+                    m_active_debug_context.builder->insertDeclare(m_active_module_context.named_values.at(param),
+                        dil, di_expr, 
+                        llvm::DILocation::get(*m_active_module_context.context, (unsigned)decl->loc.line, (unsigned)decl->loc.col, sp), m_active_module_context.builder->GetInsertBlock());
+                }
             }
         
             gen_compound_stmt(m.body);
@@ -388,15 +414,18 @@ namespace ariac {
         llvm::Function* function = m_active_module_context.functions.at(decl);
         m_active_module_context.function = function;
         
-        llvm::DISubprogram* sp = m_active_debug_context.builder->createFunction(m_active_debug_context.unit->getFile(),
-            fmt::format("{}::{}::~", full_module_name(d.parent->parent_module), d.parent->struct_.identifier), function->getName(), m_active_debug_context.unit->getFile(), (unsigned)decl->loc.line,
-            m_active_debug_context.builder->createSubroutineType({}), (unsigned)decl->loc.line, llvm::DINode::FlagPrototyped, llvm::DISubprogram::SPFlagDefinition);
-        
-        function->setSubprogram(sp);
-        m_active_debug_context.scope = sp;
-        
-        // Don't set any source locations for the prologue
-        set_debug_loc({});
+        llvm::DISubprogram* sp = nullptr;
+        if (context.opts->debug_info) {
+            llvm::DISubprogram* sp = m_active_debug_context.builder->createFunction(m_active_debug_context.unit->getFile(),
+                fmt::format("{}::{}::~", full_module_name(d.parent->parent_module), d.parent->struct_.identifier), function->getName(), m_active_debug_context.unit->getFile(), (unsigned)decl->loc.line,
+                m_active_debug_context.builder->createSubroutineType({}), (unsigned)decl->loc.line, llvm::DINode::FlagPrototyped, llvm::DISubprogram::SPFlagDefinition);
+            
+            function->setSubprogram(sp);
+            m_active_debug_context.scope = sp;
+            
+            // Don't set any source locations for the prologue
+            set_debug_loc({});
+        }
         
         m_ret_type_abi = get_ret_abi_type_info(TypeInfo::get_void());
 
