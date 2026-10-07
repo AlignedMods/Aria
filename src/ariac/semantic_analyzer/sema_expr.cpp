@@ -523,15 +523,13 @@ namespace ariac {
                 }
 
                 case TypeKind::String: {
-                    if (mem.parent->value_kind == ExprValueKind::RValue) {
-                        expr->value_kind = ExprValueKind::RValue;
-                    }
-
                     if (mem.member == "mem") {
                         member_type = TypeInfo::get_char_ptr();
+                        expr->value_kind = ExprValueKind::LValue;
                         expr->kind = ExprKind::BuiltinMember;
                     } else if (mem.member == "len") {
                         member_type = TypeInfo::get_basic(TypeKind::Sz);
+                        expr->value_kind = ExprValueKind::LValue;
                         expr->kind = ExprKind::BuiltinMember;
                     }
 
@@ -540,15 +538,13 @@ namespace ariac {
                 }
 
                 case TypeKind::Slice: {
-                    if (mem.parent->value_kind == ExprValueKind::RValue) {
-                        expr->value_kind = ExprValueKind::RValue;
-                    }
-
                     if (mem.member == "mem") {
                         member_type = TypeInfo::create_pointer(parent_type->slice.base, false);
+                        expr->value_kind = ExprValueKind::LValue;
                         expr->kind = ExprKind::BuiltinMember;
                     } else if (mem.member == "len") {
                         member_type = TypeInfo::get_basic(TypeKind::Sz);
+                        expr->value_kind = ExprValueKind::LValue;
                         expr->kind = ExprKind::BuiltinMember;
                     }
 
@@ -579,8 +575,6 @@ namespace ariac {
                 }
             }
         }
-        
-        if (mem.parent->is_rvalue() && !implicit_deref) { insert_materialize_temporary_expr(mem.parent); }
 
         if (!member_type) {
             report_diag(expr->loc, fmt::format("Unknown member '{}' in '{}'", mem.member, type_info_to_string(parent_type)));
@@ -589,6 +583,7 @@ namespace ariac {
             return;
         }
 
+        if (mem.parent->is_rvalue() && !implicit_deref) { insert_materialize_temporary_expr(mem.parent); }
         expr->type = member_type;
 
         if (expr->result_discarded) {

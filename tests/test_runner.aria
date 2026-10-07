@@ -17,6 +17,8 @@ const TESTS = [ "main_function/main_args_void_ret",
 
 const TEST_SUITE_PATH = "./tests/test_suite/";
 
+const PARTS = [ " ", "▏", "▎", "▍", "▌", "▋", "▊", "▉" ];
+
 fn main(args: []string) {
     if args.len < 2 {
         usage();
