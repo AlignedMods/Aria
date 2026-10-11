@@ -105,12 +105,12 @@ namespace ariac {
         switch (mem.referenced_member->kind) {
             case DeclKind::Field: {
                 llvm::Value* val = gen_expr(mem.parent);
-                TypeInfo* type = mem.parent->type;
+                TypeInfo* type = TypeInfo::get_flattened(mem.parent->type);
                 size_t idx = 0;
                 TinyVector<Decl*> fields;
 
                 if (mem.implicit_deref) {
-                    type = mem.parent->type->pointer.base;
+                    type = TypeInfo::get_flattened(mem.parent->type->pointer.base);
 
                     if (mem.parent->value_kind == ExprValueKind::LValue) {
                         val = m_active_module_context.builder->CreateLoad(type_info_to_llvm_type(TypeInfo::get_void_ptr()), val);
