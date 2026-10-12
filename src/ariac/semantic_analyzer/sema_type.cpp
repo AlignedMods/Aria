@@ -239,6 +239,17 @@ namespace ariac {
             }
         }
 
+        if (src->is_boolean()) {
+            if (dst->is_boolean()) { // Bool to bool
+                cost.cast_needed = false;
+                return cost;
+            } else if (dst->is_integral()) { // Bool to int
+                cost.kind = CastKind::BooleanToIntegral;
+                cost.implicit_cast_possible = false;
+                return cost;
+            }
+        }
+
         if (src->is_floating_point()) {
             if (dst->is_floating_point()) { // Float to float
                 if (src->get_bit_size() != dst->get_bit_size()) {

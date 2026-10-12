@@ -633,6 +633,11 @@ namespace ariac {
                 return m_active_module_context.builder->CreateIntToPtr(val, llvm::PointerType::get(*m_active_module_context.context, 0), "inttoptr");
             }
 
+            case CastKind::BooleanToIntegral: {
+                llvm::Value* val = gen_expr(ic.expression);
+                return m_active_module_context.builder->CreateZExt(val, type_info_to_llvm_type(expr->type), "zext");
+            }
+
             case CastKind::FloatingCast: {
                 llvm::Value* val = gen_expr(ic.expression);
 

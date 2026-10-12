@@ -408,6 +408,7 @@ namespace ariac {
 
                 case TypeKind::Struct: {
                     StructType& sd = parent_type->struct_;
+                    expr->value_kind = ExprValueKind::LValue;
 
                     StructDecl s = sd.source_decl->kind == DeclKind::Struct ? sd.source_decl->struct_ : sd.source_decl->template_.template_decl->struct_;
                     if (!s.field_lookup.contains(mem.member)) {
@@ -440,6 +441,7 @@ namespace ariac {
 
                 case TypeKind::StructSpecilization: {
                     StructSpecilizationType& gi = parent_type->struct_specilization;
+                    expr->value_kind = ExprValueKind::LValue;
 
                     if (!gi.resolved_decl) {
                         expr->kind = ExprKind::DependentMember;
@@ -1771,7 +1773,10 @@ namespace ariac {
 
             case UnaryOperatorKind::Negate: {
                 require_rvalue(unop.expression);
-                ARIA_ASSERT(type->is_numeric(), "todo: add error message");
+
+                if (!type->is_numeric()) {
+                    report_error(unop.expression->loc, "Expression must be of a numeric type");
+                }
 
                 if (type->is_integral()) {
                     if (type->is_unsigned()) {

@@ -456,6 +456,20 @@ namespace ariac {
                         return nullptr;
                     }
 
+                    case CastKind::FloatingCast: {
+                        double val = eval_const_expr(expr->implicit_cast.expression)->const_.number;
+    
+                        switch (expr->type->kind) {
+                            case TypeKind::Float: return FLOAT(CAST(double, CAST(float, val)));
+                            case TypeKind::Double: return FLOAT(CAST(double, val));
+    
+                            default: ARIA_UNREACHABLE("Invalid type kind");
+                        }
+    
+                        ARIA_UNREACHABLE("Should never be reached");
+                        return nullptr;
+                    }
+
                     case CastKind::AnyCast: {
                         Expr* any = eval_const_expr(expr->implicit_cast.expression);
 
@@ -477,7 +491,7 @@ namespace ariac {
                         return eval_const_expr(expr->implicit_cast.expression);
                     }
     
-                    default: ARIA_UNREACHABLE("Invalid cast kind");
+                    default: ARIA_UNREACHABLE(fmt::format("Invalid cast kind: {}", cast_kind_to_string(expr->implicit_cast.kind)));
                 }
     
                 #undef INT

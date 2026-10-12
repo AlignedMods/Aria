@@ -71,6 +71,8 @@ namespace ariac {
         IntegralToFloating,
         IntegralToPointer,
 
+        BooleanToIntegral,
+
         FloatingCast,
         FloatingToIntegral,
         FloatingToBoolean,
@@ -92,6 +94,8 @@ namespace ariac {
             case CastKind::IntegralToBoolean: return "IntegralToBoolean";
             case CastKind::IntegralToFloating: return "IntegralToFloating";
             case CastKind::IntegralToPointer: return "IntegralToPointer";
+
+            case CastKind::BooleanToIntegral: return "BooleanToIntegral";
 
             case CastKind::FloatingCast: return "FloatingCast";
             case CastKind::FloatingToIntegral: return "FloatingToIntegral";
