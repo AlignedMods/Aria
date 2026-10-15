@@ -121,6 +121,10 @@ namespace ariac {
     }
 
     Expr* SemanticAnalyzer::eval_const_binary_operator(SourceLoc loc, Expr* lhs, Expr* rhs, BinaryOperatorKind op) {
+        if (lhs->const_.kind == ConstExprKind::Error || rhs->const_.kind == ConstExprKind::Error) {
+            return &error_expr;
+        }
+
         switch (op) {
             case BinaryOperatorKind::Add:
             case BinaryOperatorKind::CompoundAdd: {
