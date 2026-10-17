@@ -639,13 +639,14 @@ namespace ariac {
                 t->is_template() || 
                 t->is_struct_specilization() || 
                 t->is_unresolved() || 
-                t->is_never()) { break; }
+                t->is_never() ||
+                t->is_dependent()) { break; }
 
             if (t->is_pointer()) { t = t->pointer.base; continue; }
             if (t->is_array()) { t = t->array.base; continue; }
             if (t->is_slice()) { t = t->slice.base; continue; }
 
-            ARIA_UNREACHABLE("Invald type");
+            ARIA_UNREACHABLE(fmt::format("Invald type '{}'", t->to_string()));
         }
 
         return t;

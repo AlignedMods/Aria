@@ -499,6 +499,8 @@ namespace ariac {
         inline bool is_rvalue() const { return value_kind == ExprValueKind::RValue; }
         inline bool is_xvalue() const { return value_kind == ExprValueKind::XValue; }
         inline bool is_lxvalue() const { return value_kind != ExprValueKind::RValue; }
+
+        bool is_self() const;
     };
 
     inline Expr error_expr = Expr(SourceLoc(), ExprKind::Error, ExprValueKind::RValue, nullptr, ErrorExpr());

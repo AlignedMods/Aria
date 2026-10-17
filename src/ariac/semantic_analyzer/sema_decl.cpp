@@ -56,7 +56,11 @@ namespace ariac {
     }
 
     void SemanticAnalyzer::resolve_var_decl(Decl* decl) {
-        if (decl->resolve_status == ResolveStatus::Done || decl->resolve_status == ResolveStatus::InProgress) { return; }
+        if (decl->resolve_status == ResolveStatus::Done || decl->resolve_status == ResolveStatus::InProgress) {
+            resolve_type(decl->var.type);
+            return;
+        }
+
         decl->resolve_status = ResolveStatus::InProgress;
 
         VarDecl& var = decl->var;

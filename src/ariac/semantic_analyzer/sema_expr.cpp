@@ -1741,8 +1741,15 @@ namespace ariac {
 
     void SemanticAnalyzer::resolve_implicit_cast_expr(Expr* expr) {
         ImplicitCastExpr& i = expr->implicit_cast;
-        resolve_type(expr->type);
+
+        bool was_dependent_type = i.expression->type->is_dependent();
         resolve_expr(i.expression);
+        resolve_type(expr->type);
+
+        // Replace <dependent_type> with a proper type
+        if (was_dependent_type && !i.expression->type->is_dependent()) {
+            *expr->type = *i.expression->type;
+        }
     }
 
     void SemanticAnalyzer::resolve_unary_operator_expr(Expr* expr) {
@@ -2080,7 +2087,7 @@ namespace ariac {
 
             case ExprKind::Member:
             case ExprKind::DependentMember: {
-                return expr->member.parent->kind == ExprKind::Self || is_assignable_expr(expr->member.parent);
+                return expr->member.parent->is_self() || is_assignable_expr(expr->member.parent);
             }
 
             case ExprKind::ArraySubscript: return is_assignable_expr(expr->array_subscript.array);
@@ -2259,6 +2266,11 @@ namespace ariac {
 
                 e->type = lhs->type;
                 return;
+            }
+        } else if (lty->is_boolean() && rty->is_boolean()) {
+            if (op == BinaryOperatorKind::IsEq || op == BinaryOperatorKind::IsNotEq) {
+               e->type = lhs->type;
+               return;
             }
         } else if (lty->is_pointer() && !is_binary_operator_bit(op)) {
             if (op == BinaryOperatorKind::Add) {

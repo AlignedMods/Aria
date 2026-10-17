@@ -166,8 +166,11 @@ namespace ariac {
                     g->template_.specilizations.append(specilization);
                     struc->struct_.parent = specilization;
 
+                    CompilationUnit* unit = context.active_comp_unit;
+                    context.active_comp_unit = g->parent_unit;
                     resolve_struct_decl(struc);
                     resolve_struct_body(struc);
+                    context.active_comp_unit = unit;
 
                     m_inlines.pop();
                 }

@@ -279,6 +279,11 @@ namespace ariac {
         return copy;
     }
 
+    bool Expr::is_self() const {
+        return kind == ExprKind::Self ||
+            (kind == ExprKind::ImplicitCast && implicit_cast.kind == CastKind::LValueToRValue && implicit_cast.expression->kind == ExprKind::Self);
+    }
+
     Decl* CallExpr::get_callee_decl() {
         if (callee->kind == ExprKind::DeclRef && callee->decl_ref.referenced_decl->kind == DeclKind::Function) {
             return callee->decl_ref.referenced_decl;
