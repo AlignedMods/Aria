@@ -795,7 +795,7 @@ namespace ariac {
         std::string result;
 
         if (mod->parent) {
-            result += fmt::format("{}::", valid_module_name(mod->parent));
+            result += fmt::format("{}::", full_module_name(mod->parent));
         }
 
         result += mod->name;
