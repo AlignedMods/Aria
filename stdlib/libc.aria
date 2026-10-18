@@ -64,3 +64,7 @@ extern fn wprintf(format: *const std::core::WChar, ...) -> int;
 
 extern fn strcmp(lhs: *const char, rhs: *const char) -> int;
 extern fn strlen(str: *const char) -> sz;
+
+// math.h
+extern fn sinf(arg: float) -> float;
+extern fn cosf(arg: float) -> float;

@@ -957,6 +957,23 @@ namespace ariac {
                 ARIA_UNREACHABLE("Should be unreachable");
             }
 
+            case BinaryOperatorKind::LessOrEq: {
+                llvm::Value* lhs = gen_expr(bin.lhs);
+                llvm::Value* rhs = gen_expr(bin.rhs);
+
+                if (bin.lhs->type->is_integral()) {
+                    if (bin.lhs->type->is_signed()) {
+                        return m_active_module_context.builder->CreateICmpSLE(lhs, rhs, "le");
+                    } else {    
+                        return m_active_module_context.builder->CreateICmpULE(lhs, rhs, "le");
+                    }
+                } else if (bin.lhs->type->is_floating_point()) {
+                    return m_active_module_context.builder->CreateFCmpULE(lhs, rhs, "fle");
+                }
+
+                ARIA_UNREACHABLE("Should be unreachable");
+            }
+
             case BinaryOperatorKind::Greater: {
                 llvm::Value* lhs = gen_expr(bin.lhs);
                 llvm::Value* rhs = gen_expr(bin.rhs);
