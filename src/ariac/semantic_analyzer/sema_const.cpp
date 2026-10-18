@@ -474,6 +474,46 @@ namespace ariac {
                         return nullptr;
                     }
 
+                    case CastKind::EnumToIntegral: {
+                        TypeInfo* backing_type = expr->implicit_cast.expression->type->enum_.source_decl->enum_.backing_type;
+
+                        if (backing_type->is_signed()) {
+                            i64 val = eval_const_expr(expr->implicit_cast.expression)->const_.integer;
+    
+                            switch (TypeInfo::get_flattened(expr->type)->kind) {
+                                case TypeKind::Char: return INT(CAST(u64, CAST(u8, val)));
+                                case TypeKind::IChar: return INT(CAST(i64, CAST(i8, val)));
+                                case TypeKind::Short: return INT(CAST(i64, CAST(i16, val)));
+                                case TypeKind::UShort: return INT(CAST(u64, CAST(u16, val)));
+                                case TypeKind::Int: return INT(CAST(i64, CAST(i32, val)));
+                                case TypeKind::UInt: return INT(CAST(u64, CAST(u32, val)));
+                                case TypeKind::Long: return INT(CAST(i64, val));
+                                case TypeKind::ULong: return INT(CAST(u64, val));
+                                case TypeKind::Sz: return INT(CAST(size_t, val));
+    
+                                default: ARIA_UNREACHABLE("Invalid type kind");
+                            }
+                        } else {
+                            u64 val = eval_const_expr(expr->implicit_cast.expression)->const_.integer;
+    
+                            switch (expr->type->kind) {
+                                case TypeKind::Char: return INT(CAST(u64, CAST(u8, val)));
+                                case TypeKind::IChar: return INT(CAST(i64, CAST(i8, val)));
+                                case TypeKind::Short: return INT(CAST(i64, CAST(i16, val)));
+                                case TypeKind::UShort: return INT(CAST(u64, CAST(u16, val)));
+                                case TypeKind::Int: return INT(CAST(i64, CAST(i32, val)));
+                                case TypeKind::UInt: return INT(CAST(u64, CAST(u32, val)));
+                                case TypeKind::Long: return INT(CAST(i64, val));
+                                case TypeKind::ULong: return INT(CAST(u64, val));
+    
+                                default: ARIA_UNREACHABLE("Invalid type kind");
+                            }
+                        }
+    
+                        ARIA_UNREACHABLE("Should never be reached");
+                        return nullptr;
+                    }
+
                     case CastKind::AnyCast: {
                         Expr* any = eval_const_expr(expr->implicit_cast.expression);
 

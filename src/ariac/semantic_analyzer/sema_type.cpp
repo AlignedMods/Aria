@@ -493,6 +493,9 @@ namespace ariac {
 
                 cost.cast_needed = false;
                 return cost;
+            } else if (dst->is_integral()) {
+                cost.kind = CastKind::EnumToIntegral;
+                return cost;
             }
         }
 

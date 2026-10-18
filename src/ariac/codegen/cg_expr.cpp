@@ -664,6 +664,24 @@ namespace ariac {
                 break;
             }
 
+            case CastKind::EnumToIntegral: {
+                llvm::Value* val = gen_expr(ic.expression);
+                TypeInfo* backing_type = ic.expression->type->enum_.source_decl->enum_.backing_type;
+
+                if (backing_type->get_bit_size() > expr->type->get_bit_size()) {
+                    return m_active_module_context.builder->CreateTrunc(val, type_info_to_llvm_type(expr->type), "trunc");
+                } else {
+                    if (backing_type->is_signed()) {
+                        return m_active_module_context.builder->CreateSExt(val, type_info_to_llvm_type(expr->type), "sext");
+                    } else {
+                        return m_active_module_context.builder->CreateZExt(val, type_info_to_llvm_type(expr->type), "zext");
+                    }
+                }
+
+                ARIA_UNREACHABLE("Should never be reached");
+                break;
+            }
+
             case CastKind::BitCast: {
                 return gen_expr(ic.expression);
             }

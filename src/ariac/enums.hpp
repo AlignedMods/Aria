@@ -77,6 +77,8 @@ namespace ariac {
         FloatingToIntegral,
         FloatingToBoolean,
 
+        EnumToIntegral,
+
         BitCast,
         SliceToPointer,
 
@@ -100,6 +102,8 @@ namespace ariac {
             case CastKind::FloatingCast: return "FloatingCast";
             case CastKind::FloatingToIntegral: return "FloatingToIntegral";
             case CastKind::FloatingToBoolean: return "FloatingToBoolean";
+
+            case CastKind::EnumToIntegral: return "EnumToIntegral";
 
             case CastKind::BitCast: return "BitCast";
             case CastKind::SliceToPointer: return "SliceToPointer";
