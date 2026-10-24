@@ -1001,6 +1001,8 @@ namespace ariac {
                     } else {
                         return m_active_module_context.builder->CreateICmpUGE(lhs, rhs, "ge");
                     }
+                } else if (bin.lhs->type->is_floating_point()) {
+                    return m_active_module_context.builder->CreateFCmpUGE(lhs, rhs, "fge");
                 }
 
                 ARIA_UNREACHABLE("Should be unreachable");
@@ -1011,6 +1013,13 @@ namespace ariac {
                 llvm::Value* rhs = gen_expr(bin.rhs);
 
                 return m_active_module_context.builder->CreateAnd(lhs, rhs, "and");
+            }
+
+            case BinaryOperatorKind::BitOr: {
+                llvm::Value* lhs = gen_expr(bin.lhs);
+                llvm::Value* rhs = gen_expr(bin.rhs);
+
+                return m_active_module_context.builder->CreateOr(lhs, rhs, "or");
             }
 
             case BinaryOperatorKind::LogAnd: {
